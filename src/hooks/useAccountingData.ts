@@ -33,7 +33,10 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { dispatchAccountingNotification } from "../lib/notifications";
+import {
+  dispatchAccountingNotification,
+  dispatchCustomerAddedNotification,
+} from "../lib/notifications";
 
 // Helper to remove undefined properties which Firestore rejects
 function cleanForFirestore<T>(data: T): any {
@@ -667,6 +670,15 @@ export function useAccountingData() {
 
     if (currentUser) {
       saveToFirestoreDoc("customers", newCustomer.id, newCustomer).catch((e) => console.error(e));
+
+      // 🔔 Dispatch cross-device notification for newly added customer
+      dispatchCustomerAddedNotification(currentUser.uid, {
+        operationId: `cust_add_${newCustomer.id}`,
+        customerId: newCustomer.id,
+        customerName: newCustomer.name,
+        phone: newCustomer.phone,
+        address: newCustomer.address,
+      }).catch((e) => console.warn("Failed to dispatch customer notification:", e));
     }
     return newCustomer;
   };
@@ -1232,16 +1244,22 @@ export function useAccountingData() {
       const methodText = newPayment.method ? ` (${newPayment.method})` : "";
       const notesDesc = newPayment.notes ? ` — ${newPayment.notes}` : "";
 
+      // Calculate customer remaining balance after this payment
+      const custInvoices = updatedInvoices.filter((inv) => inv.customerId === newPayment.customerId && !inv.isDeleted);
+      const custRemainingTotal = custInvoices.reduce((sum, inv) => sum + (Number(inv.remainingAmount) || 0), 0);
+      const remainingDesc = ` | المبلغ المتبقي: ${custRemainingTotal.toLocaleString()} ${curr}`;
+
       dispatchAccountingNotification(currentUser.uid, {
         id: `notif_payment_${newPayment.id}`,
         title: `سند قبض / دفعة مسجلة: ${custName}`,
-        body: `تم استلام دفعة نقدية بقيمة ${payAmt} ${curr}${methodText}${notesDesc}`.trim(),
+        body: `تم استلام دفعة نقدية بقيمة ${payAmt} ${curr}${methodText}${notesDesc}${remainingDesc}`.trim(),
         category: "payments",
         data: {
           paymentId: newPayment.id,
           customerId: newPayment.customerId,
           customerName: custName,
           amount: newPayment.amount,
+          remainingAmount: custRemainingTotal,
           method: newPayment.method,
           type: "payment_receipt",
         },

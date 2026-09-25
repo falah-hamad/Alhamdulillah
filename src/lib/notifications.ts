@@ -16,6 +16,8 @@ import { app, db, auth } from "./firebase";
 import { AppNotification, NotificationCategory } from "../types";
 import { linkFcmTokenToSession, getOrCreateCurrentSessionId } from "./sessionManager";
 import { ensureNativeNotificationChannel, isNativeAndroid, registerNativePushToken, requestNativePushPermissionDetailed } from "./native";
+import { sendCrossDeviceNotificationServer } from "./cloudFunctions";
+
 
 let messagingInstance: Messaging | null = null;
 let messagingSupported: boolean | null = null;
@@ -333,7 +335,8 @@ const processedOperationIds = new Set<string>();
 /**
  * Dispatch an accounting notification:
  * 1. Saves persistently to user's Firestore notifications collection (Notification Center 🔔)
- * 2. Displays Push / Local notification on phone/browser
+ * 2. Displays Push / Local notification on phone/browser if running on web
+ * 3. Sends cross-device FCM push notification so all user devices receive it even in background or closed
  * Prevents duplicates via unique deterministic IDs
  */
 export async function dispatchAccountingNotification(
@@ -356,14 +359,29 @@ export async function dispatchAccountingNotification(
   }
   processedNotificationIds.add(notifId);
 
-  // 1. Persist in Firestore
+  // 1. Persist in Firestore Notification Center
   await saveInAppNotification(userId, { ...notification, id: notifId });
 
-  // 2. Trigger browser/device push notification
+  // 2. Trigger browser/device local notification if in foreground web context
   showLocalNotification(notification.title, {
     body: notification.body,
     tag: notifId,
     data: notification.data || {},
+  });
+
+  // 3. Dispatch Cross-Device Push Notification via FCM to sync across all registered devices
+  sendCrossDeviceNotificationServer({
+    operationId: notifId,
+    title: notification.title,
+    body: notification.body,
+    category: notification.category,
+    data: {
+      ...notification.data,
+      notificationId: notifId,
+      category: notification.category,
+    },
+  }).catch((err) => {
+    console.warn("Cross-device notification dispatch notice:", err);
   });
 }
 
@@ -424,6 +442,53 @@ export async function dispatchPaidAmountNotification(
       paidAmount: params.paidAmount,
       remainingAmount: remVal,
       type: "partial_or_full_payment",
+    },
+  });
+
+  return true;
+}
+
+export interface CustomerNotificationParams {
+  operationId: string;
+  customerId: string;
+  customerName: string;
+  phone?: string;
+  address?: string;
+}
+
+/**
+ * Dispatch a single, deduplicated notification when a new customer is added.
+ */
+export async function dispatchCustomerAddedNotification(
+  userId: string,
+  params: CustomerNotificationParams
+): Promise<boolean> {
+  if (!userId) return false;
+  if (!params.operationId || !params.customerId) return false;
+
+  if (processedOperationIds.has(params.operationId)) {
+    return false;
+  }
+  processedOperationIds.add(params.operationId);
+
+  const title = `إضافة عميل جديد: ${params.customerName || "العميل"}`;
+  const phoneText = params.phone ? ` • هاتف: ${params.phone}` : "";
+  const addressText = params.address ? ` • العنوان: ${params.address}` : "";
+  const body = `تمت إضافة ملف العميل الجديد "${params.customerName}" بنجاح${phoneText}${addressText}`.trim();
+  const notifId = `notif_cust_${params.operationId}`;
+
+  await dispatchAccountingNotification(userId, {
+    id: notifId,
+    title,
+    body,
+    category: "general",
+    data: {
+      operationId: params.operationId,
+      customerId: params.customerId,
+      customerName: params.customerName,
+      phone: params.phone,
+      address: params.address,
+      type: "new_customer",
     },
   });
 

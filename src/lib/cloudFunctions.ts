@@ -114,3 +114,34 @@ export async function calculateLoyaltyPointsServer(
     tier: points > 500 ? "GOLD" : points > 200 ? "SILVER" : "BRONZE",
   };
 }
+/**
+ * Trigger cross-device FCM push notification through Firebase Cloud Function
+ */
+export async function sendCrossDeviceNotificationServer(payload: {
+  operationId?: string;
+  title: string;
+  body: string;
+  category?: string;
+  data?: Record<string, any>;
+}): Promise<{
+  success: boolean;
+  skipped?: boolean;
+  reason?: string;
+  successCount?: number;
+  failureCount?: number;
+}> {
+  const fns = getCloudFunctions();
+  if (fns) {
+    try {
+      const sendFn = httpsCallable<any, any>(fns, "sendCrossDeviceNotification");
+      const res = await sendFn(payload);
+      return res.data || { success: true };
+    } catch (e) {
+      console.warn("Cloud function sendCrossDeviceNotification call notice:", e);
+      return { success: false, reason: String(e) };
+    }
+  }
+
+  return { success: false, reason: "Cloud functions not initialized" };
+}
+

@@ -19,7 +19,7 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
   const notificationTitle = payload.notification?.title || payload.data?.title || 'دفتر الديون المحاسبي';
   const notificationBody = payload.notification?.body || payload.data?.body || 'تنبيه محاسبي جديد';
-  
+
   const notificationOptions = {
     body: notificationBody,
     icon: '/favicon.ico',
@@ -27,27 +27,41 @@ messaging.onBackgroundMessage((payload) => {
     data: payload.data || {},
     dir: 'rtl',
     lang: 'ar',
-    tag: payload.data?.tag || 'accounting-alert'
+    tag: payload.data?.operationId || payload.data?.tag || 'accounting-alert',
+    renotify: true
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click by focusing or opening the web application
+// Handle notification click by focusing or opening the web application and routing
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  const data = event.notification.data || {};
+  let targetUrl = '/';
+  if (data.customerId) {
+    targetUrl = '/?customerId=' + encodeURIComponent(data.customerId) + '&invoiceId=' + encodeURIComponent(data.invoiceId || '') + '&type=' + encodeURIComponent(data.type || '');
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
+          if (data.customerId) {
+            client.postMessage({
+              action: 'OPEN_CUSTOMER_PAGE',
+              customerId: data.customerId,
+              invoiceId: data.invoiceId,
+              type: data.type
+            });
+          }
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(targetUrl);
       }
     })
   );
 });
-

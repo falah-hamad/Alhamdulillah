@@ -20,7 +20,7 @@ android {
         }
     }
     defaultConfig {
-        applicationId "com.falahhamad.deftaraldeyon"
+        applicationId "com.falah.allahisgreat1"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

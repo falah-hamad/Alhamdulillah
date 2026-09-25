@@ -316,3 +316,17 @@ export async function registerNativePushNotifications(
   await PushNotifications.register();
   return () => listeners.forEach((listener) => void listener.remove());
 }
+
+export async function addNativeNotificationActionListener(
+  onActionPerformed: (action: any) => void
+): Promise<() => void> {
+  if (!isNativeAndroid()) return () => undefined;
+  try {
+    const listener = await PushNotifications.addListener('pushNotificationActionPerformed', onActionPerformed);
+    return () => void listener.remove();
+  } catch (e) {
+    console.warn("Could not register pushNotificationActionPerformed listener:", e);
+    return () => undefined;
+  }
+}
+

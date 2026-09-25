@@ -93,14 +93,53 @@ export const verifyPaymentTransaction = functions.https.onCall(async (data, cont
 
 /**
  * 3. Server-Side Push Notification Dispatcher via FCM
+ * Supports sending notifications across all user registered devices
+ * Cleans up invalid/expired tokens automatically
+ * Prevents duplicate notification sending for the same operation
  */
-export const sendDebtAlertNotification = functions.https.onCall(async (data, context) => {
+export const sendCrossDeviceNotification = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "غير مصرح.");
+    throw new functions.https.HttpsError("unauthenticated", "غير مصرح. يجب تسجيل الدخول.");
   }
 
   const userId = context.auth.uid;
-  const { title, body, customerId, remainingAmount } = data;
+  const {
+    operationId,
+    title,
+    body,
+    category,
+    data: extraData,
+    senderToken, // optional: if provided, we can either skip or send depending on configuration
+  } = data || {};
+
+  if (!title || !body) {
+    throw new functions.https.HttpsError("invalid-argument", "عنوان ونص الإشعار مطلوبان.");
+  }
+
+  // Deduplication check using processedNotifications subcollection or timestamp
+  if (operationId) {
+    const dedupRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("processedNotifications")
+      .doc(String(operationId));
+
+    const dedupDoc = await dedupRef.get();
+    if (dedupDoc.exists) {
+      return {
+        success: true,
+        skipped: true,
+        reason: "تم إرسال هذا الإشعار مسبقاً لمنع التكرار.",
+      };
+    }
+
+    // Mark as processed (expires or stays for history)
+    await dedupRef.set({
+      operationId,
+      title,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
 
   // Retrieve user tokens from Firestore
   const tokensSnap = await db
@@ -113,33 +152,125 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
     return { success: false, reason: "لا توجد أجهزة مسجلة لهذا الحساب." };
   }
 
-  const tokens = tokensSnap.docs.map((d) => d.data().token).filter(Boolean);
+  const tokenDocs: { id: string; token: string }[] = [];
+  tokensSnap.docs.forEach((doc) => {
+    const d = doc.data();
+    if (d && d.token && typeof d.token === "string" && d.token.trim().length > 0) {
+      tokenDocs.push({ id: doc.id, token: d.token.trim() });
+    }
+  });
 
-  if (tokens.length === 0) {
+  if (tokenDocs.length === 0) {
     return { success: false, reason: "رموز FCM فارغة." };
   }
 
-  const payload = {
+  // Extract tokens list
+  const allTokens = tokenDocs.map((item) => item.token);
+
+  // Payload structure for FCM multicast
+  // Convert any nested extraData values to strings as FCM data payload requires string values
+  const stringifiedData: Record<string, string> = {
+    title: String(title),
+    body: String(body),
+    category: String(category || "general"),
+    operationId: String(operationId || ""),
+    timestamp: String(Date.now()),
+  };
+
+  if (extraData && typeof extraData === "object") {
+    Object.keys(extraData).forEach((k) => {
+      const v = extraData[k];
+      if (v !== undefined && v !== null) {
+        stringifiedData[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
+      }
+    });
+  }
+
+  const messagePayload: admin.messaging.MulticastMessage = {
+    tokens: allTokens,
     notification: {
-      title: title || "تذكير استحقاق دين",
-      body: body || `يوجد مبلغ مستحق بقيمة ${remainingAmount}`,
+      title,
+      body,
     },
-    data: {
-      customerId: customerId || "",
-      type: "DEBT_ALERT",
+    data: stringifiedData,
+    android: {
+      priority: "high",
+      notification: {
+        channelId: "accounting-alerts",
+        sound: "default",
+        priority: "high",
+        defaultSound: true,
+        defaultVibrateTimings: true,
+      },
+    },
+    webpush: {
+      headers: {
+        Urgency: "high",
+      },
+      notification: {
+        title,
+        body,
+        icon: "/favicon.ico",
+        badge: "/favicon.ico",
+        dir: "rtl",
+        lang: "ar",
+      },
+      fcmOptions: {
+        link: "/",
+      },
     },
   };
 
-  const response = await admin.messaging().sendEachForMulticast({
-    tokens,
-    ...payload,
-  });
+  try {
+    const response = await admin.messaging().sendEachForMulticast(messagePayload);
 
-  return {
-    success: true,
-    successCount: response.successCount,
-    failureCount: response.failureCount,
-  };
+    // Clean up stale or invalid tokens
+    const tokensToDelete: string[] = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success && resp.error) {
+        const errCode = resp.error.code;
+        if (
+          errCode === "messaging/registration-token-not-registered" ||
+          errCode === "messaging/invalid-registration-token" ||
+          errCode === "messaging/invalid-argument"
+        ) {
+          const invalidDoc = tokenDocs[idx];
+          if (invalidDoc) {
+            tokensToDelete.push(invalidDoc.id);
+          }
+        }
+      }
+    });
+
+    if (tokensToDelete.length > 0) {
+      const batch = db.batch();
+      tokensToDelete.forEach((docId) => {
+        const ref = db.collection("users").doc(userId).collection("tokens").doc(docId);
+        batch.delete(ref);
+      });
+      await batch.commit().catch((err) => console.warn("Notice: Batch token cleanup:", err));
+    }
+
+    return {
+      success: true,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      cleanedTokensCount: tokensToDelete.length,
+    };
+  } catch (error: any) {
+    console.error("Error sending cross-device notification:", error);
+    return {
+      success: false,
+      error: error?.message || "فشل إرسال الإشعار للأجهزة.",
+    };
+  }
+});
+
+/**
+ * Legacy wrapper for backward compatibility
+ */
+export const sendDebtAlertNotification = functions.https.onCall(async (data, context) => {
+  return sendCrossDeviceNotification(data, context);
 });
 
 /**

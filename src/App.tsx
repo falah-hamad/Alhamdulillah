@@ -13,7 +13,13 @@ import {
   deleteNotification,
   clearAllNotifications,
 } from "./lib/notifications";
-import { authenticateWithBiometrics, ensureNativeNotificationChannel, isNativeAndroid, saveNativeJsonFile } from "./lib/native";
+import {
+  authenticateWithBiometrics,
+  ensureNativeNotificationChannel,
+  isNativeAndroid,
+  saveNativeJsonFile,
+  addNativeNotificationActionListener,
+} from "./lib/native";
 import { FirstLaunchOnboarding, FirstUseCoachMarks } from "./components/FirstLaunchOnboarding";
 import {
   isCoachMarksCompleted,
@@ -250,6 +256,78 @@ export default function App() {
       setNotificationsList([]);
     }
   }, [currentUser]);
+
+  // Function to navigate when a notification is clicked (either from Android status bar or Web Service Worker)
+  const handleNavigateFromNotification = useCallback((data: any) => {
+    if (!data) return;
+    const customerId = data.customerId;
+    const invoiceId = data.invoiceId;
+    const category = data.category;
+    const type = data.type;
+
+    if (customerId) {
+      setCurrentTab("ledger");
+      setLedgerTargetCustomerId(customerId);
+      if (invoiceId) {
+        setLedgerTargetInvoiceId(invoiceId);
+      }
+    } else if (category === "due_debts") {
+      setCurrentTab("overdue");
+    } else if (category === "payments" || type === "payment_receipt" || type === "partial_or_full_payment") {
+      setCurrentTab("payments");
+    } else if (category === "debts" || type === "new_debt") {
+      setCurrentTab("ledger");
+    } else if (type === "new_customer") {
+      setCurrentTab("customers");
+    }
+  }, []);
+
+  // Listen for native Android notification click/tap actions
+  useEffect(() => {
+    let cleanupActionListener: (() => void) | undefined;
+    addNativeNotificationActionListener((action) => {
+      console.log("Native notification action received:", action);
+      const data = action?.notification?.data;
+      if (data) {
+        handleNavigateFromNotification(data);
+      }
+    }).then((unsub) => {
+      cleanupActionListener = unsub;
+    });
+
+    // Listen for Web Service Worker message when notification is clicked
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.action === "OPEN_CUSTOMER_PAGE") {
+        handleNavigateFromNotification(event.data);
+      }
+    };
+    if (typeof window !== "undefined" && "navigator" in window && "serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", handleServiceWorkerMessage);
+    }
+
+    // Check URL parameters on mount in web mode (?customerId=...&invoiceId=...)
+    try {
+      const search = window.location.search;
+      if (search) {
+        const params = new URLSearchParams(search);
+        const customerId = params.get("customerId");
+        const invoiceId = params.get("invoiceId");
+        const type = params.get("type");
+        if (customerId) {
+          handleNavigateFromNotification({ customerId, invoiceId, type });
+        }
+      }
+    } catch (e) {
+      console.warn("Could not parse notification query parameters:", e);
+    }
+
+    return () => {
+      if (cleanupActionListener) cleanupActionListener();
+      if (typeof window !== "undefined" && "navigator" in window && "serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", handleServiceWorkerMessage);
+      }
+    };
+  }, [handleNavigateFromNotification]);
 
 
   // Quick export backup helper for Account Manager
@@ -834,7 +912,9 @@ export default function App() {
             }
           }}
           onSelectNotificationAction={(n) => {
-            if (n.category === "due_debts") {
+            if (n.data && (n.data.customerId || n.data.type)) {
+              handleNavigateFromNotification(n.data);
+            } else if (n.category === "due_debts") {
               setCurrentTab("overdue");
             } else if (n.category === "debts" || n.category === "payments") {
               setCurrentTab("ledger");
