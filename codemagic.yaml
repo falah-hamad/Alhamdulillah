@@ -1,19 +1,19 @@
 workflows:
-  android-debug:
-    name: Alhamdulillah Android APK
+  android-capacitor:
+    name: Alhamdulillah Android APK + AAB
     max_build_duration: 120
     instance_type: mac_mini_m2
 
     environment:
-      node: 22
+      node: v22.11.0
       java: 21
 
     scripts:
-      - name: Install npm dependencies
+      - name: Install dependencies
         script: |
-          npm ci
+          npm install
 
-      - name: Build web app
+      - name: Build web application
         script: |
           npm run build
 
@@ -21,15 +21,36 @@ workflows:
         script: |
           npx cap sync android
 
-      - name: Set Android SDK location
+      - name: Configure Android SDK
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
 
-      - name: Build Android Debug APK
+      - name: Prepare Gradle
         script: |
           cd android
           chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          cd android
           ./gradlew assembleDebug
 
+      - name: Build Release APK and AAB
+        script: |
+          cd android
+
+          # If Codemagic signing variables are available,
+          # pass them to the existing Gradle signing configuration.
+          if [ -n "$CM_KEYSTORE_PATH" ]; then
+            export ANDROID_KEYSTORE_PATH="$CM_KEYSTORE_PATH"
+            export ANDROID_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD"
+            export ANDROID_KEY_ALIAS="$CM_KEY_ALIAS"
+            export ANDROID_KEY_PASSWORD="$CM_KEY_PASSWORD"
+          fi
+
+          ./gradlew assembleRelease bundleRelease
+
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/apk/debug/app-debug.apk
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/bundle/release/*.aab
