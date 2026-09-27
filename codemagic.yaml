@@ -1,19 +1,37 @@
 workflows:
-  android-capacitor:
-    name: Alhamdulillah Android APK + AAB
+  android-debug:
+    name: Alhamdulillah Android APK
     max_build_duration: 120
     instance_type: mac_mini_m2
 
     environment:
-      node: v22.11.0
+      node: 22
       java: 21
+      groups:
+        - firebase_credentials
 
     scripts:
-      - name: Install dependencies
+      - name: Install npm dependencies
         script: |
           npm install
 
-      - name: Build web application
+      - name: Create Firebase Android configuration
+        script: |
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "ERROR: GOOGLE_SERVICES_JSON_BASE64 is not configured."
+            exit 1
+          fi
+
+          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+
+          if [ ! -s android/app/google-services.json ]; then
+            echo "ERROR: google-services.json was not created."
+            exit 1
+          fi
+
+          echo "google-services.json created successfully."
+
+      - name: Build web app
         script: |
           npm run build
 
@@ -21,36 +39,15 @@ workflows:
         script: |
           npx cap sync android
 
-      - name: Configure Android SDK
+      - name: Set Android SDK location
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
 
-      - name: Prepare Gradle
+      - name: Build Android Debug APK
         script: |
           cd android
           chmod +x gradlew
-
-      - name: Build Debug APK
-        script: |
-          cd android
-          ./gradlew assembleDebug
-
-      - name: Build Release APK and AAB
-        script: |
-          cd android
-
-          # If Codemagic signing variables are available,
-          # pass them to the existing Gradle signing configuration.
-          if [ -n "$CM_KEYSTORE_PATH" ]; then
-            export ANDROID_KEYSTORE_PATH="$CM_KEYSTORE_PATH"
-            export ANDROID_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD"
-            export ANDROID_KEY_ALIAS="$CM_KEY_ALIAS"
-            export ANDROID_KEY_PASSWORD="$CM_KEY_PASSWORD"
-          fi
-
-          ./gradlew assembleRelease bundleRelease
+          ./gradlew assembleDebug --stacktrace
 
     artifacts:
       - android/app/build/outputs/apk/debug/app-debug.apk
-      - android/app/build/outputs/apk/release/*.apk
-      - android/app/build/outputs/bundle/release/*.aab
