@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and account information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "CustomerFolder": {
+      "title": "CustomerFolder",
+      "description": "Folder categorization for customers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "parentId": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "isDeleted": { "type": "boolean" },
+        "deletedAt": { "type": "string" },
+        "originalParentId": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "createdAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer contact and ledger record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "folderId": { "type": "string" },
+        "sequence": { "type": "number" },
+        "isDeleted": { "type": "boolean" },
+        "deletedAt": { "type": "string" },
+        "originalFolderId": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "phone", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Inventory product item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "purchasePrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "quantity": { "type": "number" },
+        "category": { "type": "string" },
+        "barcode": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "purchasePrice", "salePrice", "quantity", "category"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Debt or sales invoice with individual line items and payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "grandTotal": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "signature": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "invoiceNumber", "date", "customerId", "grandTotal", "paidAmount", "remainingAmount", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Payment receipt logged for a customer or specific invoice",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "method": { "type": "string" },
+        "notes": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "customerId", "amount", "date", "method", "createdAt"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "User specific company settings and printing options",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "companyPhone": { "type": "string" },
+        "companyAddress": { "type": "string" },
+        "currency": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "signaturePlaceholder": { "type": "string" }
+      },
+      "required": ["userId", "companyName", "currency"]
+    },
+    "CustomerChangeLogItem": {
+      "title": "CustomerChangeLogItem",
+      "description": "Log of debt additions, deletions, payments, and rollbacks for a customer account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "actionType": { "type": "string", "enum": ["إضافة دين", "حذف دين", "إضافة واصل", "حذف واصل", "استرجاع عملية"] },
+        "details": { "type": "string" },
+        "rawAmount": { "type": "number" },
+        "itemName": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "formattedDateTime": { "type": "string" },
+        "targetItemId": { "type": "string" }
+      },
+      "required": ["id", "userId", "customerId", "actionType", "details", "timestamp", "formattedDateTime"]
+    },
+    "BackupSnapshot": {
+      "title": "BackupSnapshot",
+      "description": "Cloud backup snapshot of all accounting data for recovery",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "stats": { "type": "string" },
+        "payloadJson": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "createdAt", "payloadJson"]
+    },
+    "DeviceToken": {
+      "title": "DeviceToken",
+      "description": "FCM device registration token for cloud push notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "token": { "type": "string" },
+        "platform": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "token", "platform", "updatedAt"]
+    },
+    "UserSession": {
+      "title": "UserSession",
+      "description": "Active and past login sessions per device for user account",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "platform": { "type": "string" },
+        "browser": { "type": "string" },
+        "loginAt": { "type": "string" },
+        "lastActivityAt": { "type": "string" },
+        "status": { "type": "string" },
+        "fcmToken": { "type": "string" }
+      },
+      "required": ["sessionId", "userId", "deviceName", "platform", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User account document"
+    },
+    "/users/{userId}/folders/{folderId}": {
+      "schema": { "$ref": "#/entities/CustomerFolder" },
+      "description": "Folders for organizing customer accounts"
+    },
+    "/users/{userId}/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Customer profiles and directory"
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Inventory products catalog"
+    },
+    "/users/{userId}/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Invoices and debt ledgers"
+    },
+    "/users/{userId}/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Payment receipts and collections"
+    },
+    "/users/{userId}/changeLogs/{logId}": {
+      "schema": { "$ref": "#/entities/CustomerChangeLogItem" },
+      "description": "Customer debt ledger change logs and audit trail"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SystemSettings" },
+      "description": "Company branding and settings"
+    },
+    "/users/{userId}/backups/{backupId}": {
+      "schema": { "$ref": "#/entities/BackupSnapshot" },
+      "description": "Encrypted user database backups"
+    },
+    "/users/{userId}/tokens/{tokenId}": {
+      "schema": { "$ref": "#/entities/DeviceToken" },
+      "description": "FCM cloud messaging registration tokens"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/UserSession" },
+      "description": "Active and terminated device sessions for multi-device tracking"
+    }
+  }
+}

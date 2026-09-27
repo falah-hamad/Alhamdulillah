@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom CSS to hide scrollbars or styling tables */
+body {
+  font-family: "Cairo", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  direction: rtl;
+  text-align: right;
+  background-color: #f8fafc;
+}
+
+/* Scrollbar styling */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print CSS */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+
+  html,
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #root,
+  #root > div,
+  main,
+  div[class*="overflow-"],
+  div[class*="h-screen"],
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Keep CSS grid intact during print */
+  .grid {
+    display: grid !important;
+  }
+
+  .grid-cols-12 {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+
+  .col-span-1 { grid-column: span 1 / span 1 !important; width: auto !important; }
+  .col-span-2 { grid-column: span 2 / span 2 !important; width: auto !important; }
+  .col-span-3 { grid-column: span 3 / span 3 !important; width: auto !important; }
+  .col-span-4 { grid-column: span 4 / span 4 !important; width: auto !important; }
+  .col-span-5 { grid-column: span 5 / span 5 !important; width: auto !important; }
+  .col-span-6 { grid-column: span 6 / span 6 !important; width: auto !important; }
+  .col-span-7 { grid-column: span 7 / span 7 !important; width: auto !important; }
+  .col-span-8 { grid-column: span 8 / span 8 !important; width: auto !important; }
+  .col-span-9 { grid-column: span 9 / span 9 !important; width: auto !important; }
+  .col-span-10 { grid-column: span 10 / span 10 !important; width: auto !important; }
+  .col-span-11 { grid-column: span 11 / span 11 !important; width: auto !important; }
+  .col-span-12 { grid-column: span 12 / span 12 !important; width: auto !important; }
+
+  .print-container,
+  #vertical-ledger-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    position: static !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Specific A4 Page Break Styling */
+  .a4-page {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    padding: 20mm 18mm !important;
+    margin: 0 auto 0 auto !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    border: 1.5px solid rgba(120, 53, 15, 0.25) !important;
+    border-radius: 12px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .a4-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* Prevent row splitting across pages while letting overall content span multiple A4 pages */
+  [id^="row-"],
+  [id^="sep-"],
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ensure text and borders retain contrast and Arabic letters never disconnect */
+  *, *::before, *::after,
+  h1, h2, h3, h4, h5, h6, p, span, div, th, td, input, label,
+  [class*="tracking-"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    letter-spacing: 0 !important;
+    word-spacing: normal !important;
+    font-feature-settings: "liga" 1, "calt" 1, "rlig" 1, "clig" 1 !important;
+    text-rendering: optimizeLegibility !important;
+  }
+}

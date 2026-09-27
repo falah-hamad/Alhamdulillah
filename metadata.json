@@ -1,0 +1,6 @@
+{
+  "name": "دفتر الديون المحاسبي",
+  "description": "نظام محاسبي متكامل لإدارة سجل الديون، العملاء، البضائع، الدفعات، الفواتير، والتقارير المالية بدقة واحترافية عالية مع دعم كامل للطباعة والبحث والنسخ الاحتياطي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
