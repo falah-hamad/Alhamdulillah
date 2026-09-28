@@ -114,3 +114,32 @@ export async function calculateLoyaltyPointsServer(
     tier: points > 500 ? "GOLD" : points > 200 ? "SILVER" : "BRONZE",
   };
 }
+
+/**
+ * Server-Side Push Notification Broadcast
+ * Calls sendDebtAlertNotification to broadcast to all registered devices of the authenticated user
+ */
+export async function sendAccountingPushNotificationServer(params: {
+  title: string;
+  body: string;
+  customerId?: string;
+  remainingAmount?: number;
+  category?: string;
+  type?: string;
+  notificationId?: string;
+  data?: Record<string, any>;
+}): Promise<{ success: boolean; reason?: string; successCount?: number; failureCount?: number }> {
+  const fns = getCloudFunctions();
+  if (fns) {
+    try {
+      const sendFn = httpsCallable<any, any>(fns, "sendDebtAlertNotification");
+      const res = await sendFn(params);
+      return res.data;
+    } catch (e) {
+      console.warn("sendDebtAlertNotification cloud function call bypassed or unavailable:", e);
+      return { success: false, reason: String(e) };
+    }
+  }
+  return { success: false, reason: "Cloud functions not initialized" };
+}
+

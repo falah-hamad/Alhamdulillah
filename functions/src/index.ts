@@ -93,6 +93,8 @@ export const verifyPaymentTransaction = functions.https.onCall(async (data, cont
 
 /**
  * 3. Server-Side Push Notification Dispatcher via FCM
+ * Sends notifications to all registered active FCM tokens for the authenticated user
+ * Automatically cleans up expired or invalid tokens from Firestore
  */
 export const sendDebtAlertNotification = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -100,7 +102,16 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
   }
 
   const userId = context.auth.uid;
-  const { title, body, customerId, remainingAmount } = data;
+  const {
+    title,
+    body,
+    customerId,
+    remainingAmount,
+    category,
+    type,
+    notificationId,
+    data: extraData,
+  } = data || {};
 
   // Retrieve user tokens from Firestore
   const tokensSnap = await db
@@ -113,41 +124,105 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
     return { success: false, reason: "لا توجد أجهزة مسجلة لهذا الحساب." };
   }
 
-  const tokens = tokensSnap.docs.map((d) => d.data().token).filter(Boolean);
+  // Filter valid tokens and keep reference to their documents for cleanup
+  const validTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
+  const tokens: string[] = [];
+
+  tokensSnap.docs.forEach((doc) => {
+    const tokenVal = doc.data().token;
+    if (typeof tokenVal === "string" && tokenVal.trim().length > 0) {
+      tokens.push(tokenVal.trim());
+      validTokenDocs.push(doc);
+    }
+  });
 
   if (tokens.length === 0) {
     return { success: false, reason: "رموز FCM فارغة." };
   }
 
+  const notifId = String(notificationId || extraData?.id || `notif_${Date.now()}`);
+  const notifTitle = String(title || "دفتر الديون المحاسبي");
+  const notifBody = String(
+    body || (remainingAmount ? `يوجد مبلغ مستحق بقيمة ${remainingAmount}` : "إشعار محاسبي جديد")
+  );
+  const targetCustomerId = String(customerId || extraData?.customerId || "");
+
+  const customDataMap: Record<string, string> = {
+    id: notifId,
+    notificationId: notifId,
+    customerId: targetCustomerId,
+    type: String(type || extraData?.type || "ACCOUNTING_ALERT"),
+    category: String(category || extraData?.category || "general"),
+    channelId: "accounting_alerts",
+  };
+
+  if (extraData && typeof extraData === "object") {
+    for (const [key, val] of Object.entries(extraData)) {
+      if (val !== undefined && val !== null) {
+        customDataMap[key] = String(val);
+      }
+    }
+  }
+
   const payload: admin.messaging.MulticastMessage = {
     tokens,
     notification: {
-      title: title || "تذكير استحقاق دين",
-      body: body || `يوجد مبلغ مستحق بقيمة ${remainingAmount}`,
+      title: notifTitle,
+      body: notifBody,
     },
-    data: {
-      customerId: String(customerId || ""),
-      type: "DEBT_ALERT",
-      channelId: "accounting_alerts",
-    },
+    data: customDataMap,
     android: {
       priority: "high",
       notification: {
         channelId: "accounting_alerts",
+        icon: "ic_stat_notification",
+        color: "#2563EB",
         sound: "default",
         defaultVibrateTimings: true,
         priority: "high",
         visibility: "public",
+        clickAction: "OPEN_ACTIVITY",
+      },
+    },
+    webpush: {
+      headers: {
+        Urgency: "high",
+      },
+      notification: {
+        icon: "/favicon.ico",
+        badge: "/favicon.ico",
+        dir: "rtl",
+        lang: "ar",
       },
     },
   };
 
   const response = await admin.messaging().sendEachForMulticast(payload);
 
+  // Clean up expired, unregistered, or invalid tokens
+  const tokensToDelete: Promise<any>[] = [];
+  response.responses.forEach((resp, idx) => {
+    if (!resp.success && resp.error) {
+      const code = resp.error.code;
+      if (
+        code === "messaging/invalid-registration-token" ||
+        code === "messaging/registration-token-not-registered" ||
+        code === "messaging/mismatched-credential"
+      ) {
+        tokensToDelete.push(validTokenDocs[idx].ref.delete().catch(() => {}));
+      }
+    }
+  });
+
+  if (tokensToDelete.length > 0) {
+    await Promise.all(tokensToDelete);
+  }
+
   return {
     success: true,
     successCount: response.successCount,
     failureCount: response.failureCount,
+    cleanedTokensCount: tokensToDelete.length,
   };
 });
 

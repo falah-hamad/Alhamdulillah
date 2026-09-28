@@ -17,6 +17,7 @@ import { app, db, auth } from "./firebase";
 import { AppNotification, NotificationCategory } from "../types";
 import { linkFcmTokenToSession, getOrCreateCurrentSessionId } from "./sessionManager";
 import { ensureNativeNotificationChannel, isNativeAndroid, registerNativePushToken, requestNativePushPermissionDetailed } from "./native";
+import { sendAccountingPushNotificationServer } from "./cloudFunctions";
 
 let messagingInstance: Messaging | null = null;
 let messagingSupported: boolean | null = null;
@@ -323,6 +324,9 @@ export function showLocalNotification(
             body: options?.body || "إشعار محاسبي جديد",
             channelId: "accounting_alerts",
             sound: "default",
+            smallIcon: "ic_stat_notification",
+            largeIcon: "ic_launcher",
+            iconColor: "#2563EB",
             extra: extraData,
             schedule: { at: new Date(Date.now() + 100) },
           },
@@ -413,6 +417,24 @@ export async function dispatchAccountingNotification(
     tag: notifId,
     data: notification.data || {},
   });
+
+  // 3. Broadcast to all active devices of the same user account via FCM
+  try {
+    const customerId = notification.data?.customerId || notification.data?.customer_id;
+    sendAccountingPushNotificationServer({
+      notificationId: notifId,
+      title: notification.title,
+      body: notification.body,
+      customerId: customerId ? String(customerId) : undefined,
+      category: notification.category,
+      type: notification.data?.type,
+      data: notification.data,
+    }).catch((err) => {
+      console.warn("FCM multi-device push notification notice:", err);
+    });
+  } catch (err) {
+    console.warn("Notice: could not dispatch FCM multi-device push:", err);
+  }
 }
 
 export interface PaidAmountNotificationParams {
@@ -663,9 +685,16 @@ export async function setupForegroundNotificationListener(
       const title = payload.notification?.title || payload.data?.title || "دفتر الديون المحاسبي";
       const body = payload.notification?.body || payload.data?.body || "إشعار جديد";
 
+      const notifId = payload.data?.id || payload.data?.notificationId || `push_${Date.now()}`;
+      if (processedNotificationIds.has(notifId)) {
+        return;
+      }
+      processedNotificationIds.add(notifId);
+
       // 1. Show local native notification in browser/device
       showLocalNotification(title, {
         body,
+        tag: notifId,
         data: payload.data,
       });
 
@@ -673,6 +702,7 @@ export async function setupForegroundNotificationListener(
       const currentUser = auth.currentUser;
       if (currentUser) {
         saveInAppNotification(currentUser.uid, {
+          id: notifId,
           title,
           body,
           category: (payload.data?.category as NotificationCategory) || "general",
