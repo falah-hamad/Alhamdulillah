@@ -323,7 +323,6 @@ export function showLocalNotification(
             title: title || "دفتر الديون المحاسبي",
             body: options?.body || "إشعار محاسبي جديد",
             channelId: "accounting_alerts",
-            sound: "default",
             smallIcon: "ic_stat_notification",
             largeIcon: "ic_launcher",
             iconColor: "#2563EB",

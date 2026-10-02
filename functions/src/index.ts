@@ -1,8 +1,22 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 
 admin.initializeApp();
-const db = admin.firestore();
+
+const targetDatabaseId = process.env.FIRESTORE_DATABASE_ID || "ai-studio-allah111111-ba0ce27e-cf94-4543-8c18-5985ed5eaad2";
+
+// Connect to the provisioned Firestore database with graceful fallback
+function getFirestoreDb() {
+  try {
+    return getFirestore(targetDatabaseId);
+  } catch (err) {
+    console.warn("Falling back to default Firestore database instance:", err);
+    return admin.firestore();
+  }
+}
+
+const db = getFirestoreDb();
 
 /**
  * 1. Server-Side Customer Debt & Balance Verification
@@ -113,12 +127,28 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
     data: extraData,
   } = data || {};
 
-  // Retrieve user tokens from Firestore
-  const tokensSnap = await db
+  // Retrieve user tokens from Firestore (check target database first, then default if empty)
+  let tokensSnap = await db
     .collection("users")
     .doc(userId)
     .collection("tokens")
     .get();
+
+  if (tokensSnap.empty) {
+    try {
+      const defaultDb = admin.firestore();
+      const fallbackSnap = await defaultDb
+        .collection("users")
+        .doc(userId)
+        .collection("tokens")
+        .get();
+      if (!fallbackSnap.empty) {
+        tokensSnap = fallbackSnap;
+      }
+    } catch (e) {
+      console.warn("Fallback database check notice:", e);
+    }
+  }
 
   if (tokensSnap.empty) {
     return { success: false, reason: "لا توجد أجهزة مسجلة لهذا الحساب." };
@@ -129,7 +159,8 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
   const tokens: string[] = [];
 
   tokensSnap.docs.forEach((doc) => {
-    const tokenVal = doc.data().token;
+    const docData = doc.data();
+    const tokenVal = docData.token || docData.fcmToken;
     if (typeof tokenVal === "string" && tokenVal.trim().length > 0) {
       tokens.push(tokenVal.trim());
       validTokenDocs.push(doc);
@@ -178,6 +209,7 @@ export const sendDebtAlertNotification = functions.https.onCall(async (data, con
         icon: "ic_stat_notification",
         color: "#2563EB",
         sound: "default",
+        defaultSound: true,
         defaultVibrateTimings: true,
         priority: "high",
         visibility: "public",

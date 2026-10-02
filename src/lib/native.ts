@@ -63,15 +63,14 @@ export async function ensureNativeNotificationChannel() {
   if (!isNativeAndroid()) return;
   try {
     const existing = await PushNotifications.listChannels().catch(() => ({ channels: [] }));
-    const alreadyExists = existing.channels?.some((c) => c.id === 'accounting_alerts');
-    if (!alreadyExists) {
+    const channelFound = existing.channels?.some((c) => c.id === 'accounting_alerts');
+    if (!channelFound) {
       await PushNotifications.createChannel({
         id: 'accounting_alerts',
         name: 'التنبيهات المحاسبية',
         description: 'تنبيهات الديون والدفعات والنسخ الاحتياطي',
         importance: 4, // High importance (heads-up / banner)
         visibility: 1, // Public on lockscreen
-        sound: 'default',
         vibration: true,
         lights: true,
         lightColor: '#2563EB',
@@ -83,15 +82,14 @@ export async function ensureNativeNotificationChannel() {
 
   try {
     const existingLocal = await LocalNotifications.listChannels().catch(() => ({ channels: [] }));
-    const alreadyExistsLocal = existingLocal.channels?.some((c) => c.id === 'accounting_alerts');
-    if (!alreadyExistsLocal) {
+    const channelLocalFound = existingLocal.channels?.some((c) => c.id === 'accounting_alerts');
+    if (!channelLocalFound) {
       await LocalNotifications.createChannel({
         id: 'accounting_alerts',
         name: 'التنبيهات المحاسبية',
         description: 'تنبيهات الديون والدفعات والنسخ الاحتياطي',
         importance: 4,
         visibility: 1,
-        sound: 'default',
         vibration: true,
         lights: true,
         lightColor: '#2563EB',
