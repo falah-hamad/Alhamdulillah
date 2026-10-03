@@ -41,6 +41,7 @@ import ReportsView from "./components/ReportsView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
+import AIAssistantView from "./components/AIAssistantView";
 
 export default function App() {
   const { currentUser, extendedProfile, isGuest, continueAsGuest, loading: authLoading, logout } = useAuth();
@@ -737,6 +738,18 @@ export default function App() {
               deleteChangeLog={deleteChangeLog}
               clearCustomerChangeLogs={clearCustomerChangeLogs}
               revertChangeLogAction={revertChangeLogAction}
+            />
+          )}
+
+          {currentTab === "ai_assistant" && (
+            <AIAssistantView
+              customers={activeCustomers}
+              settings={settings}
+              onNavigateToLedger={(customerId) => {
+                setLedgerTargetCustomerId(customerId);
+                setCurrentTab("ledger");
+              }}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
           )}
 

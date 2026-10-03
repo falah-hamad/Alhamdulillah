@@ -13,7 +13,9 @@ import {
   Clock,
   BellRing,
   Scale,
-  BookOpen
+  BookOpen,
+  Sparkles,
+  ArrowLeft
 } from "lucide-react";
 import { Customer, Product, Invoice, Payment, SystemSettings } from "../types";
 import OverdueInvoicesAlert from "./OverdueInvoicesAlert";
@@ -85,6 +87,32 @@ export default function DashboardView({
             لوحة تحكم ذكية وشاملة تمنحك رقابة تامة على ديون العملاء، حركة المبيعات، ومخزون البضائع في مكان واحد، مع إمكانيات طباعة وتصدير فورية.
           </p>
         </div>
+      </div>
+
+      {/* AI Assistant Quick Access Banner */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-blue-500/20">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 bg-white/10 rounded-xl backdrop-blur-xs shrink-0 border border-white/20">
+            <Sparkles className="w-6 h-6 text-amber-300 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm sm:text-base">المساعد الذكي (Gemini AI)</h3>
+              <span className="text-[10px] bg-amber-400/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-400/30">جديد</span>
+            </div>
+            <p className="text-xs text-slate-200 mt-0.5">
+              تحدث مع الذكاء الاصطناعي عن حساباتك: "أحمد شكد مطلوب؟"، "لخصلي ديوني"، "منو أكثر شخص مدين؟"
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCurrentTab("ai_assistant")}
+          className="self-stretch sm:self-auto px-4 py-2.5 bg-white text-blue-900 hover:bg-slate-100 font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+        >
+          <span>تحدث مع المساعد الذكي</span>
+          <ArrowLeft className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Visual Overdue Invoices Alert Notification */}

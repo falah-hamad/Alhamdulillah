@@ -143,3 +143,62 @@ export async function sendAccountingPushNotificationServer(params: {
   return { success: false, reason: "Cloud functions not initialized" };
 }
 
+export interface AssistantResponse {
+  success: boolean;
+  reply: string;
+  matchedCustomer?: {
+    id: string;
+    name: string;
+    phone?: string;
+    remainingDebt: number;
+    totalDebt: number;
+    totalPaid: number;
+    paidThisMonth?: number;
+  } | null;
+  aggregates?: {
+    totalOutstandingDebt: number;
+    totalCollectedPaid: number;
+    debtorsCount: number;
+    settledCount: number;
+  };
+  isReport?: boolean;
+  timestamp?: string;
+  error?: string;
+}
+
+/**
+ * Server-Side Secure Gemini AI Accounting Assistant
+ * Communicates strictly with Firebase Cloud Function "askAccountingAssistant"
+ * API Key is NEVER exposed on client or Android.
+ */
+export async function askAccountingAssistantServer(prompt: string): Promise<AssistantResponse> {
+  const fns = getCloudFunctions();
+  if (!fns) {
+    return {
+      success: false,
+      reply: "تعذر الاتصال بخادم الذكاء الاصطناعي حالياً. يرجى التأكد من توفر الاتصال بالإنترنت.",
+      error: "Cloud functions not initialized",
+    };
+  }
+
+  try {
+    const askFn = httpsCallable<{ prompt: string }, AssistantResponse>(fns, "askAccountingAssistant");
+    const res = await askFn({ prompt });
+    return res.data;
+  } catch (err: any) {
+    console.warn("askAccountingAssistant Cloud Function call error:", err);
+    let errorMsg = "حدث خطأ أثناء معالجة السؤال بواسطة المساعد الذكي. يرجى المحاولة مرة أخرى.";
+    if (err?.code === "unauthenticated") {
+      errorMsg = "يجب تسجيل الدخول بحسابك السحابي لتتمكن من التحدث مع المساعد الذكي وقراءة ديونك.";
+    } else if (err?.code === "failed-precondition") {
+      errorMsg = "مفتاح الذكاء الاصطناعي غير متوفر على الخادم السحابي حالياً.";
+    }
+    return {
+      success: false,
+      reply: errorMsg,
+      error: String(err?.message || err),
+    };
+  }
+}
+
+

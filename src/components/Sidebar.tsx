@@ -16,6 +16,7 @@ import {
   LogOut,
   Cloud,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { SystemSettings } from "../types";
 import { useAuth } from "../contexts/AuthContext";
@@ -60,6 +61,7 @@ export default function Sidebar({
 
   const menuItems = [
     { id: "home", label: "الرئيسية", icon: Home },
+    { id: "ai_assistant", label: "المساعد الذكي (AI)", icon: Sparkles, badge: "جديد" },
     { id: "ledger", label: "سجل الديون", icon: BookOpen },
     { id: "overdue", label: "المتأخرين", icon: AlertTriangle },
     { id: "customers", label: "العملاء", icon: Users },
@@ -139,6 +141,11 @@ export default function Sidebar({
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
                 <div className="flex items-center justify-between flex-1">
                   <span>{item.label}</span>
+                  {(item as any).badge && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {(item as any).badge}
+                    </span>
+                  )}
                   {(item.id === "home" || item.id === "invoices" || item.id === "overdue") && overdueInvoicesCount > 0 && (
                     <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-600 text-white animate-pulse">
                       {overdueInvoicesCount}
