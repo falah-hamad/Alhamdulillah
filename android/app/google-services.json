@@ -51,6 +51,51 @@
       },
       "oauth_client": [
         {
+          "client_id": "817551423064-jipg69l72aukrq769jmdooemfaicgrvs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.falah.allahisgreat1",
+            "certificate_hash": "8b4982b2c3072e9f0d2f4bd9c051315e14665a7a"
+          }
+        },
+        {
+          "client_id": "817551423064-joprq7av02md86k9ks4sdbq3qan461t2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDgudhrqTZdsVLbGRI1ZsOoJ-YEIwa75g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "817551423064-joprq7av02md86k9ks4sdbq3qan461t2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:817551423064:android:a714a17db17d8b02fdfc2d",
+        "android_client_info": {
+          "package_name": "com.falahhamad.deftaraldeyon"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "817551423064-pe8r7ooain1ck1tuk2dch162c1fshvfr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.falahhamad.deftaraldeyon",
+            "certificate_hash": "8b4982b2c3072e9f0d2f4bd9c051315e14665a7a"
+          }
+        },
+        {
           "client_id": "817551423064-joprq7av02md86k9ks4sdbq3qan461t2.apps.googleusercontent.com",
           "client_type": 3
         }
