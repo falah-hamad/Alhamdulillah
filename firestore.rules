@@ -93,6 +93,12 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId) && isValidId(sessionId);
       }
+      // In-App Notifications (Notification Center)
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidId(notificationId);
+      }
+
 
       // Fallback for any other user-owned document or subcollection
       match /{allSubpaths=**} {

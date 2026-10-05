@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi } from "lucide-react";
+import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi, Sparkles } from "lucide-react";
 import { App as CapApp } from "@capacitor/app";
 import { useAccountingData } from "./hooks/useAccountingData";
 import { isInvoiceOverdue } from "./utils/overdueUtils";
@@ -46,6 +46,8 @@ import ReportsView from "./components/ReportsView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
+import AIAssistantView from "./components/AIAssistantView";
+
 
 export default function App() {
   const { currentUser, extendedProfile, isGuest, continueAsGuest, loading: authLoading, logout } = useAuth();
@@ -560,6 +562,8 @@ export default function App() {
               </span>
               <h1 className="text-sm font-extrabold text-slate-800 hidden sm:block">
                 {currentTab === "home" && "لوحة تحكم الرئيسية"}
+                {currentTab === "ai" && "المساعد المالي والمحاسبي الذكي (AI)"}
+
                 {currentTab === "ledger" && "دفتر الديون وسجل العملاء الورقي"}
                 {currentTab === "overdue" && "قسم الزبائن المتأخرين عن السداد"}
                 {currentTab === "folders" && "مدير المجلدات والملفات (File Manager)"}
@@ -616,6 +620,22 @@ export default function App() {
                     : notificationsList.filter((n) => !n.isRead).length}
                 </span>
               )}
+            </button>
+
+            {/* AI Assistant Header Button */}
+            <button
+              type="button"
+              id="header-btn-ai-assistant"
+              onClick={() => setCurrentTab("ai")}
+              title="المساعد المالي والمحاسبي الذكي (AI)"
+              className={`relative p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                currentTab === "ai"
+                  ? "bg-blue-600 text-white shadow-xs font-bold"
+                  : "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-medium"
+              }`}
+            >
+              <Sparkles className={`w-4 h-4 ${currentTab === "ai" ? "text-amber-300 animate-pulse" : "text-blue-600"}`} />
+              <span className="text-xs hidden md:inline">المساعد الذكي</span>
             </button>
 
             {/* User Profile and Cloud State display */}
@@ -709,6 +729,21 @@ export default function App() {
               onUpdateInvoice={updateInvoice}
             />
           )}
+          {currentTab === "ai" && (
+            <AIAssistantView
+              customers={activeCustomers}
+              invoices={activeInvoices}
+              payments={activePayments}
+              settings={settings}
+              setCurrentTab={setCurrentTab}
+              onSelectCustomerForLedger={(customerId) => {
+                setCurrentTab("ledger");
+                setLedgerTargetCustomerId(customerId);
+                setLedgerTargetInvoiceId(null);
+              }}
+            />
+          )}
+
 
           {currentTab === "overdue" && (
             <OverdueDebtorsView
