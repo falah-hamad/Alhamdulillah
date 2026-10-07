@@ -13,3 +13,4 @@ coverage/
 
 # GitHub Actions credentials
 gha-creds-*.json
+gen-lang-client-0628217852-firebase-adminsdk-fbsvc-ec6136b9f5.json
