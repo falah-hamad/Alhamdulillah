@@ -196,7 +196,15 @@ function generateConversationalReplyClient(question: string): string | null {
     return "العفو، حاضر في أي وقت. إذا تحب أطلع لك الآن ملخص سريع للديون والمبالغ المتبقية.";
   }
 
-  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "من انت", "شنو تقدر"];
+  const identityKeywords = ["من انت", "منو انت", "عرفني بنفسك", "شنو اسمك", "شنو انت"];
+  if (identityKeywords.some((k) => normQ.includes(normalizeArabicText(k)))) {
+    return (
+      "أنا مساعدك الذكي داخل تطبيق دفتر الديون. دوري أساعدك تفهم وضع الديون والمقبوضات بسرعة، " +
+      "وأجاوبك حسب بياناتك الفعلية داخل التطبيق."
+    );
+  }
+
+  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "شنو تقدر", "شلون تساعدني", "شنو خدماتك"];
   if (helpKeywords.some((k) => normQ.includes(normalizeArabicText(k)))) {
     return (
       "أقدر أساعدك مباشرة في:\n" +
@@ -209,6 +217,21 @@ function generateConversationalReplyClient(question: string): string | null {
   }
 
   return null;
+}
+
+function shouldReturnSummary(question: string): boolean {
+  const normQ = normalizeArabicText(question);
+  const summaryKeywords = [
+    "ملخص",
+    "وضع الحسابات",
+    "الوضع المالي",
+    "تقرير",
+    "احصائيه",
+    "احصائية",
+    "الحاله العامه",
+    "الحالة العامة",
+  ];
+  return summaryKeywords.some((k) => normQ.includes(normalizeArabicText(k)));
 }
 
 function analyzeLocallyOnClient(
@@ -446,7 +469,7 @@ function analyzeLocallyOnClient(
         `يوجد **${overdueDebtors.length} عملاء** تجاوزوا موعد استحقاق فواتيرهم:\n\n` +
         listStr;
     }
-  } else {
+  } else if (shouldReturnSummary(question)) {
     answer =
       `### 📈 الملخص المحاسبي الشامل:\n\n` +
       `- **إجمالي المبيعات / الديون:** ${totalDebt.toLocaleString()} ${currency}\n` +
@@ -456,6 +479,10 @@ function analyzeLocallyOnClient(
       `- **العملاء المدينين حالياً:** ${debtors.length} عميل\n` +
       `- **العملاء المتأخرين عن السداد:** ${overdueDebtors.length} عميل\n\n` +
       `💡 *يمكنك سؤالي عن: "من عليه ديون؟"، "كم باقي على [اسم العميل]؟"، أو "من قام بالتسديد مؤخراً؟"*`;
+  } else {
+    answer =
+      "حتى أجاوبك بدقة، وضّح طلبك بشكل أقرب للمحاسبة. " +
+      'مثلاً: "من عليه ديون؟"، "كشف حساب أحمد"، "كم إجمالي الديون؟" أو "من المتأخرين بالسداد؟".';
   }
 
   return {

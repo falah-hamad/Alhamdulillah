@@ -418,7 +418,15 @@ function generateConversationalReply(question: string): string | null {
     return "العفو، حاضر في أي وقت. إذا تحب أطلع لك الآن ملخص سريع للديون والمبالغ المتبقية.";
   }
 
-  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "من انت", "شنو تقدر"];
+  const identityKeywords = ["من انت", "منو انت", "عرفني بنفسك", "شنو اسمك", "شنو انت"];
+  if (identityKeywords.some((k) => normQ.includes(normalizeArabic(k)))) {
+    return (
+      "أنا مساعدك الذكي داخل تطبيق دفتر الديون. دوري أساعدك تفهم وضع الديون والمقبوضات بسرعة، " +
+      "وأجاوبك حسب بياناتك الفعلية داخل التطبيق."
+    );
+  }
+
+  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "شنو تقدر", "شلون تساعدني", "شنو خدماتك"];
   if (helpKeywords.some((k) => normQ.includes(normalizeArabic(k)))) {
     return (
       "أقدر أساعدك مباشرة في:\n" +
@@ -431,6 +439,21 @@ function generateConversationalReply(question: string): string | null {
   }
 
   return null;
+}
+
+function shouldReturnSummary(question: string): boolean {
+  const normQ = normalizeArabic(question);
+  const summaryKeywords = [
+    "ملخص",
+    "وضع الحسابات",
+    "الوضع المالي",
+    "تقرير",
+    "احصائيه",
+    "احصائية",
+    "الحاله العامه",
+    "الحالة العامة",
+  ];
+  return summaryKeywords.some((k) => normQ.includes(normalizeArabic(k)));
 }
 
 interface CustomerFinanceSummary {
@@ -703,16 +726,22 @@ function generateDeterministicAnswer(question: string, stats: ReturnType<typeof 
     );
   }
 
-  // 6. Default: Comprehensive Accounting Summary
+  if (shouldReturnSummary(question)) {
+    return (
+      `### 📈 الملخص المحاسبي الشامل:\n\n` +
+      `- **إجمالي المبيعات / الديون:** ${totalDebt.toLocaleString()} ${currency}\n` +
+      `- **إجمالي المقبوضات والواصل:** ${totalPaid.toLocaleString()} ${currency}\n` +
+      `- **صافي الديون المتبقية بذمة العملاء:** **${totalRemaining.toLocaleString()} ${currency}**\n` +
+      `- **إجمالي عدد العملاء المسجلين:** ${customersList.length} عميل\n` +
+      `- **العملاء المدينين حالياً:** ${debtors.length} عميل\n` +
+      `- **العملاء المتأخرين عن السداد:** ${overdueDebtors.length} عميل\n\n` +
+      `💡 *يمكنك سؤالي عن: "من عليه ديون؟"، "كم باقي على [اسم العميل]؟"، أو "من قام بالتسديد مؤخراً؟"*`
+    );
+  }
+
   return (
-    `### 📈 الملخص المحاسبي الشامل:\n\n` +
-    `- **إجمالي المبيعات / الديون:** ${totalDebt.toLocaleString()} ${currency}\n` +
-    `- **إجمالي المقبوضات والواصل:** ${totalPaid.toLocaleString()} ${currency}\n` +
-    `- **صافي الديون المتبقية بذمة العملاء:** **${totalRemaining.toLocaleString()} ${currency}**\n` +
-    `- **إجمالي عدد العملاء المسجلين:** ${customersList.length} عميل\n` +
-    `- **العملاء المدينين حالياً:** ${debtors.length} عميل\n` +
-    `- **العملاء المتأخرين عن السداد:** ${overdueDebtors.length} عميل\n\n` +
-    `💡 *يمكنك سؤالي عن: "من عليه ديون؟"، "كم باقي على [اسم العميل]؟"، أو "من قام بالتسديد مؤخراً؟"*`
+    "حتى أجاوبك بدقة، وضّح طلبك بشكل أقرب للمحاسبة. " +
+    'مثلاً: "من عليه ديون؟"، "كشف حساب أحمد"، "كم إجمالي الديون؟" أو "من المتأخرين بالسداد؟".'
   );
 }
 
