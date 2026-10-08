@@ -182,6 +182,35 @@ function normalizeArabicText(text: string): string {
     .replace(/[ؤئ]/g, "ء");
 }
 
+function generateConversationalReplyClient(question: string): string | null {
+  const normQ = normalizeArabicText(question);
+  if (!normQ) return "أهلاً بك، تفضل سؤالك وسأساعدك فوراً.";
+
+  const greetingKeywords = ["سلام", "السلام عليكم", "مرحبا", "اهلا", "هلا", "صباح الخير", "مساء الخير"];
+  if (greetingKeywords.some((k) => normQ.includes(normalizeArabicText(k)))) {
+    return "وعليكم السلام ورحمة الله وبركاته، أهلاً بك. أنا جاهز أساعدك في الديون، المقبوضات، والمتأخرات أو أي استفسار محاسبي.";
+  }
+
+  const thanksKeywords = ["شكرا", "مشكور", "ممتاز", "يعطيك العافيه"];
+  if (thanksKeywords.some((k) => normQ.includes(normalizeArabicText(k)))) {
+    return "العفو، حاضر في أي وقت. إذا تحب أطلع لك الآن ملخص سريع للديون والمبالغ المتبقية.";
+  }
+
+  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "من انت", "شنو تقدر"];
+  if (helpKeywords.some((k) => normQ.includes(normalizeArabicText(k)))) {
+    return (
+      "أقدر أساعدك مباشرة في:\n" +
+      "- معرفة العملاء المدينين والمبالغ المتبقية\n" +
+      "- عرض كشف حساب عميل معيّن بالاسم\n" +
+      "- تلخيص المقبوضات وآخر الدفعات\n" +
+      "- إظهار العملاء المتأخرين عن السداد\n\n" +
+      "اكتب سؤالك بصيغة طبيعية مثل: من عليه ديون؟"
+    );
+  }
+
+  return null;
+}
+
 function analyzeLocallyOnClient(
   question: string,
   localData?: {
@@ -288,6 +317,22 @@ function analyzeLocallyOnClient(
   const totalRemaining = customersList.reduce((acc, c) => acc + c.remainingDebt, 0);
 
   const normQ = normalizeArabicText(question);
+  const conversationalReply = generateConversationalReplyClient(question);
+  if (conversationalReply) {
+    return {
+      success: true,
+      answer: conversationalReply,
+      source: "client_fallback",
+      dataSummary: {
+        totalDebt,
+        totalPaid,
+        totalRemaining,
+        debtorCount: debtors.length,
+        overdueCount: overdueDebtors.length,
+        currency,
+      },
+    };
+  }
 
 
   let matchedCustomer: any = null;
@@ -452,4 +497,3 @@ export async function askFinancialAssistantServer(
 
   return analyzeLocallyOnClient(question, localData);
 }
-

@@ -404,6 +404,35 @@ function normalizeArabic(text: string): string {
     .replace(/[ؤئ]/g, "ء");
 }
 
+function generateConversationalReply(question: string): string | null {
+  const normQ = normalizeArabic(question);
+  if (!normQ) return "أهلاً بك، تفضل سؤالك وسأساعدك فوراً.";
+
+  const greetingKeywords = ["سلام", "السلام عليكم", "مرحبا", "اهلا", "هلا", "صباح الخير", "مساء الخير"];
+  if (greetingKeywords.some((k) => normQ.includes(normalizeArabic(k)))) {
+    return "وعليكم السلام ورحمة الله وبركاته، أهلاً بك. أنا جاهز أساعدك في الديون، المقبوضات، والمتأخرات أو أي استفسار محاسبي.";
+  }
+
+  const thanksKeywords = ["شكرا", "مشكور", "ممتاز", "يعطيك العافيه"];
+  if (thanksKeywords.some((k) => normQ.includes(normalizeArabic(k)))) {
+    return "العفو، حاضر في أي وقت. إذا تحب أطلع لك الآن ملخص سريع للديون والمبالغ المتبقية.";
+  }
+
+  const helpKeywords = ["ساعدني", "شنو تسوي", "ماذا تفعل", "من انت", "شنو تقدر"];
+  if (helpKeywords.some((k) => normQ.includes(normalizeArabic(k)))) {
+    return (
+      "أقدر أساعدك مباشرة في:\n" +
+      "- معرفة العملاء المدينين والمبالغ المتبقية\n" +
+      "- عرض كشف حساب عميل معيّن بالاسم\n" +
+      "- تلخيص المقبوضات وآخر الدفعات\n" +
+      "- إظهار العملاء المتأخرين عن السداد\n\n" +
+      "اكتب سؤالك بصيغة طبيعية مثل: من عليه ديون؟"
+    );
+  }
+
+  return null;
+}
+
 interface CustomerFinanceSummary {
   id: string;
   name: string;
@@ -544,6 +573,8 @@ function processAccountingData(
 function generateDeterministicAnswer(question: string, stats: ReturnType<typeof processAccountingData>): string {
   const normQ = normalizeArabic(question);
   const { currency, customersList, debtors, overdueDebtors, totalDebt, totalPaid, totalRemaining, recentPayments } = stats;
+  const conversationalReply = generateConversationalReply(question);
+  if (conversationalReply) return conversationalReply;
 
   // 1. Check if a specific customer was mentioned in the query
   let matchedCustomer: CustomerFinanceSummary | null = null;
@@ -781,7 +812,8 @@ ${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
 2. إذا سأل المستخدم عن شخص غير موجود في السجلات، قل بوضوح: "الاسم غير موجود في سجلات العملاء الحالية".
 3. أجب باللغة العربية بأسلوب راقٍ، مهني، مباشر، ومنسق بنقاط وMarkdown واضح.
 4. اذكر دائماً المبالغ بالأرقام والعملة (${currency}).
-5. أجب مباشرة على ما سأل عنه المستخدم بدقة واختصار دون إطالة لا فائدة منها.`;
+5. إذا كانت رسالة المستخدم مجرد تحية أو شكر أو سؤال تعارفي، رُد برد طبيعي ولطيف ومختصر بدون فرض ملخص مالي.
+6. أجب مباشرة على ما سأل عنه المستخدم بدقة واختصار دون إطالة لا فائدة منها.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -827,4 +859,3 @@ ${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
     },
   };
 });
-
