@@ -98,12 +98,24 @@ export default function AIAssistantView({
     setIsLoading(true);
 
     try {
-      const response: FinancialAssistantResponse = await askFinancialAssistantServer(textToSend, {
-        customers: activeCustomers,
-        invoices: activeInvoices,
-        payments: activePayments,
-        settings,
-      });
+      const conversationHistory = [...messages, userMsg]
+        .filter((m) => m.id !== "welcome" && !m.id.startsWith("welcome_"))
+        .slice(-12)
+        .map((m) => ({
+          role: m.sender === "user" ? "user" as const : "assistant" as const,
+          text: m.text,
+        }));
+
+      const response: FinancialAssistantResponse = await askFinancialAssistantServer(
+        textToSend,
+        {
+          customers: activeCustomers,
+          invoices: activeInvoices,
+          payments: activePayments,
+          settings,
+        },
+        conversationHistory
+      );
 
       const aiMsg: ChatMessage = {
         id: `ai_${Date.now()}`,
