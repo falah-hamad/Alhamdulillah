@@ -155,6 +155,11 @@ export async function sendCrossDeviceNotificationServer(payload: {
 }
 
 
+export interface FinancialAssistantChatMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface FinancialAssistantResponse {
   success: boolean;
   answer: string;
@@ -507,13 +512,14 @@ export async function askFinancialAssistantServer(
     invoices: any[];
     payments: any[];
     settings?: any;
-  }
+  },
+  history?: FinancialAssistantChatMessage[]
 ): Promise<FinancialAssistantResponse> {
   const fns = getCloudFunctions();
   if (fns) {
     try {
       const askFn = httpsCallable<any, any>(fns, "askFinancialAssistant");
-      const res = await askFn({ question, localData });
+      const res = await askFn({ question, localData, history: history?.slice(-12) });
       if (res.data && res.data.success) {
         return res.data as FinancialAssistantResponse;
       }
