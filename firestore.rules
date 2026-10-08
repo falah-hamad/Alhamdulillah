@@ -78,8 +78,7 @@ service cloud.firestore {
 
       // FCM Tokens
       match /tokens/{tokenId} {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && isValidId(tokenId);
+        allow read, write: if isOwner(userId);
       }
 
       // Profile details

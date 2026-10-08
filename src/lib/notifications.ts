@@ -15,8 +15,56 @@ import {
 import { app, db, auth } from "./firebase";
 import { AppNotification, NotificationCategory } from "../types";
 import { linkFcmTokenToSession, getOrCreateCurrentSessionId } from "./sessionManager";
-import { ensureNativeNotificationChannel, isNativeAndroid, registerNativePushToken, requestNativePushPermissionDetailed } from "./native";
+import {
+  ensureNativeNotificationChannel,
+  isNativeAndroid,
+  registerNativePushToken,
+  requestNativePushPermissionDetailed,
+  showNativeLocalNotification,
+} from "./native";
 import { sendCrossDeviceNotificationServer } from "./cloudFunctions";
+
+export function getTokenDocId(token: string): string {
+  let hash = 0;
+  for (let i = 0; i < token.length; i++) {
+    hash = (hash << 5) - hash + token.charCodeAt(i);
+    hash |= 0;
+  }
+  const cleanSuffix = token.slice(-12).replace(/[^a-zA-Z0-9]/g, "");
+  return `tok_${Math.abs(hash)}_${cleanSuffix}`;
+}
+
+export async function saveFcmTokenToFirestore(
+  userId: string,
+  token: string,
+  platform: "android" | "ios" | "web"
+): Promise<void> {
+  if (!userId || !token || !token.trim()) return;
+  const cleanToken = token.trim();
+  const tokenId = getTokenDocId(cleanToken);
+  const tokenRef = doc(db, "users", userId, "tokens", tokenId);
+
+  await setDoc(
+    tokenRef,
+    {
+      id: tokenId,
+      userId,
+      token: cleanToken,
+      platform,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : platform,
+      lastActiveAt: new Date().toISOString(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  try {
+    const currentSessionId = getOrCreateCurrentSessionId();
+    await linkFcmTokenToSession(userId, currentSessionId, cleanToken);
+  } catch (sessErr) {
+    console.warn("Could not link token to session:", sessErr);
+  }
+}
 
 
 let messagingInstance: Messaging | null = null;
@@ -111,29 +159,10 @@ async function syncWebTokenWithGrantedPermission(userId?: string): Promise<strin
 
   const targetUid = userId || auth.currentUser?.uid;
   if (currentToken && targetUid) {
-    const tokenId = btoa(currentToken.slice(-36)).replace(/[/+=]/g, "_");
-    const tokenRef = doc(db, "users", targetUid, "tokens", tokenId);
-
     const isAndroid = /android/i.test(navigator.userAgent);
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const platformName = isAndroid ? "android" : isIOS ? "ios" : "web";
-
-    await setDoc(tokenRef, {
-      id: tokenId,
-      userId: targetUid,
-      token: currentToken,
-      platform: platformName,
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "web-browser",
-      lastActiveAt: new Date().toISOString(),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-
-    try {
-      const currentSessionId = getOrCreateCurrentSessionId();
-      await linkFcmTokenToSession(targetUid, currentSessionId, currentToken);
-    } catch (sessErr) {
-      console.warn("Could not link token to session:", sessErr);
-    }
+    await saveFcmTokenToFirestore(targetUid, currentToken, platformName);
   }
 
   return currentToken;
@@ -164,25 +193,7 @@ export async function requestNotificationPermissionDetailed(userId?: string): Pr
 
       const targetUid = userId || auth.currentUser?.uid;
       if (targetUid) {
-        const tokenId = btoa(nativeResult.token.slice(-36)).replace(/[/+=]/g, "_");
-        const tokenRef = doc(db, "users", targetUid, "tokens", tokenId);
-
-        await setDoc(tokenRef, {
-          id: tokenId,
-          userId: targetUid,
-          token: nativeResult.token,
-          platform: "android",
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "android-native",
-          lastActiveAt: new Date().toISOString(),
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
-
-        try {
-          const currentSessionId = getOrCreateCurrentSessionId();
-          await linkFcmTokenToSession(targetUid, currentSessionId, nativeResult.token);
-        } catch (sessErr) {
-          console.warn("Could not link token to session:", sessErr);
-        }
+        await saveFcmTokenToFirestore(targetUid, nativeResult.token, "android");
       }
 
       return {
@@ -258,17 +269,7 @@ export async function syncNotificationTokenIfPermitted(userId?: string): Promise
       const token = nativeResult.token || null;
       const targetUid = userId || auth.currentUser?.uid;
       if (token && targetUid) {
-        const tokenId = btoa(token.slice(-36)).replace(/[/+=]/g, "_");
-        const tokenRef = doc(db, "users", targetUid, "tokens", tokenId);
-        await setDoc(tokenRef, {
-          id: tokenId,
-          userId: targetUid,
-          token,
-          platform: "android",
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "android-native",
-          lastActiveAt: new Date().toISOString(),
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
+        await saveFcmTokenToFirestore(targetUid, token, "android");
       }
       return token;
     } catch {
@@ -288,8 +289,14 @@ export const registerDeviceToken = requestNotificationPermission;
 /**
  * Display a local notification if granted
  */
-export function showLocalNotification(title: string, options?: NotificationOptions) {
-  if (isNativeAndroid()) return;
+export function showLocalNotification(
+  title: string,
+  options?: NotificationOptions & { data?: Record<string, any>; extra?: Record<string, any> }
+) {
+  if (isNativeAndroid()) {
+    showNativeLocalNotification(title, options?.body || "", options?.data || options?.extra);
+    return;
+  }
   if (typeof window === "undefined" || !("Notification" in window)) return;
 
   if (Notification.permission === "granted") {
@@ -635,6 +642,10 @@ export async function setupForegroundNotificationListener(
         onNotificationReceived(notification);
         const title = notification.title || "دفتر الديون المحاسبي";
         const body = notification.body || "إشعار جديد";
+
+        // Display real Android status bar & heads-up popup banner notification in foreground
+        showNativeLocalNotification(title, body, notification.data);
+
         const currentUser = auth.currentUser;
         if (currentUser) {
           saveInAppNotification(currentUser.uid, {

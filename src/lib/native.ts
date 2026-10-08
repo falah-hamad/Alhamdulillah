@@ -5,6 +5,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { PushNotifications, type Token } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 
@@ -65,9 +66,28 @@ export async function ensureNativeNotificationChannel() {
       id: 'accounting_alerts',
       name: 'التنبيهات المحاسبية',
       description: 'تنبيهات الديون والدفعات والنسخ الاحتياطي',
-      importance: 4,
+      importance: 5, // Urgent / Heads-up notification
+      visibility: 1, // Public on lockscreen
+      sound: 'default',
+      vibration: true,
+      lights: true,
+      lightColor: '#2563EB',
+    });
+  } catch {
+    // Channel may already exist
+  }
+
+  try {
+    await LocalNotifications.createChannel({
+      id: 'accounting_alerts',
+      name: 'التنبيهات المحاسبية',
+      description: 'تنبيهات الديون والدفعات والنسخ الاحتياطي',
+      importance: 5, // Urgent / Heads-up notification
       visibility: 1,
       sound: 'default',
+      vibration: true,
+      lights: true,
+      lightColor: '#2563EB',
     });
   } catch {
     // Channel may already exist
@@ -317,15 +337,105 @@ export async function registerNativePushNotifications(
   return () => listeners.forEach((listener) => void listener.remove());
 }
 
+export async function showNativeLocalNotification(
+  title: string,
+  body: string,
+  data?: Record<string, any>
+): Promise<number | null> {
+  if (!isNativeAndroid()) return null;
+  try {
+    await ensureNativeNotificationChannel();
+    const tag = data?.operationId || data?.id || data?.notificationId;
+    let numericId: number;
+    if (tag && typeof tag === 'string') {
+      let hash = 0;
+      for (let i = 0; i < tag.length; i++) {
+        hash = (hash << 5) - hash + tag.charCodeAt(i);
+        hash |= 0;
+      }
+      numericId = Math.abs(hash) % 2147483647 || 1;
+    } else {
+      numericId = (Date.now() + Math.floor(Math.random() * 1000)) % 2147483647;
+    }
+
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: numericId,
+          title: title || 'دفتر الديون المحاسبي',
+          body: body || 'إشعار محاسبي جديد',
+          channelId: 'accounting_alerts',
+          smallIcon: 'ic_stat_notification',
+          iconColor: '#2563EB',
+          sound: 'default',
+          extra: data || {},
+          schedule: { at: new Date(Date.now() + 100) },
+        },
+      ],
+    });
+    return numericId;
+  } catch (err) {
+    console.warn('Native LocalNotifications schedule notice:', err);
+    return null;
+  }
+}
+
 export async function addNativeNotificationActionListener(
   onActionPerformed: (action: any) => void
 ): Promise<() => void> {
   if (!isNativeAndroid()) return () => undefined;
+  const cleanups: (() => void)[] = [];
+
   try {
-    const listener = await PushNotifications.addListener('pushNotificationActionPerformed', onActionPerformed);
-    return () => void listener.remove();
+    const pushListener = await PushNotifications.addListener(
+      'pushNotificationActionPerformed',
+      (action) => {
+        onActionPerformed(action);
+      }
+    );
+    cleanups.push(() => void pushListener.remove());
   } catch (e) {
     console.warn("Could not register pushNotificationActionPerformed listener:", e);
+  }
+
+  try {
+    const localListener = await LocalNotifications.addListener(
+      'localNotificationActionPerformed',
+      (action) => {
+        const mappedAction = {
+          actionId: action.actionId,
+          inputValue: action.inputValue,
+          notification: {
+            id: String(action.notification.id),
+            title: action.notification.title,
+            body: action.notification.body,
+            data: action.notification.extra || {},
+          },
+        };
+        onActionPerformed(mappedAction);
+      }
+    );
+    cleanups.push(() => void localListener.remove());
+  } catch (e) {
+    console.warn("Could not register localNotificationActionPerformed listener:", e);
+  }
+
+  return () => cleanups.forEach((c) => c());
+}
+
+export async function setupNativePushTokenRefreshListener(
+  onTokenRefresh: (token: string) => void
+): Promise<() => void> {
+  if (!isNativeAndroid()) return () => undefined;
+  try {
+    const listener = await PushNotifications.addListener('registration', (token) => {
+      if (token && token.value) {
+        onTokenRefresh(token.value);
+      }
+    });
+    return () => void listener.remove();
+  } catch (e) {
+    console.warn("Could not register push token refresh listener:", e);
     return () => undefined;
   }
 }

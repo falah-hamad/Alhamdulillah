@@ -12,6 +12,7 @@ import {
   markAllNotificationsAsRead,
   deleteNotification,
   clearAllNotifications,
+  saveFcmTokenToFirestore,
 } from "./lib/notifications";
 import {
   authenticateWithBiometrics,
@@ -19,6 +20,7 @@ import {
   isNativeAndroid,
   saveNativeJsonFile,
   addNativeNotificationActionListener,
+  setupNativePushTokenRefreshListener,
 } from "./lib/native";
 import { FirstLaunchOnboarding, FirstUseCoachMarks } from "./components/FirstLaunchOnboarding";
 import {
@@ -245,6 +247,16 @@ export default function App() {
         console.warn("FCM device token sync notice:", e);
       });
 
+      // Listen for FCM token refreshes in runtime (reinstall, app update, token rotation)
+      let cleanupTokenRefresh: (() => void) | null = null;
+      setupNativePushTokenRefreshListener((newToken) => {
+        saveFcmTokenToFirestore(currentUser.uid, newToken, "android").catch((err) => {
+          console.warn("Auto-synced refreshed FCM token notice:", err);
+        });
+      }).then((unsub) => {
+        if (unsub) cleanupTokenRefresh = unsub;
+      });
+
       // Subscribe to real-time synchronized Firestore in-app notifications
       const unsubscribeNotifications = subscribeAppNotifications(currentUser.uid, (items) => {
         setNotificationsList(items);
@@ -252,6 +264,7 @@ export default function App() {
 
       return () => {
         if (cleanupForeground) cleanupForeground();
+        if (cleanupTokenRefresh) cleanupTokenRefresh();
         unsubscribeNotifications();
       };
     } else {

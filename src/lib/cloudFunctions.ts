@@ -136,7 +136,16 @@ export async function sendCrossDeviceNotificationServer(payload: {
       const sendFn = httpsCallable<any, any>(fns, "sendCrossDeviceNotification");
       const res = await sendFn(payload);
       return res.data || { success: true };
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.code === "not-found" || e?.code === "functions/not-found") {
+        try {
+          const fallbackFn = httpsCallable<any, any>(fns, "sendDebtAlertNotification");
+          const resFallback = await fallbackFn(payload);
+          return resFallback.data || { success: true };
+        } catch (e2) {
+          console.warn("sendDebtAlertNotification fallback error:", e2);
+        }
+      }
       console.warn("Cloud function sendCrossDeviceNotification call notice:", e);
       return { success: false, reason: String(e) };
     }

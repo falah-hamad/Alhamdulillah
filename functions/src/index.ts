@@ -1,10 +1,22 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
 
-
 admin.initializeApp();
-const db = admin.firestore();
+
+const targetDatabaseId = process.env.FIRESTORE_DATABASE_ID || "ai-studio-allah111111-ba0ce27e-cf94-4543-8c18-5985ed5eaad2";
+
+function getFirestoreDb() {
+  try {
+    return getFirestore(targetDatabaseId);
+  } catch (err) {
+    console.warn("Falling back to default Firestore database instance:", err);
+    return admin.firestore();
+  }
+}
+
+const db = getFirestoreDb();
 
 /**
  * 1. Server-Side Customer Debt & Balance Verification
@@ -111,14 +123,13 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
     body,
     category,
     data: extraData,
-    senderToken, // optional: if provided, we can either skip or send depending on configuration
   } = data || {};
 
   if (!title || !body) {
     throw new functions.https.HttpsError("invalid-argument", "عنوان ونص الإشعار مطلوبان.");
   }
 
-  // Deduplication check using processedNotifications subcollection or timestamp
+  // 1. Deduplication check: if operation was already successfully sent, skip to prevent duplicates
   if (operationId) {
     const dedupRef = db
       .collection("users")
@@ -134,31 +145,45 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
         reason: "تم إرسال هذا الإشعار مسبقاً لمنع التكرار.",
       };
     }
-
-    // Mark as processed (expires or stays for history)
-    await dedupRef.set({
-      operationId,
-      title,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
   }
 
-  // Retrieve user tokens from Firestore
-  const tokensSnap = await db
+  // 2. Retrieve all active user tokens across all devices
+  let tokensSnap = await db
     .collection("users")
     .doc(userId)
     .collection("tokens")
     .get();
 
+  // If empty in target database, also check default database instance
   if (tokensSnap.empty) {
-    return { success: false, reason: "لا توجد أجهزة مسجلة لهذا الحساب." };
+    try {
+      const defaultDb = admin.firestore();
+      const fallbackSnap = await defaultDb
+        .collection("users")
+        .doc(userId)
+        .collection("tokens")
+        .get();
+      if (!fallbackSnap.empty) {
+        tokensSnap = fallbackSnap;
+      }
+    } catch (e) {
+      console.warn("Fallback database check notice:", e);
+    }
+  }
+
+  if (tokensSnap.empty) {
+    return {
+      success: false,
+      reason: "لا توجد أجهزة مسجلة لهذا الحساب حالياً.",
+    };
   }
 
   const tokenDocs: { id: string; token: string }[] = [];
   tokensSnap.docs.forEach((doc) => {
     const d = doc.data();
-    if (d && d.token && typeof d.token === "string" && d.token.trim().length > 0) {
-      tokenDocs.push({ id: doc.id, token: d.token.trim() });
+    const tokenVal = d?.token || d?.fcmToken;
+    if (typeof tokenVal === "string" && tokenVal.trim().length > 0) {
+      tokenDocs.push({ id: doc.id, token: tokenVal.trim() });
     }
   });
 
@@ -166,15 +191,21 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
     return { success: false, reason: "رموز FCM فارغة." };
   }
 
-  // Extract tokens list
-  const allTokens = tokenDocs.map((item) => item.token);
+  // Extract all device tokens (deduplicated)
+  const uniqueTokenMap = new Map<string, string>(); // token -> docId
+  tokenDocs.forEach((item) => {
+    if (!uniqueTokenMap.has(item.token)) {
+      uniqueTokenMap.set(item.token, item.id);
+    }
+  });
+  const allTokens = Array.from(uniqueTokenMap.keys());
 
-  // Payload structure for FCM multicast
-  // Convert any nested extraData values to strings as FCM data payload requires string values
+  // Convert payload extra data to string map for FCM compliance
   const stringifiedData: Record<string, string> = {
     title: String(title),
     body: String(body),
     category: String(category || "general"),
+    channelId: "accounting_alerts",
     operationId: String(operationId || ""),
     timestamp: String(Date.now()),
   };
@@ -188,6 +219,7 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
     });
   }
 
+  // Unified Android Notification Payload matching Android requirements
   const messagePayload: admin.messaging.MulticastMessage = {
     tokens: allTokens,
     notification: {
@@ -198,11 +230,14 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
     android: {
       priority: "high",
       notification: {
-        channelId: "accounting-alerts",
+        channelId: "accounting_alerts",
+        icon: "ic_stat_notification",
+        color: "#2563EB",
         sound: "default",
         priority: "high",
         defaultSound: true,
         defaultVibrateTimings: true,
+        tag: String(operationId || Date.now()),
       },
     },
     webpush: {
@@ -216,6 +251,7 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
         badge: "/favicon.ico",
         dir: "rtl",
         lang: "ar",
+        tag: String(operationId || Date.now()),
       },
       fcmOptions: {
         link: "/",
@@ -226,7 +262,22 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
   try {
     const response = await admin.messaging().sendEachForMulticast(messagePayload);
 
-    // Clean up stale or invalid tokens
+    // 3. Mark operation as processed ONLY IF at least one device was successfully notified!
+    if (operationId && response.successCount > 0) {
+      const dedupRef = db
+        .collection("users")
+        .doc(userId)
+        .collection("processedNotifications")
+        .doc(String(operationId));
+      await dedupRef.set({
+        operationId,
+        title,
+        successCount: response.successCount,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch((err) => console.warn("Notice: dedup record write:", err));
+    }
+
+    // 4. Clean up stale or invalid tokens across user database
     const tokensToDelete: string[] = [];
     response.responses.forEach((resp, idx) => {
       if (!resp.success && resp.error) {
@@ -234,11 +285,13 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
         if (
           errCode === "messaging/registration-token-not-registered" ||
           errCode === "messaging/invalid-registration-token" ||
-          errCode === "messaging/invalid-argument"
+          errCode === "messaging/invalid-argument" ||
+          errCode === "messaging/mismatched-credential"
         ) {
-          const invalidDoc = tokenDocs[idx];
-          if (invalidDoc) {
-            tokensToDelete.push(invalidDoc.id);
+          const sentToken = allTokens[idx];
+          const docId = uniqueTokenMap.get(sentToken);
+          if (docId) {
+            tokensToDelete.push(docId);
           }
         }
       }
@@ -254,7 +307,7 @@ async function handleCrossDeviceNotification(data: any, context: functions.https
     }
 
     return {
-      success: true,
+      success: response.successCount > 0,
       successCount: response.successCount,
       failureCount: response.failureCount,
       cleanedTokensCount: tokensToDelete.length,
