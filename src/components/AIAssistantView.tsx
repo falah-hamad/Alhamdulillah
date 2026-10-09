@@ -108,12 +108,6 @@ export default function AIAssistantView({
 
       const response: FinancialAssistantResponse = await askFinancialAssistantServer(
         textToSend,
-        {
-          customers: activeCustomers,
-          invoices: activeInvoices,
-          payments: activePayments,
-          settings,
-        },
         conversationHistory
       );
 
