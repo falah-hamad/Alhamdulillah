@@ -30,7 +30,7 @@ interface ChatMessage {
   sender: "user" | "ai";
   text: string;
   timestamp: string;
-  source?: "gemini" | "deterministic_analyzer" | "client_fallback";
+  source?: "gemini";
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -353,7 +353,7 @@ export default function AIAssistantView({
                     <span>{msg.timestamp}</span>
                     {isAi && msg.source && (
                       <span className="flex items-center gap-1 text-[9px] text-slate-400 bg-white/70 px-1.5 py-0.5 rounded border border-slate-200">
-                        {msg.source === "gemini" ? "Google Gemini AI" : "محرك التحليل المالي الذكي"}
+                        Google Gemini AI
                       </span>
                     )}
                   </div>
