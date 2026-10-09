@@ -163,7 +163,7 @@ export interface FinancialAssistantChatMessage {
 export interface FinancialAssistantResponse {
   success: boolean;
   answer: string;
-  source: "gemini" | "deterministic_analyzer" | "client_fallback";
+  source: "gemini";
   dataSummary?: {
     totalDebt: number;
     totalPaid: number;
