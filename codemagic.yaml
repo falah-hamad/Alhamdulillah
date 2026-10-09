@@ -1,3 +1,4 @@
+
 workflows:
   android-debug:
     name: Alhamdulillah Android APK
@@ -20,7 +21,7 @@ workflows:
           if [ -n "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
             printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
           else
-            echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not set; continuing without google-services.json"
+            echo "Warning: Firebase Android configuration is not set."
           fi
 
       - name: Build web app
@@ -43,8 +44,8 @@ workflows:
 
       - name: Verify APK
         script: |
-          test -f android/app/build/outputs/apk/debug/app-debug.apk
-          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$CM_BUILD_DIR/android/app/build/outputs/apk/debug/app-debug.apk"
+          ls -lh "$CM_BUILD_DIR/android/app/build/outputs/apk/debug/app-debug.apk"
 
     artifacts:
       - android/app/build/outputs/apk/debug/app-debug.apk
