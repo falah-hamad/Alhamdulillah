@@ -405,7 +405,7 @@ function processAccountingData(
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
-  const customerMap = new Map<string, CustomerFinanceSummary>();
+  const customerMap = new Map<string, any>();
 
   activeCustomers.forEach((c) => {
     customerMap.set(c.id, {
