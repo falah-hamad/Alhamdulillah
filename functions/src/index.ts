@@ -389,7 +389,7 @@ export const createCloudBackupSnapshot = functions.https.onCall(async (data, con
 /**
  * 6. Intelligent Financial Assistant AI
  * Answers user questions naturally using authenticated user accounting data.
- * Powered by Google Gemini (@google/genai) with secure server-side isolation and deterministic fallback.
+ * Powered by Google Gemini (@google/genai) with secure server-side isolation.
  */
 
 function normalizeArabic(text: string): string {
@@ -810,9 +810,14 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
     : [];
 
   const apiKey = process.env.GEMINI_API_KEY || (functions.config()?.gemini?.key as string | undefined);
+  if (!apiKey) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "الذكاء الاصطناعي غير مهيأ حالياً. تحقق من إعداد مفتاح Gemini في الدالة السحابية."
+    );
+  }
 
-  if (apiKey) {
-    try {
+  try {
       const ai = new GoogleGenAI({ apiKey });
       const debtorsSummary = stats.debtors
         .map(
@@ -902,23 +907,16 @@ ${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
           },
         };
       }
-    } catch (aiErr) {
-      console.warn("Gemini generation failed, falling back to deterministic analyzer:", aiErr);
-    }
+  } catch (aiErr) {
+    console.error("Gemini generation failed in askFinancialAssistant:", aiErr);
+    throw new functions.https.HttpsError(
+      "unavailable",
+      "تعذّر الحصول على إجابة من الذكاء الاصطناعي حالياً. تحقق من اتصال الإنترنت أو إعدادات Gemini والحصة المتاحة، ثم حاول مجدداً."
+    );
   }
 
-  const answer = generateDeterministicAnswer(question, stats);
-  return {
-    success: true,
-    answer,
-    source: "deterministic_analyzer",
-    dataSummary: {
-      totalDebt: stats.totalDebt,
-      totalPaid: stats.totalPaid,
-      totalRemaining: stats.totalRemaining,
-      debtorCount: stats.debtors.length,
-      overdueCount: stats.overdueDebtors.length,
-      currency,
-    },
-  };
+  throw new functions.https.HttpsError(
+    "unavailable",
+    "لم يُرجع الذكاء الاصطناعي إجابة. حاول مرة أخرى."
+  );
 });
