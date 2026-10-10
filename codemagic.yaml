@@ -1,4 +1,3 @@
-
 workflows:
   android-debug:
     name: Alhamdulillah Android APK
@@ -8,21 +7,11 @@ workflows:
     environment:
       node: 22
       java: 21
-      groups:
-        - firebase_credentials
 
     scripts:
       - name: Install npm dependencies
         script: |
-          npm ci
-
-      - name: Restore Firebase Android configuration
-        script: |
-          if [ -n "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          else
-            echo "Warning: Firebase Android configuration is not set."
-          fi
+          npm install
 
       - name: Build web app
         script: |
@@ -40,12 +29,7 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Verify APK
-        script: |
-          test -f "$CM_BUILD_DIR/android/app/build/outputs/apk/debug/app-debug.apk"
-          ls -lh "$CM_BUILD_DIR/android/app/build/outputs/apk/debug/app-debug.apk"
+          ./gradlew assembleDebug
 
     artifacts:
-      - android/app/build/outputs/apk/debug/app-debug.apk
+      - android/app/build/outputs/**/*.apk

@@ -15,7 +15,7 @@
         "*.local"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run build"
+        "node /data/user/0/com.vscodroid/files/usr/lib/node_modules/npm/bin/npm-cli.js --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
   ],

@@ -10,7 +10,6 @@ import {
   confirmPasswordReset,
   updateProfile,
   signInWithPopup,
-  signInWithRedirect,
   updatePassword,
   linkWithPopup,
   unlink,
@@ -423,25 +422,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithGoogle = async () => {
     setAuthError(null);
     try {
-      try {
-        await signInWithPopup(auth, googleProvider);
-      } catch (popupErr: any) {
-        const popupCode = popupErr?.code || "";
-        const shouldFallbackToRedirect =
-          popupCode === "auth/popup-blocked" ||
-          popupCode === "auth/popup-closed-by-user" ||
-          popupCode === "auth/cancelled-popup-request" ||
-          popupCode === "auth/operation-not-supported-in-this-environment";
-
-        if (!shouldFallbackToRedirect) {
-          throw popupErr;
-        }
-
-        setIsGuest(false);
-        try { localStorage.removeItem('acc_guest_mode'); } catch {}
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
+      await signInWithPopup(auth, googleProvider);
       setIsGuest(false);
       try { localStorage.removeItem('acc_guest_mode'); } catch {}
     } catch (err: any) {
@@ -454,25 +435,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithFacebook = async () => {
     setAuthError(null);
     try {
-      try {
-        await signInWithPopup(auth, facebookProvider);
-      } catch (popupErr: any) {
-        const popupCode = popupErr?.code || "";
-        const shouldFallbackToRedirect =
-          popupCode === "auth/popup-blocked" ||
-          popupCode === "auth/popup-closed-by-user" ||
-          popupCode === "auth/cancelled-popup-request" ||
-          popupCode === "auth/operation-not-supported-in-this-environment";
-
-        if (!shouldFallbackToRedirect) {
-          throw popupErr;
-        }
-
-        setIsGuest(false);
-        try { localStorage.removeItem('acc_guest_mode'); } catch {}
-        await signInWithRedirect(auth, facebookProvider);
-        return;
-      }
+      await signInWithPopup(auth, facebookProvider);
       setIsGuest(false);
       try { localStorage.removeItem('acc_guest_mode'); } catch {}
     } catch (err: any) {
@@ -485,25 +448,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithMicrosoft = async () => {
     setAuthError(null);
     try {
-      try {
-        await signInWithPopup(auth, microsoftProvider);
-      } catch (popupErr: any) {
-        const popupCode = popupErr?.code || "";
-        const shouldFallbackToRedirect =
-          popupCode === "auth/popup-blocked" ||
-          popupCode === "auth/popup-closed-by-user" ||
-          popupCode === "auth/cancelled-popup-request" ||
-          popupCode === "auth/operation-not-supported-in-this-environment";
-
-        if (!shouldFallbackToRedirect) {
-          throw popupErr;
-        }
-
-        setIsGuest(false);
-        try { localStorage.removeItem('acc_guest_mode'); } catch {}
-        await signInWithRedirect(auth, microsoftProvider);
-        return;
-      }
+      await signInWithPopup(auth, microsoftProvider);
       setIsGuest(false);
       try { localStorage.removeItem('acc_guest_mode'); } catch {}
     } catch (err: any) {
@@ -662,48 +607,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         containerEl.innerHTML = '';
       }
 
-      const createVerifier = (size: "invisible" | "normal") =>
-        new RecaptchaVerifier(auth, containerEl!, {
-          size,
-          callback: () => {
-            // reCAPTCHA solved - will proceed with signInWithPhoneNumber
-          },
-          'expired-callback': () => {
-            console.warn('reCAPTCHA response expired');
-          }
-        });
+      const verifier = new RecaptchaVerifier(auth, containerEl, {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA solved - will proceed with signInWithPhoneNumber
+        },
+        'expired-callback': () => {
+          console.warn('reCAPTCHA response expired');
+        }
+      });
 
-      let verifier = createVerifier("invisible");
       (window as any).phoneRecaptchaVerifier = verifier;
 
-      try {
-        // Main path: invisible reCAPTCHA (best UX)
-        const confirmationResult = await signInWithPhoneNumber(auth, trimmedPhone, verifier);
-        return confirmationResult;
-      } catch (primaryErr: any) {
-        const primaryCode = primaryErr?.code || "";
-        const primaryMsg = String(primaryErr?.message || "").toLowerCase();
-        const isCaptchaIssue =
-          primaryCode === "auth/captcha-check-failed" ||
-          primaryMsg.includes("recaptcha") ||
-          primaryMsg.includes("captcha");
-
-        if (!isCaptchaIssue) {
-          throw primaryErr;
-        }
-
-        try {
-          verifier.clear();
-        } catch {}
-
-        // Fallback path: visible reCAPTCHA for environments where invisible challenge fails.
-        containerEl.innerHTML = "";
-        verifier = createVerifier("normal");
-        (window as any).phoneRecaptchaVerifier = verifier;
-        await verifier.render();
-        const confirmationResult = await signInWithPhoneNumber(auth, trimmedPhone, verifier);
-        return confirmationResult;
-      }
+      // Invoke real Firebase Phone Auth SMS sending
+      const confirmationResult = await signInWithPhoneNumber(auth, trimmedPhone, verifier);
+      return confirmationResult;
     } catch (err: any) {
       console.error("Phone send OTP error:", err);
       if ((window as any).phoneRecaptchaVerifier) {

@@ -642,8 +642,6 @@ export async function setupForegroundNotificationListener(
         onNotificationReceived(notification);
         const title = notification.title || "دفتر الديون المحاسبي";
         const body = notification.body || "إشعار جديد";
-        const persistedId =
-          String(notification.data?.notificationId || notification.data?.operationId || "").trim() || undefined;
 
         // Display real Android status bar & heads-up popup banner notification in foreground
         showNativeLocalNotification(title, body, notification.data);
@@ -651,7 +649,6 @@ export async function setupForegroundNotificationListener(
         const currentUser = auth.currentUser;
         if (currentUser) {
           saveInAppNotification(currentUser.uid, {
-            id: persistedId,
             title,
             body,
             category: (notification.data?.category as NotificationCategory) || "general",
@@ -674,7 +671,6 @@ export async function setupForegroundNotificationListener(
       onNotificationReceived(payload);
       const title = payload.notification?.title || payload.data?.title || "دفتر الديون المحاسبي";
       const body = payload.notification?.body || payload.data?.body || "إشعار جديد";
-      const persistedId = String(payload.data?.notificationId || payload.data?.operationId || "").trim() || undefined;
 
       // 1. Show local native notification in browser/device
       showLocalNotification(title, {
@@ -686,7 +682,6 @@ export async function setupForegroundNotificationListener(
       const currentUser = auth.currentUser;
       if (currentUser) {
         saveInAppNotification(currentUser.uid, {
-          id: persistedId,
           title,
           body,
           category: (payload.data?.category as NotificationCategory) || "general",
