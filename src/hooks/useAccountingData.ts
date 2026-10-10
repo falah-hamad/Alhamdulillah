@@ -660,6 +660,7 @@ export function useAccountingData() {
       ...customer,
       id: `cust-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      isDeleted: false,
       userId: currentUser?.uid,
     };
     setCustomers((prev) => {
@@ -938,6 +939,7 @@ export function useAccountingData() {
       ...invoice,
       id: `inv-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      isDeleted: false,
       userId: currentUser?.uid,
     };
 
@@ -989,6 +991,7 @@ export function useAccountingData() {
         notes: `دفعة مقدمة مع الفاتورة ${newInvoice.invoiceNumber}`,
         invoiceId: newInvoice.id,
         createdAt: new Date().toISOString(),
+        isDeleted: false,
         userId: currentUser?.uid,
       };
 
@@ -1107,6 +1110,7 @@ export function useAccountingData() {
         notes: `دفعة مقدمة مع الفاتورة ${updated.invoiceNumber} (معدلة)`,
         invoiceId: updated.id,
         createdAt: new Date().toISOString(),
+        isDeleted: false,
         userId: currentUser?.uid,
       };
       setPayments((prev) => {
@@ -1186,6 +1190,7 @@ export function useAccountingData() {
       ...payment,
       id: `pay-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      isDeleted: false,
       userId: currentUser?.uid,
     };
 
@@ -1352,10 +1357,22 @@ export function useAccountingData() {
         const uid = currentUser?.uid;
         const newSettings = { ...(payload.settings || settings || defaultSettings), userId: uid };
         const newFolders = (Array.isArray(payload.folders) ? payload.folders : folders).map((f: CustomerFolder) => ({ ...f, userId: uid }));
-        const newCustomers = payload.customers.map((c: Customer) => ({ ...c, userId: uid }));
+        const newCustomers = payload.customers.map((c: Customer) => ({
+          ...c,
+          isDeleted: c.isDeleted === true,
+          userId: uid,
+        }));
         const newProducts = payload.products.map((p: Product) => ({ ...p, userId: uid }));
-        const newInvoices = payload.invoices.map((inv: Invoice) => ({ ...inv, userId: uid }));
-        const newPayments = payload.payments.map((pay: Payment) => ({ ...pay, userId: uid }));
+        const newInvoices = payload.invoices.map((inv: Invoice) => ({
+          ...inv,
+          isDeleted: inv.isDeleted === true,
+          userId: uid,
+        }));
+        const newPayments = payload.payments.map((pay: Payment) => ({
+          ...pay,
+          isDeleted: pay.isDeleted === true,
+          userId: uid,
+        }));
 
         setFolders(newFolders);
         setCustomers(newCustomers);
@@ -1422,10 +1439,10 @@ export function useAccountingData() {
   const resetToDefault = async () => {
     const uid = currentUser?.uid;
     const taggedFolders = sampleCustomerFolders.map((f) => ({ ...f, userId: uid }));
-    const taggedCustomers = sampleCustomers.map((c) => ({ ...c, userId: uid }));
+    const taggedCustomers = sampleCustomers.map((c) => ({ ...c, isDeleted: false, userId: uid }));
     const taggedProducts = sampleProducts.map((p) => ({ ...p, userId: uid }));
-    const taggedInvoices = sampleInvoices.map((inv) => ({ ...inv, userId: uid }));
-    const taggedPayments = samplePayments.map((p) => ({ ...p, userId: uid }));
+    const taggedInvoices = sampleInvoices.map((inv) => ({ ...inv, isDeleted: false, userId: uid }));
+    const taggedPayments = samplePayments.map((p) => ({ ...p, isDeleted: false, userId: uid }));
     const taggedSettings = { ...defaultSettings, userId: uid };
 
     setFolders(taggedFolders);

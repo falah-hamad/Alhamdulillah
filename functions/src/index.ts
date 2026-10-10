@@ -11,8 +11,8 @@ function getFirestoreDb() {
   try {
     return getFirestore(targetDatabaseId);
   } catch (err) {
-    console.warn("Falling back to default Firestore database instance:", err);
-    return admin.firestore();
+    console.error("Failed to initialize Firestore with configured databaseId:", targetDatabaseId, err);
+    throw new Error("Firestore initialization failed for configured databaseId.");
   }
 }
 
@@ -34,37 +34,51 @@ export const verifyCustomerBalance = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("invalid-argument", "معرف العميل مطلوب.");
   }
 
-  // Fetch all invoices for this customer
+  // Fetch all invoices for this customer and filter active records defensively.
   const invoicesSnap = await db
     .collection("users")
     .doc(userId)
     .collection("invoices")
     .where("customerId", "==", customerId)
-    .where("isDeleted", "==", false)
     .get();
+
+  const activeInvoices = invoicesSnap.docs
+    .map((doc) => doc.data())
+    .filter((inv) => inv && inv.isDeleted !== true);
+
+  const invoiceIds = new Set<string>(
+    activeInvoices
+      .map((inv) => inv.id)
+      .filter((id) => typeof id === "string" && id.length > 0)
+  );
 
   let totalInvoiceDebts = 0;
   let totalInvoicePaid = 0;
 
-  invoicesSnap.forEach((doc) => {
-    const inv = doc.data();
+  activeInvoices.forEach((inv) => {
     totalInvoiceDebts += Number(inv.grandTotal) || 0;
     totalInvoicePaid += Number(inv.paidAmount) || 0;
   });
 
-  // Fetch all payments for this customer
+  // Fetch all payments for this customer and include only standalone entries to avoid double counting.
   const paymentsSnap = await db
     .collection("users")
     .doc(userId)
     .collection("payments")
     .where("customerId", "==", customerId)
-    .where("isDeleted", "==", false)
     .get();
 
+  const activePayments = paymentsSnap.docs
+    .map((doc) => doc.data())
+    .filter((pay) => pay && pay.isDeleted !== true);
+
   let totalSeparatePayments = 0;
-  paymentsSnap.forEach((doc) => {
-    const pay = doc.data();
-    totalSeparatePayments += Number(pay.amount) || 0;
+  activePayments.forEach((pay) => {
+    const linkedInvoiceId = typeof pay.invoiceId === "string" ? pay.invoiceId : "";
+    const isLinkedToActiveInvoice = linkedInvoiceId ? invoiceIds.has(linkedInvoiceId) : false;
+    if (!isLinkedToActiveInvoice) {
+      totalSeparatePayments += Number(pay.amount) || 0;
+    }
   });
 
   const verifiedTotalDebt = totalInvoiceDebts;
@@ -398,9 +412,15 @@ function processAccountingData(
   paymentsRaw: any[],
   currency: string = "د.ع"
 ) {
-  const activeCustomers = customersRaw.filter((c) => !c.isDeleted);
-  const activeInvoices = invoicesRaw.filter((inv) => !inv.isDeleted);
-  const activePayments = paymentsRaw.filter((pay) => !pay.isDeleted);
+  const activeCustomers = customersRaw.filter((c) => c && c.isDeleted !== true);
+  const activeInvoices = invoicesRaw.filter((inv) => inv && inv.isDeleted !== true);
+  const activePayments = paymentsRaw.filter((pay) => pay && pay.isDeleted !== true);
+
+  const activeInvoiceIds = new Set<string>(
+    activeInvoices
+      .map((inv) => inv.id)
+      .filter((id) => typeof id === "string" && id.length > 0)
+  );
 
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
@@ -446,9 +466,11 @@ function processAccountingData(
       customerMap.set(summary.id, summary);
     }
 
-    const gTotal = Number(inv.grandTotal) || 0;
-    const paid = Number(inv.paidAmount) || 0;
-    const rem = Number(inv.remainingAmount !== undefined ? inv.remainingAmount : gTotal - paid) || 0;
+    const gTotal = Math.max(0, Number(inv.grandTotal) || 0);
+    const paidRaw = Number(inv.paidAmount) || 0;
+    const paid = Math.max(0, Math.min(gTotal, paidRaw));
+    const remRaw = inv.remainingAmount !== undefined ? Number(inv.remainingAmount) : gTotal - paid;
+    const rem = Number.isFinite(remRaw) ? Math.max(0, remRaw) : Math.max(0, gTotal - paid);
 
     summary.totalInvoiced += gTotal;
     summary.totalPaid += paid;
@@ -470,33 +492,49 @@ function processAccountingData(
 
   activePayments.forEach((pay) => {
     let summary = customerMap.get(pay.customerId);
-    if (summary) {
-      const amt = Number(pay.amount) || 0;
-      summary.totalPaid += amt;
-      summary.remainingDebt = Math.max(0, summary.remainingDebt - amt);
-      summary.paymentCount += 1;
-      summary.recentPayments.push({
-        date: pay.date || "",
-        amount: amt,
-        method: pay.method || "نقدي",
-      });
+    if (!summary) {
+      summary = {
+        id: pay.customerId || `cust-${Date.now()}`,
+        name: pay.customerName || "زبون نقدي / غير مسجل",
+        phone: pay.customerPhone || "",
+        address: pay.customerAddress || "",
+        totalInvoiced: 0,
+        totalPaid: 0,
+        remainingDebt: 0,
+        invoiceCount: 0,
+        paymentCount: 0,
+        isOverdue: false,
+        overdueAmount: 0,
+        recentInvoices: [],
+        recentPayments: [],
+      };
+      customerMap.set(summary.id, summary);
     }
+
+    const amt = Math.max(0, Number(pay.amount) || 0);
+    const linkedInvoiceId = typeof pay.invoiceId === "string" ? pay.invoiceId : "";
+    const isLinkedToActiveInvoice = linkedInvoiceId ? activeInvoiceIds.has(linkedInvoiceId) : false;
+
+    // Payments are already reflected in invoice paid/remaining figures in this app.
+    // Count as standalone paid only when no active invoices exist for this customer.
+    if (!isLinkedToActiveInvoice && summary.invoiceCount === 0) {
+      summary.totalPaid += amt;
+    }
+
+    summary.paymentCount += 1;
+    summary.recentPayments.push({
+      date: pay.date || "",
+      amount: amt,
+      method: pay.method || "نقدي",
+    });
   });
 
   const customersList = Array.from(customerMap.values());
   const debtors = customersList.filter((c) => c.remainingDebt > 0);
   const overdueDebtors = customersList.filter((c) => c.isOverdue && c.remainingDebt > 0);
 
-  let totalDebt = 0;
-  let totalPaid = 0;
-
-  activeInvoices.forEach((inv) => {
-    totalDebt += Number(inv.grandTotal) || 0;
-    totalPaid += Number(inv.paidAmount) || 0;
-  });
-  activePayments.forEach((pay) => {
-    totalPaid += Number(pay.amount) || 0;
-  });
+  const totalDebt = customersList.reduce((acc, c) => acc + c.totalInvoiced, 0);
+  const totalPaid = customersList.reduce((acc, c) => acc + c.totalPaid, 0);
   const totalRemaining = customersList.reduce((acc, c) => acc + c.remainingDebt, 0);
 
   return {
@@ -531,9 +569,9 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
 
   try {
     const [custSnap, invSnap, paySnap, setDoc] = await Promise.all([
-      db.collection("users").doc(userId).collection("customers").where("isDeleted", "==", false).get(),
-      db.collection("users").doc(userId).collection("invoices").where("isDeleted", "==", false).get(),
-      db.collection("users").doc(userId).collection("payments").where("isDeleted", "==", false).get(),
+      db.collection("users").doc(userId).collection("customers").get(),
+      db.collection("users").doc(userId).collection("invoices").get(),
+      db.collection("users").doc(userId).collection("payments").get(),
       db.collection("users").doc(userId).collection("settings").doc("general").get(),
     ]);
 
@@ -664,6 +702,19 @@ ${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
         };
       }
   } catch (aiErr) {
+    const aiErrorObj = aiErr as any;
+    const aiCode = aiErrorObj?.code || aiErrorObj?.status || aiErrorObj?.error?.code || "";
+    const aiMessage = aiErrorObj?.message || "";
+    if (
+      Number(aiCode) === 402 ||
+      String(aiCode).includes("RESOURCE_EXHAUSTED") ||
+      String(aiMessage).includes("RESOURCE_EXHAUSTED")
+    ) {
+      console.error("Gemini quota exhausted (402 RESOURCE_EXHAUSTED) in askFinancialAssistant:", {
+        code: aiCode,
+        message: aiMessage,
+      });
+    }
     console.error("Gemini generation failed in askFinancialAssistant:", aiErr);
     throw new functions.https.HttpsError(
       "unavailable",
