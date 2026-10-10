@@ -177,7 +177,8 @@ export interface FinancialAssistantResponse {
 
 export async function askFinancialAssistantServer(
   question: string,
-  history?: FinancialAssistantChatMessage[]
+  history?: FinancialAssistantChatMessage[],
+  model: "gemini-3.8-flash" | "gemini-3.5-flash-lite" = "gemini-3.8-flash"
 ): Promise<FinancialAssistantResponse> {
   const fns = getCloudFunctions();
   if (!fns) {
@@ -186,7 +187,7 @@ export async function askFinancialAssistantServer(
 
   try {
     const askFn = httpsCallable<any, any>(fns, "askFinancialAssistant");
-    const res = await askFn({ question, history: history?.slice(-12) });
+    const res = await askFn({ question, history: history?.slice(-12), model });
     if (res.data && res.data.success && res.data.source === "gemini" && typeof res.data.answer === "string") {
       return res.data as FinancialAssistantResponse;
     }
