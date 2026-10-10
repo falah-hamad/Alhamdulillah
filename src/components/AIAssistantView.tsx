@@ -61,6 +61,7 @@ export default function AIAssistantView({
   });
 
   const [inputQuery, setInputQuery] = useState("");
+  const [selectedModel, setSelectedModel] = useState<"gemini-3.8-flash" | "gemini-3.5-flash-lite">("gemini-3.8-flash");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +109,8 @@ export default function AIAssistantView({
 
       const response: FinancialAssistantResponse = await askFinancialAssistantServer(
         textToSend,
-        conversationHistory
+        conversationHistory,
+        selectedModel
       );
 
       const aiMsg: ChatMessage = {
@@ -278,6 +280,22 @@ export default function AIAssistantView({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Gemini Model Selector */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <label htmlFor="gemini-model" className="text-xs font-bold text-slate-700 shrink-0">نموذج الذكاء الاصطناعي</label>
+        <select
+          id="gemini-model"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value as "gemini-3.8-flash" | "gemini-3.5-flash-lite")}
+          disabled={isLoading}
+          className="w-full sm:w-auto flex-1 bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none disabled:opacity-60"
+        >
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash — ذكي ومتوازن</option>
+          <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite — أسرع واقتصادي</option>
+        </select>
+        <span className="text-[10px] text-slate-500">يُطبّق الاختيار على الرسائل الجديدة</span>
       </div>
 
       {/* Suggested Questions Pills */}
