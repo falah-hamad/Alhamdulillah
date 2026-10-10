@@ -2,6 +2,10 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenAI } from "@google/genai";
+import {
+  processFullAccountingDataset,
+  executeDeterministicFinancialQuery,
+} from "./accountingEngine";
 
 admin.initializeApp();
 
@@ -697,22 +701,25 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("invalid-argument", "السؤال مطلوب.");
   }
 
+  let folders: any[] = [];
   let customers: any[] = [];
   let invoices: any[] = [];
   let payments: any[] = [];
   let currency = "د.ع";
 
   try {
-    const [custSnap, invSnap, paySnap, setDoc] = await Promise.all([
+    const [foldSnap, custSnap, invSnap, paySnap, setDoc] = await Promise.all([
+      db.collection("users").doc(userId).collection("folders").where("isDeleted", "==", false).get(),
       db.collection("users").doc(userId).collection("customers").where("isDeleted", "==", false).get(),
       db.collection("users").doc(userId).collection("invoices").where("isDeleted", "==", false).get(),
       db.collection("users").doc(userId).collection("payments").where("isDeleted", "==", false).get(),
       db.collection("users").doc(userId).collection("settings").doc("general").get(),
     ]);
 
-    customers = custSnap.docs.map((d) => d.data());
-    invoices = invSnap.docs.map((d) => d.data());
-    payments = paySnap.docs.map((d) => d.data());
+    folders = foldSnap.docs.map((d: any) => d.data());
+    customers = custSnap.docs.map((d: any) => d.data());
+    invoices = invSnap.docs.map((d: any) => d.data());
+    payments = paySnap.docs.map((d: any) => d.data());
     if (setDoc.exists && setDoc.data()?.currency) {
       currency = setDoc.data()?.currency;
     }
@@ -721,6 +728,9 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
   }
 
   if (data.localData && typeof data.localData === "object") {
+    if (Array.isArray(data.localData.folders) && data.localData.folders.length > folders.length) {
+      folders = data.localData.folders;
+    }
     if (Array.isArray(data.localData.customers) && data.localData.customers.length > customers.length) {
       customers = data.localData.customers;
     }
@@ -735,7 +745,9 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
     }
   }
 
-  const stats = processAccountingData(customers, invoices, payments, currency);
+  // Run full deterministic engine on 100% of data (zero slicing)
+  const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
+  const resolved = executeDeterministicFinancialQuery(question, dataset);
 
   const requestedModel = typeof data?.model === "string" ? data.model.trim() : "gemini-3.8-flash";
   let modelToUse = requestedModel;
@@ -749,17 +761,6 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const debtorsSummary = stats.debtors
-        .map(
-          (c) =>
-            `- ${c.name}: المتبقي ${c.remainingDebt.toLocaleString()} ${currency} (المجموع: ${c.totalInvoiced.toLocaleString()}، المسدد: ${c.totalPaid.toLocaleString()}) هاتف: ${c.phone || "غير مسجل"}`
-        )
-        .join("\n");
-
-      const recentPaymentsSummary = stats.recentPayments
-        .slice(-6)
-        .map((p: any) => `- ${p.customerName || "عميل"}: دفع ${Number(p.amount || 0).toLocaleString()} ${currency} بتاريخ ${p.date || ""}`)
-        .join("\n");
 
       let historyText = "";
       if (conversationHistory.length > 0) {
@@ -769,34 +770,30 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
           .join("\n\n");
       }
 
-      const contextPrompt = `بيانات الحسابات والديون الفعلية للمستخدم:
-- العملة: ${currency}
-- إجمالي المبيعات/الديون: ${stats.totalDebt.toLocaleString()} ${currency}
-- إجمالي المبالغ المسددة: ${stats.totalPaid.toLocaleString()} ${currency}
-- صافي الديون المتبقية بالسوق: ${stats.totalRemaining.toLocaleString()} ${currency}
-- عدد العملاء الإجمالي: ${stats.customersList.length}
-- عدد العملاء المدينين (عليهم متبقي): ${stats.debtors.length}
-- عدد المتأخرين عن السداد: ${stats.overdueDebtors.length}
+      const contextPrompt = `حقائق مالية وحسابات مؤكدة بنسبة 100% محسوبة برمجياً من قاعدة البيانات (حساب المستخدم):
+- إجمالي عدد العملاء المسجلين: ${dataset.portfolio.customerCount} عميل
+- إجمالي عدد المدينين (المتبقي بذمتهم > 0): ${dataset.portfolio.debtorCount} مدين
+- إجمالي الديون المسجلة: ${dataset.portfolio.totalDebt.toLocaleString()} ${currency}
+- إجمالي المبالغ المسددة: ${dataset.portfolio.totalPaid.toLocaleString()} ${currency}
+- صافي الديون المتبقية بالسوق: ${dataset.portfolio.totalRemaining.toLocaleString()} ${currency}
+- عدد المجلدات: ${dataset.portfolio.folderCount}
+- نسبة التحصيل الإجمالية: ${dataset.portfolio.collectionRate}%
 
-قائمة العملاء المدينين بالتفصيل:
-${debtorsSummary || "لا توجد ديون متبقية على أي عميل."}
+النتيجة الحسابية والجدول المحاسبي الدقيق المجهز برمجياً وفق سؤال المستخدم:
+${resolved.resultAnswer}
 
-آخر المقبوضات/الدفعات المسجلة:
-${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
-
-${historyText ? `سياق المحادثة السابقة:\n${historyText}\n\n` : ""}سؤال المستخدم:
+${historyText ? `سياق المحادثة السابقة:\n${historyText}\n\n` : ""}سؤال المستخدم الحالي:
 "${question}"
 `;
 
-      const systemInstruction = `أنت "المساعد الذكي والمستشار المالي" لتطبيق "دفتر الديون المحاسبي".
-تساعد صاحب العمل بالإجابة على استفساراته المحاسبية والمالية بدقة تامة.
+      const systemInstruction = `أنت "المساعد الذكي والمستشار المالي الخبير" لتطبيق "دفتر الديون المحاسبي".
+مهمتك تقديم الإجابات المحاسبية الدقيقة المعتمدة على البيانات المحسوبة برمجياً أعلاه دون أي تخمين أو تغيير في الأرقام.
 
-قواعد صارمة وإلزامية:
-1. اعتمد حصراً على بيانات المستخدم الفعلية المرفقة أعلاه، ولا تخترع أو تفترض أي أرقام أو أسماء غير موجودة.
-2. إذا سأل المستخدم عن شخص غير موجود في السجلات، قل بوضوح: "الاسم غير موجود في سجلات العملاء الحالية".
-3. أجب باللغة العربية بأسلوب راقٍ، مهني، مباشر، ومنسق بنقاط وMarkdown واضح.
+القواعد الصارمة:
+1. اعتمد حصراً وبشكل قطعي على الجدول الحسابي والأرقام المرفقة أعلاه، ولا تغير أي رقم أو اسم أو مبلغ.
+2. اعرض الجداول بتنسيق Markdown الأنيق كما هي مجهزة.
+3. تحدث بأسلوب راقٍ، مهني، مباشر، باللغة العربية.
 4. اذكر دائماً المبالغ بالأرقام والعملة (${currency}).
-5. أجب مباشرة على ما سأل عنه المستخدم بدقة واختصار دون إطالة لا فائدة منها.
 ${customInstructions ? `\nتعليمات إضافية مخصصة من المستخدم:\n${customInstructions}` : ""}`;
 
       let response;
@@ -829,32 +826,31 @@ ${customInstructions ? `\nتعليمات إضافية مخصصة من المست
           modelUsed: modelToUse,
           requestedModel,
           dataSummary: {
-            totalDebt: stats.totalDebt,
-            totalPaid: stats.totalPaid,
-            totalRemaining: stats.totalRemaining,
-            debtorCount: stats.debtors.length,
-            overdueCount: stats.overdueDebtors.length,
+            totalDebt: dataset.portfolio.totalDebt,
+            totalPaid: dataset.portfolio.totalPaid,
+            totalRemaining: dataset.portfolio.totalRemaining,
+            debtorCount: dataset.portfolio.debtorCount,
+            overdueCount: dataset.portfolio.overdueCount,
             currency,
           },
         };
       }
     } catch (aiErr) {
-      console.warn("Gemini generation failed, falling back to deterministic analyzer:", aiErr);
+      console.warn("Gemini generation failed, falling back to deterministic result:", aiErr);
     }
   }
 
-  const answer = generateDeterministicAnswer(question, stats);
   return {
     success: true,
-    answer,
+    answer: resolved.resultAnswer,
     source: "deterministic_analyzer",
-    modelUsed: "المحلل الذكي المحلي (خوارزمي)",
+    modelUsed: "المحرك المحاسبي المالي الذكي (موثق)",
     dataSummary: {
-      totalDebt: stats.totalDebt,
-      totalPaid: stats.totalPaid,
-      totalRemaining: stats.totalRemaining,
-      debtorCount: stats.debtors.length,
-      overdueCount: stats.overdueDebtors.length,
+      totalDebt: dataset.portfolio.totalDebt,
+      totalPaid: dataset.portfolio.totalPaid,
+      totalRemaining: dataset.portfolio.totalRemaining,
+      debtorCount: dataset.portfolio.debtorCount,
+      overdueCount: dataset.portfolio.overdueCount,
       currency,
     },
   };
