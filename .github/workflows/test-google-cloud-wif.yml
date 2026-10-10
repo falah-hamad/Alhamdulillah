@@ -1,0 +1,38 @@
+name: Test Google Cloud Workload Identity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - allahisgreat1
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test-authentication:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/817551423064/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions
+          service_account: github-firebase-deployer-01@gen-lang-client-0628217852.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify active identity
+        shell: bash
+        run: |
+          EXPECTED="github-firebase-deployer-01@gen-lang-client-0628217852.iam.gserviceaccount.com"
+          ACTIVE="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+          echo "Active identity: $ACTIVE"
+          if [ "$ACTIVE" != "$EXPECTED" ]; then
+            echo "::error::Expected service account was not active."
+            exit 1
+          fi
+          echo "Google Cloud authentication succeeded."
