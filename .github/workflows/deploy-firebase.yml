@@ -48,6 +48,6 @@ jobs:
       - name: Deploy backend services only
         run: >-
           firebase deploy
-          --only functions,firestore:rules,firestore:indexes,storage
+          --only functions,firestore:rules,firestore:indexes
           --project gen-lang-client-0628217852
           --non-interactive
