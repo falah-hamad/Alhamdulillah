@@ -558,6 +558,11 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
 
   const userId = context.auth.uid;
   const question = typeof data?.question === "string" ? data.question.trim() : "";
+  const allowedModels = new Set(["gemini-3.8-flash", "gemini-3.5-flash-lite"]);
+  const requestedModel = typeof data?.model === "string" ? data.model : "gemini-3.8-flash";
+  if (!allowedModels.has(requestedModel)) {
+    throw new functions.https.HttpsError("invalid-argument", "نموذج Gemini المحدد غير مدعوم.");
+  }
   if (!question) {
     throw new functions.https.HttpsError("invalid-argument", "السؤال مطلوب.");
   }
@@ -678,7 +683,7 @@ ${recentPaymentsSummary || "لا توجد دفعات مسجلة."}
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: requestedModel,
         contents: contextPrompt,
         config: {
           systemInstruction,
