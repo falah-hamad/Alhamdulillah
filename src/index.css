@@ -180,3 +180,70 @@ body {
     text-rendering: optimizeLegibility !important;
   }
 }
+
+
+/* Responsive viewport and overflow safeguards for phones and tablets */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+#root,
+#root > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Keep wide accounting tables inside the viewport on small screens */
+@media (max-width: 640px) {
+  table {
+    max-width: 100%;
+  }
+
+  [class*="overflow-x-auto"] {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
