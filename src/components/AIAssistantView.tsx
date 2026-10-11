@@ -326,7 +326,7 @@ export default function AIAssistantView({
 
     if (lastAtIdx !== -1 && (lastAtIdx === 0 || /\s/.test(textBeforeCursor[lastAtIdx - 1]))) {
       const q = textBeforeCursor.slice(lastAtIdx + 1);
-      if (!q.includes(" ") && q.length < 25) {
+      if (q.length < 80 && !/[\n\r]/.test(q)) {
         setMentionQuery(q);
         setShowMentionDropdown(true);
         return;
@@ -625,7 +625,7 @@ export default function AIAssistantView({
   return (
     <div
       style={fontStyle}
-      className="flex h-[calc(100vh-4rem)] max-w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden relative"
+      className="flex h-[calc(100dvh-4rem)] w-full min-w-0 max-w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden relative"
     >
       {/* =========================================================================
           1. CONVERSATION HISTORY SIDEBAR / DRAWER
@@ -846,7 +846,7 @@ export default function AIAssistantView({
         {/* Messages Scroll Area */}
         <div
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4"
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-4"
         >
           {/* Financial Fast-Facts Banner */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
@@ -1061,7 +1061,7 @@ export default function AIAssistantView({
         {/* =========================================================================
             3. CHAT INPUT BAR & MENTION POPUP
         ========================================================================= */}
-        <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 relative shrink-0">
+        <div className="p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 relative shrink-0">
           {/* Debtor Mention Autocomplete Dropdown */}
           {showMentionDropdown && (
             <CustomerMentionDropdown
