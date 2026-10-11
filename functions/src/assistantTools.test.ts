@@ -231,6 +231,51 @@ test("get_collection_priorities ranks overdue debtors and supports folder filter
   assert.equal(result.customers[0].collectionPriority, "متوسطة");
 });
 
+test("get_invoice_aging_summary groups outstanding invoices by due-date age", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push(
+    { id: "old", customerId: "c1", grandTotal: 9000, paidAmount: 0, remainingAmount: 9000, date: "2025-10-01", dueDate: "2025-11-01" },
+    { id: "soon", customerId: "c2", grandTotal: 5000, paidAmount: 0, remainingAmount: 5000, date: "2026-02-01", dueDate: "2026-02-01" },
+    { id: "future", customerId: "c3", grandTotal: 6000, paidAmount: 0, remainingAmount: 6000, date: "2026-03-01", dueDate: "2026-04-01" }
+  );
+  const result = executeFinancialAssistantTool("get_invoice_aging_summary", { asOfDate: "2026-03-01" }, dataset) as any;
+  assert.equal(result.buckets.over90.totalRemaining, 9000);
+  assert.equal(result.buckets.days1to30.totalRemaining, 5000);
+  assert.equal(result.buckets.notDue.totalRemaining, 6000);
+});
+
+test("get_monthly_financial_trend separates invoice totals from payment ledger totals", () => {
+  const result = executeFinancialAssistantTool("get_monthly_financial_trend", { fromMonth: "2026-01", toMonth: "2026-02" }, fixture()) as any;
+  assert.equal(result.months.length, 2);
+  assert.equal(result.months[0].month, "2026-01");
+  assert.equal(result.months[0].invoiceTotal, 37000);
+  assert.equal(result.months[0].paymentLedgerAmount, 2000);
+  assert.equal(result.months[1].paymentLedgerAmount, 3000);
+});
+
+test("get_customers_without_recent_payment finds customers with no recent or no recorded payments", () => {
+  const result = executeFinancialAssistantTool("get_customers_without_recent_payment", {
+    asOfDate: "2026-03-01", daysWithoutPayment: 30, minRemainingDebt: 1, limit: 10,
+  }, fixture()) as any;
+  assert.equal(result.totalMatches, 2);
+  assert.deepEqual(result.customers.map((c: any) => c.name).sort(), ["أحمد علي", "سارة كريم"].sort());
+  assert.equal(result.customers.some((c: any) => c.neverPaid), true);
+});
+
+test("get_customer_activity_timeline combines one customer's invoices and payments without merging totals", () => {
+  const result = executeFinancialAssistantTool("get_customer_activity_timeline", { customerName: "أحمد علي" }, fixture()) as any;
+  assert.equal(result.found, true);
+  assert.equal(result.totalEvents, 2);
+  assert.deepEqual(result.events.map((event: any) => event.type), ["payment", "invoice"]);
+});
+
+test("get_payment_reconciliation flags differences between invoice-paid values and payment ledger", () => {
+  const result = executeFinancialAssistantTool("get_payment_reconciliation", {}, fixture()) as any;
+  assert.equal(result.totalMatches, 3);
+  assert.equal(result.customers[0].name, "سارة كريم");
+  assert.equal(result.customers[0].difference, 1000);
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
