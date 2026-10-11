@@ -521,7 +521,6 @@ export function executeDeterministicFinancialQuery(
     const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
     const currentYear = part("year");
     const currentMonth = part("month");
-    const currentDay = part("day");
     const paymentDateKey = (value: any): string | null => {
       if (!value || typeof value !== "string") return null;
       const raw = value.trim();
@@ -566,13 +565,13 @@ export function executeDeterministicFinancialQuery(
       ? dayMatch[1] + "/" + currentMonth + "/" + currentYear
       : currentMonth + "/" + currentYear;
     const table = rows.length
-      ? "| العميل | عدد الدفعات | مجموع الدفعات |\\n| :--- | :---: | :---: |\\n" +
-        rows.map((row) => "| **" + row.name + "** | " + row.count + " | " + row.amount.toLocaleString() + " " + currency + " |").join("\\n")
+      ? "| العميل | عدد الدفعات | مجموع الدفعات |\n| :--- | :---: | :---: |\n" +
+        rows.map((row) => "| **" + row.name + "** | " + row.count + " | " + row.amount.toLocaleString() + " " + currency + " |").join("\n")
       : "لا توجد دفعات مسجلة في الفترة المطلوبة.";
     return {
       intent: "payments_by_period",
-      resultAnswer: "### 💳 الدفعات المسجلة بتاريخ " + dateLabel + "\\n\\n" + table +
-        "\\n\\nإجمالي المقبوضات في الفترة: **" +
+      resultAnswer: "### 💳 الدفعات المسجلة بتاريخ " + dateLabel + "\n\n" + table +
+        "\n\nإجمالي المقبوضات في الفترة: **" +
         periodPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0).toLocaleString() + " " + currency + "**",
     };
   }
