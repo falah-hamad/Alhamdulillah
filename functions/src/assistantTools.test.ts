@@ -179,6 +179,40 @@ test("search_unpaid_invoices returns only positive remaining balances and exclud
   assert.deepEqual(result.invoices.map((invoice: any) => invoice.customerName), ["محمد حسن", "أحمد علي"]);
 });
 
+test("get_overdue_invoices filters due dates, customer, and deleted records", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push(
+    { id: "old1", invoiceNumber: "INV-OLD", customerId: "c1", grandTotal: 15000, paidAmount: 5000, remainingAmount: 10000, date: "2026-01-01", dueDate: "2026-02-01" },
+    { id: "old2", customerId: "c2", grandTotal: 30000, paidAmount: 0, remainingAmount: 30000, date: "2026-01-01", dueDate: "2026-01-15", isDeleted: true },
+    { id: "future", customerId: "c1", grandTotal: 10000, paidAmount: 0, remainingAmount: 10000, date: "2026-01-01", dueDate: "2026-12-01" }
+  );
+  const result = executeFinancialAssistantTool("get_overdue_invoices", {
+    asOfDate: "2026-03-01",
+    customerName: "أحمد علي",
+  }, dataset) as any;
+
+  assert.equal(result.totalMatches, 1);
+  assert.equal(result.totalRemaining, 10000);
+  assert.equal(result.invoices[0].invoiceNumber, "INV-OLD");
+});
+
+test("get_invoice_status_summary groups invoice balances and excludes deleted invoices", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push(
+    { id: "paid", customerId: "c1", grandTotal: 5000, paidAmount: 5000, remainingAmount: 0, date: "2026-02-01" },
+    { id: "deleted", customerId: "c2", grandTotal: 90000, paidAmount: 0, remainingAmount: 90000, date: "2026-02-02", isDeleted: true }
+  );
+  const result = executeFinancialAssistantTool("get_invoice_status_summary", {
+    fromDate: "2026-02-01",
+    toDate: "2026-02-28",
+  }, dataset) as any;
+
+  assert.equal(result.invoiceCount, 1);
+  assert.equal(result.totalAmount, 5000);
+  assert.equal(result.statuses.paid.count, 1);
+  assert.equal(result.totalRemaining, 0);
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
