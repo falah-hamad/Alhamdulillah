@@ -54,14 +54,26 @@ test("search_customers combines folder, range, sorting, and limit", () => {
   assert.equal(result.customers[0].name, "محمد حسن");
 });
 
-test("get_customer_ledger returns actual invoice and payment records", () => {
+test("get_customer_ledger excludes soft-deleted invoices", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push({
+    id: "deleted-i1",
+    customerId: "c1",
+    grandTotal: 99999,
+    paidAmount: 0,
+    remainingAmount: 99999,
+    date: "2026-01-05",
+    isDeleted: true,
+  });
+
   const result = executeFinancialAssistantTool("get_customer_ledger", {
     customerName: "أحمد علي",
-  }, fixture()) as any;
+  }, dataset) as any;
 
   assert.equal(result.found, true);
   assert.equal(result.customer.remainingDebt, 10000);
   assert.equal(result.invoices.length, 1);
+  assert.equal(result.invoices.some((invoice: any) => invoice.id === "deleted-i1"), false);
   assert.equal(result.recentPayments.length, 1);
   assert.equal(result.recentPayments[0].amount, 2000);
 });
