@@ -1,7 +1,8 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
+import { executeFinancialAssistantTool } from "./assistantTools";
 import {
   processFullAccountingDataset,
   executeDeterministicFinancialQuery,
@@ -756,67 +757,131 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
+      const historyText = conversationHistory
+        .slice(-8)
+        .map((m: any) => String(m.sender === "user" ? "المستخدم" : "المساعد") + ": " + String(m.text ?? "").slice(0, 2000))
+        .join("\n\n");
 
-      let historyText = "";
-      if (conversationHistory.length > 0) {
-        historyText = conversationHistory
-          .slice(-6)
-          .map((m: any) => `${m.sender === "user" ? "المستخدم" : "المساعد"}: ${m.text}`)
-          .join("\n\n");
-      }
+      const tools = [{
+        functionDeclarations: [
+          {
+            name: "get_portfolio_summary",
+            description: "استرجع الإحصائيات المالية الحقيقية الإجمالية ومجاميع كل المجلدات من بيانات المستخدم.",
+            parameters: { type: Type.OBJECT, properties: {} },
+          },
+          {
+            name: "search_customers",
+            description: "ابحث في العملاء حسب شروط مرنة مجتمعة. مبالغ الفلترة تطبق على الدين المتبقي. استخدمها لنطاقات المبالغ وأعلى أو أقل العملاء والمجلد والمتأخرين.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                minRemainingDebt: { type: Type.NUMBER, description: "أقل دين متبقٍ شامل الحد." },
+                maxRemainingDebt: { type: Type.NUMBER, description: "أعلى دين متبقٍ شامل الحد." },
+                folderName: { type: Type.STRING, description: "اسم المجلد أو جزء منه." },
+                nameContains: { type: Type.STRING, description: "اسم عميل أو جزء منه." },
+                overdueOnly: { type: Type.BOOLEAN, description: "إرجاع المتأخرين فقط." },
+                includeSettled: { type: Type.BOOLEAN, description: "تضمين العملاء المسددين بالكامل." },
+                sortBy: { type: Type.STRING, enum: ["remainingDebt", "totalPaid", "totalInvoiced", "name"] },
+                sortDirection: { type: Type.STRING, enum: ["asc", "desc"] },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
+            name: "get_customer_ledger",
+            description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING, description: "اسم العميل أو جزء واضح منه." },
+                customerId: { type: Type.STRING, description: "معرف العميل إن كان معروفاً." },
+              },
+            },
+          },
+          {
+            name: "get_folder_summary",
+            description: "استرجع ملخص مجلد واحد أو كل المجلدات وعدد العملاء والمدينين ومجموع المتبقي.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: { folderName: { type: Type.STRING, description: "اسم المجلد أو جزء منه، اتركه فارغاً لكل المجلدات." } },
+            },
+          },
+          {
+            name: "search_payments",
+            description: "ابحث في الدفعات حسب العميل أو فترة التاريخ أو مبلغ الدفعة. التاريخ بصيغة YYYY-MM-DD.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING },
+                fromDate: { type: Type.STRING, description: "تاريخ بداية شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "تاريخ نهاية شامل YYYY-MM-DD." },
+                minAmount: { type: Type.NUMBER },
+                maxAmount: { type: Type.NUMBER },
+                limit: { type: Type.NUMBER },
+              },
+            },
+          },
+        ],
+      }];
 
-      const contextPrompt = `حقائق مالية وحسابات مؤكدة بنسبة 100% محسوبة برمجياً من قاعدة البيانات (حساب المستخدم):
-- إجمالي عدد العملاء المسجلين: ${dataset.portfolio.customerCount} عميل
-- إجمالي عدد المدينين (المتبقي بذمتهم > 0): ${dataset.portfolio.debtorCount} مدين
-- إجمالي الديون المسجلة: ${dataset.portfolio.totalDebt.toLocaleString()} ${currency}
-- إجمالي المبالغ المسددة: ${dataset.portfolio.totalPaid.toLocaleString()} ${currency}
-- صافي الديون المتبقية بالسوق: ${dataset.portfolio.totalRemaining.toLocaleString()} ${currency}
-- عدد المجلدات: ${dataset.portfolio.folderCount}
-- نسبة التحصيل الإجمالية: ${dataset.portfolio.collectionRate}%
+      const systemInstruction =
+        "أنت مساعد محاسبي ذكي يفهم الطلبات الجديدة ويستنتج طريقة تنفيذها، ولست نظام أجوبة محفوظة.\n" +
+        "إذا كان السؤال عن بيانات حساب المستخدم أو ديونه أو عملائه أو دفعاته أو مجلداته، يجب استخدام أداة أو أكثر قبل ذكر أي حقيقة أو رقم. لا تخترع أسماء أو أرقاماً.\n" +
+        "يمكنك جمع عدة شروط معاً: تحديد المجلد ثم نطاق الدين المتبقي ثم الترتيب واختيار العدد المطلوب. استخدم الأدوات مرة أخرى إذا احتجت نتائج إضافية.\n" +
+        "الأدوات المتاحة للقراءة والتحليل فقط ولا تغيّر البيانات؛ لا تدّع تنفيذ إجراء لا تتيحه أداة.\n" +
+        "إذا كان الاسم ملتبساً أو الطلب غامضاً بما يؤثر على النتيجة، اطلب التوضيح. إذا لم تدعم الأدوات طلباً بعينه، اشرح القيد ولا تستبدله بملخص عام.\n" +
+        "للأسئلة العامة غير المتعلقة ببيانات الحساب، أجب بصورة طبيعية. تحدث بالعربية الواضحة أو باللهجة العراقية المناسبة. العملة: " + currency + ".\n" +
+        (customInstructions ? "\nتعليمات إضافية من المستخدم:\n" + customInstructions : "");
 
-النتيجة الحسابية والجدول المحاسبي الدقيق المجهز برمجياً وفق سؤال المستخدم:
-${resolved.resultAnswer}
+      const contents: any[] = [{
+        role: "user",
+        parts: [{
+          text: "السؤال الحالي:\n" + question + "\n\n" +
+            (historyText ? "سياق المحادثة السابقة:\n" + historyText + "\n\n" : "") +
+            "بيانات موجزة مرجعية فقط:\nعدد العملاء: " + dataset.portfolio.customerCount +
+            "\nعدد المدينين: " + dataset.portfolio.debtorCount +
+            "\nإجمالي المتبقي: " + dataset.portfolio.totalRemaining.toLocaleString() + " " + currency,
+        }],
+      }];
 
-${historyText ? `سياق المحادثة السابقة:\n${historyText}\n\n` : ""}سؤال المستخدم الحالي:
-"${question}"
-`;
-
-      const systemInstruction = `أنت "المساعد الذكي والمستشار المالي الخبير" لتطبيق "دفتر الديون المحاسبي".
-مهمتك تقديم الإجابات المحاسبية الدقيقة المعتمدة على البيانات المحسوبة برمجياً أعلاه دون أي تخمين أو تغيير في الأرقام.
-
-القواعد الصارمة:
-1. اعتمد حصراً وبشكل قطعي على الجدول الحسابي والأرقام المرفقة أعلاه، ولا تغير أي رقم أو اسم أو مبلغ.
-2. اعرض الجداول بتنسيق Markdown الأنيق كما هي مجهزة.
-3. تحدث بأسلوب راقٍ، مهني، مباشر، باللغة العربية.
-4. اذكر دائماً المبالغ بالأرقام والعملة (${currency}).
-${customInstructions ? `\nتعليمات إضافية مخصصة من المستخدم:\n${customInstructions}` : ""}`;
-
-      let response;
-      try {
+      let response: any;
+      let toolRounds = 0;
+      while (toolRounds <= 6) {
         response = await ai.models.generateContent({
           model: modelToUse,
-          contents: contextPrompt,
-          config: {
-            systemInstruction,
-          },
+          contents,
+          config: { systemInstruction, tools, temperature: 0.1 },
         });
-      } catch (primaryModelErr) {
-        console.warn(`Primary model ${modelToUse} failed, trying stable fallback gemini-2.5-flash:`, primaryModelErr);
-        modelToUse = "gemini-2.5-flash";
-        response = await ai.models.generateContent({
-          model: modelToUse,
-          contents: contextPrompt,
-          config: {
-            systemInstruction,
-          },
-        });
+
+        const calls = response.functionCalls ?? [];
+        if (!calls.length) break;
+        if (toolRounds === 6) throw new Error("تجاوز المساعد الحد الآمن لاستدعاءات الأدوات.");
+
+        const modelContent = response.candidates?.[0]?.content;
+        if (modelContent) contents.push(modelContent);
+        const functionResponseParts: any[] = [];
+        for (const call of calls) {
+          if (!call.name) continue;
+          let result: unknown;
+          try {
+            result = executeFinancialAssistantTool(call.name, (call.args ?? {}) as Record<string, unknown>, dataset);
+          } catch (toolError) {
+            result = { error: "تعذر تنفيذ أداة المحاسبة بأمان." };
+            console.error("Financial assistant tool failed:", call.name, toolError);
+          }
+          functionResponseParts.push({
+            functionResponse: { name: call.name, response: { result } },
+          });
+        }
+        if (functionResponseParts.length) contents.push({ role: "user", parts: functionResponseParts });
+        toolRounds += 1;
       }
 
-      const text = response.text?.trim();
-      if (text) {
+      const answer = String(response?.text ?? "").trim();
+      if (answer) {
         return {
           success: true,
-          answer: text,
+          answer,
           source: "gemini",
           modelUsed: modelToUse,
           requestedModel,
@@ -831,15 +896,35 @@ ${customInstructions ? `\nتعليمات إضافية مخصصة من المست
         };
       }
     } catch (aiErr) {
-      console.warn("Gemini generation failed, falling back to deterministic result:", aiErr);
+      console.error("Gemini tool-assisted financial assistant failed:", aiErr);
     }
   }
 
+  if (resolved.intent !== "overview") {
+    return {
+      success: true,
+      answer: resolved.resultAnswer,
+      source: "deterministic_analyzer",
+      modelUsed: "المحرك المحاسبي (نتيجة احتياطية محددة)",
+      requestedModel,
+      dataSummary: {
+        totalDebt: dataset.portfolio.totalDebt,
+        totalPaid: dataset.portfolio.totalPaid,
+        totalRemaining: dataset.portfolio.totalRemaining,
+        debtorCount: dataset.portfolio.debtorCount,
+        overdueCount: dataset.portfolio.overdueCount,
+        currency,
+      },
+    };
+  }
+
   return {
-    success: true,
-    answer: resolved.resultAnswer,
+    success: false,
+    answer: "ما كدرت أفهم الطلب أو أنفذه بثقة. وضّحلي شنو تريد تحديداً، مثلاً اسم العميل أو الفترة أو نوع المبلغ.",
     source: "deterministic_analyzer",
-    modelUsed: "المحرك المحاسبي المالي الذكي (موثق)",
+    modelUsed: "طلب توضيح",
+    requestedModel,
+    error: "UNRECOGNIZED_QUERY",
     dataSummary: {
       totalDebt: dataset.portfolio.totalDebt,
       totalPaid: dataset.portfolio.totalPaid,
