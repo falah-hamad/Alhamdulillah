@@ -732,6 +732,25 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
     conversationHistory,
   });
 
+  // Range filters are exact database queries: return their computed table directly
+  // instead of letting a generative model replace it with a generic explanation.
+  if (resolved.intent === "range") {
+    return {
+      success: true,
+      answer: resolved.resultAnswer,
+      source: "deterministic_analyzer",
+      modelUsed: "المحرك المحاسبي المالي (تصفية دقيقة)",
+      dataSummary: {
+        totalDebt: dataset.portfolio.totalDebt,
+        totalPaid: dataset.portfolio.totalPaid,
+        totalRemaining: dataset.portfolio.totalRemaining,
+        debtorCount: dataset.portfolio.debtorCount,
+        overdueCount: dataset.portfolio.overdueCount,
+        currency,
+      },
+    };
+  }
+
   const apiKey = process.env.GEMINI_API_KEY || (functions.config()?.gemini?.key as string | undefined);
 
   if (apiKey) {
