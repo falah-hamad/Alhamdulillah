@@ -337,7 +337,7 @@ export async function askFinancialAssistantServer(
         conversationHistory,
         localData,
       });
-      if (res.data && res.data.success) {
+      if (res.data && typeof res.data.answer === "string") {
         return {
           ...res.data,
           latencyMs: Date.now() - startTime,
