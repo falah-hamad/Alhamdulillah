@@ -441,7 +441,7 @@ function parseDebtRangeFromQuestion(normalizedQuestion: string): { min: number; 
   // Parse numeric debt ranges independently of surrounding Arabic wording.
   // Examples: "ديونهم بين 5,000 الى 15,000 د.ع" and "من 5000 و 15000".
   const match = normalizedQuestion.match(
-    /(?:^|\\s)(?:بين|من)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)\\s*(?:و|الى|-)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)(?=\\s|$)/i
+    /(?:^|\\s)(?:بين|من)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)\\s*(?:و|الى|الي|-)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)(?=\\s|$)/i
   );
   if (!match) return null;
 
