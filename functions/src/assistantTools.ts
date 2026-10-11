@@ -61,6 +61,17 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "get_payment_summary",
+            description: "احسب ملخص الدفعات خلال فترة زمنية، مع إجمالي المبالغ وعدد الدفعات وتوزيعها حسب طريقة الدفع، واستبعد الدفعات المحذوفة.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                fromDate: { type: Type.STRING, description: "تاريخ بداية شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "تاريخ نهاية شامل YYYY-MM-DD." },
+              },
+            },
+          },
+          {
             name: "search_payments",
             description: "ابحث في الدفعات حسب العميل أو فترة التاريخ أو مبلغ الدفعة. التاريخ بصيغة YYYY-MM-DD.",
             parameters: {
@@ -84,7 +95,8 @@ export type FinancialToolName =
   | "search_invoices"
   | "get_customer_ledger"
   | "get_folder_summary"
-  | "search_payments";
+  | "search_payments"
+  | "get_payment_summary";
 
 function normalize(value: unknown): string {
   return String(value ?? "")
@@ -339,6 +351,54 @@ export function executeFinancialAssistantTool(
       const limit = safeLimit(args.limit, 30, 100);
       rows = rows.slice(0, limit);
       return { totalMatches, totalAmount, returned: rows.length, payments: rows, currency: dataset.currency };
+    }
+
+    case "get_payment_summary": {
+      const from = args.fromDate ? String(args.fromDate) : "";
+      const to = args.toDate ? String(args.toDate) : "";
+      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      if (!validDate(from) || !validDate(to)) {
+        return { error: "صيغة التاريخ غير صالحة. استخدم YYYY-MM-DD." };
+      }
+      if (from && to && from > to) {
+        return { error: "تاريخ البداية يجب ألا يكون بعد تاريخ النهاية." };
+      }
+      const rows = dataset.rawPayments
+        .filter((p: any) => p?.isDeleted !== true)
+        .map((p: any) => {
+          const customerId = String(p.customerId ?? "");
+          const customer = dataset.customerMap.get(customerId);
+          return {
+            id: String(p.id ?? p.receiptNumber ?? ""),
+            customerName: customer?.name ?? String(p.customerName ?? "عميل غير معروف"),
+            date: String(p.date ?? ""),
+            amount: Number(p.amount) || 0,
+            method: String(p.method ?? "غير محدد"),
+          };
+        })
+        .filter((p) => {
+          const dateKey = p.date.slice(0, 10);
+          if (from && (!dateKey || dateKey < from)) return false;
+          if (to && (!dateKey || dateKey > to)) return false;
+          return true;
+        });
+      const methods = new Map<string, { method: string; count: number; totalAmount: number }>();
+      for (const payment of rows) {
+        const method = payment.method || "غير محدد";
+        const entry = methods.get(method) ?? { method, count: 0, totalAmount: 0 };
+        entry.count += 1;
+        entry.totalAmount += payment.amount;
+        methods.set(method, entry);
+      }
+      return {
+        fromDate: from || null,
+        toDate: to || null,
+        totalPayments: rows.length,
+        totalAmount: rows.reduce((sum, p) => sum + p.amount, 0),
+        methods: Array.from(methods.values()).sort((a, b) => b.totalAmount - a.totalAmount),
+        recentPayments: rows.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10),
+        currency: dataset.currency,
+      };
     }
 
     default:
