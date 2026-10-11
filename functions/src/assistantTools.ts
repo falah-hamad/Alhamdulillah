@@ -92,6 +92,31 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "get_invoice_aging_summary",
+            description: "لخص أعمار الديون المتبقية حسب تاريخ الاستحقاق: غير مستحقة، 1-30، 31-60، 61-90، وأكثر من 90 يوماً. يستبعد الفواتير المحذوفة.",
+            parameters: { type: Type.OBJECT, properties: { asOfDate: { type: Type.STRING, description: "تاريخ التقييم YYYY-MM-DD، اختياري." }, folderName: { type: Type.STRING, description: "اسم المجلد اختيارياً." } } },
+          },
+          {
+            name: "get_monthly_financial_trend",
+            description: "اعرض ملخصاً شهرياً للفواتير والدفعات المسجلة في دفتر الدفعات خلال نطاق أشهر. لا تجمع paidOnInvoices مع paymentLedgerAmount لأنهما قد يمثلان نفس التحصيل.",
+            parameters: { type: Type.OBJECT, properties: { fromMonth: { type: Type.STRING, description: "أول شهر شامل بصيغة YYYY-MM." }, toMonth: { type: Type.STRING, description: "آخر شهر شامل بصيغة YYYY-MM." } } },
+          },
+          {
+            name: "get_customers_without_recent_payment",
+            description: "ابحث عن العملاء الذين لم يسجل لهم دفع منذ عدد أيام محدد أو لم يسددوا قط، مع فلترة بالمجلد والحد الأدنى للدين المتبقي.",
+            parameters: { type: Type.OBJECT, properties: { asOfDate: { type: Type.STRING, description: "تاريخ التقييم YYYY-MM-DD، اختياري." }, daysWithoutPayment: { type: Type.NUMBER, description: "عدد الأيام دون دفعة، الافتراضي 30." }, minRemainingDebt: { type: Type.NUMBER, description: "الحد الأدنى للدين المتبقي." }, folderName: { type: Type.STRING, description: "اسم المجلد اختيارياً." }, includeNeverPaid: { type: Type.BOOLEAN, description: "تضمين العملاء الذين ليس لهم أي دفعة مسجلة، الافتراضي نعم." }, limit: { type: Type.NUMBER, description: "عدد النتائج 1-100." } } },
+          },
+          {
+            name: "get_customer_activity_timeline",
+            description: "اجمع سجل نشاط عميل واحد زمنياً من فواتيره ودفعاته. إذا كان الاسم ملتبساً اطلب تحديد العميل.",
+            parameters: { type: Type.OBJECT, properties: { customerName: { type: Type.STRING, description: "اسم العميل أو جزء منه." }, customerId: { type: Type.STRING, description: "معرف العميل إذا كان معروفاً." }, limit: { type: Type.NUMBER, description: "عدد الأحداث 1-100." } } },
+          },
+          {
+            name: "get_payment_reconciliation",
+            description: "قارن المبالغ المسددة المسجلة على الفواتير مع مجموع قيود دفتر الدفعات لكل عميل، وأظهر الفروقات المحتملة للمراجعة دون تغيير أي بيانات أو اعتبارها خطأ مؤكداً.",
+            parameters: { type: Type.OBJECT, properties: { minDifference: { type: Type.NUMBER, description: "أقل فرق مطلق لعرضه، الافتراضي صفر." }, limit: { type: Type.NUMBER, description: "عدد العملاء 1-100." } } },
+          },
+          {
             name: "get_customer_ledger",
             description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
             parameters: {
@@ -147,6 +172,11 @@ export type FinancialToolName =
   | "get_overdue_invoices"
   | "get_invoice_status_summary"
   | "get_collection_priorities"
+  | "get_invoice_aging_summary"
+  | "get_monthly_financial_trend"
+  | "get_customers_without_recent_payment"
+  | "get_customer_activity_timeline"
+  | "get_payment_reconciliation"
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments"
@@ -465,6 +495,125 @@ export function executeFinancialAssistantTool(
         currency: dataset.currency,
         note: "الأولوية إرشادية حسب المبلغ المتأخر، وليست حكماً على العميل.",
       };
+    }
+
+    case "get_invoice_aging_summary": {
+      const asOfDate = args.asOfDate ? String(args.asOfDate) : new Date().toISOString().slice(0, 10);
+      const folderQuery = normalize(args.folderName);
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
+      const asOfMs = Date.parse(asOfDate + "T00:00:00Z");
+      const buckets: Record<string, { label: string; count: number; totalRemaining: number }> = {
+        notDue: { label: "غير مستحقة بعد", count: 0, totalRemaining: 0 },
+        days1to30: { label: "متأخرة 1-30 يوماً", count: 0, totalRemaining: 0 },
+        days31to60: { label: "متأخرة 31-60 يوماً", count: 0, totalRemaining: 0 },
+        days61to90: { label: "متأخرة 61-90 يوماً", count: 0, totalRemaining: 0 },
+        over90: { label: "متأخرة أكثر من 90 يوماً", count: 0, totalRemaining: 0 },
+        missingDueDate: { label: "بلا تاريخ استحقاق", count: 0, totalRemaining: 0 },
+      };
+      for (const inv of dataset.rawInvoices.filter((row: any) => row?.isDeleted !== true)) {
+        const remaining = Number(inv.remainingAmount ?? ((Number(inv.grandTotal) || 0) - (Number(inv.paidAmount) || 0))) || 0;
+        if (remaining <= 0) continue;
+        const customer = dataset.customerMap.get(String(inv.customerId ?? ""));
+        if (folderQuery && !normalize(customer?.folderName).includes(folderQuery)) continue;
+        const dueDate = String(inv.dueDate ?? "").slice(0, 10);
+        let key = "missingDueDate";
+        if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) {
+          const ageDays = Math.floor((asOfMs - Date.parse(dueDate + "T00:00:00Z")) / 86400000);
+          key = ageDays < 0 ? "notDue" : ageDays <= 30 ? "days1to30" : ageDays <= 60 ? "days31to60" : ageDays <= 90 ? "days61to90" : "over90";
+        }
+        buckets[key].count += 1;
+        buckets[key].totalRemaining += remaining;
+      }
+      return { asOfDate, buckets, totalOutstanding: Object.values(buckets).reduce((sum, b) => sum + b.totalRemaining, 0), currency: dataset.currency, note: "الفواتير التي لا تملك تاريخ استحقاق تظهر منفصلة ولا تُحسب ضمن المتأخرة." };
+    }
+
+    case "get_monthly_financial_trend": {
+      const from = args.fromMonth ? String(args.fromMonth) : "";
+      const to = args.toMonth ? String(args.toMonth) : "";
+      const validMonth = (value: string) => !value || /^\\d{4}-(0[1-9]|1[0-2])$/.test(value);
+      if (!validMonth(from) || !validMonth(to)) return { error: "صيغة الشهر غير صالحة. استخدم YYYY-MM." };
+      if (from && to && from > to) return { error: "شهر البداية يجب ألا يكون بعد شهر النهاية." };
+      const monthly = new Map<string, any>();
+      const getRow = (month: string) => {
+        if (!monthly.has(month)) monthly.set(month, { month, invoiceCount: 0, invoiceTotal: 0, paidOnInvoices: 0, invoiceRemaining: 0, paymentCount: 0, paymentLedgerAmount: 0 });
+        return monthly.get(month);
+      };
+      const inRange = (month: string) => !!month && (!from || month >= from) && (!to || month <= to);
+      for (const inv of dataset.rawInvoices.filter((row: any) => row?.isDeleted !== true)) {
+        const month = String(inv.date ?? "").slice(0, 7);
+        if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
+        const row = getRow(month);
+        const total = Number(inv.grandTotal) || 0;
+        const paid = Number(inv.paidAmount) || 0;
+        row.invoiceCount += 1;
+        row.invoiceTotal += total;
+        row.paidOnInvoices += paid;
+        row.invoiceRemaining += Math.max(0, Number(inv.remainingAmount ?? (total - paid)) || 0);
+      }
+      for (const payment of dataset.rawPayments.filter((row: any) => row?.isDeleted !== true)) {
+        const month = String(payment.date ?? "").slice(0, 7);
+        if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
+        const row = getRow(month);
+        row.paymentCount += 1;
+        row.paymentLedgerAmount += Number(payment.amount) || 0;
+      }
+      const months = Array.from(monthly.values()).sort((a, b) => a.month.localeCompare(b.month));
+      return { fromMonth: from || null, toMonth: to || null, months, currency: dataset.currency, note: "paidOnInvoices وpaymentLedgerAmount مصدران مختلفان وقد يصفان التحصيل نفسه؛ لا تجمعهما." };
+    }
+
+    case "get_customers_without_recent_payment": {
+      const asOfDate = args.asOfDate ? String(args.asOfDate) : new Date().toISOString().slice(0, 10);
+      const days = args.daysWithoutPayment === undefined ? 30 : Number(args.daysWithoutPayment);
+      const minRemaining = args.minRemainingDebt === undefined ? 0 : Number(args.minRemainingDebt);
+      const folderQuery = normalize(args.folderName);
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
+      if (!Number.isInteger(days) || days < 1 || days > 3650) return { error: "عدد الأيام يجب أن يكون بين 1 و3650." };
+      if (!Number.isFinite(minRemaining) || minRemaining < 0) return { error: "الحد الأدنى للدين المتبقي غير صالح." };
+      const cutoff = Date.parse(asOfDate + "T00:00:00Z") - days * 86400000;
+      const rows = dataset.customers.filter((c) => {
+        if (c.remainingDebt < minRemaining || c.remainingDebt <= 0) return false;
+        if (folderQuery && !normalize(c.folderName).includes(folderQuery)) return false;
+        const last = c.lastPaymentDate ? Date.parse(String(c.lastPaymentDate).slice(0, 10) + "T00:00:00Z") : NaN;
+        if (!Number.isFinite(last)) return args.includeNeverPaid !== false;
+        return last <= cutoff;
+      }).sort((a, b) => {
+        const ad = a.lastPaymentDate ? String(a.lastPaymentDate) : "";
+        const bd = b.lastPaymentDate ? String(b.lastPaymentDate) : "";
+        return ad.localeCompare(bd) || b.remainingDebt - a.remainingDebt;
+      });
+      const totalMatches = rows.length;
+      const limit = safeLimit(args.limit, 30, 100);
+      return { asOfDate, daysWithoutPayment: days, totalMatches, returned: Math.min(limit, totalMatches), customers: rows.slice(0, limit).map((c) => ({ ...customerRow(c), daysSinceLastPayment: c.lastPaymentDate ? Math.max(0, Math.floor((Date.parse(asOfDate + "T00:00:00Z") - Date.parse(String(c.lastPaymentDate).slice(0, 10) + "T00:00:00Z")) / 86400000)) : null, neverPaid: !c.lastPaymentDate }), currency: dataset.currency };
+    }
+
+    case "get_customer_activity_timeline": {
+      const query = normalize(args.customerName ?? args.customerId);
+      if (!query) return { error: "اسم العميل أو معرفه مطلوب." };
+      const matches = dataset.customers.filter((c) => c.id === String(args.customerId ?? "") || normalize(c.name) === query || normalize(c.name).includes(query));
+      if (!matches.length) return { found: false, message: "لم يتم العثور على عميل مطابق." };
+      if (matches.length > 1 && !matches.some((c) => c.id === String(args.customerId ?? ""))) return { found: false, ambiguous: true, matches: matches.slice(0, 10).map((c) => ({ id: c.id, name: c.name, folder: c.folderName })) };
+      const customer = matches.find((c) => c.id === String(args.customerId ?? "")) ?? matches[0];
+      const events = [
+        ...dataset.rawInvoices.filter((inv: any) => inv?.isDeleted !== true && String(inv.customerId ?? "") === customer.id).map((inv: any) => ({ type: "invoice", date: String(inv.date ?? ""), id: String(inv.invoiceNumber ?? inv.id ?? ""), amount: Number(inv.grandTotal) || 0, remaining: Number(inv.remainingAmount ?? ((Number(inv.grandTotal) || 0) - (Number(inv.paidAmount) || 0))) || 0, description: String(inv.description ?? inv.notes ?? "فاتورة") })),
+        ...dataset.rawPayments.filter((p: any) => p?.isDeleted !== true && String(p.customerId ?? "") === customer.id).map((p: any) => ({ type: "payment", date: String(p.date ?? ""), id: String(p.receiptNumber ?? p.id ?? ""), amount: Number(p.amount) || 0, method: String(p.method ?? "غير محدد"), description: String(p.note ?? p.notes ?? "دفعة مسجلة") })),
+      ].sort((a, b) => b.date.localeCompare(a.date));
+      const limit = safeLimit(args.limit, 30, 100);
+      return { found: true, customer: customerRow(customer), totalEvents: events.length, events: events.slice(0, limit), currency: dataset.currency, note: "الدفعات والفواتير أحداث منفصلة؛ لا تجمع قيمها كمجموع مالي واحد." };
+    }
+
+    case "get_payment_reconciliation": {
+      const minDifference = args.minDifference === undefined ? 0 : Number(args.minDifference);
+      if (!Number.isFinite(minDifference) || minDifference < 0) return { error: "الحد الأدنى للفرق غير صالح." };
+      const rows = dataset.customers.map((customer) => {
+        const invoicePaid = dataset.rawInvoices.filter((inv: any) => inv?.isDeleted !== true && String(inv.customerId ?? "") === customer.id).reduce((sum: number, inv: any) => sum + (Number(inv.paidAmount) || 0), 0);
+        const ledgerPaid = dataset.rawPayments.filter((p: any) => p?.isDeleted !== true && String(p.customerId ?? "") === customer.id).reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        const difference = invoicePaid - ledgerPaid;
+        return { id: customer.id, name: customer.name, folder: customer.folderName, invoicePaid, paymentLedgerAmount: ledgerPaid, difference, absoluteDifference: Math.abs(difference), remainingDebt: customer.remainingDebt };
+      }).filter((row) => row.absoluteDifference >= minDifference)
+        .sort((a, b) => b.absoluteDifference - a.absoluteDifference);
+      const totalMatches = rows.length;
+      const limit = safeLimit(args.limit, 50, 100);
+      return { totalMatches, returned: Math.min(limit, totalMatches), customers: rows.slice(0, limit), currency: dataset.currency, note: "الفرق مؤشر للمراجعة فقط؛ قد توجد دفعات قديمة أو تسويات أو اختلافات في طريقة التسجيل. لم يتم تعديل أي سجل." };
     }
 
     case "get_customer_ledger": {
