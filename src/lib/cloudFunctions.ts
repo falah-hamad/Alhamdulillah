@@ -194,6 +194,7 @@ export interface FinancialAssistantOptions {
 
 function analyzeLocallyOnClient(
   question: string,
+  conversationHistory?: Array<{ sender: "user" | "ai"; text: string }>,
   localData?: {
     folders?: any[];
     customers?: any[];
@@ -209,7 +210,9 @@ function analyzeLocallyOnClient(
   const currency = localData?.settings?.currency || "د.ع";
 
   const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
-  const resolved = executeDeterministicFinancialQuery(question, dataset);
+  const resolved = executeDeterministicFinancialQuery(question, dataset, {
+    conversationHistory,
+  });
 
   return {
     success: true,
@@ -382,7 +385,7 @@ export async function askFinancialAssistantServer(
   }
 
   // 3. Deterministic client-side analyzer fallback (calculated on 100% of data)
-  const localRes = analyzeLocallyOnClient(question, localData);
+  const localRes = analyzeLocallyOnClient(question, conversationHistory, localData);
   return {
     ...localRes,
     latencyMs: Date.now() - startTime,
@@ -390,4 +393,3 @@ export async function askFinancialAssistantServer(
     requestedModel: model,
   };
 }
-

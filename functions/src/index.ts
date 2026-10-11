@@ -720,16 +720,17 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
   // Firestore is authoritative for server-side financial answers. Never replace
   // cloud records with client-provided localData, which may be stale or incomplete.
 
-  // Run full deterministic engine on 100% of data (zero slicing)
-  const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
-  const resolved = executeDeterministicFinancialQuery(question, dataset);
-
   const requestedModel = typeof data?.model === "string" ? data.model.trim() : "gemini-3.8-flash";
   let modelToUse = requestedModel;
   if (modelToUse === "gemini-3.5-flash-lite") modelToUse = "gemini-3.1-flash-lite";
 
   const customInstructions = typeof data?.customInstructions === "string" ? data.customInstructions.trim() : "";
   const conversationHistory = Array.isArray(data?.conversationHistory) ? data.conversationHistory : [];
+  // Run full deterministic engine on 100% of data (zero slicing)
+  const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
+  const resolved = executeDeterministicFinancialQuery(question, dataset, {
+    conversationHistory,
+  });
 
   const apiKey = process.env.GEMINI_API_KEY || (functions.config()?.gemini?.key as string | undefined);
 
@@ -881,4 +882,3 @@ export const testGeminiModel = functions.https.onCall(async (data, context) => {
     };
   }
 });
-
