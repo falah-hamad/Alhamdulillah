@@ -48,7 +48,7 @@ export default function CustomerMentionDropdown({
     const cleanQuery = query.trim().toLowerCase();
     if (!cleanQuery) {
       // Prioritize customers with remaining debt
-      return [...debtorList].sort((a, b) => b.remainingDebt - a.remainingDebt).slice(0, 10);
+      return [...debtorList].sort((a, b) => b.remainingDebt - a.remainingDebt);
     }
     return debtorList
       .filter((item) => {
@@ -56,11 +56,11 @@ export default function CustomerMentionDropdown({
         const phoneMatch = item.customer.phone?.includes(cleanQuery);
         return nameMatch || phoneMatch;
       })
-      .slice(0, 10);
+      ;
   }, [debtorList, query]);
 
   return (
-    <div className="absolute bottom-full mb-2 right-0 left-0 sm:left-auto sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-2 duration-150">
+    <div className="absolute bottom-full mb-2 right-0 left-0 w-full sm:left-auto sm:w-80 sm:max-w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
       <div className="p-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
         <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
           <User className="w-3.5 h-3.5 text-blue-600" />
@@ -75,7 +75,7 @@ export default function CustomerMentionDropdown({
         </button>
       </div>
 
-      <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 p-1">
+      <div className="max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-slate-800/60 p-1">
         {filtered.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
             لا يوجد عميل يطابق هذا الاسم
