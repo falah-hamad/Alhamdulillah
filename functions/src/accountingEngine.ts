@@ -92,6 +92,20 @@ export function parseArabicNumber(text: string): number | null {
   return isNaN(num) ? null : num;
 }
 
+function parseArabicCount(question: string, fallback: number): number {
+  const normalized = normalizeArabic(question);
+  const numeric = normalized.match(/(?:اعلى|اكثر|اكبر|اقل|ادنى|توب)\s*(\d+)/);
+  if (numeric) return Math.max(1, Math.min(100, Number(numeric[1]) || fallback));
+  const words: Record<string, number> = {
+    واحد: 1, واحده: 1, اثنين: 2, اثنان: 2, ثلاثه: 3, ثلاث: 3,
+    اربعه: 4, اربع: 4, خمسه: 5, خمس: 5, سته: 6, ست: 6,
+    سبعه: 7, سبع: 7, ثمانيه: 8, ثمان: 8, تسعه: 9, تسع: 9,
+    عشره: 10, عشر: 10,
+  };
+  const match = normalized.match(/(?:اعلى|اكثر|اكبر|اقل|ادنى|توب)\s*(واحده?|اثنين|اثنان|ثلاثه|ثلاث|اربعه|اربع|خمسه|خمس|سته|ست|سبعه|سبع|ثمانيه|ثمان|تسعه|تسع|عشره|عشر)/);
+  return match ? (words[match[1]] || fallback) : fallback;
+}
+
 export function processFullAccountingDataset(
   customersRaw: any[],
   foldersRaw: any[],
@@ -178,14 +192,13 @@ export function processFullAccountingDataset(
     }
   });
 
+  // Invoice paidAmount/remainingAmount are the balance source of truth: addPayment()
+  // updates those fields as well as writing a payment-ledger entry. Count ledger
+  // entries for activity/date questions, but do not apply them to balances twice.
   activePayments.forEach((pay) => {
     const summary = customerMap.get(pay.customerId);
     if (summary) {
-      const amt = Number(pay.amount) || 0;
-      summary.totalPaid += amt;
-      summary.remainingDebt = Math.max(0, summary.remainingDebt - amt);
       summary.paymentCount += 1;
-
       if (pay.date && (!summary.lastPaymentDate || pay.date > summary.lastPaymentDate)) {
         summary.lastPaymentDate = pay.date;
       }
@@ -469,6 +482,32 @@ export function executeDeterministicFinancialQuery(
   const normQ = normalizeArabic(question);
   const { currency, customers, debtors, folders, rawInvoices, rawPayments } = dataset;
 
+  // Handle grouped rankings before matching customer names; otherwise a customer
+  // name in the question can swallow a multi-folder query.
+  const asksTopPerFolder =
+    (normQ.includes("لكل مجلد") || normQ.includes("في كل مجلد")) &&
+    (normQ.includes("اعلى") || normQ.includes("اكثر") || normQ.includes("اكبر") || normQ.includes("توب"));
+  if (asksTopPerFolder) {
+    const limit = parseArabicCount(normQ, 5);
+    const sections = folders.map((folder) => {
+      const allFolderDebtors = debtors.filter((customer) => customer.folderId === folder.id);
+      const folderDebtors = [...allFolderDebtors]
+        .sort((a, b) => b.remainingDebt - a.remainingDebt)
+        .slice(0, limit);
+      return \`### 📁 \${folder.name} — أعلى \${limit} مدينين\\n\\n\` +
+        formatDebtorsTable(folderDebtors, currency, { totalAvailable: allFolderDebtors.length });
+    });
+    const allUnassigned = debtors.filter((customer) => !customer.folderId);
+    if (allUnassigned.length) {
+      sections.push(\`### 📁 عام / بدون مجلد — أعلى \${limit} مدينين\\n\\n\` +
+        formatDebtorsTable([...allUnassigned].sort((a, b) => b.remainingDebt - a.remainingDebt).slice(0, limit), currency, { totalAvailable: allUnassigned.length }));
+    }
+    return {
+      intent: "top_debtors_per_folder",
+      resultAnswer: sections.length ? sections.join("\\n\\n") : "لا توجد مجلدات أو ديون مطابقة.",
+    };
+  }
+
   const sortedByLength = [...customers].sort((a, b) => b.name.length - a.name.length);
   for (const c of sortedByLength) {
     const normName = normalizeArabic(c.name);
@@ -490,8 +529,7 @@ export function executeDeterministicFinancialQuery(
     normQ.includes("توب")
   ) {
     if (!normQ.includes("سدد") && !normQ.includes("دفع")) {
-      const matchNum = normQ.match(/(?:اعلى|اكثر|اكبر)\s*(\d+)/);
-      const limit = matchNum ? parseInt(matchNum[1], 10) : 10;
+      const limit = parseArabicCount(normQ, 10);
 
       const sorted = [...debtors].sort((a, b) => b.remainingDebt - a.remainingDebt);
       const sliced = sorted.slice(0, limit);
@@ -514,8 +552,7 @@ export function executeDeterministicFinancialQuery(
     normQ.includes("اصغر ديون") ||
     normQ.includes("ابسط ديون")
   ) {
-    const matchNum = normQ.match(/(?:اقل|ادنى)\s*(\d+)/);
-    const limit = matchNum ? parseInt(matchNum[1], 10) : 5;
+    const limit = parseArabicCount(normQ, 5);
 
     const sorted = [...debtors].sort((a, b) => a.remainingDebt - b.remainingDebt);
     const sliced = sorted.slice(0, limit);
