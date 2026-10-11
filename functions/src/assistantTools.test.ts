@@ -162,6 +162,23 @@ test("get_payment_summary rejects reversed date ranges", () => {
   assert.match(result.error, /تاريخ البداية/);
 });
 
+test("search_unpaid_invoices returns only positive remaining balances and excludes deleted invoices", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push(
+    { id: "i4", customerId: "c1", grandTotal: 50000, paidAmount: 0, remainingAmount: 50000, date: "2026-02-01", isDeleted: true },
+    { id: "i5", customerId: "c3", grandTotal: 7000, paidAmount: 7000, remainingAmount: 0, date: "2026-02-02" }
+  );
+
+  const result = executeFinancialAssistantTool("search_unpaid_invoices", {
+    minRemaining: 9000,
+    limit: 10,
+  }, dataset) as any;
+
+  assert.equal(result.totalMatches, 2);
+  assert.equal(result.totalRemaining, 25000);
+  assert.deepEqual(result.invoices.map((invoice: any) => invoice.customerName), ["محمد حسن", "أحمد علي"]);
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
