@@ -325,7 +325,32 @@ export async function askFinancialAssistantServer(
     };
   }
 
-  // 1. Try local server API endpoint first
+  // 1. Prefer the authoritative Firebase agent with tool calling
+  const fns = getCloudFunctions();
+  if (fns) {
+    try {
+      const askFn = httpsCallable<any, any>(fns, "askFinancialAssistant");
+      const res = await askFn({
+        question,
+        model,
+        customInstructions,
+        conversationHistory,
+        localData,
+      });
+      if (res.data && res.data.success) {
+        return {
+          ...res.data,
+          latencyMs: Date.now() - startTime,
+        } as FinancialAssistantResponse;
+      }
+    } catch (e: any) {
+      console.warn("Cloud function askFinancialAssistant notice (using fallback):", e);
+    }
+  }
+
+
+
+  // 2. Server API fallback (used only if Firebase callable is unavailable)
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (options.idToken) {
@@ -359,29 +384,6 @@ export async function askFinancialAssistantServer(
       throw apiErr;
     }
     // Server fetch not available (e.g. mobile or offline), proceed to Firebase Functions
-  }
-
-  // 2. Try Firebase Cloud Function
-  const fns = getCloudFunctions();
-  if (fns) {
-    try {
-      const askFn = httpsCallable<any, any>(fns, "askFinancialAssistant");
-      const res = await askFn({
-        question,
-        model,
-        customInstructions,
-        conversationHistory,
-        localData,
-      });
-      if (res.data && res.data.success) {
-        return {
-          ...res.data,
-          latencyMs: Date.now() - startTime,
-        } as FinancialAssistantResponse;
-      }
-    } catch (e: any) {
-      console.warn("Cloud function askFinancialAssistant notice (using fallback):", e);
-    }
   }
 
   // 3. Deterministic client-side analyzer fallback (calculated on 100% of data)
