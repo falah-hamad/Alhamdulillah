@@ -133,6 +133,35 @@ test("search_payments filters by date and amount", () => {
   assert.equal(result.payments[0].customerName, "محمد حسن");
 });
 
+test("get_payment_summary totals payments by method within a date range and excludes deleted payments", () => {
+  const dataset = fixture();
+  dataset.rawPayments.push(
+    { id: "p3", customerId: "c1", amount: 9000, date: "2026-02-12", method: "تحويل", isDeleted: true },
+    { id: "p4", customerId: "c1", amount: 4000, date: "2026-02-12", method: "تحويل" }
+  );
+
+  const result = executeFinancialAssistantTool("get_payment_summary", {
+    fromDate: "2026-02-01",
+    toDate: "2026-02-28",
+  }, dataset) as any;
+
+  assert.equal(result.totalPayments, 2);
+  assert.equal(result.totalAmount, 7000);
+  assert.deepEqual(result.methods, [
+    { method: "نقدي", count: 1, totalAmount: 3000 },
+    { method: "تحويل", count: 1, totalAmount: 4000 },
+  ].sort((a, b) => b.totalAmount - a.totalAmount));
+});
+
+test("get_payment_summary rejects reversed date ranges", () => {
+  const result = executeFinancialAssistantTool("get_payment_summary", {
+    fromDate: "2026-03-01",
+    toDate: "2026-02-01",
+  }, fixture()) as any;
+
+  assert.match(result.error, /تاريخ البداية/);
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
