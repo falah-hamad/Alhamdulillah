@@ -228,7 +228,7 @@ test("get_collection_priorities ranks overdue debtors and supports folder filter
   assert.equal(result.returned, 2);
   assert.equal(result.customers[0].name, "أحمد علي");
   assert.equal(result.customers[0].overdueAmount, 40000);
-  assert.equal(result.customers[0].collectionPriority, "عادية");
+  assert.equal(result.customers[0].collectionPriority, "متوسطة");
 });
 
 test("unknown tool returns an explicit error rather than fabricated data", () => {
