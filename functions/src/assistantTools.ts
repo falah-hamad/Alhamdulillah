@@ -348,7 +348,7 @@ export function executeFinancialAssistantTool(
       const asOfDate = args.asOfDate ? String(args.asOfDate) : new Date().toISOString().slice(0, 10);
       const customerQuery = normalize(args.customerName);
       const minRemaining = args.minRemaining === undefined ? 0 : Number(args.minRemaining);
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) {
         return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
       }
       if (!Number.isFinite(minRemaining) || minRemaining < 0) {
@@ -387,7 +387,7 @@ export function executeFinancialAssistantTool(
     case "get_invoice_status_summary": {
       const from = args.fromDate ? String(args.fromDate) : "";
       const to = args.toDate ? String(args.toDate) : "";
-      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      const validDate = (value: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
       if (!validDate(from) || !validDate(to)) return { error: "صيغة التاريخ غير صالحة. استخدم YYYY-MM-DD." };
       if (from && to && from > to) return { error: "تاريخ البداية يجب ألا يكون بعد تاريخ النهاية." };
       const invoices = dataset.rawInvoices
