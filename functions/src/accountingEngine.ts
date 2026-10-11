@@ -494,17 +494,17 @@ export function executeDeterministicFinancialQuery(
       const folderDebtors = [...allFolderDebtors]
         .sort((a, b) => b.remainingDebt - a.remainingDebt)
         .slice(0, limit);
-      return \`### 📁 \${folder.name} — أعلى \${limit} مدينين\\n\\n\` +
+      return `### 📁 \${folder.name} — أعلى \${limit} مدينين\n\n` +
         formatDebtorsTable(folderDebtors, currency, { totalAvailable: allFolderDebtors.length });
     });
     const allUnassigned = debtors.filter((customer) => !customer.folderId);
     if (allUnassigned.length) {
-      sections.push(\`### 📁 عام / بدون مجلد — أعلى \${limit} مدينين\\n\\n\` +
+      sections.push(`### 📁 عام / بدون مجلد — أعلى \${limit} مدينين\n\n` +
         formatDebtorsTable([...allUnassigned].sort((a, b) => b.remainingDebt - a.remainingDebt).slice(0, limit), currency, { totalAvailable: allUnassigned.length }));
     }
     return {
       intent: "top_debtors_per_folder",
-      resultAnswer: sections.length ? sections.join("\\n\\n") : "لا توجد مجلدات أو ديون مطابقة.",
+      resultAnswer: sections.length ? sections.join("\n\n") : "لا توجد مجلدات أو ديون مطابقة.",
     };
   }
 
