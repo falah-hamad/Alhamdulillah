@@ -42,6 +42,20 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "search_unpaid_invoices",
+            description: "ابحث عن الفواتير التي لها مبلغ متبقٍ أكبر من صفر، مع فلترة اختيارية حسب العميل وتاريخ الفاتورة والحد الأدنى للمتبقي. استبعد الفواتير المحذوفة.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING, description: "اسم العميل أو جزء منه." },
+                fromDate: { type: Type.STRING, description: "تاريخ بداية الفاتورة شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "تاريخ نهاية الفاتورة شامل YYYY-MM-DD." },
+                minRemaining: { type: Type.NUMBER, description: "أقل مبلغ متبقٍ شامل الحد." },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
             name: "get_customer_ledger",
             description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
             parameters: {
@@ -93,6 +107,7 @@ export type FinancialToolName =
   | "get_portfolio_summary"
   | "search_customers"
   | "search_invoices"
+  | "search_unpaid_invoices"
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments"
@@ -245,6 +260,62 @@ export function executeFinancialAssistantTool(
       const limit = safeLimit(args.limit, 30, 100);
       rows = rows.slice(0, limit);
       return { totalMatches, totalAmount, totalRemaining, returned: rows.length, invoices: rows, currency: dataset.currency };
+    }
+
+    case "search_unpaid_invoices": {
+      const customerQuery = normalize(args.customerName);
+      const from = args.fromDate ? String(args.fromDate) : "";
+      const to = args.toDate ? String(args.toDate) : "";
+      const minRemaining = args.minRemaining === undefined ? 0 : Number(args.minRemaining);
+      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      if (!Number.isFinite(minRemaining) || minRemaining < 0) {
+        return { error: "الحد الأدنى للمبلغ المتبقي غير صالح." };
+      }
+      if (!validDate(from) || !validDate(to)) {
+        return { error: "صيغة التاريخ غير صالحة. استخدم YYYY-MM-DD." };
+      }
+      if (from && to && from > to) {
+        return { error: "تاريخ البداية يجب ألا يكون بعد تاريخ النهاية." };
+      }
+      let rows = dataset.rawInvoices
+        .filter((inv: any) => inv?.isDeleted !== true)
+        .map((inv: any) => {
+          const customerId = String(inv.customerId ?? "");
+          const customer = dataset.customerMap.get(customerId);
+          const total = Number(inv.grandTotal) || 0;
+          const paid = Number(inv.paidAmount) || 0;
+          return {
+            id: String(inv.id ?? inv.invoiceNumber ?? ""),
+            customerId,
+            customerName: customer?.name ?? String(inv.customerName ?? "عميل غير معروف"),
+            date: String(inv.date ?? ""),
+            dueDate: inv.dueDate ?? null,
+            description: String(inv.description ?? inv.notes ?? ""),
+            total,
+            paid,
+            remaining: Number(inv.remainingAmount ?? (total - paid)) || 0,
+          };
+        })
+        .filter((inv) => {
+          const dateKey = inv.date.slice(0, 10);
+          if (inv.remaining <= 0 || inv.remaining < minRemaining) return false;
+          if (customerQuery && !normalize(inv.customerName).includes(customerQuery)) return false;
+          if (from && (!dateKey || dateKey < from)) return false;
+          if (to && (!dateKey || dateKey > to)) return false;
+          return true;
+        })
+        .sort((a, b) => b.remaining - a.remaining);
+      const totalMatches = rows.length;
+      const totalRemaining = rows.reduce((sum, inv) => sum + inv.remaining, 0);
+      const limit = safeLimit(args.limit, 30, 100);
+      rows = rows.slice(0, limit);
+      return {
+        totalMatches,
+        totalRemaining,
+        returned: rows.length,
+        invoices: rows,
+        currency: dataset.currency,
+      };
     }
 
     case "get_customer_ledger": {
