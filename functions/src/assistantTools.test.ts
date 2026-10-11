@@ -213,6 +213,24 @@ test("get_invoice_status_summary groups invoice balances and excludes deleted in
   assert.equal(result.totalRemaining, 0);
 });
 
+test("get_collection_priorities ranks overdue debtors and supports folder filters", () => {
+  const dataset = fixture();
+  dataset.rawInvoices.push(
+    { id: "late1", customerId: "c1", grandTotal: 50000, paidAmount: 10000, remainingAmount: 40000, date: "2026-01-01", dueDate: "2026-01-15" },
+    { id: "late2", customerId: "c2", grandTotal: 20000, paidAmount: 0, remainingAmount: 20000, date: "2026-01-01", dueDate: "2026-01-15" }
+  );
+  const result = executeFinancialAssistantTool("get_collection_priorities", {
+    folderName: "المحل",
+    minOverdueAmount: 1,
+    limit: 10,
+  }, dataset) as any;
+
+  assert.equal(result.returned, 2);
+  assert.equal(result.customers[0].name, "أحمد علي");
+  assert.equal(result.customers[0].overdueAmount, 40000);
+  assert.equal(result.customers[0].collectionPriority, "عادية");
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
