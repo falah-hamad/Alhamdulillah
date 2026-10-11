@@ -583,7 +583,20 @@ export function executeFinancialAssistantTool(
       });
       const totalMatches = rows.length;
       const limit = safeLimit(args.limit, 30, 100);
-      return { asOfDate, daysWithoutPayment: days, totalMatches, returned: Math.min(limit, totalMatches), customers: rows.slice(0, limit).map((c) => ({ ...customerRow(c), daysSinceLastPayment: c.lastPaymentDate ? Math.max(0, Math.floor((Date.parse(asOfDate + "T00:00:00Z") - Date.parse(String(c.lastPaymentDate).slice(0, 10) + "T00:00:00Z")) / 86400000)) : null, neverPaid: !c.lastPaymentDate }), currency: dataset.currency };
+      return {
+        asOfDate,
+        daysWithoutPayment: days,
+        totalMatches,
+        returned: Math.min(limit, totalMatches),
+        customers: rows.slice(0, limit).map((c) => ({
+          ...customerRow(c),
+          daysSinceLastPayment: c.lastPaymentDate
+            ? Math.max(0, Math.floor((Date.parse(asOfDate + "T00:00:00Z") - Date.parse(String(c.lastPaymentDate).slice(0, 10) + "T00:00:00Z")) / 86400000))
+            : null,
+          neverPaid: !c.lastPaymentDate,
+        })),
+        currency: dataset.currency,
+      };
     }
 
     case "get_customer_activity_timeline": {
