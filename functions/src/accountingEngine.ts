@@ -71,6 +71,8 @@ export function normalizeArabic(text: string): string {
     .replace(/[ة]/g, "ه")
     .replace(/[يى]/g, "ي")
     .replace(/[ؤئ]/g, "ء")
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
     .replace(/[\s\-_]+/g, " ");
 }
 
