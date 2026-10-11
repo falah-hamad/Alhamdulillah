@@ -267,7 +267,7 @@ export function executeFinancialAssistantTool(
       const from = args.fromDate ? String(args.fromDate) : "";
       const to = args.toDate ? String(args.toDate) : "";
       const minRemaining = args.minRemaining === undefined ? 0 : Number(args.minRemaining);
-      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      const validDate = (value: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
       if (!Number.isFinite(minRemaining) || minRemaining < 0) {
         return { error: "الحد الأدنى للمبلغ المتبقي غير صالح." };
       }
@@ -427,7 +427,7 @@ export function executeFinancialAssistantTool(
     case "get_payment_summary": {
       const from = args.fromDate ? String(args.fromDate) : "";
       const to = args.toDate ? String(args.toDate) : "";
-      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      const validDate = (value: string) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
       if (!validDate(from) || !validDate(to)) {
         return { error: "صيغة التاريخ غير صالحة. استخدم YYYY-MM-DD." };
       }
