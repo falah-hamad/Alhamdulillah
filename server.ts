@@ -190,6 +190,27 @@ app.post("/api/ai/chat", async (req, res) => {
   const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
   const resolved = executeDeterministicFinancialQuery(question, dataset);
 
+  // Financial range queries must return the deterministic table verbatim.
+  // Do not let a generative model replace a valid filtered result with a generic reply.
+  if (resolved.intent === "range") {
+    return res.json({
+      success: true,
+      answer: resolved.resultAnswer,
+      modelUsed: "المحرك المالي المحاسبي (تصفية دقيقة)",
+      requestedModel: model,
+      source: "deterministic_analyzer",
+      latencyMs: Date.now() - startTime,
+      dataSummary: {
+        totalDebt: dataset.portfolio.totalDebt,
+        totalPaid: dataset.portfolio.totalPaid,
+        totalRemaining: dataset.portfolio.totalRemaining,
+        debtorCount: dataset.portfolio.debtorCount,
+        overdueCount: dataset.portfolio.overdueCount,
+        currency,
+      },
+    });
+  }
+
   const modelToUse = resolveModelId(model);
   const apiKey = process.env.GEMINI_API_KEY;
 
