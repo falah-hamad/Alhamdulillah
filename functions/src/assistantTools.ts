@@ -184,7 +184,7 @@ export function executeFinancialAssistantTool(
       }
       const customer = matches[0];
       const invoices = dataset.rawInvoices
-        .filter((inv: any) => String(inv.customerId ?? "") === customer.id)
+        .filter((inv: any) => inv?.isDeleted !== true && String(inv.customerId ?? "") === customer.id)
         .map((inv: any) => ({
           id: String(inv.id ?? ""),
           date: inv.date ?? null,
