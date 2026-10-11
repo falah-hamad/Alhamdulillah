@@ -9,6 +9,7 @@ on:
       - ".github/workflows/validate-financial-assistant.yml"
   push:
     branches:
+      - allahisgreat1
       - fix/financial-assistant-accuracy
     paths:
       - "functions/**"
@@ -34,3 +35,6 @@ jobs:
 
       - name: Build Cloud Functions
         run: npm --prefix functions run build
+
+      - name: Run financial assistant tool tests
+        run: node --test functions/lib/assistantTools.test.js
