@@ -1,0 +1,36 @@
+name: Validate Financial Assistant
+
+on:
+  pull_request:
+    branches:
+      - allahisgreat1
+    paths:
+      - "functions/**"
+      - ".github/workflows/validate-financial-assistant.yml"
+  push:
+    branches:
+      - fix/financial-assistant-accuracy
+    paths:
+      - "functions/**"
+      - ".github/workflows/validate-financial-assistant.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Cloud Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Cloud Functions
+        run: npm --prefix functions run build
