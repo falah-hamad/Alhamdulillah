@@ -1,4 +1,67 @@
+import { Type } from "@google/genai";
 import type { ProcessedFinancialDataset, CustomerDebtSummary } from "./accountingEngine";
+
+export const FINANCIAL_ASSISTANT_TOOLS = [{
+        functionDeclarations: [
+          {
+            name: "get_portfolio_summary",
+            description: "استرجع الإحصائيات المالية الحقيقية الإجمالية ومجاميع كل المجلدات من بيانات المستخدم.",
+            parameters: { type: Type.OBJECT, properties: {} },
+          },
+          {
+            name: "search_customers",
+            description: "ابحث في العملاء حسب شروط مرنة مجتمعة. مبالغ الفلترة تطبق على الدين المتبقي. استخدمها لنطاقات المبالغ وأعلى أو أقل العملاء والمجلد والمتأخرين.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                minRemainingDebt: { type: Type.NUMBER, description: "أقل دين متبقٍ شامل الحد." },
+                maxRemainingDebt: { type: Type.NUMBER, description: "أعلى دين متبقٍ شامل الحد." },
+                folderName: { type: Type.STRING, description: "اسم المجلد أو جزء منه." },
+                nameContains: { type: Type.STRING, description: "اسم عميل أو جزء منه." },
+                overdueOnly: { type: Type.BOOLEAN, description: "إرجاع المتأخرين فقط." },
+                includeSettled: { type: Type.BOOLEAN, description: "تضمين العملاء المسددين بالكامل." },
+                sortBy: { type: Type.STRING, enum: ["remainingDebt", "totalPaid", "totalInvoiced", "name"] },
+                sortDirection: { type: Type.STRING, enum: ["asc", "desc"] },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
+            name: "get_customer_ledger",
+            description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING, description: "اسم العميل أو جزء واضح منه." },
+                customerId: { type: Type.STRING, description: "معرف العميل إن كان معروفاً." },
+              },
+            },
+          },
+          {
+            name: "get_folder_summary",
+            description: "استرجع ملخص مجلد واحد أو كل المجلدات وعدد العملاء والمدينين ومجموع المتبقي.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: { folderName: { type: Type.STRING, description: "اسم المجلد أو جزء منه، اتركه فارغاً لكل المجلدات." } },
+            },
+          },
+          {
+            name: "search_payments",
+            description: "ابحث في الدفعات حسب العميل أو فترة التاريخ أو مبلغ الدفعة. التاريخ بصيغة YYYY-MM-DD.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING },
+                fromDate: { type: Type.STRING, description: "تاريخ بداية شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "تاريخ نهاية شامل YYYY-MM-DD." },
+                minAmount: { type: Type.NUMBER },
+                maxAmount: { type: Type.NUMBER },
+                limit: { type: Type.NUMBER },
+              },
+            },
+          },
+        ],
+      }];
 
 export type FinancialToolName =
   | "get_portfolio_summary"
