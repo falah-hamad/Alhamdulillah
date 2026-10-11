@@ -438,36 +438,16 @@ function parseDateRange(question: string, now: Date = new Date()): DateRange | n
 }
 
 function parseDebtRangeFromQuestion(normalizedQuestion: string): { min: number; max: number } | null {
-  const anchors = ["بين ", "من "];
-  const startIndex = anchors
-    .map((anchor) => normalizedQuestion.indexOf(anchor))
-    .filter((idx) => idx >= 0)
-    .sort((a, b) => a - b)[0];
-  if (startIndex === undefined) return null;
+  // Match the two amount expressions directly so surrounding words (such as
+  // "ديونهم" or "د.ع") cannot prevent range detection.
+  const match = normalizedQuestion.match(
+    /(?:^|\\s)(?:بين|من)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)\\s*(?:و|الى|-)\\s*([0-9][0-9,.]*(?:\\s*(?:الف|مليون|k|m))?)(?=\\s|$)/i
+  );
+  if (!match) return null;
 
-  const anchor = normalizedQuestion.startsWith("بين ", startIndex) ? "بين " : "من ";
-  const tail = normalizedQuestion.slice(startIndex + anchor.length).trim();
-  if (!tail) return null;
-
-  const separators = [" و ", " الى ", " إلى ", "-"];
-  let separator: string | null = null;
-  let separatorIndex = -1;
-  for (const sep of separators) {
-    const idx = tail.indexOf(sep);
-    if (idx >= 0 && (separatorIndex === -1 || idx < separatorIndex)) {
-      separator = sep;
-      separatorIndex = idx;
-    }
-  }
-  if (!separator || separatorIndex <= 0) return null;
-
-  const leftExpr = tail.slice(0, separatorIndex).trim().slice(0, 40);
-  const rightExpr = tail.slice(separatorIndex + separator.length).trim().slice(0, 40);
-  if (!leftExpr || !rightExpr) return null;
-
-  const left = parseArabicNumber(leftExpr);
-  const right = parseArabicNumber(rightExpr);
-  if (left === null || right === null) return null;
+  const left = parseArabicNumber(match[1]);
+  const right = parseArabicNumber(match[2]);
+  if (left === null || right === null || left < 0 || right < 0) return null;
 
   return {
     min: Math.min(left, right),
