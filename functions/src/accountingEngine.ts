@@ -71,6 +71,8 @@ export function normalizeArabic(text: string): string {
     .replace(/[ة]/g, "ه")
     .replace(/[يى]/g, "ي")
     .replace(/[ؤئ]/g, "ء")
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
     .replace(/[\s\-_]+/g, " ");
 }
 
@@ -90,6 +92,20 @@ export function parseArabicNumber(text: string): number | null {
 
   const num = parseFloat(clean);
   return isNaN(num) ? null : num;
+}
+
+function parseArabicCount(question: string, fallback: number): number {
+  const normalized = normalizeArabic(question);
+  const numeric = normalized.match(/(?:اعلى|اكثر|اكبر|اقل|ادنى|توب)\s*(\d+)/);
+  if (numeric) return Math.max(1, Math.min(100, Number(numeric[1]) || fallback));
+  const words: Record<string, number> = {
+    واحد: 1, واحده: 1, اثنين: 2, اثنان: 2, ثلاثه: 3, ثلاث: 3,
+    اربعه: 4, اربع: 4, خمسه: 5, خمس: 5, سته: 6, ست: 6,
+    سبعه: 7, سبع: 7, ثمانيه: 8, ثمان: 8, تسعه: 9, تسع: 9,
+    عشره: 10, عشر: 10,
+  };
+  const match = normalized.match(/(?:اعلى|اكثر|اكبر|اقل|ادنى|توب)\s*(واحده?|اثنين|اثنان|ثلاثه|ثلاث|اربعه|اربع|خمسه|خمس|سته|ست|سبعه|سبع|ثمانيه|ثمان|تسعه|تسع|عشره|عشر)/);
+  return match ? (words[match[1]] || fallback) : fallback;
 }
 
 export function processFullAccountingDataset(
@@ -178,14 +194,13 @@ export function processFullAccountingDataset(
     }
   });
 
+  // Invoice paidAmount/remainingAmount are the balance source of truth: addPayment()
+  // updates those fields as well as writing a payment-ledger entry. Count ledger
+  // entries for activity/date questions, but do not apply them to balances twice.
   activePayments.forEach((pay) => {
     const summary = customerMap.get(pay.customerId);
     if (summary) {
-      const amt = Number(pay.amount) || 0;
-      summary.totalPaid += amt;
-      summary.remainingDebt = Math.max(0, summary.remainingDebt - amt);
       summary.paymentCount += 1;
-
       if (pay.date && (!summary.lastPaymentDate || pay.date > summary.lastPaymentDate)) {
         summary.lastPaymentDate = pay.date;
       }
@@ -469,6 +484,100 @@ export function executeDeterministicFinancialQuery(
   const normQ = normalizeArabic(question);
   const { currency, customers, debtors, folders, rawInvoices, rawPayments } = dataset;
 
+  // Handle grouped rankings before matching customer names; otherwise a customer
+  // name in the question can swallow a multi-folder query.
+  const asksTopPerFolder =
+    (normQ.includes("لكل مجلد") || normQ.includes("في كل مجلد")) &&
+    (normQ.includes("اعلى") || normQ.includes("اكثر") || normQ.includes("اكبر") || normQ.includes("توب"));
+  if (asksTopPerFolder) {
+    const limit = parseArabicCount(normQ, 5);
+    const sections = folders.map((folder) => {
+      const allFolderDebtors = debtors.filter((customer) => customer.folderId === folder.id);
+      const folderDebtors = [...allFolderDebtors]
+        .sort((a, b) => b.remainingDebt - a.remainingDebt)
+        .slice(0, limit);
+      return `### 📁 ${folder.name} — أعلى ${limit} مدينين\n\n` +
+        formatDebtorsTable(folderDebtors, currency, { totalAvailable: allFolderDebtors.length });
+    });
+    const allUnassigned = debtors.filter((customer) => !customer.folderId);
+    if (allUnassigned.length) {
+      sections.push(`### 📁 عام / بدون مجلد — أعلى ${limit} مدينين\n\n` +
+        formatDebtorsTable([...allUnassigned].sort((a, b) => b.remainingDebt - a.remainingDebt).slice(0, limit), currency, { totalAvailable: allUnassigned.length }));
+    }
+    return {
+      intent: "top_debtors_per_folder",
+      resultAnswer: sections.length ? sections.join("\n\n") : "لا توجد مجلدات أو ديون مطابقة.",
+    };
+  }
+
+  // Payment history must be filtered from the payment ledger by the requested period.
+  // A day-only question means that day in the current Iraq-local month.
+  const asksPaymentActivity = ["سدد", "دفع", "تسديد", "دفعة", "قبض", "مقبوض"].some((term) => normQ.includes(term));
+  const dayMatch = normQ.match(/يوم\s*(\d{1,2})/);
+  const asksCurrentMonth = ["هذا الشهر", "هالشهر", "الشهر الحالي", "خلال الشهر", "بهذا الشهر"].some((term) => normQ.includes(term));
+  const asksNotPaidInPeriod = ["ما سدد", "ما دفع", "لم يسدد", "لم يدفع", "ما مسدد"].some((term) => normQ.includes(term));
+  if (asksPaymentActivity && (dayMatch || asksCurrentMonth || asksNotPaidInPeriod)) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Baghdad", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+    const currentYear = part("year");
+    const currentMonth = part("month");
+    const paymentDateKey = (value: any): string | null => {
+      if (!value || typeof value !== "string") return null;
+      const raw = value.trim();
+      const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+      const local = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+      if (local) return `${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}`;
+      return null;
+    };
+    const periodPayments = rawPayments.filter((payment) => {
+      if (payment.isDeleted === true) return false;
+      const key = paymentDateKey(payment.date);
+      if (!key) return false;
+      const [year, month, day] = key.split("-");
+      if (dayMatch) return year === currentYear && month === currentMonth && day === dayMatch[1].padStart(2, "0");
+      return year === currentYear && month === currentMonth;
+    });
+    if (asksNotPaidInPeriod && !dayMatch) {
+      const paidIds = new Set(periodPayments.map((payment) => payment.customerId));
+      const unpaid = debtors.filter((customer) => !paidIds.has(customer.id))
+        .sort((a, b) => b.remainingDebt - a.remainingDebt);
+      return {
+        intent: "customers_without_period_payment",
+        resultAnswer: formatDebtorsTable(unpaid, currency, {
+          title: "مدينون لم يسددوا خلال الشهر الحالي (" + currentMonth + "/" + currentYear + ")",
+          totalAvailable: unpaid.length,
+        }),
+      };
+    }
+    const grouped = new Map<string, { name: string; amount: number; count: number }>();
+    for (const payment of periodPayments) {
+      const id = String(payment.customerId || payment.customerName || "unknown");
+      const name = customers.find((customer) => customer.id === payment.customerId)?.name ||
+        payment.customerName || "عميل غير معروف";
+      const entry = grouped.get(id) || { name, amount: 0, count: 0 };
+      entry.amount += Number(payment.amount) || 0;
+      entry.count += 1;
+      grouped.set(id, entry);
+    }
+    const rows = [...grouped.values()].sort((a, b) => b.amount - a.amount);
+    const dateLabel = dayMatch
+      ? dayMatch[1] + "/" + currentMonth + "/" + currentYear
+      : currentMonth + "/" + currentYear;
+    const table = rows.length
+      ? "| العميل | عدد الدفعات | مجموع الدفعات |\n| :--- | :---: | :---: |\n" +
+        rows.map((row) => "| **" + row.name + "** | " + row.count + " | " + row.amount.toLocaleString() + " " + currency + " |").join("\n")
+      : "لا توجد دفعات مسجلة في الفترة المطلوبة.";
+    return {
+      intent: "payments_by_period",
+      resultAnswer: "### 💳 الدفعات المسجلة بتاريخ " + dateLabel + "\n\n" + table +
+        "\n\nإجمالي المقبوضات في الفترة: **" +
+        periodPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0).toLocaleString() + " " + currency + "**",
+    };
+  }
+
   const sortedByLength = [...customers].sort((a, b) => b.name.length - a.name.length);
   for (const c of sortedByLength) {
     const normName = normalizeArabic(c.name);
@@ -490,8 +599,7 @@ export function executeDeterministicFinancialQuery(
     normQ.includes("توب")
   ) {
     if (!normQ.includes("سدد") && !normQ.includes("دفع")) {
-      const matchNum = normQ.match(/(?:اعلى|اكثر|اكبر)\s*(\d+)/);
-      const limit = matchNum ? parseInt(matchNum[1], 10) : 10;
+      const limit = parseArabicCount(normQ, 10);
 
       const sorted = [...debtors].sort((a, b) => b.remainingDebt - a.remainingDebt);
       const sliced = sorted.slice(0, limit);
@@ -514,8 +622,7 @@ export function executeDeterministicFinancialQuery(
     normQ.includes("اصغر ديون") ||
     normQ.includes("ابسط ديون")
   ) {
-    const matchNum = normQ.match(/(?:اقل|ادنى)\s*(\d+)/);
-    const limit = matchNum ? parseInt(matchNum[1], 10) : 5;
+    const limit = parseArabicCount(normQ, 5);
 
     const sorted = [...debtors].sort((a, b) => a.remainingDebt - b.remainingDebt);
     const sliced = sorted.slice(0, limit);
