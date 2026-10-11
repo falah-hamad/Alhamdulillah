@@ -500,7 +500,7 @@ export function executeFinancialAssistantTool(
     case "get_invoice_aging_summary": {
       const asOfDate = args.asOfDate ? String(args.asOfDate) : new Date().toISOString().slice(0, 10);
       const folderQuery = normalize(args.folderName);
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
       const asOfMs = Date.parse(asOfDate + "T00:00:00Z");
       const buckets: Record<string, { label: string; count: number; totalRemaining: number }> = {
         notDue: { label: "غير مستحقة بعد", count: 0, totalRemaining: 0 },
@@ -517,7 +517,7 @@ export function executeFinancialAssistantTool(
         if (folderQuery && !normalize(customer?.folderName).includes(folderQuery)) continue;
         const dueDate = String(inv.dueDate ?? "").slice(0, 10);
         let key = "missingDueDate";
-        if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
           const ageDays = Math.floor((asOfMs - Date.parse(dueDate + "T00:00:00Z")) / 86400000);
           key = ageDays < 0 ? "notDue" : ageDays <= 30 ? "days1to30" : ageDays <= 60 ? "days31to60" : ageDays <= 90 ? "days61to90" : "over90";
         }
@@ -530,7 +530,7 @@ export function executeFinancialAssistantTool(
     case "get_monthly_financial_trend": {
       const from = args.fromMonth ? String(args.fromMonth) : "";
       const to = args.toMonth ? String(args.toMonth) : "";
-      const validMonth = (value: string) => !value || /^\\d{4}-(0[1-9]|1[0-2])$/.test(value);
+      const validMonth = (value: string) => !value || /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
       if (!validMonth(from) || !validMonth(to)) return { error: "صيغة الشهر غير صالحة. استخدم YYYY-MM." };
       if (from && to && from > to) return { error: "شهر البداية يجب ألا يكون بعد شهر النهاية." };
       const monthly = new Map<string, any>();
@@ -541,7 +541,7 @@ export function executeFinancialAssistantTool(
       const inRange = (month: string) => !!month && (!from || month >= from) && (!to || month <= to);
       for (const inv of dataset.rawInvoices.filter((row: any) => row?.isDeleted !== true)) {
         const month = String(inv.date ?? "").slice(0, 7);
-        if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
         const row = getRow(month);
         const total = Number(inv.grandTotal) || 0;
         const paid = Number(inv.paidAmount) || 0;
@@ -552,7 +552,7 @@ export function executeFinancialAssistantTool(
       }
       for (const payment of dataset.rawPayments.filter((row: any) => row?.isDeleted !== true)) {
         const month = String(payment.date ?? "").slice(0, 7);
-        if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !inRange(month)) continue;
         const row = getRow(month);
         row.paymentCount += 1;
         row.paymentLedgerAmount += Number(payment.amount) || 0;
@@ -566,7 +566,7 @@ export function executeFinancialAssistantTool(
       const days = args.daysWithoutPayment === undefined ? 30 : Number(args.daysWithoutPayment);
       const minRemaining = args.minRemainingDebt === undefined ? 0 : Number(args.minRemainingDebt);
       const folderQuery = normalize(args.folderName);
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
       if (!Number.isInteger(days) || days < 1 || days > 3650) return { error: "عدد الأيام يجب أن يكون بين 1 و3650." };
       if (!Number.isFinite(minRemaining) || minRemaining < 0) return { error: "الحد الأدنى للدين المتبقي غير صالح." };
       const cutoff = Date.parse(asOfDate + "T00:00:00Z") - days * 86400000;
