@@ -494,17 +494,86 @@ export function executeDeterministicFinancialQuery(
       const folderDebtors = [...allFolderDebtors]
         .sort((a, b) => b.remainingDebt - a.remainingDebt)
         .slice(0, limit);
-      return `### 📁 \${folder.name} — أعلى \${limit} مدينين\n\n` +
+      return `### 📁 ${folder.name} — أعلى ${limit} مدينين\n\n` +
         formatDebtorsTable(folderDebtors, currency, { totalAvailable: allFolderDebtors.length });
     });
     const allUnassigned = debtors.filter((customer) => !customer.folderId);
     if (allUnassigned.length) {
-      sections.push(`### 📁 عام / بدون مجلد — أعلى \${limit} مدينين\n\n` +
+      sections.push(`### 📁 عام / بدون مجلد — أعلى ${limit} مدينين\n\n` +
         formatDebtorsTable([...allUnassigned].sort((a, b) => b.remainingDebt - a.remainingDebt).slice(0, limit), currency, { totalAvailable: allUnassigned.length }));
     }
     return {
       intent: "top_debtors_per_folder",
       resultAnswer: sections.length ? sections.join("\n\n") : "لا توجد مجلدات أو ديون مطابقة.",
+    };
+  }
+
+  // Payment history must be filtered from the payment ledger by the requested period.
+  // A day-only question means that day in the current Iraq-local month.
+  const asksPaymentActivity = ["سدد", "دفع", "تسديد", "دفعة", "قبض", "مقبوض"].some((term) => normQ.includes(term));
+  const dayMatch = normQ.match(/يوم\s*(\d{1,2})/);
+  const asksCurrentMonth = ["هذا الشهر", "هالشهر", "الشهر الحالي", "خلال الشهر", "بهذا الشهر"].some((term) => normQ.includes(term));
+  const asksNotPaidInPeriod = ["ما سدد", "ما دفع", "لم يسدد", "لم يدفع", "ما مسدد"].some((term) => normQ.includes(term));
+  if (asksPaymentActivity && (dayMatch || asksCurrentMonth || asksNotPaidInPeriod)) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Baghdad", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+    const currentYear = part("year");
+    const currentMonth = part("month");
+    const currentDay = part("day");
+    const paymentDateKey = (value: any): string | null => {
+      if (!value || typeof value !== "string") return null;
+      const raw = value.trim();
+      const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (iso) return \`${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}\`;
+      const local = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+      if (local) return \`${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}\`;
+      return null;
+    };
+    const periodPayments = rawPayments.filter((payment) => {
+      if (payment.isDeleted === true) return false;
+      const key = paymentDateKey(payment.date);
+      if (!key) return false;
+      const [year, month, day] = key.split("-");
+      if (dayMatch) return year === currentYear && month === currentMonth && day === dayMatch[1].padStart(2, "0");
+      return year === currentYear && month === currentMonth;
+    });
+    if (asksNotPaidInPeriod && !dayMatch) {
+      const paidIds = new Set(periodPayments.map((payment) => payment.customerId));
+      const unpaid = debtors.filter((customer) => !paidIds.has(customer.id))
+        .sort((a, b) => b.remainingDebt - a.remainingDebt);
+      return {
+        intent: "customers_without_period_payment",
+        resultAnswer: formatDebtorsTable(unpaid, currency, {
+          title: "مدينون لم يسددوا خلال الشهر الحالي (" + currentMonth + "/" + currentYear + ")",
+          totalAvailable: unpaid.length,
+        }),
+      };
+    }
+    const grouped = new Map<string, { name: string; amount: number; count: number }>();
+    for (const payment of periodPayments) {
+      const id = String(payment.customerId || payment.customerName || "unknown");
+      const name = customers.find((customer) => customer.id === payment.customerId)?.name ||
+        payment.customerName || "عميل غير معروف";
+      const entry = grouped.get(id) || { name, amount: 0, count: 0 };
+      entry.amount += Number(payment.amount) || 0;
+      entry.count += 1;
+      grouped.set(id, entry);
+    }
+    const rows = [...grouped.values()].sort((a, b) => b.amount - a.amount);
+    const dateLabel = dayMatch
+      ? dayMatch[1] + "/" + currentMonth + "/" + currentYear
+      : currentMonth + "/" + currentYear;
+    const table = rows.length
+      ? "| العميل | عدد الدفعات | مجموع الدفعات |\\n| :--- | :---: | :---: |\\n" +
+        rows.map((row) => "| **" + row.name + "** | " + row.count + " | " + row.amount.toLocaleString() + " " + currency + " |").join("\\n")
+      : "لا توجد دفعات مسجلة في الفترة المطلوبة.";
+    return {
+      intent: "payments_by_period",
+      resultAnswer: "### 💳 الدفعات المسجلة بتاريخ " + dateLabel + "\\n\\n" + table +
+        "\\n\\nإجمالي المقبوضات في الفترة: **" +
+        periodPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0).toLocaleString() + " " + currency + "**",
     };
   }
 
