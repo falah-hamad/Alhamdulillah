@@ -27,6 +27,21 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "search_invoices",
+            description: "ابحث في الفواتير حسب العميل أو فترة التاريخ أو إجمالي الفاتورة. التاريخ بصيغة YYYY-MM-DD.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                customerName: { type: Type.STRING, description: "اسم العميل أو جزء منه." },
+                fromDate: { type: Type.STRING, description: "تاريخ بداية شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "تاريخ نهاية شامل YYYY-MM-DD." },
+                minAmount: { type: Type.NUMBER, description: "أقل إجمالي فاتورة شامل الحد." },
+                maxAmount: { type: Type.NUMBER, description: "أعلى إجمالي فاتورة شامل الحد." },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
             name: "get_customer_ledger",
             description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
             parameters: {
@@ -66,6 +81,7 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
 export type FinancialToolName =
   | "get_portfolio_summary"
   | "search_customers"
+  | "search_invoices"
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments";
@@ -168,6 +184,55 @@ export function executeFinancialAssistantTool(
         customers: rows.slice(0, limit).map(customerRow),
         currency: dataset.currency,
       };
+    }
+
+    case "search_invoices": {
+      const customerQuery = normalize(args.customerName);
+      const from = args.fromDate ? String(args.fromDate) : "";
+      const to = args.toDate ? String(args.toDate) : "";
+      const minAmount = args.minAmount === undefined ? null : Number(args.minAmount);
+      const maxAmount = args.maxAmount === undefined ? null : Number(args.maxAmount);
+      if ((minAmount !== null && !Number.isFinite(minAmount)) || (maxAmount !== null && !Number.isFinite(maxAmount))) {
+        return { error: "حدود مبلغ الفاتورة غير صالحة." };
+      }
+      if (minAmount !== null && maxAmount !== null && minAmount > maxAmount) {
+        return { error: "الحد الأدنى لإجمالي الفاتورة أكبر من الحد الأعلى." };
+      }
+      let rows = dataset.rawInvoices
+        .filter((inv: any) => inv?.isDeleted !== true)
+        .map((inv: any) => {
+          const customerId = String(inv.customerId ?? "");
+          const customer = dataset.customerMap.get(customerId);
+          const total = Number(inv.grandTotal) || 0;
+          const paid = Number(inv.paidAmount) || 0;
+          return {
+            id: String(inv.id ?? inv.invoiceNumber ?? ""),
+            customerId,
+            customerName: customer?.name ?? String(inv.customerName ?? "عميل غير معروف"),
+            date: String(inv.date ?? ""),
+            dueDate: inv.dueDate ?? null,
+            description: String(inv.description ?? inv.notes ?? ""),
+            total,
+            paid,
+            remaining: Number(inv.remainingAmount ?? (total - paid)) || 0,
+          };
+        })
+        .filter((inv) => {
+          const dateKey = inv.date.slice(0, 10);
+          if (customerQuery && !normalize(inv.customerName).includes(customerQuery)) return false;
+          if (from && dateKey < from) return false;
+          if (to && dateKey > to) return false;
+          if (minAmount !== null && inv.total < minAmount) return false;
+          if (maxAmount !== null && inv.total > maxAmount) return false;
+          return true;
+        })
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const totalMatches = rows.length;
+      const totalAmount = rows.reduce((sum, inv) => sum + inv.total, 0);
+      const totalRemaining = rows.reduce((sum, inv) => sum + inv.remaining, 0);
+      const limit = safeLimit(args.limit, 30, 100);
+      rows = rows.slice(0, limit);
+      return { totalMatches, totalAmount, totalRemaining, returned: rows.length, invoices: rows, currency: dataset.currency };
     }
 
     case "get_customer_ledger": {
