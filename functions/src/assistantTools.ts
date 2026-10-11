@@ -448,7 +448,7 @@ export function executeFinancialAssistantTool(
           const status = remaining <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid";
           return { total, paid, remaining: Math.max(0, remaining), status };
         });
-      const statuses = {
+      const statuses: Record<string, { label: string; count: number; totalAmount: number; totalRemaining: number }> = {
         paid: { label: "مسددة بالكامل", count: 0, totalAmount: 0, totalRemaining: 0 },
         partial: { label: "مسددة جزئياً", count: 0, totalAmount: 0, totalRemaining: 0 },
         unpaid: { label: "غير مسددة", count: 0, totalAmount: 0, totalRemaining: 0 },
