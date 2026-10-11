@@ -65,6 +65,13 @@ test("get_customer_ledger excludes soft-deleted invoices", () => {
     date: "2026-01-05",
     isDeleted: true,
   });
+  dataset.rawPayments.push({
+    id: "deleted-p1",
+    customerId: "c1",
+    amount: 88888,
+    date: "2026-01-06",
+    isDeleted: true,
+  });
 
   const result = executeFinancialAssistantTool("get_customer_ledger", {
     customerName: "أحمد علي",
@@ -76,6 +83,7 @@ test("get_customer_ledger excludes soft-deleted invoices", () => {
   assert.equal(result.invoices.some((invoice: any) => invoice.id === "deleted-i1"), false);
   assert.equal(result.recentPayments.length, 1);
   assert.equal(result.recentPayments[0].amount, 2000);
+  assert.equal(result.recentPayments.some((payment: any) => payment.id === "deleted-p1"), false);
 });
 
 test("search_payments filters by date and amount", () => {
