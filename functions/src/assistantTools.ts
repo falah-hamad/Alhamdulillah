@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
 import type { ProcessedFinancialDataset, CustomerDebtSummary } from "./accountingEngine";
 
-export const FINANCIAL_ASSISTANT_TOOLS = [{
+export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
         functionDeclarations: [
           {
             name: "get_portfolio_summary",
@@ -112,7 +112,6 @@ export function executeFinancialAssistantTool(
   switch (name) {
     case "get_portfolio_summary":
       return {
-        currency: dataset.currency,
         ...dataset.portfolio,
         folders: dataset.folders.map((f) => ({
           name: f.name,
