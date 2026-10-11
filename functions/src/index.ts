@@ -12,12 +12,9 @@ admin.initializeApp();
 const targetDatabaseId = process.env.FIRESTORE_DATABASE_ID || "ai-studio-allah111111-ba0ce27e-cf94-4543-8c18-5985ed5eaad2";
 
 function getFirestoreDb() {
-  try {
-    return getFirestore(targetDatabaseId);
-  } catch (err) {
-    console.warn("Falling back to default Firestore database instance:", err);
-    return admin.firestore();
-  }
+  // Never silently fall back to the default database: that can return a different
+  // ledger and make the assistant confidently report the wrong balances.
+  return getFirestore(targetDatabaseId);
 }
 
 const db = getFirestoreDb();
@@ -38,42 +35,31 @@ export const verifyCustomerBalance = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("invalid-argument", "معرف العميل مطلوب.");
   }
 
-  // Fetch all invoices for this customer
+  // Invoice balances are authoritative because addPayment() updates invoices
+  // and also writes a payment-ledger entry. Do not count those payments twice.
+  // Filter soft-deletes in code so legacy invoices without isDeleted are included.
   const invoicesSnap = await db
     .collection("users")
     .doc(userId)
     .collection("invoices")
     .where("customerId", "==", customerId)
-    .where("isDeleted", "==", false)
     .get();
 
-  let totalInvoiceDebts = 0;
-  let totalInvoicePaid = 0;
+  let verifiedTotalDebt = 0;
+  let verifiedTotalPaid = 0;
+  let verifiedRemainingDebt = 0;
 
   invoicesSnap.forEach((doc) => {
     const inv = doc.data();
-    totalInvoiceDebts += Number(inv.grandTotal) || 0;
-    totalInvoicePaid += Number(inv.paidAmount) || 0;
+    if (inv.isDeleted === true) return;
+    const debt = Number(inv.grandTotal) || 0;
+    const paid = Number(inv.paidAmount) || 0;
+    verifiedTotalDebt += debt;
+    verifiedTotalPaid += paid;
+    verifiedRemainingDebt += Number(
+      inv.remainingAmount !== undefined ? inv.remainingAmount : debt - paid
+    ) || 0;
   });
-
-  // Fetch all payments for this customer
-  const paymentsSnap = await db
-    .collection("users")
-    .doc(userId)
-    .collection("payments")
-    .where("customerId", "==", customerId)
-    .where("isDeleted", "==", false)
-    .get();
-
-  let totalSeparatePayments = 0;
-  paymentsSnap.forEach((doc) => {
-    const pay = doc.data();
-    totalSeparatePayments += Number(pay.amount) || 0;
-  });
-
-  const verifiedTotalDebt = totalInvoiceDebts;
-  const verifiedTotalPaid = totalInvoicePaid + totalSeparatePayments;
-  const verifiedRemainingDebt = verifiedTotalDebt - verifiedTotalPaid;
 
   return {
     success: true,
@@ -709,10 +695,10 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
 
   try {
     const [foldSnap, custSnap, invSnap, paySnap, setDoc] = await Promise.all([
-      db.collection("users").doc(userId).collection("folders").where("isDeleted", "==", false).get(),
-      db.collection("users").doc(userId).collection("customers").where("isDeleted", "==", false).get(),
-      db.collection("users").doc(userId).collection("invoices").where("isDeleted", "==", false).get(),
-      db.collection("users").doc(userId).collection("payments").where("isDeleted", "==", false).get(),
+      db.collection("users").doc(userId).collection("folders").get(),
+      db.collection("users").doc(userId).collection("customers").get(),
+      db.collection("users").doc(userId).collection("invoices").get(),
+      db.collection("users").doc(userId).collection("payments").get(),
       db.collection("users").doc(userId).collection("settings").doc("general").get(),
     ]);
 
@@ -724,26 +710,15 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
       currency = setDoc.data()?.currency;
     }
   } catch (dbErr) {
-    console.warn("Notice: Firestore data read in askFinancialAssistant:", dbErr);
+    console.error("Firestore data read failed in askFinancialAssistant:", dbErr);
+    throw new functions.https.HttpsError(
+      "internal",
+      "تعذر قراءة بيانات الحساب من قاعدة البيانات. لم يتم إنشاء تقرير حتى لا تظهر أرقام غير موثوقة."
+    );
   }
 
-  if (data.localData && typeof data.localData === "object") {
-    if (Array.isArray(data.localData.folders) && data.localData.folders.length > folders.length) {
-      folders = data.localData.folders;
-    }
-    if (Array.isArray(data.localData.customers) && data.localData.customers.length > customers.length) {
-      customers = data.localData.customers;
-    }
-    if (Array.isArray(data.localData.invoices) && data.localData.invoices.length > invoices.length) {
-      invoices = data.localData.invoices;
-    }
-    if (Array.isArray(data.localData.payments) && data.localData.payments.length > payments.length) {
-      payments = data.localData.payments;
-    }
-    if (data.localData.settings?.currency) {
-      currency = data.localData.settings.currency;
-    }
-  }
+  // Firestore is authoritative for server-side financial answers. Never replace
+  // cloud records with client-provided localData, which may be stale or incomplete.
 
   // Run full deterministic engine on 100% of data (zero slicing)
   const dataset = processFullAccountingDataset(customers, folders, invoices, payments, currency);
