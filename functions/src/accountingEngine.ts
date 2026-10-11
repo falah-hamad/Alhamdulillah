@@ -526,9 +526,9 @@ export function executeDeterministicFinancialQuery(
       if (!value || typeof value !== "string") return null;
       const raw = value.trim();
       const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (iso) return \`${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}\`;
+      if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
       const local = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
-      if (local) return \`${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}\`;
+      if (local) return `${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}`;
       return null;
     };
     const periodPayments = rawPayments.filter((payment) => {
