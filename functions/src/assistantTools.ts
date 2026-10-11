@@ -80,6 +80,18 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "get_collection_priorities",
+            description: "رتب العملاء حسب أولوية متابعة التحصيل، مع إبراز الدين المتبقي والمبلغ المتأخر وآخر دفعة ومجلد العميل. الأداة للقراءة فقط.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                folderName: { type: Type.STRING, description: "فلترة اختيارية باسم المجلد أو جزء منه." },
+                minOverdueAmount: { type: Type.NUMBER, description: "أقل مبلغ متأخر شامل الحد." },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
             name: "get_customer_ledger",
             description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
             parameters: {
@@ -134,6 +146,7 @@ export type FinancialToolName =
   | "search_unpaid_invoices"
   | "get_overdue_invoices"
   | "get_invoice_status_summary"
+  | "get_collection_priorities"
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments"
@@ -425,6 +438,32 @@ export function executeFinancialAssistantTool(
         totalRemaining: invoices.reduce((sum, inv) => sum + inv.remaining, 0),
         statuses,
         currency: dataset.currency,
+      };
+    }
+
+    case "get_collection_priorities": {
+      const folderQuery = normalize(args.folderName);
+      const minOverdue = args.minOverdueAmount === undefined ? 0 : Number(args.minOverdueAmount);
+      if (!Number.isFinite(minOverdue) || minOverdue < 0) {
+        return { error: "الحد الأدنى للمبلغ المتأخر غير صالح." };
+      }
+      const rows = dataset.customers
+        .filter((customer) => customer.remainingDebt > 0 && customer.isOverdue && customer.overdueAmount >= minOverdue)
+        .filter((customer) => !folderQuery || normalize(customer.folderName).includes(folderQuery))
+        .sort((a, b) => b.overdueAmount - a.overdueAmount || b.remainingDebt - a.remainingDebt)
+        .slice(0, safeLimit(args.limit, 30, 100))
+        .map((customer) => ({
+          ...customerRow(customer),
+          collectionPriority: customer.overdueAmount >= 100000 ? "عالية" : customer.overdueAmount >= 25000 ? "متوسطة" : "عادية",
+          suggestedNextStep: "راجع كشف الحساب وتواصل مع العميل لتأكيد الرصيد وموعد السداد.",
+        }));
+      return {
+        returned: rows.length,
+        totalOverdueAmount: rows.reduce((sum, customer) => sum + customer.overdueAmount, 0),
+        totalRemainingDebt: rows.reduce((sum, customer) => sum + customer.remainingDebt, 0),
+        customers: rows,
+        currency: dataset.currency,
+        note: "الأولوية إرشادية حسب المبلغ المتأخر، وليست حكماً على العميل.",
       };
     }
 
