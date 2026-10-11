@@ -55,8 +55,7 @@ export default function CustomerMentionDropdown({
         const nameMatch = item.customer.name?.toLowerCase().includes(cleanQuery);
         const phoneMatch = item.customer.phone?.includes(cleanQuery);
         return nameMatch || phoneMatch;
-      })
-      ;
+      });
   }, [debtorList, query]);
 
   return (
