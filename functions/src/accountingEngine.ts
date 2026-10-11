@@ -441,7 +441,7 @@ function parseDebtRangeFromQuestion(normalizedQuestion: string): { min: number; 
   // Match the two amount expressions directly so surrounding words (such as
   // "ديونهم" or "د.ع") cannot prevent range detection.
   const match = normalizedQuestion.match(
-    /(?:^|\s)(?:بين|من)\s*([0-9][0-9,.]*(?:\s*(?:الف|مليون|k|m))?)\s*(?:و|الى|-)\s*([0-9][0-9,.]*(?:\s*(?:الف|مليون|k|m))?)(?=\s|$)/i
+    /(?:^|\s)(?:بين|من)\s*([0-9][0-9,.]*(?:\s*(?:الف|مليون|k|m))?)\s*(?:و|الى|الي|-)\s*([0-9][0-9,.]*(?:\s*(?:الف|مليون|k|m))?)(?=\s|$)/i
   );
   if (!match) return null;
 
