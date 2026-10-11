@@ -56,6 +56,30 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "get_overdue_invoices",
+            description: "ابحث عن الفواتير التي تجاوزت تاريخ الاستحقاق وما زال عليها مبلغ متبقٍ. يدعم تاريخ التقييم واسم العميل والحد الأدنى للمتبقي.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                asOfDate: { type: Type.STRING, description: "تاريخ التقييم بصيغة YYYY-MM-DD، وإذا لم يحدد يستخدم تاريخ اليوم." },
+                customerName: { type: Type.STRING, description: "اسم العميل أو جزء منه." },
+                minRemaining: { type: Type.NUMBER, description: "أقل مبلغ متبقٍ شامل الحد." },
+                limit: { type: Type.NUMBER, description: "عدد النتائج بين 1 و100." },
+              },
+            },
+          },
+          {
+            name: "get_invoice_status_summary",
+            description: "احسب عدد ومجموع الفواتير حسب حالتها: مسددة بالكامل، مسددة جزئياً، أو غير مسددة، مع إجمالي المتبقي. يستبعد الفواتير المحذوفة.",
+            parameters: {
+              type: Type.OBJECT,
+              properties: {
+                fromDate: { type: Type.STRING, description: "بداية تاريخ الفاتورة شامل YYYY-MM-DD." },
+                toDate: { type: Type.STRING, description: "نهاية تاريخ الفاتورة شامل YYYY-MM-DD." },
+              },
+            },
+          },
+          {
             name: "get_customer_ledger",
             description: "استرجع كشف حساب عميل محدد مع فواتيره ودفعاته. إذا تشابهت الأسماء، اطلب تحديد العميل.",
             parameters: {
@@ -108,6 +132,8 @@ export type FinancialToolName =
   | "search_customers"
   | "search_invoices"
   | "search_unpaid_invoices"
+  | "get_overdue_invoices"
+  | "get_invoice_status_summary"
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments"
@@ -314,6 +340,90 @@ export function executeFinancialAssistantTool(
         totalRemaining,
         returned: rows.length,
         invoices: rows,
+        currency: dataset.currency,
+      };
+    }
+
+    case "get_overdue_invoices": {
+      const asOfDate = args.asOfDate ? String(args.asOfDate) : new Date().toISOString().slice(0, 10);
+      const customerQuery = normalize(args.customerName);
+      const minRemaining = args.minRemaining === undefined ? 0 : Number(args.minRemaining);
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asOfDate)) {
+        return { error: "صيغة تاريخ التقييم غير صالحة. استخدم YYYY-MM-DD." };
+      }
+      if (!Number.isFinite(minRemaining) || minRemaining < 0) {
+        return { error: "الحد الأدنى للمبلغ المتبقي غير صالح." };
+      }
+      let rows = dataset.rawInvoices
+        .filter((inv: any) => inv?.isDeleted !== true)
+        .map((inv: any) => {
+          const customerId = String(inv.customerId ?? "");
+          const customer = dataset.customerMap.get(customerId);
+          const total = Number(inv.grandTotal) || 0;
+          const paid = Number(inv.paidAmount) || 0;
+          return {
+            id: String(inv.id ?? inv.invoiceNumber ?? ""),
+            invoiceNumber: String(inv.invoiceNumber ?? inv.id ?? ""),
+            customerId,
+            customerName: customer?.name ?? String(inv.customerName ?? "عميل غير معروف"),
+            date: String(inv.date ?? ""),
+            dueDate: String(inv.dueDate ?? ""),
+            total,
+            paid,
+            remaining: Number(inv.remainingAmount ?? (total - paid)) || 0,
+          };
+        })
+        .filter((inv) => inv.dueDate && inv.dueDate.slice(0, 10) < asOfDate &&
+          inv.remaining > 0 && inv.remaining >= minRemaining &&
+          (!customerQuery || normalize(inv.customerName).includes(customerQuery)))
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      const totalMatches = rows.length;
+      const totalRemaining = rows.reduce((sum, inv) => sum + inv.remaining, 0);
+      const limit = safeLimit(args.limit, 30, 100);
+      rows = rows.slice(0, limit);
+      return { asOfDate, totalMatches, totalRemaining, returned: rows.length, invoices: rows, currency: dataset.currency };
+    }
+
+    case "get_invoice_status_summary": {
+      const from = args.fromDate ? String(args.fromDate) : "";
+      const to = args.toDate ? String(args.toDate) : "";
+      const validDate = (value: string) => !value || /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+      if (!validDate(from) || !validDate(to)) return { error: "صيغة التاريخ غير صالحة. استخدم YYYY-MM-DD." };
+      if (from && to && from > to) return { error: "تاريخ البداية يجب ألا يكون بعد تاريخ النهاية." };
+      const invoices = dataset.rawInvoices
+        .filter((inv: any) => inv?.isDeleted !== true)
+        .filter((inv: any) => {
+          const date = String(inv.date ?? "").slice(0, 10);
+          if (from && (!date || date < from)) return false;
+          if (to && (!date || date > to)) return false;
+          return true;
+        })
+        .map((inv: any) => {
+          const total = Number(inv.grandTotal) || 0;
+          const paid = Number(inv.paidAmount) || 0;
+          const remaining = Number(inv.remainingAmount ?? (total - paid)) || 0;
+          const status = remaining <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid";
+          return { total, paid, remaining: Math.max(0, remaining), status };
+        });
+      const statuses = {
+        paid: { label: "مسددة بالكامل", count: 0, totalAmount: 0, totalRemaining: 0 },
+        partial: { label: "مسددة جزئياً", count: 0, totalAmount: 0, totalRemaining: 0 },
+        unpaid: { label: "غير مسددة", count: 0, totalAmount: 0, totalRemaining: 0 },
+      };
+      for (const inv of invoices) {
+        const bucket = statuses[inv.status];
+        bucket.count += 1;
+        bucket.totalAmount += inv.total;
+        bucket.totalRemaining += inv.remaining;
+      }
+      return {
+        fromDate: from || null,
+        toDate: to || null,
+        invoiceCount: invoices.length,
+        totalAmount: invoices.reduce((sum, inv) => sum + inv.total, 0),
+        totalPaidRecordedOnInvoices: invoices.reduce((sum, inv) => sum + inv.paid, 0),
+        totalRemaining: invoices.reduce((sum, inv) => sum + inv.remaining, 0),
+        statuses,
         currency: dataset.currency,
       };
     }
