@@ -354,7 +354,7 @@ export default function ProductsView({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
-            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المجهّز أو الملاحظات..." className="w-full min-w-0 pr-9 pl-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المجهّز أو الملاحظات..." className="w-full min-w-0 pr-9 pl-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
             <option value="all">كل التصنيفات</option>
@@ -436,48 +436,48 @@ export default function ProductsView({
             <form onSubmit={saveProduct} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-xs font-semibold text-slate-600">اسم البضاعة *
-                  <input required value={form.name} onChange={e => setField("name", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اسم واضح يساعدك تتذكرها" />
+                  <input required value={form.name} onInput={e => setField("name", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اسم واضح يساعدك تتذكرها" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">التصنيف *
-                  <input required list="product-categories" value={form.category} onChange={e => setField("category", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="مثلاً: أجهزة، ملابس..." />
+                  <input required list="product-categories" value={form.category} onInput={e => setField("category", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="مثلاً: أجهزة، ملابس..." />
                   <datalist id="product-categories">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
-                  <input type="number" min="0" required value={form.purchasePrice} onChange={e => setField("purchasePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">سعر البيع للعميل
-                  <input type="number" min="0" required value={form.salePrice} onChange={e => setField("salePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الكمية الحالية
-                  <input type="number" min="0" required value={form.quantity} onChange={e => setField("quantity", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">وحدة القياس
-                  <input value={form.unitName} onChange={e => setField("unitName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="قطعة، كرتون، متر..." />
+                  <input value={form.unitName} onInput={e => setField("unitName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="قطعة، كرتون، متر..." />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الحد الأدنى للتنبيه
-                  <input type="number" min="0" value={form.minStock} onChange={e => setField("minStock", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" value={form.minStock} onInput={e => setField("minStock", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الباركود / رقم الصنف
-                  <input value={form.barcode} onChange={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
+                  <input value={form.barcode} onInput={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">اسم المجهّز / المورد
-                  <input value={form.supplierName} onChange={e => setField("supplierName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="المحل أو الشخص الذي اشتريت منه" />
+                  <input value={form.supplierName} onInput={e => setField("supplierName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="المحل أو الشخص الذي اشتريت منه" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">هاتف المجهّز
-                  <input value={form.supplierPhone} onChange={e => setField("supplierPhone", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" inputMode="tel" />
+                  <input value={form.supplierPhone} onInput={e => setField("supplierPhone", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" inputMode="tel" />
                 </label>
               </div>
               <label className="block text-xs font-semibold text-slate-600">وصف ومواصفات البضاعة
-                <textarea value={form.description} onChange={e => setField("description", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm min-h-20" placeholder="الموديل، اللون، الحجم، الضمان، وأي معلومات تريد تتذكرها..." />
+                <textarea value={form.description} onInput={e => setField("description", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm min-h-20" placeholder="الموديل، اللون، الحجم، الضمان، وأي معلومات تريد تتذكرها..." />
               </label>
               <label className="block text-xs font-semibold text-slate-600">ملاحظات خاصة
-                <textarea value={form.notes} onChange={e => setField("notes", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm min-h-20" placeholder="تفاصيل إضافية أو ملاحظات للشراء والبيع..." />
+                <textarea value={form.notes} onInput={e => setField("notes", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm min-h-20" placeholder="تفاصيل إضافية أو ملاحظات للشراء والبيع..." />
               </label>
               <div className="border rounded-xl p-3 space-y-3">
                 <div className="text-xs font-bold text-slate-700 flex items-center gap-2"><ImagePlus className="w-4 h-4" /> صورة البضاعة</div>
                 {form.imageUrl && <img src={form.imageUrl} alt="معاينة البضاعة" className="w-28 h-28 object-cover rounded-lg border" />}
                 <label className="block text-xs text-slate-600">رابط الصورة
-                  <input type="url" value={form.imageUrl} onChange={e => setField("imageUrl", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="https://..." />
+                  <input type="url" value={form.imageUrl} onInput={e => setField("imageUrl", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="https://..." />
                 </label>
                 <label className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm cursor-pointer hover:bg-slate-50">
                   <Camera className="w-4 h-4" /> {isSavingImage ? "جارٍ رفع الصورة..." : "اختيار صورة من الهاتف"}
@@ -509,10 +509,10 @@ export default function ProductsView({
               </select>
             </label>
             <label className="block text-xs font-semibold text-slate-600">{movementType === "adjustment" ? "فرق الكمية (مثلاً -2 أو +5)" : "عدد القطع"}
-              <input type="number" required step="1" value={movementQty} onChange={e => setMovementQty(Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+              <input type="number" required step="1" value={movementQty} onInput={e => setMovementQty(Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
             </label>
             <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المجهّز
-              <textarea value={movementNote} onChange={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />
+              <textarea value={movementNote} onInput={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />
             </label>
             <div className="flex justify-end gap-2"><button type="button" onClick={() => setMovementProduct(null)} className="px-4 py-2 border rounded-lg text-sm">إلغاء</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">حفظ الحركة</button></div>
           </form>
