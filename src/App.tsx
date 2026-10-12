@@ -848,6 +848,7 @@ export default function App() {
           {currentTab === "products" && (
             <ProductsView
               products={products}
+              invoices={invoices}
               settings={settings}
               addProduct={addProduct}
               updateProduct={updateProduct}
