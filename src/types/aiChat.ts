@@ -9,6 +9,10 @@ export interface ChatMessage {
   isError?: boolean;
   referencedCustomerId?: string;
   referencedCustomerName?: string;
+  quotedText?: string;
+  replyToMessageId?: string;
+  replyToSender?: "user" | "ai";
+  rating?: "like" | "dislike";
 }
 
 export interface ChatConversation {
