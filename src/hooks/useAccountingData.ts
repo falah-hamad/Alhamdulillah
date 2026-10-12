@@ -3,6 +3,7 @@ import {
   Customer,
   CustomerFolder,
   Product,
+  ProductStockMovement,
   Invoice,
   Payment,
   SystemSettings,
