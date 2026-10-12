@@ -12,6 +12,7 @@ export interface ChatMessage {
   quotedText?: string;
   replyToMessageId?: string;
   replyToSender?: "user" | "ai";
+  replyMode?: "quote" | "reply";
   rating?: "like" | "dislike";
 }
 
