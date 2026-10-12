@@ -87,17 +87,6 @@ export default function ProductsView({
     return itemSum + ((Number(item.unitPrice) || 0) - unitCost) * (Number(item.quantity) || 0);
   }, 0), 0);
 
-  const groupedProducts = useMemo(() => {
-    const groups = new Map<string, Product[]>();
-    filteredProducts.forEach(product => {
-      const category = product.category?.trim() || "بدون تصنيف";
-      const current = groups.get(category) || [];
-      current.push(product);
-      groups.set(category, current);
-    });
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, "ar"));
-  }, [filteredProducts]);
-
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
     return products.filter(p => {
@@ -116,6 +105,17 @@ export default function ProductsView({
       return a.name.localeCompare(b.name, "ar");
     });
   }, [products, searchQuery, selectedCategory, quickFilter]);
+
+  const groupedProducts = useMemo(() => {
+    const groups = new Map<string, Product[]>();
+    filteredProducts.forEach(product => {
+      const category = product.category?.trim() || "بدون تصنيف";
+      const current = groups.get(category) || [];
+      current.push(product);
+      groups.set(category, current);
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, "ar"));
+  }, [filteredProducts]);
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
@@ -536,7 +536,7 @@ export default function ProductsView({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => { setDetailsProduct(null); openEdit(detailsProduct); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><Edit className="w-4 h-4" /> تعديل البطاقة</button>
+              <button onClick={() => { setDetailsProduct(null); openEdit(detailsProduct); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><SquarePen className="w-4 h-4" /> تعديل البطاقة</button>
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "restock"); }} className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm inline-flex items-center gap-1"><PackagePlus className="w-4 h-4" /> توريد</button>
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "return"); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> مرتجع</button>
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "damaged"); }} className="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm inline-flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تالف</button>
