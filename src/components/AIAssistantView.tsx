@@ -625,7 +625,7 @@ export default function AIAssistantView({
   return (
     <div
       style={fontStyle}
-      className="flex h-[calc(100dvh-4rem)] w-full min-w-0 max-w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden relative"
+      className="flex h-[calc(100dvh-4rem)] min-h-[28rem] w-full min-w-0 max-w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden relative"
     >
       {/* =========================================================================
           1. CONVERSATION HISTORY SIDEBAR / DRAWER
@@ -633,7 +633,7 @@ export default function AIAssistantView({
       <aside
         className={`fixed inset-y-0 right-0 z-40 sm:relative flex flex-col bg-white dark:bg-slate-900 transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
           isSidebarOpen
-            ? "w-72 sm:w-80 min-w-[18rem] sm:min-w-[20rem] max-w-[20rem] translate-x-0 opacity-100 visible border-l border-slate-200 dark:border-slate-800 shadow-xl sm:shadow-none"
+            ? "w-[min(18rem,calc(100vw-1rem))] sm:w-80 min-w-0 sm:min-w-[20rem] max-w-[20rem] translate-x-0 opacity-100 visible border-l border-slate-200 dark:border-slate-800 shadow-xl sm:shadow-none"
             : "w-0 min-w-0 max-w-0 translate-x-full sm:translate-x-0 opacity-0 invisible pointer-events-none border-0 p-0 m-0"
         }`}
         style={{
@@ -646,9 +646,9 @@ export default function AIAssistantView({
           pointerEvents: isSidebarOpen ? "auto" : "none",
         }}
       >
-        <div className="w-72 sm:w-80 h-full flex flex-col shrink-0 min-w-[18rem] sm:min-w-[20rem]">
+        <div className="w-[min(18rem,calc(100vw-1rem))] sm:w-80 h-full flex flex-col shrink-0 min-w-0 sm:min-w-[20rem]">
           {/* Sidebar Header */}
-          <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
                 <Bot className="w-4 h-4" />
@@ -777,8 +777,8 @@ export default function AIAssistantView({
       ========================================================================= */}
       <main className="flex-1 flex flex-col h-full min-w-0 bg-slate-50/50 dark:bg-slate-950">
         {/* Top Chat Header */}
-        <header className="px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 shadow-xs shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <header className="px-2 sm:px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Toggle Conversation History Sidebar Button - Click to collapse, click to open on ALL devices */}
             <button
               type="button"
@@ -798,7 +798,7 @@ export default function AIAssistantView({
               <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white truncate flex items-center gap-2">
                 <span>{activeConversation?.title || "محادثة محاسبية"}</span>
               </h2>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 mt-0.5 min-w-0">
                 <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
                   <Sparkles className="w-3 h-3" />
                   <span>{currentModelInfo.name}</span>
@@ -810,7 +810,7 @@ export default function AIAssistantView({
           </div>
 
           {/* Header Action Buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={handleExportPDF}
@@ -835,10 +835,10 @@ export default function AIAssistantView({
               type="button"
               onClick={handleCreateNewChat}
               title="محادثة جديدة"
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>محادثة جديدة</span>
+              <span className="hidden sm:inline">محادثة جديدة</span>
             </button>
           </div>
         </header>
