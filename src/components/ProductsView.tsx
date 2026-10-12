@@ -80,7 +80,11 @@ export default function ProductsView({
   const linkedSalesProfitEstimate = invoices.reduce((sum, invoice) => sum + (invoice.items || []).reduce((itemSum, item) => {
     if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return itemSum;
     const product = products.find(p => p.id === item.productId);
-    return itemSum + ((Number(item.unitPrice) || 0) - (Number(product?.purchasePrice) || 0)) * (Number(item.quantity) || 0);
+    const historicalCost = product?.stockMovements?.find(m => m.referenceId === invoice.id && m.type === "sale")?.unitCost;
+    const unitCost = historicalCost !== undefined && Number.isFinite(Number(historicalCost))
+      ? Number(historicalCost)
+      : (Number(product?.purchasePrice) || 0);
+    return itemSum + ((Number(item.unitPrice) || 0) - unitCost) * (Number(item.quantity) || 0);
   }, 0), 0);
 
   const filteredProducts = useMemo(() => {
