@@ -69,6 +69,9 @@ export interface Product {
   lastViewedAt?: string;
   priceHistory?: ProductPriceHistoryEntry[];
   stockMovements?: ProductStockMovement[];
+  isDeleted?: boolean;
+  deletedAt?: string;
+  originalCategory?: string;
 }
 
 export interface InvoiceItem {
