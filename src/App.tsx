@@ -533,7 +533,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full min-w-0 flex bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden">
       {showCoachMarks && (
         <FirstUseCoachMarks
           currentTab={currentTab}
@@ -558,10 +558,10 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 min-h-[100dvh] overflow-y-auto">
         
         {/* Top Navbar Header */}
-        <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-6 shrink-0 no-print">
+        <header className="min-h-16 h-auto bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-y-2 py-2 px-2 sm:px-6 shrink-0 no-print">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -591,7 +591,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-end gap-2 sm:gap-4 flex-wrap min-w-0">
             {/* Overdue Alert Bell in Header */}
             {overdueDebtorsCount > 0 && (
               <button
