@@ -85,11 +85,19 @@ function ProductsViewContent({
   const [movementType, setMovementType] = useState<"restock" | "return" | "damaged" | "adjustment">("restock");
   const [movementQty, setMovementQty] = useState("1");
   const [movementNote, setMovementNote] = useState("");
+  const [showTrash, setShowTrash] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [actionProduct, setActionProduct] = useState<Product | null>(null);
+  const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
+  const [targetCategory, setTargetCategory] = useState("");
 
-  const categories = useMemo(() => ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))], [products]);
-  const totalItemsCount = products.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-  const totalCostValue = products.reduce((sum, p) => sum + (Number(p.purchasePrice) || 0) * (Number(p.quantity) || 0), 0);
-  const totalRetailValue = products.reduce((sum, p) => sum + (Number(p.salePrice) || 0) * (Number(p.quantity) || 0), 0);
+  const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
+  const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
+  const categories = useMemo(() => ["all", ...Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean)))], [activeProducts]);
+  const totalItemsCount = activeProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+  const totalCostValue = activeProducts.reduce((sum, p) => sum + (Number(p.purchasePrice) || 0) * (Number(p.quantity) || 0), 0);
+  const totalRetailValue = activeProducts.reduce((sum, p) => sum + (Number(p.salePrice) || 0) * (Number(p.quantity) || 0), 0);
   const potentialProfit = totalRetailValue - totalCostValue;
   const linkedSalesProfitEstimate = invoices.reduce((sum, invoice) => sum + (invoice.items || []).reduce((itemSum, item) => {
     if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return itemSum;
@@ -103,7 +111,7 @@ function ProductsViewContent({
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
-    return products.filter(p => {
+    return activeProducts.filter(p => {
       const searchable = [p.name, p.category, p.barcode, p.description, p.notes, p.supplierName, p.supplierPhone]
         .filter(Boolean).join(" ").toLocaleLowerCase();
       const matchesQuery = !q || searchable.includes(q);
@@ -118,7 +126,7 @@ function ProductsViewContent({
       if (quickFilter === "favorites") return Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite)) || a.name.localeCompare(b.name, "ar");
       return a.name.localeCompare(b.name, "ar");
     });
-  }, [products, searchQuery, selectedCategory, quickFilter]);
+  }, [activeProducts, searchQuery, selectedCategory, quickFilter]);
 
   const groupedProducts = useMemo(() => {
     const groups = new Map<string, Product[]>();
@@ -311,10 +319,71 @@ function ProductsViewContent({
   };
 
   const handleDelete = (product: Product) => {
-    if (confirm(`هل تريد حذف "${product.name}" من قائمة البضاعة؟ لن تُحذف الفواتير السابقة المرتبطة بها.`)) {
-      deleteProduct(product.id);
+    if (confirm(`نقل "${product.name}" إلى المهملات؟ يمكنك استعادتها لاحقاً، ولن تُحذف الفواتير السابقة.`)) {
+      void updateProduct({ ...product, isDeleted: true, deletedAt: nowIso(), originalCategory: product.category });
+      setSelectedIds(ids => ids.filter(id => id !== product.id));
       if (detailsProduct?.id === product.id) setDetailsProduct(null);
     }
+  };
+
+  const restoreProduct = (product: Product) => {
+    const restoredCategory = product.originalCategory || product.category || "";
+    void updateProduct({ ...product, category: restoredCategory, isDeleted: false, deletedAt: undefined, originalCategory: undefined });
+  };
+
+  const openProductAction = (product: Product, mode: "move" | "copy") => {
+    setActionProduct(product); setActionMode(mode); setTargetCategory(product.category || categories.find(c => c !== "all") || "");
+  };
+
+  const commitProductAction = () => {
+    if (!actionProduct || !actionMode || !targetCategory.trim()) return;
+    const destination = targetCategory.trim();
+    if (actionMode === "move") {
+      if (destination === actionProduct.category) { alert("الصنف موجود بالفعل في هذا التصنيف."); return; }
+      void updateProduct({ ...actionProduct, category: destination });
+      alert(`تم نقل "${actionProduct.name}" إلى "${destination}".`);
+    } else {
+      const { id: _oldId, userId: _oldUser, isDeleted: _deleted, deletedAt: _deletedAt, originalCategory: _originalCategory, lastViewedAt: _lastViewed, ...copy } = actionProduct;
+      addProduct({ ...copy, name: `${actionProduct.name} - نسخة`, category: destination, quantity: 0, isFavorite: false, priceHistory: [{ id: priceId(), changedAt: nowIso(), purchasePrice: actionProduct.purchasePrice, salePrice: actionProduct.salePrice, supplierName: actionProduct.supplierName, note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر" }], stockMovements: [] });
+      alert(`تم إنشاء نسخة مستقلة من "${actionProduct.name}" بكمية صفر.`);
+    }
+    setActionProduct(null); setActionMode(null); setSelectedIds([]);
+  };
+
+  const bulkMove = () => {
+    if (!selectedIds.length) return;
+    const destination = prompt("اكتب اسم التصنيف المستهدف لنقل الأصناف المحددة:");
+    if (!destination?.trim()) return;
+    const selected = activeProducts.filter(p => selectedIds.includes(p.id));
+    if (!confirm(`نقل ${selected.length} صنف إلى "${destination.trim()}"؟`)) return;
+    selected.forEach(product => { void updateProduct({ ...product, category: destination.trim() }); });
+    setSelectedIds([]);
+  };
+
+  const bulkTrash = () => {
+    const selected = activeProducts.filter(p => selectedIds.includes(p.id));
+    if (!selected.length || !confirm(`نقل ${selected.length} صنف إلى المهملات؟`)) return;
+    selected.forEach(product => { void updateProduct({ ...product, isDeleted: true, deletedAt: nowIso(), originalCategory: product.category }); });
+    setSelectedIds([]);
+  };
+
+  const renameCategory = (category: string) => {
+    const nextName = prompt(`اكتب الاسم الجديد للتصنيف "${category}":`, category)?.trim();
+    if (!nextName || nextName === category) return;
+    if (categories.includes(nextName)) { alert("يوجد تصنيف بهذا الاسم بالفعل."); return; }
+    const members = activeProducts.filter(p => p.category === category);
+    if (!confirm(`تغيير اسم التصنيف وتحديث ${members.length} صنف إلى "${nextName}"؟`)) return;
+    members.forEach(product => { void updateProduct({ ...product, category: nextName }); });
+  };
+
+  const deleteCategory = (category: string) => {
+    const members = activeProducts.filter(p => p.category === category);
+    if (!members.length) { alert("لا توجد أصناف نشطة في هذا التصنيف."); return; }
+    const destination = prompt(`التصنيف "${category}" يحتوي ${members.length} صنف. اكتب اسم تصنيف بديل لنقلها إليه، أو اكتب بدون تصنيف:`, "بدون تصنيف")?.trim();
+    if (!destination || destination === category) return;
+    if (!confirm(`نقل ${members.length} صنف إلى "${destination}" ثم إزالة التصنيف القديم من القائمة؟`)) return;
+    members.forEach(product => { void updateProduct({ ...product, category: destination === "بدون تصنيف" ? "" : destination }); });
+    if (selectedCategory === category) setSelectedCategory("all");
   };
 
   const salesForProduct = (product: Product) => invoices.flatMap(invoice =>
@@ -361,9 +430,11 @@ function ProductsViewContent({
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /> مستودع البضائع</h2>
             <p className="text-xs text-slate-500 mt-1">بطاقات بالصور والأسعار والمجهّزين وسجل حركة المخزون.</p>
           </div>
-          <button onClick={openAdd} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold">
-            <PlusCircle className="w-4 h-4" /> إضافة بضاعة
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Layers className="w-4 h-4" /> إدارة التصنيفات</button>
+            <button type="button" onClick={() => { setShowTrash(v => !v); setShowCategoryManager(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> المهملات ({trashedProducts.length})</button>
+            <button onClick={openAdd} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"><PlusCircle className="w-4 h-4" /> إضافة بضاعة</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
@@ -383,6 +454,7 @@ function ProductsViewContent({
           </select>
         </div>
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
+        {selectedIds.length > 0 && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm"><b>تم تحديد {selectedIds.length} صنف</b><button type="button" onClick={bulkMove} className="px-3 py-1.5 bg-white border rounded-md">نقل المحدد</button><button type="button" onClick={bulkTrash} className="px-3 py-1.5 bg-white border rounded-md text-rose-700">إلى المهملات</button><button type="button" onClick={() => setSelectedIds([])} className="px-3 py-1.5 border rounded-md">إلغاء التحديد</button></div>}
 
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
@@ -398,6 +470,7 @@ function ProductsViewContent({
                   <table className="w-full min-w-[760px] text-sm text-right">
                     <thead className="bg-white text-slate-500 text-xs">
                       <tr>
+                        <th scope="col" className="px-3 py-3 font-semibold"><input aria-label="تحديد كل الأصناف الظاهرة" type="checkbox" checked={filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id))} onChange={e => setSelectedIds(e.target.checked ? Array.from(new Set([...selectedIds, ...filteredProducts.map(p => p.id)])) : selectedIds.filter(id => !filteredProducts.some(p => p.id === id)))} /></th>
                         <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر الشراء</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
@@ -411,6 +484,7 @@ function ProductsViewContent({
                         const profit = (Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0);
                         return (
                           <tr key={product.id} className="hover:bg-slate-50/80">
+                            <td className="px-3 py-3"><input aria-label={`تحديد ${product.name}`} type="checkbox" checked={selectedIds.includes(product.id)} onChange={e => setSelectedIds(ids => e.target.checked ? [...new Set([...ids, product.id])] : ids.filter(id => id !== product.id))} /></td>
                             <td className="px-3 py-3">
                               <div className="font-bold text-slate-800">{product.name}</div>
                               <div className="text-[11px] text-slate-500 mt-1">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
@@ -427,6 +501,9 @@ function ProductsViewContent({
                               <div className="flex items-center gap-2">
                                 <button type="button" onClick={() => openDetails(product)} title="التفاصيل" aria-label={`تفاصيل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 whitespace-nowrap"><Eye className="w-4 h-4" /> تفاصيل</button>
                                 <button type="button" onClick={() => openEdit(product)} title="تعديل" aria-label={`تعديل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 whitespace-nowrap"><SquarePen className="w-4 h-4" /> تعديل</button>
+                                <button type="button" onClick={() => openProductAction(product, "move")} className="px-2 py-2 text-xs border rounded-lg whitespace-nowrap">نقل</button>
+                                <button type="button" onClick={() => openProductAction(product, "copy")} className="px-2 py-2 text-xs border rounded-lg whitespace-nowrap">نسخ</button>
+                                <button type="button" onClick={() => handleDelete(product)} className="px-2 py-2 text-xs border border-rose-200 text-rose-700 rounded-lg whitespace-nowrap">حذف</button>
                               </div>
                             </td>
                           </tr>
@@ -440,6 +517,12 @@ function ProductsViewContent({
           </div>
         )}
       </section>
+
+      {showCategoryManager && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">إدارة التصنيفات</h3><button type="button" onClick={() => setShowCategoryManager(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">التصنيفات الحالية مستنتجة من الأصناف. تغيير الاسم يحدّث الأصناف المرتبطة، وحذف تصنيف ينقل أصنافه إلى وجهة تختارها.</p>{categories.filter(c => c !== "all").length === 0 ? <p className="text-sm text-slate-500">لا توجد تصنيفات بعد.</p> : categories.filter(c => c !== "all").map(category => <div key={category} className="flex flex-wrap items-center justify-between gap-2 border rounded-lg p-3"><div><b>{category}</b><p className="text-xs text-slate-500">{activeProducts.filter(p => p.category === category).length} صنف</p></div><div className="flex gap-2"><button type="button" onClick={() => renameCategory(category)} className="px-3 py-2 text-xs border rounded-lg">تعديل الاسم</button><button type="button" onClick={() => deleteCategory(category)} className="px-3 py-2 text-xs border border-rose-200 text-rose-700 rounded-lg">حذف التصنيف</button></div></div>)}<button type="button" onClick={() => { setShowCategoryManager(false); openAdd(); }} className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm">إضافة تصنيف عبر إضافة بضاعة</button></section></div>}
+
+      {showTrash && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">مهملات البضائع ({trashedProducts.length})</h3><button type="button" onClick={() => setShowTrash(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">الحذف هنا مؤقت. الاستعادة تعيد الصنف إلى القائمة، والحذف النهائي لا يمسح الفواتير التاريخية.</p>{trashedProducts.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">المهملات فارغة.</p> : <div className="space-y-2">{trashedProducts.map(product => <div key={product.id} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg p-3"><div className="flex items-center gap-3 min-w-0">{product.imageUrl ? <img src={product.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg" /> : <Package className="w-8 h-8 text-slate-300" />}<div className="min-w-0"><b>{product.name}</b><p className="text-xs text-slate-500">التصنيف: {product.originalCategory || product.category || "بدون تصنيف"} • حذف: {product.deletedAt ? new Date(product.deletedAt).toLocaleString("ar-IQ") : "غير معروف"}</p></div></div><div className="flex gap-2"><button type="button" onClick={() => restoreProduct(product)} className="px-3 py-2 border rounded-lg text-xs">استعادة</button><button type="button" onClick={() => { if (confirm(`حذف "${product.name}" نهائياً من قائمة البضائع؟ ستبقى تفاصيل الفواتير التاريخية كما هي.`)) deleteProduct(product.id); }} className="px-3 py-2 border border-rose-200 text-rose-700 rounded-lg text-xs">حذف نهائي</button></div></div>)}</div>}{trashedProducts.length > 0 && <button type="button" onClick={() => { if (confirm(`حذف ${trashedProducts.length} صنف نهائياً من قائمة البضائع؟ لا يمكن التراجع عن ذلك.`)) trashedProducts.forEach(p => deleteProduct(p.id)); }} className="w-full py-2.5 border border-rose-200 text-rose-700 rounded-lg text-sm">إفراغ المهملات نهائياً</button>}</section></div>}
+
+      {actionProduct && actionMode && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold">{actionMode === "move" ? "نقل الصنف إلى تصنيف" : "نسخ الصنف إلى تصنيف"}</h3><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="p-2 rounded-lg"><X className="w-5 h-5" /></button></div><p className="text-sm">{actionProduct.name} — التصنيف الحالي: {actionProduct.category || "بدون تصنيف"}</p>{actionMode === "copy" && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3">ستُنشأ بطاقة مستقلة بكمية صفر، دون نسخ سجل الحركات أو ربط الفواتير القديمة.</p>}<label className="block text-sm font-semibold">التصنيف المستهدف</label><input list="product-category-options" value={targetCategory} onInput={e => setTargetCategory(e.currentTarget.value)} placeholder="اكتب أو اختر تصنيفاً" className="w-full p-3 border rounded-lg" /><datalist id="product-category-options">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist><div className="flex gap-2"><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="flex-1 py-2.5 border rounded-lg">إلغاء</button><button type="button" onClick={commitProductAction} disabled={!targetCategory.trim()} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">تأكيد</button></div></section></div>}
 
       {isFormOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3 sm:p-5">
