@@ -951,20 +951,31 @@ export function useAccountingData() {
       saveToFirestoreDoc("invoices", newInvoice.id, newInvoice).catch((e) => console.error(e));
     }
 
-    // Update quantities of products if linked
+    // Update stock and record each linked sale in the product movement history.
     const updatedProducts = [...products];
     let productsChanged = false;
     newInvoice.items.forEach((item) => {
-      if (item.productId) {
-        const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
-        if (prodIndex > -1) {
-          updatedProducts[prodIndex] = {
-            ...updatedProducts[prodIndex],
-            quantity: Math.max(0, updatedProducts[prodIndex].quantity - item.quantity),
-          };
-          productsChanged = true;
-        }
-      }
+      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+      const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+      if (prodIndex < 0) return;
+      const product = updatedProducts[prodIndex];
+      const soldQuantity = Math.max(0, Number(item.quantity) || 0);
+      const movement: ProductStockMovement = {
+        id: `sale-${newInvoice.id}-${item.id}-${Date.now()}`,
+        type: "sale",
+        quantity: -soldQuantity,
+        createdAt: newInvoice.createdAt,
+        note: `بيع من الفاتورة رقم ${newInvoice.invoiceNumber || ""}`.trim(),
+        referenceId: newInvoice.id,
+        customerName: newInvoice.customerName,
+        unitCost: Number(product.purchasePrice) || 0,
+      };
+      updatedProducts[prodIndex] = {
+        ...product,
+        quantity: Math.max(0, (Number(product.quantity) || 0) - soldQuantity),
+        stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
+      };
+      productsChanged = true;
     });
 
     if (productsChanged) {
@@ -1033,34 +1044,57 @@ export function useAccountingData() {
     const oldInvoice = invoices.find((inv) => inv.id === updated.id);
     if (!oldInvoice) return;
 
-    // Adjust product stocks
+    // Reverse the previous invoice quantities, then apply the edited invoice and log both changes.
     const updatedProducts = [...products];
     let productsChanged = false;
+    const movementAt = new Date().toISOString();
 
     oldInvoice.items.forEach((item) => {
-      if (item.productId) {
-        const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
-        if (prodIndex > -1) {
-          updatedProducts[prodIndex] = {
-            ...updatedProducts[prodIndex],
-            quantity: updatedProducts[prodIndex].quantity + item.quantity,
-          };
-          productsChanged = true;
-        }
-      }
+      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+      const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+      if (prodIndex < 0) return;
+      const product = updatedProducts[prodIndex];
+      const restoredQuantity = Math.max(0, Number(item.quantity) || 0);
+      const movement: ProductStockMovement = {
+        id: `edit-return-${updated.id}-${item.id}-${Date.now()}`,
+        type: "adjustment",
+        quantity: restoredQuantity,
+        createdAt: movementAt,
+        note: `عكس كمية البيع السابقة عند تعديل الفاتورة ${oldInvoice.invoiceNumber || ""}`.trim(),
+        referenceId: updated.id,
+        customerName: oldInvoice.customerName,
+        unitCost: Number(product.purchasePrice) || 0,
+      };
+      updatedProducts[prodIndex] = {
+        ...product,
+        quantity: (Number(product.quantity) || 0) + restoredQuantity,
+        stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
+      };
+      productsChanged = true;
     });
 
     updated.items.forEach((item) => {
-      if (item.productId) {
-        const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
-        if (prodIndex > -1) {
-          updatedProducts[prodIndex] = {
-            ...updatedProducts[prodIndex],
-            quantity: Math.max(0, updatedProducts[prodIndex].quantity - item.quantity),
-          };
-          productsChanged = true;
-        }
-      }
+      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+      const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+      if (prodIndex < 0) return;
+      const product = updatedProducts[prodIndex];
+      const soldQuantity = Math.max(0, Number(item.quantity) || 0);
+      const movement: ProductStockMovement = {
+        id: `edit-sale-${updated.id}-${item.id}-${Date.now()}`,
+        type: "sale",
+        quantity: -soldQuantity,
+        createdAt: movementAt,
+        note: `بيع من الفاتورة المعدلة رقم ${updated.invoiceNumber || ""}`.trim(),
+        referenceId: updated.id,
+        customerName: updated.customerName,
+        unitCost: Number(product.purchasePrice) || 0,
+      };
+      updatedProducts[prodIndex] = {
+        ...product,
+        quantity: Math.max(0, (Number(product.quantity) || 0) - soldQuantity),
+        stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
+      };
+      productsChanged = true;
     });
 
     if (productsChanged) {
@@ -1136,17 +1170,29 @@ export function useAccountingData() {
     if (invoice) {
       const updatedProducts = [...products];
       let productsChanged = false;
+      const movementAt = new Date().toISOString();
       invoice.items.forEach((item) => {
-        if (item.productId) {
-          const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
-          if (prodIndex > -1) {
-            updatedProducts[prodIndex] = {
-              ...updatedProducts[prodIndex],
-              quantity: updatedProducts[prodIndex].quantity + item.quantity,
-            };
-            productsChanged = true;
-          }
-        }
+        if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+        const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+        if (prodIndex < 0) return;
+        const product = updatedProducts[prodIndex];
+        const restoredQuantity = Math.max(0, Number(item.quantity) || 0);
+        const movement: ProductStockMovement = {
+          id: `delete-return-${invoice.id}-${item.id}-${Date.now()}`,
+          type: "return",
+          quantity: restoredQuantity,
+          createdAt: movementAt,
+          note: `إرجاع الكمية للمخزون بعد حذف الفاتورة ${invoice.invoiceNumber || ""}`.trim(),
+          referenceId: invoice.id,
+          customerName: invoice.customerName,
+          unitCost: Number(product.purchasePrice) || 0,
+        };
+        updatedProducts[prodIndex] = {
+          ...product,
+          quantity: (Number(product.quantity) || 0) + restoredQuantity,
+          stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
+        };
+        productsChanged = true;
       });
       if (productsChanged) {
         setProducts(updatedProducts);
