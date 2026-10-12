@@ -42,6 +42,7 @@ import {
   ThumbsDown,
   Quote,
   Reply,
+  MoreVertical,
 } from "lucide-react";
 import { Customer, Invoice, Payment, SystemSettings } from "../types";
 import {
@@ -1373,60 +1374,34 @@ export default function AIAssistantView({
           )}
         </div>
 
-        {/* Quick actions on conversation */}
+        {/* Conversation options menu */}
         {!isEditing && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTogglePin(conv.id);
-              }}
-              title={conv.isPinned ? "إلغاء التثبيت" : "تثبيت في الأعلى"}
-              className="p-1 rounded text-slate-400 hover:text-amber-500"
+          <details className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+            <summary
+              title="خيارات المحادثة"
+              aria-label="خيارات المحادثة"
+              className="list-none cursor-pointer p-1.5 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
             >
-              {conv.isPinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingConvId(conv.id);
-                setEditingConvTitle(conv.title);
-              }}
-              title="إعادة تسمية"
-              className="p-1 rounded text-slate-400 hover:text-blue-600"
-            >
-              <Edit3 className="w-3 h-3" />
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleArchive(conv.id);
-              }}
-              title={conv.isArchived ? "إلغاء الأرشفة" : "أرشفة المحادثة"}
-              className="p-1 rounded text-slate-400 hover:text-slate-700"
-            >
-              {conv.isArchived ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm("هل أنت متأكد من حذف هذه المحادثة؟")) {
-                  handleDeleteConversation(conv.id);
-                }
-              }}
-              title="حذف المحادثة"
-              className="p-1 rounded text-slate-400 hover:text-red-600"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
+              <MoreVertical className="w-4 h-4" />
+            </summary>
+            <div className="absolute left-0 top-full z-40 mt-1 w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-xl text-xs">
+              <button type="button" onClick={(e) => { e.stopPropagation(); handleTogglePin(conv.id); }} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-right hover:bg-slate-100 dark:hover:bg-slate-800">
+                {conv.isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                {conv.isPinned ? "إلغاء التثبيت" : "تثبيت في الأعلى"}
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setEditingConvId(conv.id); setEditingConvTitle(conv.title); }} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-right hover:bg-slate-100 dark:hover:bg-slate-800">
+                <Edit3 className="w-3.5 h-3.5" /> إعادة التسمية
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleArchive(conv.id); }} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-right hover:bg-slate-100 dark:hover:bg-slate-800">
+                {conv.isArchived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                {conv.isArchived ? "إلغاء الأرشفة" : "أرشفة المحادثة"}
+              </button>
+              <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+              <button type="button" onClick={(e) => { e.stopPropagation(); if (window.confirm("هل أنت متأكد من حذف هذه المحادثة؟ لا يمكن التراجع عن الحذف.")) void handleDeleteConversation(conv.id); }} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-right text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                <Trash2 className="w-3.5 h-3.5" /> حذف المحادثة
+              </button>
+            </div>
+          </details>
         )}
       </div>
     );
