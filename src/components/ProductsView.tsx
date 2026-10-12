@@ -102,7 +102,7 @@ export default function ProductsView({
     });
   }, [products, searchQuery, selectedCategory, quickFilter]);
 
-  const setField = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) =>
+  const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
 
   const openAdd = () => {
