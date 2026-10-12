@@ -37,6 +37,12 @@ import {
   AtSign,
   AlertCircle,
   Cpu,
+  Share2,
+  ThumbsUp,
+  ThumbsDown,
+  Quote,
+  Reply,
+  MoreVertical,
 } from "lucide-react";
 import { Customer, Invoice, Payment, SystemSettings } from "../types";
 import {
@@ -105,6 +111,9 @@ export default function AIAssistantView({
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
+  const [replyContext, setReplyContext] = useState<{ id: string; text: string; sender: "user" | "ai"; mode: "quote" | "reply" } | null>(null);
+  const [messageRatings, setMessageRatings] = useState<Record<string, "like" | "dislike">>({});
+  const [notice, setNotice] = useState("");
 
   // Mention Autocomplete
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -364,12 +373,21 @@ export default function AIAssistantView({
     if (!textToSend || isLoading || !activeConversation) return;
 
     setShowMentionDropdown(false);
+    const contextForSend = queryText ? null : replyContext;
+    const requestText = contextForSend
+      ? `السياق المرتبط برسالتك الحالية (اقرأه كمرجع للسؤال وليس كسؤال مستقل):\n${contextForSend.mode === "quote" ? "النص المقتبس" : "الرسالة التي يريد المستخدم الرد عليها"} من ${contextForSend.sender === "ai" ? "المساعد" : "المستخدم"}: «${contextForSend.text}»\n\nسؤال/تعليق المستخدم: ${textToSend}`
+      : textToSend;
 
     const userMsg: ChatMessage = {
       id: `user_${Date.now()}`,
       sender: "user",
       text: textToSend,
       timestamp: new Date().toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }),
+      ...(contextForSend ? {
+        quotedText: contextForSend.text,
+        replyToMessageId: contextForSend.id,
+        replyToSender: contextForSend.sender,
+      } : {}),
     };
 
     // Auto title for conversation if it's the first user question
@@ -392,6 +410,7 @@ export default function AIAssistantView({
       prev.map((c) => (c.id === updatedConversation.id ? updatedConversation : c))
     );
     setInputQuery("");
+    setReplyContext(null);
     setIsLoading(true);
 
     // Abort controller
@@ -399,7 +418,7 @@ export default function AIAssistantView({
     abortControllerRef.current = controller;
 
     try {
-      const response: FinancialAssistantResponse = await askFinancialAssistantServer(textToSend, {
+      const response: FinancialAssistantResponse = await askFinancialAssistantServer(requestText, {
         model: aiSettings.selectedModel,
         customInstructions: aiSettings.customInstructions,
         conversationHistory: updatedMessages.slice(-8).map((m) => ({
@@ -513,11 +532,71 @@ export default function AIAssistantView({
     handleSendMessage(userQuestionText);
   };
 
-  // Copy text helper
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedMsgId(id);
-    setTimeout(() => setCopiedMsgId(null), 2000);
+  // Copy text helper with a fallback for browsers/webviews without Clipboard API.
+  const handleCopy = async (id: string, text: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const temporary = document.createElement("textarea");
+        temporary.value = text;
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+        const copied = document.execCommand("copy");
+        temporary.remove();
+        if (!copied) throw new Error("تعذر النسخ");
+      }
+      setCopiedMsgId(id);
+      setNotice("تم نسخ النص");
+    } catch {
+      setNotice("تعذر النسخ تلقائياً؛ حدّد النص وانسخه يدوياً");
+    }
+    window.setTimeout(() => { setCopiedMsgId(null); setNotice(""); }, 2200);
+  };
+
+  const handleShareMessage = async (text: string) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "رسالة من مساعد الحمدلله", text });
+      } else {
+        await handleCopy("share", text);
+        setNotice("المشاركة غير مدعومة هنا؛ تم نسخ النص لتتمكن من مشاركته");
+      }
+    } catch (error) {
+      if ((error as Error)?.name !== "AbortError") {
+        await handleCopy("share", text);
+      }
+    }
+  };
+
+  const handleSetReplyContext = (msg: ChatMessage, mode: "quote" | "reply") => {
+    const selection = window.getSelection()?.toString().trim();
+    const chosenText = mode === "quote" && selection ? selection : msg.text;
+    setReplyContext({ id: msg.id, text: chosenText.slice(0, 4000), sender: msg.sender, mode });
+    setNotice(mode === "quote" ? "تم تجهيز الاقتباس" : "تم تفعيل الرد على الرسالة");
+    inputRef.current?.focus();
+    window.setTimeout(() => setNotice(""), 1800);
+  };
+
+  const handleRateMessage = (msgId: string, rating: "like" | "dislike") => {
+    if (!activeConversation) return;
+    const existing = activeConversation.messages.find((m) => m.id === msgId);
+    const nextRating = existing?.rating === rating ? undefined : rating;
+    const updatedMessages = activeConversation.messages.map((m) =>
+      m.id === msgId ? { ...m, rating: nextRating } : m
+    );
+    const updatedConversation = { ...activeConversation, messages: updatedMessages, updatedAt: new Date().toISOString() };
+    setConversations((prev) => prev.map((c) => c.id === updatedConversation.id ? updatedConversation : c));
+    setMessageRatings((prev) => {
+      const next = { ...prev };
+      if (nextRating) next[msgId] = nextRating; else delete next[msgId];
+      return next;
+    });
+    void persistConversation(updatedConversation, userId);
+    setNotice(nextRating ? "تم حفظ تقييمك" : "تم إلغاء التقييم");
+    window.setTimeout(() => setNotice(""), 1800);
   };
 
   // Edit Message
@@ -936,7 +1015,15 @@ export default function AIAssistantView({
                         </div>
                       </div>
                     ) : isUser ? (
-                      <p className={`whitespace-pre-wrap leading-relaxed ${fontSizeClass}`}>{msg.text}</p>
+                      <div className="min-w-0 max-w-full">
+                        {msg.quotedText && (
+                          <div className="mb-2 border-r-2 border-blue-300 pr-2 text-xs text-blue-100/90">
+                            <div className="font-bold">{msg.replyToSender === "ai" ? "اقتباس من المساعد" : "اقتباس من رسالتك"}</div>
+                            <div className="line-clamp-3 whitespace-pre-wrap break-words">{msg.quotedText}</div>
+                          </div>
+                        )}
+                        <p className={`whitespace-pre-wrap break-words leading-relaxed select-text ${fontSizeClass}`}>{msg.text}</p>
+                      </div>
                     ) : (
                       <div className={fontSizeClass}>
                         <FormattedMessageContent
@@ -961,7 +1048,7 @@ export default function AIAssistantView({
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex flex-wrap items-center gap-1 opacity-100 transition-opacity">
                       <button
                         type="button"
                         onClick={() => handleCopy(msg.id, msg.text)}
@@ -974,6 +1061,60 @@ export default function AIAssistantView({
                           <Copy className="w-3 h-3" />
                         )}
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleShareMessage(msg.text)}
+                        title="مشاركة الرسالة"
+                        aria-label="مشاركة الرسالة"
+                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                      >
+                        <Share2 className="w-3 h-3" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSetReplyContext(msg, "quote")}
+                        title="اقتباس النص المحدد أو الرسالة"
+                        aria-label="اقتباس الرسالة"
+                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                      >
+                        <Quote className="w-3 h-3" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSetReplyContext(msg, "reply")}
+                        title="الرد على هذه الرسالة"
+                        aria-label="الرد على الرسالة"
+                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                      >
+                        <Reply className="w-3 h-3" />
+                      </button>
+
+                      {!isUser && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRateMessage(msg.id, "like")}
+                            title="إعجاب بالإجابة"
+                            aria-label="إعجاب"
+                            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 ${msg.rating === "like" ? "text-emerald-600" : "text-slate-500"}`}
+                          >
+                            <ThumbsUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRateMessage(msg.id, "dislike")}
+                            title="عدم الإعجاب بالإجابة"
+                            aria-label="عدم الإعجاب"
+                            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 ${msg.rating === "dislike" ? "text-red-600" : "text-slate-500"}`}
+                          >
+                            <ThumbsDown className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
 
                       {isUser && (
                         <button
@@ -1039,6 +1180,12 @@ export default function AIAssistantView({
           <div ref={messagesEndRef} />
         </div>
 
+        {notice && (
+          <div role="status" aria-live="polite" className="px-3 py-1 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/30 border-t border-emerald-100 dark:border-emerald-900">
+            {notice}
+          </div>
+        )}
+
         {/* Quick Questions Suggestions Carousel */}
         <div className="px-3 sm:px-5 py-2 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
           <span className="text-[11px] font-bold text-slate-400 shrink-0 flex items-center gap-1">
@@ -1089,7 +1236,23 @@ export default function AIAssistantView({
               <AtSign className="w-4 h-4" />
             </button>
 
-            {/* Input Textarea */}
+            {replyContext && (
+            <div className="mb-2 flex items-start gap-2 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/80 dark:bg-blue-950/30 p-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                  {replyContext.mode === "quote" ? <Quote className="w-3 h-3" /> : <Reply className="w-3 h-3" />}
+                  <span>{replyContext.mode === "quote" ? "اقتباس من رسالة" : "الرد على رسالة"}</span>
+                  <span>· {replyContext.sender === "ai" ? "المساعد" : "أنت"}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words line-clamp-3">{replyContext.text}</p>
+              </div>
+              <button type="button" onClick={() => setReplyContext(null)} title="إلغاء الاقتباس أو الرد" aria-label="إلغاء الاقتباس أو الرد" className="p-1 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Input Textarea */}
             <textarea
               ref={inputRef}
               value={inputQuery}
