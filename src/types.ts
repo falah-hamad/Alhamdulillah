@@ -25,6 +25,30 @@ export interface Customer {
   originalFolderId?: string | null; // المجلد الأصلي للزبون للاستعادة الدقيقة
 }
 
+export type ProductStockMovementType = "opening" | "restock" | "sale" | "return" | "damaged" | "adjustment";
+
+export interface ProductStockMovement {
+  id: string;
+  type: ProductStockMovementType;
+  quantity: number;
+  createdAt: string;
+  note?: string;
+  referenceId?: string;
+  customerName?: string;
+  unitCost?: number;
+}
+
+export interface ProductPriceHistoryEntry {
+  id: string;
+  changedAt: string;
+  purchasePrice: number;
+  salePrice: number;
+  previousPurchasePrice?: number;
+  previousSalePrice?: number;
+  supplierName?: string;
+  note?: string;
+}
+
 export interface Product {
   id: string;
   userId?: string;
@@ -34,6 +58,17 @@ export interface Product {
   quantity: number;
   category: string;
   barcode?: string;
+  imageUrl?: string;
+  description?: string;
+  notes?: string;
+  supplierName?: string;
+  supplierPhone?: string;
+  minStock?: number;
+  unitName?: string;
+  isFavorite?: boolean;
+  lastViewedAt?: string;
+  priceHistory?: ProductPriceHistoryEntry[];
+  stockMovements?: ProductStockMovement[];
 }
 
 export interface InvoiceItem {
