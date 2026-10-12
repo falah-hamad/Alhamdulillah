@@ -285,7 +285,9 @@ export default function ProductsView({
   };
 
   const salesForProduct = (product: Product) => invoices.flatMap(invoice =>
-    (invoice.items || []).filter(item => item.productId === product.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
+    (product.stockMovements || []).some(m => m.referenceId === invoice.id && m.type === "sale")
+      ? []
+      : (invoice.items || []).filter(item => item.productId === product.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
       .map(item => ({
         id: `sale-${invoice.id}-${item.id}`, type: "sale" as const,
         quantity: -(Number(item.quantity) || 0), createdAt: invoice.date || invoice.createdAt,
