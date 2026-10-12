@@ -20,9 +20,9 @@ interface ProductsViewProps {
 
 type ProductForm = {
   name: string;
-  purchasePrice: number;
-  salePrice: number;
-  quantity: number;
+  purchasePrice: string;
+  salePrice: string;
+  quantity: string;
   category: string;
   barcode: string;
   imageUrl: string;
@@ -30,14 +30,14 @@ type ProductForm = {
   notes: string;
   supplierName: string;
   supplierPhone: string;
-  minStock: number;
+  minStock: string;
   unitName: string;
 };
 
 const emptyForm: ProductForm = {
-  name: "", purchasePrice: 0, salePrice: 0, quantity: 0, category: "",
+  name: "", purchasePrice: "", salePrice: "", quantity: "", category: "",
   barcode: "", imageUrl: "", description: "", notes: "", supplierName: "",
-  supplierPhone: "", minStock: 5, unitName: "قطعة",
+  supplierPhone: "", minStock: "", unitName: "قطعة",
 };
 
 const nowIso = () => new Date().toISOString();
@@ -83,7 +83,7 @@ function ProductsViewContent({
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [movementProduct, setMovementProduct] = useState<Product | null>(null);
   const [movementType, setMovementType] = useState<"restock" | "return" | "damaged" | "adjustment">("restock");
-  const [movementQty, setMovementQty] = useState(1);
+  const [movementQty, setMovementQty] = useState("1");
   const [movementNote, setMovementNote] = useState("");
 
   const categories = useMemo(() => ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))], [products]);
@@ -146,9 +146,9 @@ function ProductsViewContent({
     setForm({
       ...emptyForm,
       name: product.name || "",
-      purchasePrice: Number(product.purchasePrice) || 0,
-      salePrice: Number(product.salePrice) || 0,
-      quantity: Number(product.quantity) || 0,
+      purchasePrice: product.purchasePrice == null ? "" : String(product.purchasePrice),
+      salePrice: product.salePrice == null ? "" : String(product.salePrice),
+      quantity: product.quantity == null ? "" : String(product.quantity),
       category: product.category || "",
       barcode: product.barcode || "",
       imageUrl: product.imageUrl || "",
@@ -156,7 +156,7 @@ function ProductsViewContent({
       notes: product.notes || "",
       supplierName: product.supplierName || "",
       supplierPhone: product.supplierPhone || "",
-      minStock: Number(product.minStock ?? 5),
+      minStock: product.minStock == null ? "5" : String(product.minStock),
       unitName: product.unitName || "قطعة",
     });
     setFormError("");
@@ -199,7 +199,7 @@ function ProductsViewContent({
       setFormError("اسم البضاعة والتصنيف مطلوبان.");
       return;
     }
-    if (form.purchasePrice < 0 || form.salePrice < 0 || form.quantity < 0 || form.minStock < 0) {
+    if ([form.purchasePrice, form.salePrice, form.quantity, form.minStock].some(value => value.trim() !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
       setFormError("الأسعار والكميات لا يمكن أن تكون سالبة.");
       return;
     }
@@ -277,20 +277,21 @@ function ProductsViewContent({
   const openMovement = (product: Product, type: "restock" | "return" | "damaged" | "adjustment") => {
     setMovementProduct(product);
     setMovementType(type);
-    setMovementQty(1);
+    setMovementQty("1");
     setMovementNote("");
   };
 
   const saveMovement = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!movementProduct || !Number.isFinite(movementQty) || movementQty === 0) return;
-    if (movementType !== "adjustment" && movementQty < 1) {
+    const parsedMovementQty = Number(movementQty);
+    if (!movementProduct || movementQty.trim() === "" || !Number.isFinite(parsedMovementQty) || parsedMovementQty === 0) return;
+    if (movementType !== "adjustment" && parsedMovementQty < 1) {
       alert("أدخل كمية أكبر من صفر.");
       return;
     }
     const delta = movementType === "restock" || movementType === "return"
-      ? Math.abs(movementQty)
-      : movementType === "damaged" ? -Math.abs(movementQty) : movementQty;
+      ? Math.abs(parsedMovementQty)
+      : movementType === "damaged" ? -Math.abs(parsedMovementQty) : parsedMovementQty;
     const nextQuantity = (Number(movementProduct.quantity) || 0) + delta;
     if (nextQuantity < 0) {
       alert("لا يمكن أن تصبح كمية المخزون أقل من صفر.");
@@ -457,19 +458,19 @@ function ProductsViewContent({
                   <datalist id="product-categories">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
-                  <input type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">سعر البيع للعميل
-                  <input type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الكمية الحالية
-                  <input type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">وحدة القياس
                   <input value={form.unitName} onInput={e => setField("unitName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="قطعة، كرتون، متر..." />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الحد الأدنى للتنبيه
-                  <input type="number" min="0" value={form.minStock} onInput={e => setField("minStock", Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <input type="number" min="0" value={form.minStock} onInput={e => setField("minStock", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الباركود / رقم الصنف
                   <input value={form.barcode} onInput={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
@@ -523,7 +524,7 @@ function ProductsViewContent({
               </select>
             </label>
             <label className="block text-xs font-semibold text-slate-600">{movementType === "adjustment" ? "فرق الكمية (مثلاً -2 أو +5)" : "عدد القطع"}
-              <input type="number" required step="1" value={movementQty} onInput={e => setMovementQty(Number(e.target.value))} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+              <input type="number" required step="1" value={movementQty} onInput={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
             </label>
             <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المجهّز
               <textarea value={movementNote} onInput={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />
