@@ -42,7 +42,6 @@ import {
   ThumbsDown,
   Quote,
   Reply,
-  MoreVertical,
 } from "lucide-react";
 import { Customer, Invoice, Payment, SystemSettings } from "../types";
 import {
@@ -112,7 +111,6 @@ export default function AIAssistantView({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
   const [replyContext, setReplyContext] = useState<{ id: string; text: string; sender: "user" | "ai"; mode: "quote" | "reply" } | null>(null);
-  const [messageRatings, setMessageRatings] = useState<Record<string, "like" | "dislike">>({});
   const [notice, setNotice] = useState("");
 
   // Mention Autocomplete
@@ -387,6 +385,7 @@ export default function AIAssistantView({
         quotedText: contextForSend.text,
         replyToMessageId: contextForSend.id,
         replyToSender: contextForSend.sender,
+        replyMode: contextForSend.mode,
       } : {}),
     };
 
@@ -589,11 +588,6 @@ export default function AIAssistantView({
     );
     const updatedConversation = { ...activeConversation, messages: updatedMessages, updatedAt: new Date().toISOString() };
     setConversations((prev) => prev.map((c) => c.id === updatedConversation.id ? updatedConversation : c));
-    setMessageRatings((prev) => {
-      const next = { ...prev };
-      if (nextRating) next[msgId] = nextRating; else delete next[msgId];
-      return next;
-    });
     void persistConversation(updatedConversation, userId);
     setNotice(nextRating ? "تم حفظ تقييمك" : "تم إلغاء التقييم");
     window.setTimeout(() => setNotice(""), 1800);
@@ -1018,7 +1012,7 @@ export default function AIAssistantView({
                       <div className="min-w-0 max-w-full">
                         {msg.quotedText && (
                           <div className="mb-2 border-r-2 border-blue-300 pr-2 text-xs text-blue-100/90">
-                            <div className="font-bold">{msg.replyToSender === "ai" ? "اقتباس من المساعد" : "اقتباس من رسالتك"}</div>
+                            <div className="font-bold">{msg.replyMode === "reply" ? "رد على" : "اقتباس من"} {msg.replyToSender === "ai" ? "المساعد" : "رسالتك"}</div>
                             <div className="line-clamp-3 whitespace-pre-wrap break-words">{msg.quotedText}</div>
                           </div>
                         )}
