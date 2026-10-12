@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import {
-  Package, Search, PlusCircle, TrendingUp, Barcode, Edit, Trash2, X,
+  Package, Search, PlusCircle, TrendingUp, Edit, Trash2, X,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
-  Eye, Save, Camera, ArrowDownToLine, ArrowUpFromLine, ClipboardList,
+  Eye, Save, Camera, ClipboardList,
   Phone, Truck, Clock, ScanBarcode
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
