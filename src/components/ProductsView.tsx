@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
-  Package, Search, PlusCircle, TrendingUp, Edit, Trash2, X,
+  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
   Phone, Truck, Clock, ScanBarcode
@@ -86,6 +86,17 @@ export default function ProductsView({
       : (Number(product?.purchasePrice) || 0);
     return itemSum + ((Number(item.unitPrice) || 0) - unitCost) * (Number(item.quantity) || 0);
   }, 0), 0);
+
+  const groupedProducts = useMemo(() => {
+    const groups = new Map<string, Product[]>();
+    filteredProducts.forEach(product => {
+      const category = product.category?.trim() || "بدون تصنيف";
+      const current = groups.get(category) || [];
+      current.push(product);
+      groups.set(category, current);
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, "ar"));
+  }, [filteredProducts]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
@@ -361,40 +372,56 @@ export default function ProductsView({
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
-            {filteredProducts.map(product => {
-              const low = (Number(product.quantity) || 0) <= (Number(product.minStock ?? 5) || 0);
-              return (
-                <article key={product.id} className="border border-slate-200 rounded-xl p-3 flex gap-3 min-w-0 hover:border-blue-200 transition-colors">
-                  <button onClick={() => openDetails(product)} className="w-24 h-28 sm:w-28 sm:h-32 shrink-0 rounded-lg bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center" title="عرض صورة وتفاصيل البضاعة">
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-8 h-8 text-slate-300" />}
-                  </button>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex items-start gap-2">
-                      <button onClick={() => openDetails(product)} className="font-bold text-sm text-slate-800 text-right break-words flex-1">{product.name}</button>
-                      <button onClick={() => toggleFavorite(product)} className={product.isFavorite ? "text-amber-500" : "text-slate-300 hover:text-amber-500"} title={product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}><Star className="w-4 h-4" fill={product.isFavorite ? "currentColor" : "none"} /></button>
-                    </div>
-                    <div className="text-[11px] text-slate-500">{product.category || "بدون تصنيف"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between gap-2"><span className="text-slate-500">الشراء</span><strong>{money(product.purchasePrice)} {settings.currency}</strong></div>
-                      <div className="flex justify-between gap-2"><span className="text-slate-500">البيع</span><strong className="text-blue-700">{money(product.salePrice)} {settings.currency}</strong></div>
-                      <div className="flex justify-between gap-2"><span className="text-slate-500">الربح/قطعة</span><strong className={product.salePrice >= product.purchasePrice ? "text-emerald-700" : "text-rose-700"}>{money(product.salePrice - product.purchasePrice)} {settings.currency}</strong></div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={low ? "text-amber-700 bg-amber-50" : "text-slate-600 bg-slate-100"} style={{ borderRadius: 999, padding: "3px 8px", fontSize: 11 }}>
-                        المخزون: {product.quantity} {product.unitName || "قطعة"}{low ? " • منخفض" : ""}
-                      </span>
-                      <button onClick={() => openMovement(product, "restock")} className="text-blue-700 hover:bg-blue-50 border border-blue-100 rounded-md px-2 py-1 text-[11px] inline-flex items-center gap-1"><PackagePlus className="w-3.5 h-3.5" /> توريد</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <button onClick={() => openDetails(product)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-md text-[11px] inline-flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> التفاصيل</button>
-                      <button onClick={() => openEdit(product)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-md text-[11px] inline-flex items-center gap-1"><Edit className="w-3.5 h-3.5" /> تعديل</button>
-                      <button onClick={() => handleDelete(product)} className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 rounded-md text-[11px] inline-flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> حذف</button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="space-y-5 min-w-0">
+            {groupedProducts.map(([category, categoryProducts]) => (
+              <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 sm:px-4 py-3 border-b border-slate-200">
+                  <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600" /> {category}</h3>
+                  <span className="text-xs text-slate-500">{categoryProducts.length} صنف</span>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm text-right">
+                    <thead className="bg-white text-slate-500 text-xs">
+                      <tr>
+                        <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
+                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر الشراء</th>
+                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
+                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">الربح / قطعة</th>
+                        <th scope="col" className="px-3 py-3 font-semibold">الصورة</th>
+                        <th scope="col" className="px-3 py-3 font-semibold">الإجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {categoryProducts.map(product => {
+                        const profit = (Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0);
+                        return (
+                          <tr key={product.id} className="hover:bg-slate-50/80">
+                            <td className="px-3 py-3">
+                              <div className="font-bold text-slate-800">{product.name}</div>
+                              <div className="text-[11px] text-slate-500 mt-1">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
+                            </td>
+                            <td className="px-3 py-3 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className="px-3 py-3 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className={`px-3 py-3 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
+                            <td className="px-3 py-3">
+                              <button type="button" onClick={() => openDetails(product)} className="w-12 h-12 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center" title={`عرض صورة ${product.name}`} aria-label={`تفاصيل ${product.name}`}>
+                                {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-5 h-5 text-slate-300" />}
+                              </button>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => openDetails(product)} title="التفاصيل" aria-label={`تفاصيل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 whitespace-nowrap"><Eye className="w-4 h-4" /> تفاصيل</button>
+                                <button type="button" onClick={() => openEdit(product)} title="تعديل" aria-label={`تعديل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 whitespace-nowrap"><SquarePen className="w-4 h-4" /> تعديل</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </section>
