@@ -340,3 +340,45 @@ textarea {
     padding-right: env(safe-area-inset-right);
   }
 }
+
+
+/* Narrow-screen layout safeguards: avoid cramped multi-column cards and clipped labels. */
+@media (max-width: 360px) {
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid-cols-5 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  main {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+
+  h1, h2, h3, h4, label, p, th, td {
+    overflow-wrap: anywhere;
+  }
+
+  [class*="gap-"] {
+    min-width: 0;
+  }
+}
+
+/* Let content-heavy cards and Arabic labels wrap instead of colliding. */
+.grid > *,
+[class*="grid-cols-"] > *,
+.flex > * {
+  min-width: 0;
+}
+
+button,
+[role="button"] {
+  line-height: 1.35;
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+}
