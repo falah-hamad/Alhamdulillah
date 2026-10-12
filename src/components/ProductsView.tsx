@@ -196,9 +196,10 @@ export default function ProductsView({
 
     if (editingProduct) {
       const priceChanged = editingProduct.purchasePrice !== common.purchasePrice || editingProduct.salePrice !== common.salePrice;
+      const supplierChanged = (editingProduct.supplierName || "") !== (common.supplierName || "");
       const quantityDelta = common.quantity - (Number(editingProduct.quantity) || 0);
       const priceHistory: ProductPriceHistoryEntry[] = [...(editingProduct.priceHistory || [])];
-      if (priceChanged) {
+      if (priceChanged || supplierChanged) {
         priceHistory.unshift({
           id: priceId(), changedAt: nowIso(),
           previousPurchasePrice: editingProduct.purchasePrice,
@@ -206,7 +207,9 @@ export default function ProductsView({
           purchasePrice: common.purchasePrice,
           salePrice: common.salePrice,
           supplierName: common.supplierName,
-          note: "تعديل سعر من بطاقة البضاعة",
+          note: priceChanged
+            ? (supplierChanged ? "تحديث الأسعار والمجهّز من بطاقة البضاعة" : "تعديل سعر من بطاقة البضاعة")
+            : "تحديث المجهّز من بطاقة البضاعة",
         });
       }
       const stockMovements: ProductStockMovement[] = [...(editingProduct.stockMovements || [])];
