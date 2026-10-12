@@ -247,3 +247,96 @@ canvas {
     font-size: max(16px, 1em);
   }
 }
+
+
+/* Adaptive layout foundation: small phones, large phones and tablets */
+:root {
+  --app-page-gutter: clamp(0.75rem, 2.5vw, 1.5rem);
+  --app-section-gap: clamp(0.75rem, 2vw, 1.25rem);
+  --app-control-radius: clamp(0.5rem, 1.5vw, 0.875rem);
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-x: none;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flex/grid children must be allowed to shrink instead of pushing the page off-screen. */
+#root > *,
+main,
+header,
+section,
+article,
+aside,
+[class*="flex-1"],
+[class*="grid-cols-"] {
+  min-width: 0;
+}
+
+button,
+[role="button"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+/* Dialogs and drawers stay within the visible phone viewport, including browser UI. */
+[role="dialog"],
+[aria-modal="true"] {
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Compact phones: tighten page spacing without shrinking text into unreadable sizes. */
+@media (max-width: 360px) {
+  :root {
+    --app-page-gutter: 0.625rem;
+    --app-section-gap: 0.625rem;
+  }
+
+  header {
+    gap: 0.5rem;
+  }
+
+  button {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Tablets: keep content readable and prevent full-width layouts from becoming stretched. */
+@media (min-width: 768px) {
+  #root > div {
+    max-width: 100%;
+  }
+}
+
+/* Respect Android/iOS safe areas when content touches screen edges. */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
