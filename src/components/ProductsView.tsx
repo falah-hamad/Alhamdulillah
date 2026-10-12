@@ -91,6 +91,7 @@ function ProductsViewContent({
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
+  const [workspaceMode, setWorkspaceMode] = useState<"browse" | "manage">("browse");
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
@@ -360,6 +361,30 @@ function ProductsViewContent({
     setSelectedIds([]);
   };
 
+  const bulkCopy = () => {
+    const selected = activeProducts.filter(product => selectedIds.includes(product.id));
+    if (!selected.length) return;
+    if (!confirm("إنشاء نسخ مستقلة من " + selected.length + " صنف؟ ستبدأ كمية كل نسخة من صفر ولن تُنسخ حركات المخزون أو الباركود.")) return;
+    selected.forEach(product => {
+      const { id: _oldId, userId: _oldUser, isDeleted: _deleted, deletedAt: _deletedAt, originalCategory: _originalCategory, lastViewedAt: _lastViewed, ...copy } = product;
+      addProduct({
+        ...copy,
+        name: product.name + " - نسخة",
+        barcode: undefined,
+        quantity: 0,
+        isFavorite: false,
+        priceHistory: [{
+          id: priceId(), changedAt: nowIso(), purchasePrice: product.purchasePrice,
+          salePrice: product.salePrice, supplierName: product.supplierName,
+          note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر",
+        }],
+        stockMovements: [],
+      });
+    });
+    setSelectedIds([]);
+    alert("تم إنشاء " + selected.length + " نسخة مستقلة بكمية صفر.");
+  };
+
   const bulkTrash = () => {
     const selected = activeProducts.filter(p => selectedIds.includes(p.id));
     if (!selected.length || !confirm(`نقل ${selected.length} صنف إلى المهملات؟`)) return;
@@ -436,6 +461,50 @@ function ProductsViewContent({
             <button onClick={openAdd} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"><PlusCircle className="w-4 h-4" /> إضافة بضاعة</button>
           </div>
         </div>
+
+        <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+          <button type="button" onClick={() => setWorkspaceMode("browse")} aria-pressed={workspaceMode === "browse"} className={"flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-colors " + (workspaceMode === "browse" ? "bg-white text-blue-700 shadow-sm border border-blue-100" : "text-slate-600 hover:bg-white")}>
+            <Package className="w-4 h-4" /> عرض البضاعة
+          </button>
+          <button type="button" onClick={() => setWorkspaceMode("manage")} aria-pressed={workspaceMode === "manage"} className={"flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-colors " + (workspaceMode === "manage" ? "bg-white text-blue-700 shadow-sm border border-blue-100" : "text-slate-600 hover:bg-white")}>
+            <ClipboardList className="w-4 h-4" /> إدارة البضاعة
+          </button>
+        </div>
+
+        {workspaceMode === "manage" && (
+          <section className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 sm:p-5 space-y-4">
+            <div>
+              <h3 className="font-bold text-slate-900">مركز إدارة البضاعة</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-600">اختَر العملية المطلوبة، أو حدّد عدة أصناف من القائمة أدناه لتطبيق إجراء واحد عليها.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button type="button" onClick={openAdd} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-blue-300 hover:shadow-sm transition">
+                <span className="rounded-lg bg-blue-50 p-2 text-blue-700"><PackagePlus className="w-5 h-5" /></span>
+                <span><span className="block text-sm font-bold text-slate-800">إضافة صنف</span><span className="mt-1 block text-xs text-slate-500">إنشاء بطاقة بضاعة جديدة</span></span>
+              </button>
+              <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-blue-300 hover:shadow-sm transition">
+                <span className="rounded-lg bg-violet-50 p-2 text-violet-700"><Layers className="w-5 h-5" /></span>
+                <span><span className="block text-sm font-bold text-slate-800">إدارة التصنيفات</span><span className="mt-1 block text-xs text-slate-500">إعادة تسمية أو تنظيم الأصناف</span></span>
+              </button>
+              <button type="button" onClick={() => { setShowTrash(true); setShowCategoryManager(false); }} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-rose-300 hover:shadow-sm transition">
+                <span className="rounded-lg bg-rose-50 p-2 text-rose-700"><Trash2 className="w-5 h-5" /></span>
+                <span><span className="block text-sm font-bold text-slate-800">المهملات</span><span className="mt-1 block text-xs text-slate-500">{trashedProducts.length} صنف محذوف مؤقتاً</span></span>
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div><p className="text-sm font-bold text-slate-800">الإجراءات الجماعية</p><p className="mt-1 text-xs text-slate-500">حدّد الأصناف من الجدول أو البطاقات ثم اختر الإجراء.</p></div>
+                <span className="text-xs font-semibold rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">المحدد: {selectedIds.length}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" disabled={!selectedIds.length} onClick={bulkMove} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><Layers className="w-4 h-4" /> نقل المحدد</button>
+                <button type="button" disabled={!selectedIds.length} onClick={bulkCopy} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><ClipboardList className="w-4 h-4" /> نسخ المحدد</button>
+                <button type="button" disabled={!selectedIds.length} onClick={bulkTrash} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"><Trash2 className="w-4 h-4" /> نقل المحدد للمهملات</button>
+                <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40">إلغاء التحديد</button>
+              </div>
+            </div>
+          </section>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
