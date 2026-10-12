@@ -54,9 +54,23 @@ const movementLabels: Record<ProductStockMovementType, string> = {
   adjustment: "تسوية مخزون",
 };
 
-export default function ProductsView({
-  products, invoices = [], settings, addProduct, updateProduct, deleteProduct,
+function ProductsViewContent({
+  products: rawProducts, invoices: rawInvoices = [], settings, addProduct, updateProduct, deleteProduct,
 }: ProductsViewProps) {
+  // Protect this view from malformed legacy/cache records so one bad record cannot blank the page.
+  const products: Product[] = Array.isArray(rawProducts)
+    ? rawProducts.filter((p): p is Product => Boolean(p && typeof p === "object")).map((p) => ({
+        ...p,
+        name: typeof p.name === "string" ? p.name : "",
+        category: typeof p.category === "string" ? p.category : "",
+        priceHistory: Array.isArray(p.priceHistory) ? p.priceHistory : [],
+        stockMovements: Array.isArray(p.stockMovements) ? p.stockMovements : [],
+      }))
+    : [];
+  const invoices: Invoice[] = Array.isArray(rawInvoices)
+    ? rawInvoices.filter((invoice): invoice is Invoice => Boolean(invoice && typeof invoice === "object"))
+        .map((invoice) => ({ ...invoice, items: Array.isArray(invoice.items) ? invoice.items : [] }))
+    : [];
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -554,5 +568,47 @@ export default function ProductsView({
         </div>
       )}
     </div>
+  );
+}
+
+
+type ProductsViewBoundaryState = { error: Error | null };
+
+class ProductsViewErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ProductsViewBoundaryState
+> {
+  state: ProductsViewBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ProductsViewBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("ProductsView runtime error:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section dir="rtl" role="alert" className="m-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-slate-800">
+          <h2 className="font-bold text-rose-800">تعذر فتح نظام البضائع</h2>
+          <p className="mt-2 text-sm">تم إيقاف الجزء المتعطل فقط حتى لا تصبح الصفحة كلها بيضاء. رسالة الخطأ:</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-white p-3 text-xs">{this.state.error.message}</pre>
+          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+            إعادة تحميل الموقع
+          </button>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function ProductsView(props: ProductsViewProps) {
+  return (
+    <ProductsViewErrorBoundary>
+      <ProductsViewContent {...props} />
+    </ProductsViewErrorBoundary>
   );
 }
