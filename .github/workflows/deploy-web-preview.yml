@@ -1,0 +1,54 @@
+name: Deploy Alhamdulillah Web Preview
+
+on:
+  push:
+    branches:
+      - allahisgreat1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: alhamdulillah-web-preview
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy web app to Firebase Hosting
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/817551423064/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions
+          service_account: github-firebase-deployer-01@gen-lang-client-0628217852.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      - name: Deploy web frontend only
+        run: >-
+          firebase deploy
+          --only hosting
+          --project gen-lang-client-0628217852
+          --non-interactive
