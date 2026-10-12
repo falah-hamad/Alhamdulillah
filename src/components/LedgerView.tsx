@@ -1426,6 +1426,34 @@ ${folderCustomers
 
     const calculatedItems = calculateCumulativeSeparators(formattedItems);
 
+    // Validate linked stock items before saving: prevent invoices from silently overselling inventory.
+    // When editing an existing invoice, add its previous linked quantities back to the available stock first.
+    const requestedByProduct = new Map<string, number>();
+    const previousByProduct = new Map<string, number>();
+    calculatedItems.forEach((item) => {
+      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+      const qty = Number(item.quantity) || 0;
+      requestedByProduct.set(item.productId, (requestedByProduct.get(item.productId) || 0) + Math.max(0, qty));
+    });
+    if (editingInvoice) {
+      (editingInvoice.items || []).forEach((item) => {
+        if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+        const qty = Number(item.quantity) || 0;
+        previousByProduct.set(item.productId, (previousByProduct.get(item.productId) || 0) + Math.max(0, qty));
+      });
+    }
+    for (const [productId, requestedQty] of requestedByProduct) {
+      const product = products.find((item) => item.id === productId);
+      if (!product) continue;
+      const availableQty = (Number(product.quantity) || 0) + (previousByProduct.get(productId) || 0);
+      if (requestedQty > availableQty) {
+        alert(
+          `الكمية غير كافية للصنف "${product.name}". المتاح: ${availableQty} ${product.unitName || "قطعة"}، والمطلوب: ${requestedQty}. حدّث المخزون أو قلّل الكمية قبل حفظ الفاتورة.`
+        );
+        return;
+      }
+    }
+
     // Calculate grand total excluding special payment/remaining rows and separators
     const grandTotal = calculatedItems
       .filter((item) => !item.isPaymentRow && !item.isRemainingRow && !item.isSeparator)
