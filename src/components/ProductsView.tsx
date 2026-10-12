@@ -87,12 +87,18 @@ function ProductsViewContent({
   const [movementNote, setMovementNote] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const placeMenu = (event: React.MouseEvent<HTMLButtonElement>, height: number) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const top = rect.bottom + height + 8 <= window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - height - 4);
+    const left = Math.max(8, Math.min(rect.right - 192, window.innerWidth - 200));
+    setMenuPosition({ top, left });
+  };
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
@@ -323,7 +329,6 @@ function ProductsViewContent({
   const handleDelete = (product: Product) => {
     if (confirm(`نقل "${product.name}" إلى المهملات؟ يمكنك استعادتها لاحقاً، ولن تُحذف الفواتير السابقة.`)) {
       void updateProduct({ ...product, isDeleted: true, deletedAt: nowIso(), originalCategory: product.category });
-      setSelectedIds(ids => ids.filter(id => id !== product.id));
       if (detailsProduct?.id === product.id) setDetailsProduct(null);
     }
   };
@@ -349,48 +354,7 @@ function ProductsViewContent({
       addProduct({ ...copy, name: `${actionProduct.name} - نسخة`, category: destination, barcode: undefined, quantity: 0, isFavorite: false, priceHistory: [{ id: priceId(), changedAt: nowIso(), purchasePrice: actionProduct.purchasePrice, salePrice: actionProduct.salePrice, supplierName: actionProduct.supplierName, note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر" }], stockMovements: [] });
       alert(`تم إنشاء نسخة مستقلة من "${actionProduct.name}" بكمية صفر.`);
     }
-    setActionProduct(null); setActionMode(null); setSelectedIds([]);
-  };
-
-  const bulkMove = () => {
-    if (!selectedIds.length) return;
-    const destination = prompt("اكتب اسم التصنيف المستهدف لنقل الأصناف المحددة:");
-    if (!destination?.trim()) return;
-    const selected = activeProducts.filter(p => selectedIds.includes(p.id));
-    if (!confirm(`نقل ${selected.length} صنف إلى "${destination.trim()}"؟`)) return;
-    selected.forEach(product => { void updateProduct({ ...product, category: destination.trim() }); });
-    setSelectedIds([]);
-  };
-
-  const bulkCopy = () => {
-    const selected = activeProducts.filter(product => selectedIds.includes(product.id));
-    if (!selected.length) return;
-    if (!confirm("إنشاء نسخ مستقلة من " + selected.length + " صنف؟ ستبدأ كمية كل نسخة من صفر ولن تُنسخ حركات المخزون أو الباركود.")) return;
-    selected.forEach(product => {
-      const { id: _oldId, userId: _oldUser, isDeleted: _deleted, deletedAt: _deletedAt, originalCategory: _originalCategory, lastViewedAt: _lastViewed, ...copy } = product;
-      addProduct({
-        ...copy,
-        name: product.name + " - نسخة",
-        barcode: undefined,
-        quantity: 0,
-        isFavorite: false,
-        priceHistory: [{
-          id: priceId(), changedAt: nowIso(), purchasePrice: product.purchasePrice,
-          salePrice: product.salePrice, supplierName: product.supplierName,
-          note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر",
-        }],
-        stockMovements: [],
-      });
-    });
-    setSelectedIds([]);
-    alert("تم إنشاء " + selected.length + " نسخة مستقلة بكمية صفر.");
-  };
-
-  const bulkTrash = () => {
-    const selected = activeProducts.filter(p => selectedIds.includes(p.id));
-    if (!selected.length || !confirm(`نقل ${selected.length} صنف إلى المهملات؟`)) return;
-    selected.forEach(product => { void updateProduct({ ...product, isDeleted: true, deletedAt: nowIso(), originalCategory: product.category }); });
-    setSelectedIds([]);
+    setActionProduct(null); setActionMode(null);
   };
 
   const renameCategory = (category: string) => {
@@ -480,8 +444,6 @@ function ProductsViewContent({
           </select>
         </div>
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
-        {selectedIds.length > 0 && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm"><b>تم تحديد {selectedIds.length} صنف</b><button type="button" onClick={bulkMove} className="px-3 py-1.5 bg-white border rounded-md">نقل المحدد</button><button type="button" onClick={bulkTrash} className="px-3 py-1.5 bg-white border rounded-md text-rose-700">إلى المهملات</button><button type="button" onClick={() => setSelectedIds([])} className="px-3 py-1.5 border rounded-md">إلغاء التحديد</button></div>}
-
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
@@ -494,11 +456,11 @@ function ProductsViewContent({
                     <span className="text-xs text-slate-500 mt-1 block">{categoryProducts.length} صنف</span>
                   </div>
                   <div className="relative shrink-0">
-                    <button type="button" onClick={() => { setOpenCategoryMenu(openCategoryMenu === category ? null : category); setOpenProductMenuId(null); }} aria-label={"خيارات التصنيف " + category} aria-expanded={openCategoryMenu === category} className="rounded-lg p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-600">
+                    <button type="button" onClick={event => { placeMenu(event, 150); setOpenCategoryMenu(openCategoryMenu === category ? null : category); setOpenProductMenuId(null); }} aria-label={"خيارات التصنيف " + category} aria-expanded={openCategoryMenu === category} className="rounded-lg p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-600">
                       <MoreVertical className="w-5 h-5" />
                     </button>
                     {openCategoryMenu === category && (
-                      <div className="absolute left-0 top-full z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                      <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                         <button type="button" onClick={() => { setOpenCategoryMenu(null); openAdd(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="w-4 h-4 text-blue-600" /> إضافة بضاعة لهذا التصنيف</button>
                         <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); renameCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50 disabled:opacity-40"><SquarePen className="w-4 h-4" /> إعادة تسمية التصنيف</button>
                         <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); deleteCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="w-4 h-4" /> حذف التصنيف</button>
@@ -510,8 +472,7 @@ function ProductsViewContent({
                   <table className="w-full min-w-[760px] text-sm text-right">
                     <thead className="bg-white text-slate-500 text-xs">
                       <tr>
-                        <th scope="col" className="px-3 py-3 font-semibold"><input aria-label="تحديد كل الأصناف الظاهرة" type="checkbox" checked={filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id))} onChange={e => setSelectedIds(e.target.checked ? Array.from(new Set([...selectedIds, ...filteredProducts.map(p => p.id)])) : selectedIds.filter(id => !filteredProducts.some(p => p.id === id)))} /></th>
-                        <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
+                                                <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر الشراء</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">الربح / قطعة</th>
@@ -524,8 +485,7 @@ function ProductsViewContent({
                         const profit = (Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0);
                         return (
                           <tr key={product.id} className="hover:bg-slate-50/80">
-                            <td className="px-3 py-3"><input aria-label={`تحديد ${product.name}`} type="checkbox" checked={selectedIds.includes(product.id)} onChange={e => setSelectedIds(ids => e.target.checked ? [...new Set([...ids, product.id])] : ids.filter(id => id !== product.id))} /></td>
-                            <td className="px-3 py-3">
+                                                        <td className="px-3 py-3">
                               <div className="font-bold text-slate-800">{product.name}</div>
                               <div className="text-[11px] text-slate-500 mt-1">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
                             </td>
@@ -539,11 +499,11 @@ function ProductsViewContent({
                             </td>
                             <td className="px-3 py-3">
                               <div className="relative flex justify-end">
-                                <button type="button" onClick={() => { setOpenProductMenuId(openProductMenuId === product.id ? null : product.id); setOpenCategoryMenu(null); }} title="خيارات البضاعة" aria-label={"خيارات " + product.name} aria-expanded={openProductMenuId === product.id} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
+                                <button type="button" onClick={event => { placeMenu(event, 420); setOpenProductMenuId(openProductMenuId === product.id ? null : product.id); setOpenCategoryMenu(null); }} title="خيارات البضاعة" aria-label={"خيارات " + product.name} aria-expanded={openProductMenuId === product.id} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
                                   <MoreVertical className="w-5 h-5" />
                                 </button>
                                 {openProductMenuId === product.id && (
-                                  <div className="absolute left-0 top-full z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                                  <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                     <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
                                     <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
                                     <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) { void updateProduct({ ...product, name }); } }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
