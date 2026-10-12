@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
-  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
+  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, MoreVertical,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
   Phone, Truck, Clock, ScanBarcode
@@ -91,7 +91,8 @@ function ProductsViewContent({
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
-  const [workspaceMode, setWorkspaceMode] = useState<"browse" | "manage">("browse");
+  const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
+  const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
@@ -143,9 +144,9 @@ function ProductsViewContent({
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
 
-  const openAdd = () => {
+  const openAdd = (category = "") => {
     setEditingProduct(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, category: category === "بدون تصنيف" ? "" : category });
     setFormError("");
     setIsFormOpen(true);
   };
@@ -462,50 +463,6 @@ function ProductsViewContent({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
-          <button type="button" onClick={() => setWorkspaceMode("browse")} aria-pressed={workspaceMode === "browse"} className={"flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-colors " + (workspaceMode === "browse" ? "bg-white text-blue-700 shadow-sm border border-blue-100" : "text-slate-600 hover:bg-white")}>
-            <Package className="w-4 h-4" /> عرض البضاعة
-          </button>
-          <button type="button" onClick={() => setWorkspaceMode("manage")} aria-pressed={workspaceMode === "manage"} className={"flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition-colors " + (workspaceMode === "manage" ? "bg-white text-blue-700 shadow-sm border border-blue-100" : "text-slate-600 hover:bg-white")}>
-            <ClipboardList className="w-4 h-4" /> إدارة البضاعة
-          </button>
-        </div>
-
-        {workspaceMode === "manage" && (
-          <section className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 sm:p-5 space-y-4">
-            <div>
-              <h3 className="font-bold text-slate-900">مركز إدارة البضاعة</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-600">اختَر العملية المطلوبة، أو حدّد عدة أصناف من القائمة أدناه لتطبيق إجراء واحد عليها.</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button type="button" onClick={openAdd} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-blue-300 hover:shadow-sm transition">
-                <span className="rounded-lg bg-blue-50 p-2 text-blue-700"><PackagePlus className="w-5 h-5" /></span>
-                <span><span className="block text-sm font-bold text-slate-800">إضافة صنف</span><span className="mt-1 block text-xs text-slate-500">إنشاء بطاقة بضاعة جديدة</span></span>
-              </button>
-              <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-blue-300 hover:shadow-sm transition">
-                <span className="rounded-lg bg-violet-50 p-2 text-violet-700"><Layers className="w-5 h-5" /></span>
-                <span><span className="block text-sm font-bold text-slate-800">إدارة التصنيفات</span><span className="mt-1 block text-xs text-slate-500">إعادة تسمية أو تنظيم الأصناف</span></span>
-              </button>
-              <button type="button" onClick={() => { setShowTrash(true); setShowCategoryManager(false); }} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-right hover:border-rose-300 hover:shadow-sm transition">
-                <span className="rounded-lg bg-rose-50 p-2 text-rose-700"><Trash2 className="w-5 h-5" /></span>
-                <span><span className="block text-sm font-bold text-slate-800">المهملات</span><span className="mt-1 block text-xs text-slate-500">{trashedProducts.length} صنف محذوف مؤقتاً</span></span>
-              </button>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div><p className="text-sm font-bold text-slate-800">الإجراءات الجماعية</p><p className="mt-1 text-xs text-slate-500">حدّد الأصناف من الجدول أو البطاقات ثم اختر الإجراء.</p></div>
-                <span className="text-xs font-semibold rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">المحدد: {selectedIds.length}</span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" disabled={!selectedIds.length} onClick={bulkMove} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><Layers className="w-4 h-4" /> نقل المحدد</button>
-                <button type="button" disabled={!selectedIds.length} onClick={bulkCopy} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><ClipboardList className="w-4 h-4" /> نسخ المحدد</button>
-                <button type="button" disabled={!selectedIds.length} onClick={bulkTrash} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"><Trash2 className="w-4 h-4" /> نقل المحدد للمهملات</button>
-                <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40">إلغاء التحديد</button>
-              </div>
-            </div>
-          </section>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
@@ -532,8 +489,22 @@ function ProductsViewContent({
             {groupedProducts.map(([category, categoryProducts]) => (
               <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 sm:px-4 py-3 border-b border-slate-200">
-                  <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600" /> {category}</h3>
-                  <span className="text-xs text-slate-500">{categoryProducts.length} صنف</span>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600 shrink-0" /> <span className="truncate">{category}</span></h3>
+                    <span className="text-xs text-slate-500 mt-1 block">{categoryProducts.length} صنف</span>
+                  </div>
+                  <div className="relative shrink-0">
+                    <button type="button" onClick={() => { setOpenCategoryMenu(openCategoryMenu === category ? null : category); setOpenProductMenuId(null); }} aria-label={"خيارات التصنيف " + category} aria-expanded={openCategoryMenu === category} className="rounded-lg p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-600">
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                    {openCategoryMenu === category && (
+                      <div className="absolute left-0 top-full z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        <button type="button" onClick={() => { setOpenCategoryMenu(null); openAdd(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="w-4 h-4 text-blue-600" /> إضافة بضاعة لهذا التصنيف</button>
+                        <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); renameCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50 disabled:opacity-40"><SquarePen className="w-4 h-4" /> إعادة تسمية التصنيف</button>
+                        <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); deleteCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="w-4 h-4" /> حذف التصنيف</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="w-full overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm text-right">
@@ -567,12 +538,23 @@ function ProductsViewContent({
                               </button>
                             </td>
                             <td className="px-3 py-3">
-                              <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => openDetails(product)} title="التفاصيل" aria-label={`تفاصيل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 whitespace-nowrap"><Eye className="w-4 h-4" /> تفاصيل</button>
-                                <button type="button" onClick={() => openEdit(product)} title="تعديل" aria-label={`تعديل ${product.name}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 whitespace-nowrap"><SquarePen className="w-4 h-4" /> تعديل</button>
-                                <button type="button" onClick={() => openProductAction(product, "move")} className="px-2 py-2 text-xs border rounded-lg whitespace-nowrap">نقل</button>
-                                <button type="button" onClick={() => openProductAction(product, "copy")} className="px-2 py-2 text-xs border rounded-lg whitespace-nowrap">نسخ</button>
-                                <button type="button" onClick={() => handleDelete(product)} className="px-2 py-2 text-xs border border-rose-200 text-rose-700 rounded-lg whitespace-nowrap">حذف</button>
+                              <div className="relative flex justify-end">
+                                <button type="button" onClick={() => { setOpenProductMenuId(openProductMenuId === product.id ? null : product.id); setOpenCategoryMenu(null); }} title="خيارات البضاعة" aria-label={"خيارات " + product.name} aria-expanded={openProductMenuId === product.id} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
+                                  <MoreVertical className="w-5 h-5" />
+                                </button>
+                                {openProductMenuId === product.id && (
+                                  <div className="absolute left-0 top-full z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) { void updateProduct({ ...product, name }); } }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "move"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Layers className="w-4 h-4" /> نقل إلى تصنيف</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "copy"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><ClipboardList className="w-4 h-4" /> نسخ البضاعة</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); setMovementProduct(product); setMovementType("restock"); setMovementQty("1"); setMovementNote(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><PackagePlus className="w-4 h-4" /> إضافة للمخزون</button>
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); void updateProduct({ ...product, isFavorite: !product.isFavorite }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Star className="w-4 h-4" /> {product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button>
+                                    <div className="my-1 border-t border-slate-100" />
+                                    <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
