@@ -662,6 +662,7 @@ class ProductsViewErrorBoundary extends React.Component<
   { children: React.ReactNode },
   ProductsViewBoundaryState
 > {
+  declare props: Readonly<{ children: React.ReactNode }>;
   state: ProductsViewBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ProductsViewBoundaryState {
