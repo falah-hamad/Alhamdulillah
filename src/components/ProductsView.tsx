@@ -344,7 +344,7 @@ function ProductsViewContent({
       alert(`تم نقل "${actionProduct.name}" إلى "${destination}".`);
     } else {
       const { id: _oldId, userId: _oldUser, isDeleted: _deleted, deletedAt: _deletedAt, originalCategory: _originalCategory, lastViewedAt: _lastViewed, ...copy } = actionProduct;
-      addProduct({ ...copy, name: `${actionProduct.name} - نسخة`, category: destination, quantity: 0, isFavorite: false, priceHistory: [{ id: priceId(), changedAt: nowIso(), purchasePrice: actionProduct.purchasePrice, salePrice: actionProduct.salePrice, supplierName: actionProduct.supplierName, note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر" }], stockMovements: [] });
+      addProduct({ ...copy, name: `${actionProduct.name} - نسخة`, category: destination, barcode: undefined, quantity: 0, isFavorite: false, priceHistory: [{ id: priceId(), changedAt: nowIso(), purchasePrice: actionProduct.purchasePrice, salePrice: actionProduct.salePrice, supplierName: actionProduct.supplierName, note: "نسخة جديدة من صنف موجود؛ المخزون يبدأ من صفر" }], stockMovements: [] });
       alert(`تم إنشاء نسخة مستقلة من "${actionProduct.name}" بكمية صفر.`);
     }
     setActionProduct(null); setActionMode(null); setSelectedIds([]);
