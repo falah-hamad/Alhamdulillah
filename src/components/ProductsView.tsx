@@ -94,6 +94,21 @@ function ProductsViewContent({
   const [formError, setFormError] = useState("");
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const [detailsTab, setDetailsTab] = useState<"overview" | "prices" | "stock" | "invoices">("overview");
+  const [priceDeleteEntryId, setPriceDeleteEntryId] = useState<string | null>(null);
+  const priceLongPressTimer = useRef<number | null>(null);
+  const startPriceLongPress = (entryId: string) => {
+    if (priceLongPressTimer.current !== null) window.clearTimeout(priceLongPressTimer.current);
+    priceLongPressTimer.current = window.setTimeout(() => {
+      setPriceDeleteEntryId(entryId);
+      priceLongPressTimer.current = null;
+    }, 600);
+  };
+  const cancelPriceLongPress = () => {
+    if (priceLongPressTimer.current !== null) {
+      window.clearTimeout(priceLongPressTimer.current);
+      priceLongPressTimer.current = null;
+    }
+  };
   const [detailsImageIndex, setDetailsImageIndex] = useState(0);
   const imageTouchStartX = useRef<number | null>(null);
   const [movementProduct, setMovementProduct] = useState<Product | null>(null);
@@ -841,7 +856,7 @@ function ProductsViewContent({
             </div>
             {detailsTab === "prices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
-              {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}</div>)}</div>}
+              {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} onTouchStart={() => startPriceLongPress(entry.id)} onTouchEnd={cancelPriceLongPress} onTouchMove={cancelPriceLongPress} onMouseDown={() => startPriceLongPress(entry.id)} onMouseUp={cancelPriceLongPress} onMouseLeave={cancelPriceLongPress} onContextMenu={event => { event.preventDefault(); setPriceDeleteEntryId(entry.id); }} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2 select-none"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}{priceDeleteEntryId === entry.id && <div className="w-full border-t pt-2 mt-1 flex items-center justify-between gap-2"><span className="text-slate-500">خيارات السجل</span><button type="button" onClick={() => { if (!window.confirm("هل تريد حذف سجل السعر هذا؟")) return; const updatedProduct = { ...detailsProduct, priceHistory: (detailsProduct.priceHistory || []).filter(item => item.id !== entry.id) }; updateProduct(updatedProduct); setDetailsProduct(updatedProduct); setPriceDeleteEntryId(null); }} className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 hover:bg-rose-100"><Trash2 className="w-4 h-4" /> حذف السجل</button></div>}</div>)}</div>}
             </section>}
             {detailsTab === "stock" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4" /> حركة المخزون</h4>
