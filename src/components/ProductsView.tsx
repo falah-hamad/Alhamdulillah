@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
-  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, MoreVertical,
+  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
   Phone, Truck, Clock, ScanBarcode
@@ -93,11 +93,29 @@ function ProductsViewContent({
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const placeMenu = (event: React.MouseEvent<HTMLButtonElement>, height: number) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const top = rect.bottom + height + 8 <= window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - height - 4);
-    const left = Math.max(8, Math.min(rect.right - 192, window.innerWidth - 200));
+  const longPressTimer = useRef<number | null>(null);
+  const placeMenuAt = (x: number, y: number, height: number) => {
+    const top = y + height + 8 <= window.innerHeight ? y + 4 : Math.max(8, y - height - 4);
+    const left = Math.max(8, Math.min(x - 192, window.innerWidth - 200));
     setMenuPosition({ top, left });
+  };
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const startLongPress = (event: React.TouchEvent, height: number, open: () => void) => {
+    clearLongPress();
+    const touch = event.touches[0];
+    if (!touch) return;
+    const x = touch.clientX;
+    const y = touch.clientY;
+    longPressTimer.current = window.setTimeout(() => {
+      placeMenuAt(x, y, height);
+      open();
+      longPressTimer.current = null;
+    }, 550);
   };
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
@@ -450,16 +468,21 @@ function ProductsViewContent({
           <div className="space-y-5 min-w-0">
             {groupedProducts.map(([category, categoryProducts]) => (
               <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 sm:px-4 py-3 border-b border-slate-200">
+                <div
+                  className="flex items-center justify-between gap-2 bg-slate-50 px-3 sm:px-4 py-3 border-b border-slate-200 select-none"
+                  onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 150); setOpenCategoryMenu(category); setOpenProductMenuId(null); }}
+                  onTouchStart={event => startLongPress(event, 150, () => { setOpenCategoryMenu(category); setOpenProductMenuId(null); })}
+                  onTouchEnd={clearLongPress}
+                  onTouchMove={clearLongPress}
+                  onTouchCancel={clearLongPress}
+                  title="اضغط مطولاً لعرض إجراءات التصنيف"
+                >
                   <div className="min-w-0">
                     <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600 shrink-0" /> <span className="truncate">{category}</span></h3>
                     <span className="text-xs text-slate-500 mt-1 block">{categoryProducts.length} صنف</span>
                   </div>
-                  <div className="relative shrink-0">
-                    <button type="button" onClick={event => { placeMenu(event, 150); setOpenCategoryMenu(openCategoryMenu === category ? null : category); setOpenProductMenuId(null); }} aria-label={"خيارات التصنيف " + category} aria-expanded={openCategoryMenu === category} className="rounded-lg p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-600">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                    {openCategoryMenu === category && (
+                  <div className="relative shrink-0 text-xs text-slate-400">اضغط مطولاً</div>
+                  {openCategoryMenu === category && (
                       <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                         <button type="button" onClick={() => { setOpenCategoryMenu(null); openAdd(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="w-4 h-4 text-blue-600" /> إضافة بضاعة لهذا التصنيف</button>
                         <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); renameCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50 disabled:opacity-40"><SquarePen className="w-4 h-4" /> إعادة تسمية التصنيف</button>
@@ -484,7 +507,16 @@ function ProductsViewContent({
                       {categoryProducts.map(product => {
                         const profit = (Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0);
                         return (
-                          <tr key={product.id} className="hover:bg-slate-50/80">
+                          <tr
+                            key={product.id}
+                            className="hover:bg-slate-50/80 select-none"
+                            onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); setOpenCategoryMenu(null); }}
+                            onTouchStart={event => startLongPress(event, 360, () => { setOpenProductMenuId(product.id); setOpenCategoryMenu(null); })}
+                            onTouchEnd={clearLongPress}
+                            onTouchMove={clearLongPress}
+                            onTouchCancel={clearLongPress}
+                            title="اضغط مطولاً لعرض إجراءات البضاعة"
+                          >
                                                         <td className="px-3 py-3">
                               <div className="font-bold text-slate-800">{product.name}</div>
                               <div className="text-[11px] text-slate-500 mt-1">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
@@ -499,9 +531,7 @@ function ProductsViewContent({
                             </td>
                             <td className="px-3 py-3">
                               <div className="relative flex justify-end">
-                                <button type="button" onClick={event => { placeMenu(event, 420); setOpenProductMenuId(openProductMenuId === product.id ? null : product.id); setOpenCategoryMenu(null); }} title="خيارات البضاعة" aria-label={"خيارات " + product.name} aria-expanded={openProductMenuId === product.id} className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
-                                  <MoreVertical className="w-5 h-5" />
-                                </button>
+                                <span className="text-xs text-slate-400">اضغط مطولاً</span>
                                 {openProductMenuId === product.id && (
                                   <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                     <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
