@@ -395,3 +395,19 @@ export async function askFinancialAssistantServer(
     requestedModel: model,
   };
 }
+
+
+export interface AIParsedProduct {
+  name: string; category: string; quantity: number; unitName: string;
+  purchasePrice: number; salePrice: number; supplierName?: string;
+  supplierPhone?: string; barcode?: string; description?: string; notes?: string; minStock?: number;
+}
+
+export async function parseProductsFromTextServer(text: string): Promise<AIParsedProduct[]> {
+  const fns = getCloudFunctions();
+  if (!fns) throw new Error("خدمة Firebase غير متاحة حالياً.");
+  const parseFn = httpsCallable<{ text: string }, { success: boolean; products?: AIParsedProduct[]; error?: string }>(fns, "parseProductsFromText");
+  const res = await parseFn({ text });
+  if (!res.data?.success || !Array.isArray(res.data.products)) throw new Error(res.data?.error || "لم يتمكن الذكاء الاصطناعي من ترتيب النص.");
+  return res.data.products;
+}
