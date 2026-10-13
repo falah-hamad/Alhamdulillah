@@ -15,6 +15,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
+import { exportElementToPDF } from "../utils/printUtils";
 
 interface ReportsViewProps {
   customers: Customer[];
@@ -50,6 +51,7 @@ export default function ReportsView({
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-12-31");
   const [reportGenerated, setReportGenerated] = useState(true);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Active non-deleted folders
   const activeFolders = useMemo(() => {
@@ -273,7 +275,31 @@ export default function ReportsView({
   }, [products]);
 
   const handlePrint = () => {
+    // Keep the existing browser print dialog on web. Native Android print actions
+    // are handled by printElement's PDF fallback throughout the app.
     window.print();
+  };
+
+  const handleExportPDF = async () => {
+    if (isExportingPDF) return;
+    setIsExportingPDF(true);
+    try {
+      const safeCompanyName = (settings.companyName || "تقرير_الحسابات").replace(/[\\/:*?"<>|]/g, "_").trim();
+      const reportNames = {
+        debts: "تقرير_الذمم_والديون",
+        collections: "تقرير_المقبوضات_والتحصيلات",
+        inventory: "تقرير_جرد_المخزون",
+      };
+      await exportElementToPDF("accounting-report-document", {
+        filename: `${safeCompanyName}_${reportNames[reportType]}`,
+        title: "التقرير المالي والمحاسبي",
+      });
+    } catch (error) {
+      console.error("Failed to export accounting report PDF:", error);
+      alert("تعذر إنشاء ملف PDF. تحقق من تحميل الصور والبيانات ثم حاول مرة أخرى.");
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   return (
@@ -361,12 +387,21 @@ export default function ReportsView({
             </>
           )}
 
-          <div className="flex gap-2 justify-end sm:col-span-2 lg:col-span-1 lg:col-start-4">
+          <div className="flex flex-wrap gap-2 justify-end sm:col-span-2 lg:col-span-1 lg:col-start-4">
             <button
+              type="button"
               onClick={handlePrint}
-              className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
-              <Printer className="w-4 h-4" /> طباعة التقرير الحالي
+              <Printer className="w-4 h-4" /> طباعة
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> {isExportingPDF ? "جاري تجهيز PDF..." : "حفظ PDF"}
             </button>
           </div>
         </div>
@@ -374,7 +409,7 @@ export default function ReportsView({
 
       {/* Printable Report Document Sheet */}
       {reportGenerated && (
-        <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-md p-6 sm:p-10 space-y-6 print-container text-slate-800 relative">
+        <div id="accounting-report-document" className="bg-white rounded-2xl border-2 border-slate-200 shadow-md p-6 sm:p-10 space-y-6 print-container report-document text-slate-800 relative">
           
           {/* Official Document Header */}
           <div className="border-b-2 border-slate-300 pb-5 flex flex-col sm:flex-row justify-between items-center gap-4">
