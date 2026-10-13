@@ -138,6 +138,8 @@ export default function AccountManagerModal({
   const [signaturePlaceholder, setSignaturePlaceholder] = useState(storeSettings.signaturePlaceholder || "");
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [stampUploading, setStampUploading] = useState(false);
+  const stampInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setCompanyName(storeSettings.companyName || "");
@@ -276,6 +278,57 @@ export default function AccountManagerModal({
     }
   };
 
+  const handleCompanyStampFile = async (file?: File | null) => {
+    if (!file || !currentUser) return;
+    if (!file.type.startsWith("image/")) {
+      showStoreSettingsToast("يرجى اختيار صورة ختم صالحة بصيغة PNG أو JPG أو WebP.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showStoreSettingsToast("حجم صورة الختم كبير؛ اختر صورة لا تتجاوز 5 ميغابايت.", "error");
+      return;
+    }
+    try {
+      setStampUploading(true);
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+      const downloadUrl = await uploadUserFile(currentUser.uid, "branding", `stamp.${ext}`, file);
+      await Promise.resolve(updateSettings({ ...storeSettings, stampUrl: downloadUrl }));
+      showStoreSettingsToast("تم رفع صورة الختم وحفظها، وستظهر في التقارير الحسابية.");
+    } catch (err: any) {
+      showStoreSettingsToast(err?.message || "تعذر رفع صورة الختم.", "error");
+    } finally {
+      setStampUploading(false);
+      if (stampInputRef.current) stampInputRef.current.value = "";
+    }
+  };
+
+  const handleCompanyStampUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await handleCompanyStampFile(e.target.files?.[0]);
+  };
+
+  const handleNativeCompanyStampPick = async (source: "gallery" | "camera") => {
+    try {
+      const file = await pickNativeImageFile(source);
+      if (!file) return;
+      await handleCompanyStampFile(file);
+    } catch {
+      showStoreSettingsToast(source === "camera" ? "تعذر التقاط صورة الختم." : "تعذر اختيار صورة الختم من الهاتف.", "error");
+    }
+  };
+
+  const handleRemoveCompanyStamp = async () => {
+    if (!storeSettings.stampUrl) return;
+    try {
+      setStampUploading(true);
+      await deleteUserFileByUrl(storeSettings.stampUrl);
+      await Promise.resolve(updateSettings({ ...storeSettings, stampUrl: undefined }));
+      showStoreSettingsToast("تمت إزالة صورة الختم.");
+    } catch (err: any) {
+      showStoreSettingsToast(err?.message || "تعذر حذف صورة الختم.", "error");
+    } finally {
+      setStampUploading(false);
+    }
+  };
   const handleSaveCompanySettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim()) {
@@ -1222,6 +1275,31 @@ export default function AccountManagerModal({
                   </div>
                 </div>
 
+                <div className="p-4 rounded-xl border border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                      {storeSettings.stampUrl ? (
+                        <img src={storeSettings.stampUrl} alt="الختم الرسمي" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="text-center text-slate-400"><Building className="w-6 h-6 mx-auto mb-1" /><span className="text-[9px]">معاينة الختم</span></div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-800">صورة الختم الرسمي</p>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">ارفع ختم المؤسسة ليظهر في التقرير الحسابي عند الطباعة. يُفضّل PNG بخلفية شفافة للحصول على أفضل نتيجة.</p>
+                      <p className="text-[10px] text-slate-400 mt-1">الحد الأقصى 5 ميغابايت. الخلفية الشفافة تعتمد على الصورة المرفوعة نفسها.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={stampInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCompanyStampUpload} className="hidden" />
+                    <button type="button" disabled={stampUploading} onClick={() => isNativeAndroid() ? void handleNativeCompanyStampPick("gallery") : stampInputRef.current?.click()} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50">
+                      {stampUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      {storeSettings.stampUrl ? "تغيير الختم" : "رفع صورة الختم"}
+                    </button>
+                    {isNativeAndroid() && <button type="button" disabled={stampUploading} onClick={() => void handleNativeCompanyStampPick("camera")} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold">الكاميرا</button>}
+                    {storeSettings.stampUrl && <button type="button" disabled={stampUploading} onClick={() => void handleRemoveCompanyStamp()} className="px-3 py-2 border border-rose-200 text-rose-600 rounded-lg text-xs font-bold disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" /> إزالة الختم</button>}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">اسم المؤسسة / المحل التجاري *</label>
