@@ -600,14 +600,14 @@ function ProductsViewContent({
                     )}
                 </div>
                 {!collapsedCategories.has(category) && <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-sm text-right">
+                  <table className="w-full min-w-[540px] text-xs text-right">
                     <thead className="bg-white text-slate-500 text-xs">
                       <tr>
-                                                <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
-                        <th scope="col" className="px-3 py-3 font-semibold">الصورة</th>
-                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر الشراء</th>
-                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
-                        <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">الربح / قطعة</th>
+                                                <th scope="col" className="px-1.5 py-2 font-semibold">اسم البضاعة</th>
+                        <th scope="col" className="px-1.5 py-2 font-semibold">الصورة</th>
+                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">سعر الشراء</th>
+                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">سعر البيع</th>
+                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">الربح / قطعة</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -631,9 +631,9 @@ function ProductsViewContent({
                             onTouchCancel={clearLongPress}
                             title="اضغط مطولاً لعرض إجراءات البضاعة"
                           >
-                                                        <td className="px-3 py-3">
-                              <div className="font-bold text-slate-800">{product.name}</div>
-                              <div className="text-[11px] text-slate-500 mt-1">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
+                                                        <td className="px-1.5 py-2">
+                              <div className="max-w-[112px] truncate font-bold text-slate-800" title={product.name}>{product.name}</div>
+                              <div className="mt-0.5 max-w-[112px] truncate text-[9px] text-slate-500">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
                               {openProductMenuId === product.id && (
                               <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
@@ -648,14 +648,14 @@ function ProductsViewContent({
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-3">
-                              <button type="button" onClick={() => openDetails(product)} className="w-12 h-12 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center" title={`عرض صورة ${product.name}`} aria-label={`تفاصيل ${product.name}`}>
+                            <td className="px-1.5 py-2">
+                              <button type="button" onClick={() => openDetails(product)} className="w-9 h-9 rounded-md border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center" title={`عرض صورة ${product.name}`} aria-label={`تفاصيل ${product.name}`}>
                                 {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-5 h-5 text-slate-300" />}
                               </button>
                             </td>
-                            <td className="px-3 py-3 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className="px-3 py-3 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className={`px-3 py-3 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
+                            <td className="px-1.5 py-2 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className="px-1.5 py-2 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className={`px-1.5 py-2 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
 
                           </tr>
                         );
