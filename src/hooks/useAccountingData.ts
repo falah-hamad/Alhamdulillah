@@ -39,6 +39,20 @@ import {
   dispatchCustomerAddedNotification,
 } from "../lib/notifications";
 
+// Generate collision-resistant IDs; Date.now() alone can collide during bulk imports.
+let recordIdFallbackCounter = 0;
+function createUniqueRecordId(prefix: string): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return prefix + "-" + crypto.randomUUID();
+    }
+  } catch {
+    // Fall through for older webviews.
+  }
+  recordIdFallbackCounter += 1;
+  return prefix + "-" + Date.now() + "-" + recordIdFallbackCounter + "-" + Math.random().toString(36).slice(2, 12);
+}
+
 // Helper to remove undefined properties which Firestore rejects
 function cleanForFirestore<T>(data: T): any {
   return JSON.parse(
@@ -893,7 +907,7 @@ export function useAccountingData() {
   const addProduct = (product: Omit<Product, "id">): Product => {
     const newProduct: Product = {
       ...product,
-      id: `prod-${Date.now()}`,
+      id: createUniqueRecordId("prod"),
       userId: currentUser?.uid,
     };
     setProducts((prev) => {
