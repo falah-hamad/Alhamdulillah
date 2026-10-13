@@ -636,11 +636,6 @@ function ProductsViewContent({
                                                         <td className="px-1.5 py-2">
                               <div className="max-w-[112px] truncate font-bold text-slate-800" title={product.name}>{product.name}</div>
                               <div className="mt-0.5 max-w-[112px] truncate text-[9px] text-slate-500">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
-                              <div className="mt-1 flex items-center gap-1" aria-label={`سجلات ${product.name}`}>
-                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "prices"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100" title="سجل الأسعار" aria-label={`سجل أسعار ${product.name}`}><History className="h-3.5 w-3.5" /></button>
-                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "stock"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100" title="حركة المخزون" aria-label={`حركة مخزون ${product.name}`}><Clock className="h-3.5 w-3.5" /></button>
-                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "invoices"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-violet-100 bg-violet-50 text-violet-700 hover:bg-violet-100" title="الفواتير المرتبطة" aria-label={`فواتير ${product.name}`}><FileText className="h-3.5 w-3.5" /></button>
-                              </div>
                               {openProductMenuId === product.id && (
                               <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
@@ -906,4 +901,12 @@ export default function ProductsView(props: ProductsViewProps) {
       <ProductsViewContent {...props} />
     </ProductsViewErrorBoundary>
   );
-}
+}            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs text-slate-500">السجلات والتفاصيل الإضافية</p>
+              <div className="flex flex-wrap items-center gap-2" aria-label="سجلات البضاعة">
+                <button type="button" onClick={() => setDetailsTab("prices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "prices" ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="سجل الأسعار"><History className="h-4 w-4" /> سجل الأسعار</button>
+                <button type="button" onClick={() => setDetailsTab("stock")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "stock" ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="حركة المخزون"><Clock className="h-4 w-4" /> حركة المخزون</button>
+                <button type="button" onClick={() => setDetailsTab("invoices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "invoices" ? "border-violet-300 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="الفواتير المرتبطة"><FileText className="h-4 w-4" /> الفواتير المرتبطة</button>
+              </div>
+            </div>
+
