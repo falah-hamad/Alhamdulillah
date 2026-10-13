@@ -130,7 +130,7 @@ export default function AccountManagerModal({
   // Edit Profile Form State
   const [displayName, setDisplayName] = useState(currentUser?.displayName || extendedProfile.displayName || "");
   const [photoURL, setPhotoURL] = useState(currentUser?.photoURL || extendedProfile.photoURL || "");
-  const [phoneNumber, setPhoneNumber] = useState(extendedProfile.phoneNumber || storeSettings.companyPhone || "");
+  const [phoneNumber, setPhoneNumber] = useState(extendedProfile.phoneNumber || currentUser?.phoneNumber || "");
   const [jobTitle, setJobTitle] = useState(extendedProfile.jobTitle || "المحاسب المعتمد");
   const [bio, setBio] = useState(extendedProfile.bio || "");
 
@@ -935,7 +935,7 @@ export default function AccountManagerModal({
                       </span>
                       <span className="text-[11px] font-bold bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                         <Building2 className="w-3 h-3" />
-                        {extendedProfile.storeName || storeSettings.companyName || "مؤسسة الأعمال"}
+                        {storeSettings.companyName || "مؤسسة الأعمال"}
                       </span>
                       {currentUser?.emailVerified || isPhoneLinked ? (
                         <span className="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
