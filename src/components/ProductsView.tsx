@@ -489,7 +489,6 @@ function ProductsViewContent({
                         <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); deleteCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="w-4 h-4" /> حذف التصنيف</button>
                       </div>
                     )}
-                  </div>
                 </div>
                 <div className="w-full overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm text-right">
