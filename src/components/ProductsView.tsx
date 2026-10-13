@@ -3,7 +3,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
-  Phone, Truck, Clock, ScanBarcode
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
@@ -26,6 +26,7 @@ type ProductForm = {
   category: string;
   barcode: string;
   imageUrl: string;
+  imageUrls: string[];
   description: string;
   notes: string;
   supplierName: string;
@@ -36,7 +37,7 @@ type ProductForm = {
 
 const emptyForm: ProductForm = {
   name: "", purchasePrice: "", salePrice: "", quantity: "", category: "",
-  barcode: "", imageUrl: "", description: "", notes: "", supplierName: "",
+  barcode: "", imageUrl: "", imageUrls: [], description: "", notes: "", supplierName: "",
   supplierPhone: "", minStock: "", unitName: "قطعة",
 };
 
@@ -44,6 +45,14 @@ const nowIso = () => new Date().toISOString();
 const movementId = () => `move-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const priceId = () => `price-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const money = (value: number) => (Number(value) || 0).toLocaleString("en-US");
+const getProductImages = (product?: Product | null): string[] => Array.from(new Set([
+  product?.imageUrl,
+  ...(Array.isArray(product?.imageUrls) ? product.imageUrls : []),
+].filter((url): url is string => typeof url === "string" && url.trim().length > 0).map(url => url.trim())));
+const getFormImages = (form: ProductForm): string[] => Array.from(new Set([
+  form.imageUrl,
+  ...form.imageUrls,
+].filter(url => typeof url === "string" && url.trim().length > 0).map(url => url.trim())));
 
 const movementLabels: Record<ProductStockMovementType, string> = {
   opening: "رصيد افتتاحي",
@@ -81,6 +90,8 @@ function ProductsViewContent({
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [formError, setFormError] = useState("");
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
+  const [detailsImageIndex, setDetailsImageIndex] = useState(0);
+  const imageTouchStartX = useRef<number | null>(null);
   const [movementProduct, setMovementProduct] = useState<Product | null>(null);
   const [movementType, setMovementType] = useState<"restock" | "return" | "damaged" | "adjustment">("restock");
   const [movementQty, setMovementQty] = useState("1");
@@ -190,7 +201,8 @@ function ProductsViewContent({
       quantity: product.quantity == null ? "" : String(product.quantity),
       category: product.category || "",
       barcode: product.barcode || "",
-      imageUrl: product.imageUrl || "",
+      imageUrl: product.imageUrl || product.imageUrls?.[0] || "",
+      imageUrls: Array.isArray(product.imageUrls) ? product.imageUrls : [],
       description: product.description || "",
       notes: product.notes || "",
       supplierName: product.supplierName || "",
@@ -203,28 +215,39 @@ function ProductsViewContent({
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setFormError("اختر ملف صورة صالحاً.");
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    const invalidType = files.find(file => !file.type.startsWith("image/"));
+    if (invalidType) {
+      setFormError("توجد ملفات ليست صوراً. اختر ملفات صور فقط.");
+      event.target.value = "";
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      setFormError("حجم الصورة أكبر من 8 ميغابايت. اختر صورة أصغر.");
+    const oversized = files.find(file => file.size > 8 * 1024 * 1024);
+    if (oversized) {
+      setFormError("إحدى الصور أكبر من 8 ميغابايت. اختر صوراً أصغر.");
+      event.target.value = "";
       return;
     }
     if (!currentUser?.uid) {
-      setFormError("حتى تُحفظ الصورة وتظهر على أجهزتك الأخرى، سجّل الدخول أولاً. ويمكنك وضع رابط صورة في الحقل أدناه.");
+      setFormError("حتى تُحفظ الصور وتظهر على أجهزتك الأخرى، سجّل الدخول أولاً. ويمكنك وضع رابط صورة أدناه.");
+      event.target.value = "";
       return;
     }
     setIsSavingImage(true);
     setFormError("");
     try {
-      const url = await uploadUserFile(currentUser.uid, "products", file.name, file);
-      setField("imageUrl", url);
+      const uploadedUrls: string[] = [];
+      for (const [index, file] of files.entries()) {
+        uploadedUrls.push(await uploadUserFile(currentUser.uid, "products", `${index}_${file.name}`, file));
+      }
+      setForm(current => {
+        const merged = Array.from(new Set([...getFormImages(current), ...uploadedUrls]));
+        return { ...current, imageUrl: current.imageUrl.trim() || uploadedUrls[0] || "", imageUrls: merged };
+      });
     } catch (error) {
       console.error("Product image upload failed:", error);
-      setFormError("تعذر رفع الصورة. تحقق من اتصال الإنترنت وصلاحيات التخزين ثم أعد المحاولة.");
+      setFormError("تعذر رفع إحدى الصور. تحقق من اتصال الإنترنت وصلاحيات التخزين ثم أعد المحاولة.");
     } finally {
       setIsSavingImage(false);
       event.target.value = "";
@@ -249,7 +272,8 @@ function ProductsViewContent({
       quantity: Number(form.quantity) || 0,
       category: form.category.trim(),
       barcode: form.barcode.trim() || undefined,
-      imageUrl: form.imageUrl.trim() || undefined,
+      imageUrl: getFormImages(form)[0] || undefined,
+      imageUrls: getFormImages(form).length ? getFormImages(form) : undefined,
       description: form.description.trim() || undefined,
       notes: form.notes.trim() || undefined,
       supplierName: form.supplierName.trim() || undefined,
@@ -310,6 +334,7 @@ function ProductsViewContent({
   const openDetails = (product: Product) => {
     const viewed = { ...product, lastViewedAt: nowIso() };
     updateProduct(viewed);
+    setDetailsImageIndex(0);
     setDetailsProduct(viewed);
   };
 
@@ -619,16 +644,16 @@ function ProductsViewContent({
                 <textarea value={form.notes} onInput={e => setField("notes", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm min-h-20" placeholder="تفاصيل إضافية أو ملاحظات للشراء والبيع..." />
               </label>
               <div className="border rounded-xl p-3 space-y-3">
-                <div className="text-xs font-bold text-slate-700 flex items-center gap-2"><ImagePlus className="w-4 h-4" /> صورة البضاعة</div>
-                {form.imageUrl && <img src={form.imageUrl} alt="معاينة البضاعة" className="w-28 h-28 object-cover rounded-lg border" />}
-                <label className="block text-xs text-slate-600">رابط الصورة
+                <div className="text-xs font-bold text-slate-700 flex items-center gap-2"><ImagePlus className="w-4 h-4" /> صور البضاعة ({getFormImages(form).length})</div>
+                {getFormImages(form).length > 0 && <div className="flex flex-wrap gap-2">{getFormImages(form).map((url, index) => <div key={url} className="relative"><img src={url} alt={`صورة البضاعة ${index + 1}`} className="w-20 h-20 object-cover rounded-lg border" /><button type="button" onClick={() => { const remaining = getFormImages(form).filter((_, i) => i !== index); setForm(current => ({ ...current, imageUrl: remaining[0] || "", imageUrls: remaining })); }} className="absolute -top-2 -left-2 bg-rose-600 text-white rounded-full p-1" aria-label="حذف الصورة"><X className="w-3 h-3" /></button></div>)}</div>}
+                <label className="block text-xs text-slate-600">رابط الصورة الرئيسية (اختياري)
                   <input type="url" value={form.imageUrl} onInput={e => setField("imageUrl", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="https://..." />
                 </label>
                 <label className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm cursor-pointer hover:bg-slate-50">
-                  <Camera className="w-4 h-4" /> {isSavingImage ? "جارٍ رفع الصورة..." : "اختيار صورة من الهاتف"}
-                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={isSavingImage} className="sr-only" />
+                  <Camera className="w-4 h-4" /> {isSavingImage ? "جارٍ رفع الصور..." : "اختيار صورة أو أكثر من الهاتف"}
+                  <input type="file" accept="image/*" multiple onChange={handleImageUpload} disabled={isSavingImage} className="sr-only" />
                 </label>
-                <p className="text-[11px] text-slate-500">تُرفع الصورة إلى Firebase Storage لحسابك المسجّل، ثم يُحفظ رابطها مع بطاقة الصنف.</p>
+                <p className="text-[11px] text-slate-500">يمكنك اختيار عدة صور دفعة واحدة. تُرفع الصور إلى Firebase Storage وتُحفظ مع بطاقة الصنف لتظهر على أجهزتك الأخرى. الحد الأقصى 8 ميغابايت لكل صورة.</p>
               </div>
               {formError && <p role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-3">{formError}</p>}
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 border-t pt-4">
@@ -669,7 +694,18 @@ function ProductsViewContent({
           <div className="bg-white w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-2xl shadow-xl p-4 sm:p-6 space-y-5">
             <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-800">{detailsProduct.name}</h3><p className="text-xs text-slate-500 mt-1">{detailsProduct.category} {detailsProduct.barcode ? `• ${detailsProduct.barcode}` : ""}</p></div><button onClick={() => setDetailsProduct(null)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-1">{detailsProduct.imageUrl ? <img src={detailsProduct.imageUrl} alt={detailsProduct.name} className="w-full max-h-64 object-contain bg-slate-50 rounded-xl border" /> : <div className="h-40 bg-slate-50 border rounded-xl flex items-center justify-center"><ImagePlus className="w-10 h-10 text-slate-300" /></div>}</div>
+              <div className="sm:col-span-1 space-y-2">
+                {getProductImages(detailsProduct).length > 0 ? <>
+                  <div className="relative overflow-hidden bg-slate-50 rounded-xl border touch-pan-y" onTouchStart={event => { imageTouchStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={event => { const start = imageTouchStartX.current; const end = event.changedTouches[0]?.clientX; imageTouchStartX.current = null; if (start !== null && end !== undefined && Math.abs(end - start) > 35 && getProductImages(detailsProduct).length > 1) setDetailsImageIndex(current => (current + (end < start ? 1 : -1) + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length); }}>
+                    <img src={getProductImages(detailsProduct)[detailsImageIndex % getProductImages(detailsProduct).length]} alt={`${detailsProduct.name} - الصورة ${detailsImageIndex + 1}`} className="w-full h-56 object-contain" />
+                    {getProductImages(detailsProduct).length > 1 && <>
+                      <button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة السابقة"><ChevronLeft className="w-5 h-5" /></button>
+                      <button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(detailsProduct).length)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة التالية"><ChevronRight className="w-5 h-5" /></button>
+                    </>}
+                  </div>
+                  {getProductImages(detailsProduct).length > 1 && <div className="flex items-center justify-center gap-3 text-xs text-slate-600"><button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="السابق"><ChevronRight className="w-4 h-4" /></button><span>{(detailsImageIndex % getProductImages(detailsProduct).length) + 1} / {getProductImages(detailsProduct).length}</span><button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(detailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="التالي"><ChevronLeft className="w-4 h-4" /></button></div>}
+                </> : <div className="h-40 bg-slate-50 border rounded-xl flex items-center justify-center"><ImagePlus className="w-10 h-10 text-slate-300" /></div>}
+              </div>
               <div className="sm:col-span-2 grid grid-cols-2 gap-3 content-start">
                 {[["سعر الشراء", detailsProduct.purchasePrice], ["سعر البيع", detailsProduct.salePrice], ["ربح القطعة المتوقع", detailsProduct.salePrice - detailsProduct.purchasePrice], ["الكمية الحالية", detailsProduct.quantity]].map(([label, value]) => <div key={String(label)} className="bg-slate-50 rounded-lg p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-bold text-slate-800 mt-1">{money(Number(value))} {label === "الكمية الحالية" ? (detailsProduct.unitName || "قطعة") : settings.currency}</div></div>)}
                 <div className="col-span-2 text-sm text-slate-700 space-y-1">
