@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   User as UserIcon,
   Edit3,
@@ -28,6 +28,11 @@ import {
   Phone,
   Camera,
   Building2,
+  Building,
+  MapPin,
+  Coins,
+  Image as ImageIcon,
+  Loader2,
   Briefcase,
   Calendar,
   ExternalLink,
@@ -41,7 +46,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { CloudBackupItem, SystemSettings } from "../types";
-import { db, enableNetwork, waitForPendingWrites } from "../lib/firebase";
+import { db, enableNetwork, waitForPendingWrites, uploadUserFile, deleteUserFileByUrl } from "../lib/firebase";
 import { requestNotificationPermissionDetailed, isFCMSupported } from "../lib/notifications";
 import { authenticateWithBiometrics, isNativeAndroid, pickNativeImageFile } from "../lib/native";
 
@@ -49,6 +54,7 @@ interface AccountManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   storeSettings: SystemSettings;
+  updateSettings: (settings: SystemSettings) => void;
   onNavigateToSettings?: () => void;
   onExportData?: () => void;
   onImportData?: (json: string) => { success: boolean; error?: string };
@@ -63,6 +69,7 @@ interface AccountManagerModalProps {
 type TabType =
   | "profile"
   | "edit_profile"
+  | "store_settings"
   | "security"
   | "linked_accounts"
   | "notifications"
@@ -87,6 +94,7 @@ export default function AccountManagerModal({
   isOpen,
   onClose,
   storeSettings,
+  updateSettings,
   onNavigateToSettings,
   onExportData,
   onImportData,
@@ -123,9 +131,25 @@ export default function AccountManagerModal({
   const [displayName, setDisplayName] = useState(currentUser?.displayName || extendedProfile.displayName || "");
   const [photoURL, setPhotoURL] = useState(currentUser?.photoURL || extendedProfile.photoURL || "");
   const [phoneNumber, setPhoneNumber] = useState(extendedProfile.phoneNumber || storeSettings.companyPhone || "");
-  const [storeName, setStoreName] = useState(extendedProfile.storeName || storeSettings.companyName || "");
   const [jobTitle, setJobTitle] = useState(extendedProfile.jobTitle || "المحاسب المعتمد");
   const [bio, setBio] = useState(extendedProfile.bio || "");
+
+  // Store identity and financial settings are edited here only.
+  const [companyName, setCompanyName] = useState(storeSettings.companyName || "");
+  const [companyPhone, setCompanyPhone] = useState(storeSettings.companyPhone || "");
+  const [companyAddress, setCompanyAddress] = useState(storeSettings.companyAddress || "");
+  const [currency, setCurrency] = useState(storeSettings.currency || "د.ع");
+  const [signaturePlaceholder, setSignaturePlaceholder] = useState(storeSettings.signaturePlaceholder || "");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCompanyName(storeSettings.companyName || "");
+    setCompanyPhone(storeSettings.companyPhone || "");
+    setCompanyAddress(storeSettings.companyAddress || "");
+    setCurrency(storeSettings.currency || "د.ع");
+    setSignaturePlaceholder(storeSettings.signaturePlaceholder || "");
+  }, [storeSettings]);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -192,13 +216,92 @@ export default function AccountManagerModal({
         displayName: displayName.trim(),
         photoURL: photoURL.trim(),
         phoneNumber: phoneNumber.trim(),
-        storeName: storeName.trim(),
         jobTitle: jobTitle.trim(),
         bio: bio.trim(),
       });
       showToast("تم تحديث الملف الشخصي بنجاح!");
     } catch (err: any) {
       showToast(err.message || "فشل تحديث البيانات", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const showStoreSettingsToast = (text: string, type: "success" | "error" = "success") => {
+    showToast(text, type);
+  };
+
+  const handleCompanyLogoFile = async (file?: File | null) => {
+    if (!file || !currentUser) return;
+    if (!file.type.startsWith("image/")) {
+      showStoreSettingsToast("يرجى اختيار ملف صورة صالح (PNG أو JPG أو WebP).", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showStoreSettingsToast("حجم الشعار كبير؛ اختر صورة لا تتجاوز 5 ميغابايت.", "error");
+      return;
+    }
+    try {
+      setLogoUploading(true);
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+      const downloadUrl = await uploadUserFile(currentUser.uid, "branding", `logo.${ext}`, file);
+      await Promise.resolve(updateSettings({ ...storeSettings, logoUrl: downloadUrl }));
+      showStoreSettingsToast("تم رفع شعار المؤسسة وحفظه بنجاح.");
+    } catch (err: any) {
+      showStoreSettingsToast(err?.message || "تعذر رفع شعار المؤسسة.", "error");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
+  const handleCompanyLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await handleCompanyLogoFile(e.target.files?.[0]);
+  };
+
+  const handleNativeCompanyLogoPick = async (source: "gallery" | "camera") => {
+    try {
+      const file = await pickNativeImageFile(source);
+      if (!file) return;
+      await handleCompanyLogoFile(file);
+    } catch {
+      showStoreSettingsToast(source === "camera" ? "تعذر التقاط شعار المؤسسة." : "تعذر اختيار الشعار من الهاتف.", "error");
+    }
+  };
+
+  const handleRemoveCompanyLogo = async () => {
+    if (!storeSettings.logoUrl) return;
+    try {
+      setLogoUploading(true);
+      await deleteUserFileByUrl(storeSettings.logoUrl);
+      await Promise.resolve(updateSettings({ ...storeSettings, logoUrl: undefined }));
+      showStoreSettingsToast("تمت إزالة شعار المؤسسة.");
+    } catch (err: any) {
+      showStoreSettingsToast(err?.message || "تعذر حذف شعار المؤسسة.", "error");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleSaveCompanySettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!companyName.trim()) {
+      showStoreSettingsToast("يرجى إدخال اسم المؤسسة.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await Promise.resolve(updateSettings({
+        ...storeSettings,
+        companyName: companyName.trim(),
+        companyPhone: companyPhone.trim(),
+        companyAddress: companyAddress.trim(),
+        currency: currency.trim(),
+        signaturePlaceholder: signaturePlaceholder.trim(),
+      }));
+      showStoreSettingsToast("تم حفظ هوية المؤسسة والعملة بنجاح.");
+    } catch (err: any) {
+      showStoreSettingsToast(err?.message || "تعذر حفظ بيانات المؤسسة.", "error");
     } finally {
       setSaving(false);
     }
@@ -617,6 +720,18 @@ export default function AccountManagerModal({
             >
               <Edit3 className="w-4 h-4 shrink-0" />
               <span>2. تعديل الملف الشخصي</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("store_settings")}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-right shrink-0 ${
+                activeTab === "store_settings"
+                  ? "bg-blue-600 text-white font-bold shadow-xs"
+                  : "text-slate-600 hover:bg-slate-200/50"
+              }`}
+            >
+              <Building className="w-4 h-4 shrink-0" />
+              <span>هوية المتجر والعملة</span>
             </button>
 
             <button
@@ -1090,17 +1205,6 @@ export default function AccountManagerModal({
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">اسم المتجر / المؤسسة</label>
-                    <input
-                      type="text"
-                      value={storeName}
-                      onChange={(e) => setStoreName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                      placeholder="مثال: مؤسسة التقنية الحديثة"
-                    />
-                  </div>
-
-                  <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">رقم الهاتف</label>
                     <input
                       type="tel"
@@ -1132,6 +1236,82 @@ export default function AccountManagerModal({
                   >
                     <Save className="w-4 h-4" />
                     <span>{saving ? "جاري الحفظ..." : "حفظ التغييرات"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* هوية المتجر والتفاصيل المالية — مصدر واحد لبيانات المؤسسة */}
+            {activeTab === "store_settings" && (
+              <form onSubmit={handleSaveCompanySettings} className="space-y-5">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">هوية المتجر والتفاصيل المالية</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">تُستخدم هذه البيانات في الفواتير وسندات القبض والتقارير.</p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                      {storeSettings.logoUrl ? (
+                        <img src={storeSettings.logoUrl} alt="شعار المؤسسة" className="w-full h-full object-contain" />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-slate-300" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-800">شعار المتجر والمؤسسة</p>
+                      <p className="text-[11px] text-slate-500">يظهر في ترويسة الفواتير وسندات القبض المطبوعة.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={logoInputRef} type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                    <button type="button" disabled={logoUploading} onClick={() => isNativeAndroid() ? void handleNativeCompanyLogoPick("gallery") : logoInputRef.current?.click()} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50">
+                      {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      {storeSettings.logoUrl ? "تغيير الشعار" : "رفع شعار جديد"}
+                    </button>
+                    {isNativeAndroid() && <button type="button" disabled={logoUploading} onClick={() => void handleNativeCompanyLogoPick("camera")} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold">الكاميرا</button>}
+                    {storeSettings.logoUrl && <button type="button" disabled={logoUploading} onClick={() => void handleRemoveCompanyLogo()} className="px-3 py-2 border border-rose-200 text-rose-600 rounded-lg text-xs font-bold disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" /></button>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">اسم المؤسسة / المحل التجاري *</label>
+                    <input required value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">رقم هاتف المؤسسة</label>
+                    <input type="tel" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" dir="ltr" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">العنوان والمقر الرئيسي</label>
+                  <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">رمز العملة المستخدمة بالنظام *</label>
+                    <select required value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white">
+                      <option value="د.ع">د.ع (دينار عراقي)</option>
+                      <option value="ر.س">ر.س (ريال سعودي)</option>
+                      <option value="$">$ (دولار)</option>
+                      <option value="د.ك">د.ك (دينار كويتي)</option>
+                      <option value="د.إ">د.إ (درهم إماراتي)</option>
+                      <option value="د.أ">د.أ (دينار أردني)</option>
+                      <option value="ج.م">ج.م (جنيه مصري)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">المسمّى الوظيفي للتوقيعات بالفواتير</label>
+                    <input value={signaturePlaceholder} onChange={(e) => setSignaturePlaceholder(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" placeholder="المدير المالي / المحاسب المسؤول" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+                    {saving ? "جاري الحفظ..." : "حفظ هوية المتجر والعملة"}
                   </button>
                 </div>
               </form>
