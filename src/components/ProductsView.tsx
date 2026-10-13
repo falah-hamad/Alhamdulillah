@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from "react";
 import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
-  Eye, Save, Camera, ClipboardList,
+  Eye, Save, Camera, ClipboardList, FileText,
   Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
@@ -93,6 +93,7 @@ function ProductsViewContent({
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [formError, setFormError] = useState("");
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
+  const [detailsTab, setDetailsTab] = useState<"overview" | "prices" | "stock" | "invoices">("overview");
   const [detailsImageIndex, setDetailsImageIndex] = useState(0);
   const imageTouchStartX = useRef<number | null>(null);
   const [movementProduct, setMovementProduct] = useState<Product | null>(null);
@@ -384,10 +385,11 @@ function ProductsViewContent({
   };
 
   const toggleFavorite = (product: Product) => updateProduct({ ...product, isFavorite: !product.isFavorite });
-  const openDetails = (product: Product) => {
+  const openDetails = (product: Product, tab: "overview" | "prices" | "stock" | "invoices" = "overview") => {
     const viewed = { ...product, lastViewedAt: nowIso() };
     updateProduct(viewed);
     setDetailsImageIndex(0);
+    setDetailsTab(tab);
     setDetailsProduct(viewed);
   };
 
@@ -634,6 +636,11 @@ function ProductsViewContent({
                                                         <td className="px-1.5 py-2">
                               <div className="max-w-[112px] truncate font-bold text-slate-800" title={product.name}>{product.name}</div>
                               <div className="mt-0.5 max-w-[112px] truncate text-[9px] text-slate-500">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
+                              <div className="mt-1 flex items-center gap-1" aria-label={`سجلات ${product.name}`}>
+                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "prices"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100" title="سجل الأسعار" aria-label={`سجل أسعار ${product.name}`}><History className="h-3.5 w-3.5" /></button>
+                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "stock"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100" title="حركة المخزون" aria-label={`حركة مخزون ${product.name}`}><Clock className="h-3.5 w-3.5" /></button>
+                                <button type="button" onClick={event => { event.stopPropagation(); openDetails(product, "invoices"); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-violet-100 bg-violet-50 text-violet-700 hover:bg-violet-100" title="الفواتير المرتبطة" aria-label={`فواتير ${product.name}`}><FileText className="h-3.5 w-3.5" /></button>
+                              </div>
                               {openProductMenuId === product.id && (
                               <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
@@ -829,14 +836,27 @@ function ProductsViewContent({
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "return"); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> مرتجع</button>
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "damaged"); }} className="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm inline-flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تالف</button>
             </div>
-            <section className="space-y-2">
+            {detailsTab === "prices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
               {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}</div>)}</div>}
-            </section>
-            <section className="space-y-2">
-              <h4 className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4" /> حركة المخزون والفواتير المرتبطة</h4>
+            </section>}
+            {detailsTab === "stock" && <section className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4" /> حركة المخزون</h4>
               {historyForProduct(detailsProduct).length === 0 ? <p className="text-xs text-slate-500">لا توجد حركات مسجلة بعد.</p> : <div className="space-y-2">{historyForProduct(detailsProduct).map((entry: any) => <div key={entry.id} className="border rounded-lg p-3 flex flex-wrap justify-between gap-2 text-xs"><div><b>{entry.label}</b><div className="text-slate-500 mt-1">{entry.note || ""}{entry.customerName ? ` • العميل: ${entry.customerName}` : ""}</div></div><div className="text-left"><b className={entry.quantity < 0 ? "text-rose-700" : "text-emerald-700"}>{entry.quantity > 0 ? "+" : ""}{entry.quantity}</b><div className="text-slate-400 mt-1">{entry.createdAt ? new Date(entry.createdAt).toLocaleString("ar-IQ") : ""}</div></div></div>)}</div>}
-            </section>
+            </section>}
+            {detailsTab === "invoices" && <section className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2"><FileText className="w-4 h-4" /> الفواتير المرتبطة</h4>
+              {invoices.filter(invoice => (invoice.items || []).some(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).length === 0
+                ? <p className="text-xs text-slate-500">لا توجد فواتير مرتبطة بهذه البضاعة بعد.</p>
+                : <div className="space-y-2">{invoices.filter(invoice => (invoice.items || []).some(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).map(invoice => {
+                  const linkedItems = (invoice.items || []).filter(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow);
+                  return <div key={invoice.id} className="border rounded-lg p-3 space-y-1 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><b>فاتورة {invoice.invoiceNumber || invoice.id}</b><span className="text-slate-500">{invoice.date || invoice.createdAt ? new Date(invoice.date || invoice.createdAt).toLocaleString("ar-IQ") : "التاريخ غير متوفر"}</span></div>
+                    {invoice.customerName && <div className="text-slate-600">العميل: {invoice.customerName}</div>}
+                    {linkedItems.map(item => <div key={item.id} className="flex flex-wrap justify-between gap-2 text-slate-600"><span>الكمية: {Number(item.quantity) || 0} • سعر الوحدة: {money(Number(item.unitPrice) || 0)} {settings.currency}</span><b>{money((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))} {settings.currency}</b></div>)}
+                  </div>;
+                })}</div>}
+            </section>}
             <div className="flex justify-end border-t pt-3"><button onClick={() => setDetailsProduct(null)} className="px-4 py-2 border rounded-lg text-sm">إغلاق</button></div>
           </div>
         </div>
