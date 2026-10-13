@@ -149,6 +149,7 @@ export interface SystemSettings {
   companyAddress: string;
   currency: string;
   logoUrl?: string;
+  stampUrl?: string;
   signaturePlaceholder?: string;
 }
 
