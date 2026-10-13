@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import {
   Settings,
-  Building,
   Phone,
   MapPin,
   Coins,
@@ -25,7 +24,6 @@ import {
   LogOut,
   Cloud,
   UserCheck,
-  Image as ImageIcon,
   Loader2,
   Calendar,
   Bell,
@@ -37,12 +35,10 @@ import {
 } from "lucide-react";
 import { SystemSettings, CloudBackupItem } from "../types";
 import { useAuth } from "../contexts/AuthContext";
-import { uploadUserFile, deleteUserFileByUrl } from "../lib/firebase";
 import {
   checkNativePermissionsStatus,
   isNativeAndroid,
   openNativeAppSettings,
-  pickNativeImageFile,
   pickNativeJsonFile,
   requestNativeCameraAndPhotosPermission,
   saveNativeJsonFile,
@@ -70,7 +66,6 @@ interface SettingsViewProps {
 
 export default function SettingsView({
   settings,
-  updateSettings,
   resetToDefault,
   clearAllData,
   importData,
@@ -85,23 +80,6 @@ export default function SettingsView({
   onDeleteCloudBackup,
 }: SettingsViewProps) {
   const { currentUser, logout, extendedProfile, updateUserProfile } = useAuth();
-  const [companyName, setCompanyName] = useState(settings.companyName);
-  const [companyPhone, setCompanyPhone] = useState(settings.companyPhone);
-  const [companyAddress, setCompanyAddress] = useState(settings.companyAddress);
-  const [currency, setCurrency] = useState(settings.currency);
-  const [signaturePlaceholder, setSignaturePlaceholder] = useState(settings.signaturePlaceholder || "");
-  const [logoUploading, setLogoUploading] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-
-  // Sync state when settings prop updates
-  React.useEffect(() => {
-    setCompanyName(settings.companyName);
-    setCompanyPhone(settings.companyPhone);
-    setCompanyAddress(settings.companyAddress);
-    setCurrency(settings.currency);
-    setSignaturePlaceholder(settings.signaturePlaceholder || "");
-  }, [settings]);
-
   React.useEffect(() => {
     setLocalBiometricLock(extendedProfile.twoFactorEnabled ?? false);
     setLocalNotifDebts(extendedProfile.dueDebtAlerts ?? true);
@@ -122,74 +100,6 @@ export default function SettingsView({
     photos: "unknown",
     biometric: false,
   });
-
-  const handleLogoFile = async (file?: File | null) => {
-    if (!file || !currentUser) return;
-    if (!file.type.startsWith("image/")) {
-      showMsg("error", "يرجى اختيار ملف صورة صالح (PNG, JPG, WebP)");
-      return;
-    }
-    try {
-      setLogoUploading(true);
-      const ext = file.name.split(".").pop() || "png";
-      const downloadUrl = await uploadUserFile(currentUser.uid, "branding", `logo.${ext}`, file);
-      updateSettings({
-        ...settings,
-        logoUrl: downloadUrl,
-      });
-      showMsg("success", "تم رفع وحفظ شعار المتجر في Firebase Storage بنجاح!");
-    } catch (err: any) {
-      showMsg("error", "فشل رفع الشعار إلى التخزين السحابي.");
-    } finally {
-      setLogoUploading(false);
-      if (logoInputRef.current) logoInputRef.current.value = "";
-    }
-  };
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    await handleLogoFile(e.target.files?.[0]);
-  };
-
-  const handleNativeLogoPick = async (source: "gallery" | "camera") => {
-    try {
-      const file = await pickNativeImageFile(source);
-      if (!file) return;
-      await handleLogoFile(file);
-    } catch (err) {
-      showMsg("error", source === "camera" ? "تعذر التقاط الشعار من الكاميرا." : "تعذر اختيار الشعار من هاتفك.");
-    }
-  };
-
-  const handleRemoveLogo = async () => {
-    if (!settings.logoUrl) return;
-    try {
-      setLogoUploading(true);
-      await deleteUserFileByUrl(settings.logoUrl);
-      updateSettings({
-        ...settings,
-        logoUrl: undefined,
-      });
-      showMsg("success", "تم حذف شعار المتجر من التخزين السحابي.");
-    } catch (err: any) {
-      showMsg("error", "فشل حذف الشعار.");
-    } finally {
-      setLogoUploading(false);
-    }
-  };
-
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettings({
-      ...settings,
-      companyName,
-      companyPhone,
-      companyAddress,
-      currency,
-      signaturePlaceholder,
-    });
-    showMsg("success", "تم حفظ إعدادات النظام وتحديث البيانات آلياً بنجاح!");
-  };
 
   const showMsg = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
@@ -430,10 +340,10 @@ export default function SettingsView({
       <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
         <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <Settings className="w-5 h-5 text-blue-600" />
-          إعدادات النظام والتهيئة
+          إعدادات النظام
         </h1>
         <p className="text-slate-500 text-xs mt-1">
-          قم بتعديل بيانات شركتك ومحلّك التجاري، وإدارة النسخ الاحتياطية لقواعد البيانات لضمان عدم فقدان السجلات الدفترية.
+          إدارة إعدادات التطبيق والأمان والبيانات المحلية.
         </p>
       </div>
 
@@ -644,174 +554,6 @@ export default function SettingsView({
       </div>
 
       )}
-
-      {/* 1. Edit Shop/Company Profile Form */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
-        <h2 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-          <Building className="w-4 h-4 text-blue-600" /> هويّة المتجر والتفاصيل المالية
-        </h2>
-
-        <form onSubmit={handleSave} className="space-y-4">
-          {/* Store Logo via Firebase Storage */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
-                {settings.logoUrl ? (
-                  <img
-                    src={settings.logoUrl}
-                    alt="شعار المتجر"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-slate-300" />
-                )}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">شعار المتجر والمؤسسة (Firebase Storage)</p>
-                <p className="text-[11px] text-slate-500">
-                  يظهر الشعار في ترويسة الفواتير وسندات القبض المطبوعة
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                ref={logoInputRef}
-                onChange={handleLogoUpload}
-                accept="image/*"
-                className="hidden"
-              />
-              <button
-                type="button"
-                disabled={logoUploading}
-                onClick={() => (isNativeAndroid() ? handleNativeLogoPick("gallery") : logoInputRef.current?.click())}
-                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-              >
-                {logoUploading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5 text-blue-600" />
-                )}
-                {settings.logoUrl ? "تغيير الشعار" : "رفع شعار جديد"}
-              </button>
-              {isNativeAndroid() && (
-                <button
-                  type="button"
-                  disabled={logoUploading}
-                  onClick={() => handleNativeLogoPick("camera")}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                  التقاط
-                </button>
-              )}
-              {settings.logoUrl && (
-                <button
-                  type="button"
-                  disabled={logoUploading}
-                  onClick={handleRemoveLogo}
-                  className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-                  title="حذف الشعار"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-500 text-xs font-semibold mb-1">اسم المؤسسة / المحل التجاري *</label>
-              <input
-                type="text"
-                required
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold focus:outline-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-500 text-xs font-semibold mb-1">رقم الهاتف الفعال للمحل</label>
-              <input
-                type="text"
-                value={companyPhone}
-                onChange={(e) => setCompanyPhone(e.target.value)}
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-mono text-right focus:outline-blue-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-500 text-xs font-semibold mb-1">العنوان والمقر الرئيسي</label>
-            <input
-              type="text"
-              value={companyAddress}
-              onChange={(e) => setCompanyAddress(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-500 text-xs font-semibold mb-1">رمز العملة المستخدمة بالنظام *</label>
-              <input
-                type="text"
-                required
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                placeholder="مثال: د.ع"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-blue-500"
-              />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {[
-                  { symbol: "د.ع", name: "دينار عراقي" },
-                  { symbol: "ر.س", name: "ريال سعودي" },
-                  { symbol: "$", name: "دولار" },
-                  { symbol: "د.ك", name: "دينار كويتي" },
-                  { symbol: "د.إ", name: "درهم إماراتي" },
-                  { symbol: "د.أ", name: "دينار أردني" },
-                  { symbol: "ج.م", name: "جنيه مصري" },
-                ].map((item) => (
-                  <button
-                    key={item.symbol}
-                    type="button"
-                    onClick={() => setCurrency(item.symbol)}
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                      currency === item.symbol
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {item.symbol} ({item.name})
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-500 text-xs font-semibold mb-1">المسمّى الوظيفي للتوقيعات بالفواتير</label>
-              <input
-                type="text"
-                value={signaturePlaceholder}
-                onChange={(e) => setSignaturePlaceholder(e.target.value)}
-                placeholder="أمين الصندوق / المدير العام"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer transition-colors"
-            >
-              حفظ هوية المتجر والعملة
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* 2. Data Backup and Portability */}
       {!currentUser && (
