@@ -472,6 +472,7 @@ export default function SettingsView({
         </div>
       )}
 
+      {!currentUser && (
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -605,6 +606,9 @@ export default function SettingsView({
         </div>
       </div>
 
+      )}
+
+      {!currentUser && (
       {/* Cloud Account & Firebase Status */}
       <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -655,6 +659,8 @@ export default function SettingsView({
           </button>
         </div>
       </div>
+
+      )}
 
       {/* 1. Edit Shop/Company Profile Form */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
@@ -824,6 +830,7 @@ export default function SettingsView({
         </form>
       </div>
 
+      {!currentUser && (
       {/* 2. Data Backup and Portability */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
@@ -1012,6 +1019,8 @@ export default function SettingsView({
             </div>
           </div>
         </div>
+      )}
+
       )}
 
       {/* 2.5. Firebase Cloud Backups */}
