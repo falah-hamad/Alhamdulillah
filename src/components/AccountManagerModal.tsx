@@ -76,7 +76,6 @@ type TabType =
   | "backup_sync"
   | "sessions"
   | "privacy"
-  | "settings"
   | "help"
   | "about"
   | "danger_zone";
@@ -130,9 +129,6 @@ export default function AccountManagerModal({
   // Edit Profile Form State
   const [displayName, setDisplayName] = useState(currentUser?.displayName || extendedProfile.displayName || "");
   const [photoURL, setPhotoURL] = useState(currentUser?.photoURL || extendedProfile.photoURL || "");
-  const [phoneNumber, setPhoneNumber] = useState(extendedProfile.phoneNumber || currentUser?.phoneNumber || "");
-  const [jobTitle, setJobTitle] = useState(extendedProfile.jobTitle || "المحاسب المعتمد");
-  const [bio, setBio] = useState(extendedProfile.bio || "");
 
   // Store identity and financial settings are edited here only.
   const [companyName, setCompanyName] = useState(storeSettings.companyName || "");
@@ -215,9 +211,6 @@ export default function AccountManagerModal({
       await updateUserProfile({
         displayName: displayName.trim(),
         photoURL: photoURL.trim(),
-        phoneNumber: phoneNumber.trim(),
-        jobTitle: jobTitle.trim(),
-        bio: bio.trim(),
       });
       showToast("تم تحديث الملف الشخصي بنجاح!");
     } catch (err: any) {
@@ -808,18 +801,6 @@ export default function AccountManagerModal({
               <span>8. الخصوصية وحماية البيانات</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-right shrink-0 ${
-                activeTab === "settings"
-                  ? "bg-blue-600 text-white font-bold shadow-xs"
-                  : "text-slate-600 hover:bg-slate-200/50"
-              }`}
-            >
-              <SettingsIcon className="w-4 h-4 shrink-0" />
-              <span>9. إعدادات النظام المحاسبي</span>
-            </button>
-
             <div className="text-[10px] font-bold text-slate-400 px-3 py-1 hidden md:block mt-2">ℹ️ المساعدة</div>
 
             <button
@@ -1193,39 +1174,6 @@ export default function AccountManagerModal({
                     />
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">المسمى الوظيفي</label>
-                    <input
-                      type="text"
-                      value={jobTitle}
-                      onChange={(e) => setJobTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                      placeholder="مثال: المحاسب المعتمد / مدير الحسابات"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">رقم الهاتف</label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                      placeholder="05XXXXXXXX"
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">نبذة شخصية / ملاحظات</label>
-                  <textarea
-                    rows={3}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                    placeholder="اكتب نبذة مختصرة عن مهامك المحاسبية..."
-                  />
                 </div>
 
                 <div className="flex justify-end gap-3 pt-2">
@@ -2255,57 +2203,6 @@ export default function AccountManagerModal({
                       className="px-3.5 py-1.5 border border-slate-300 hover:border-rose-400 text-slate-700 hover:text-rose-600 text-xs font-bold rounded-lg transition-colors cursor-pointer"
                     >
                       مسح الذاكرة المؤقتة
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 9. الإعدادات (Settings) */}
-            {activeTab === "settings" && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">إعدادات النظام المحاسبي (Settings)</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">الربط بإعدادات المتجر العامة، العملة، والضرائب</p>
-                </div>
-
-                <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">اسم المنشأة / الشركة</span>
-                      <span className="text-xs font-bold text-slate-800">{storeSettings.companyName || "غير محدد"}</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">العملة المعتمدة</span>
-                      <span className="text-xs font-bold text-slate-800">{storeSettings.currency || "ر.س"}</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">رقم هاتف المنشأة</span>
-                      <span className="text-xs font-bold text-slate-800 font-mono" dir="ltr">
-                        {storeSettings.companyPhone || "غير محدد"}
-                      </span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">عنوان ومقر المنشأة</span>
-                      <span className="text-xs font-bold text-slate-800">
-                        {storeSettings.companyAddress || "غير محدد"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      onClick={() => {
-                        onClose();
-                        if (onNavigateToSettings) onNavigateToSettings();
-                      }}
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                    >
-                      <SettingsIcon className="w-4 h-4" />
-                      <span>فتح شاشة إعدادات المتجر والطباعة والضرائب بالكامل</span>
                     </button>
                   </div>
                 </div>
