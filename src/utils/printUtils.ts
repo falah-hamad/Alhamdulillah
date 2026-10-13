@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import { Capacitor } from "@capacitor/core";
 
 /**
  * Comprehensive Print & PDF Export Utilities for Debt Receipts & Accounting Sheets
@@ -322,6 +323,16 @@ export async function printElement(
   }
 
   const title = options.title || "طباعة وصل الدين";
+
+  // Android/iOS WebView does not consistently expose a native browser print dialog.
+  // Export the exact target element as a PDF instead of printing the entire app shell.
+  if (Capacitor.isNativePlatform()) {
+    const filename = title.replace(/[\\/:*?"<>|]/g, "_").trim() || "document";
+    await exportElementToPDF(element, { filename, title });
+    options.onComplete?.();
+    return;
+  }
+
   const preparedClone = preparePrintableClone(element);
 
   // Collect active style tags and stylesheets
