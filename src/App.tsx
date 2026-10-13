@@ -923,6 +923,12 @@ export default function App() {
           onNavigateToSettings={() => setCurrentTab("settings")}
           onExportData={handleExportBackup}
           onImportData={importData}
+          cloudBackups={cloudBackups}
+          onCreateCloudBackup={createCloudBackup}
+          onRestoreCloudBackup={restoreCloudBackup}
+          onDeleteCloudBackup={deleteCloudBackup}
+          resetToDefault={resetToDefault}
+          clearAllData={clearAllData}
         />
 
         {/* Notification Center Modal */}
