@@ -40,7 +40,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { SystemSettings } from "../types";
+import { CloudBackupItem, SystemSettings } from "../types";
 import { db, enableNetwork, waitForPendingWrites } from "../lib/firebase";
 import { requestNotificationPermissionDetailed, isFCMSupported } from "../lib/notifications";
 import { authenticateWithBiometrics, isNativeAndroid, pickNativeImageFile } from "../lib/native";
@@ -52,6 +52,12 @@ interface AccountManagerModalProps {
   onNavigateToSettings?: () => void;
   onExportData?: () => void;
   onImportData?: (json: string) => { success: boolean; error?: string };
+  cloudBackups?: CloudBackupItem[];
+  onCreateCloudBackup?: (name?: string) => Promise<any>;
+  onRestoreCloudBackup?: (backupId: string) => Promise<any>;
+  onDeleteCloudBackup?: (backupId: string) => Promise<void>;
+  resetToDefault?: () => void;
+  clearAllData?: () => void;
 }
 
 type TabType =
@@ -84,6 +90,12 @@ export default function AccountManagerModal({
   onNavigateToSettings,
   onExportData,
   onImportData,
+  cloudBackups = [],
+  onCreateCloudBackup,
+  onRestoreCloudBackup,
+  onDeleteCloudBackup,
+  resetToDefault,
+  clearAllData,
 }: AccountManagerModalProps) {
   const {
     currentUser,
@@ -104,6 +116,8 @@ export default function AccountManagerModal({
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [cloudBackupName, setCloudBackupName] = useState("");
+  const [creatingCloudBackup, setCreatingCloudBackup] = useState(false);
 
   // Edit Profile Form State
   const [displayName, setDisplayName] = useState(currentUser?.displayName || extendedProfile.displayName || "");
@@ -1784,6 +1798,115 @@ export default function AccountManagerModal({
                         }}
                       />
                     </label>
+                  </div>
+                </div>
+
+                {/* Firebase Cloud Backups — moved from System Settings */}
+                <div className="p-5 rounded-2xl border border-blue-100 bg-white space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <Cloud className="w-4 h-4 text-blue-600" />
+                        النسخ الاحتياطي السحابي التلقائي (Firebase Cloud Backups)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-1">يتم حفظ واسترجاع النسخ السحابية مباشرة في حسابك بـ Firebase لحماية كامل بياناتك من الضياع.</p>
+                    </div>
+                    <button type="button" disabled={!onCreateCloudBackup || creatingCloudBackup}
+                      onClick={() => setCloudBackupName(cloudBackupName || new Date().toLocaleDateString("ar-IQ"))}
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold disabled:opacity-50">
+                      أخذ نسخة سحابية جديدة الآن
+                    </button>
+                  </div>
+
+                  {cloudBackupName !== "" && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input value={cloudBackupName} onChange={(e) => setCloudBackupName(e.target.value)}
+                        placeholder="اسم النسخة (اختياري)" className="flex-1 p-2 border border-slate-200 rounded-lg text-xs" />
+                      <button type="button" disabled={!onCreateCloudBackup || creatingCloudBackup}
+                        onClick={async () => {
+                          if (!onCreateCloudBackup) return;
+                          try {
+                            setCreatingCloudBackup(true);
+                            await onCreateCloudBackup(cloudBackupName.trim() || undefined);
+                            setCloudBackupName("");
+                            showToast("تم إنشاء النسخة السحابية بنجاح.");
+                          } catch {
+                            showToast("تعذر إنشاء النسخة السحابية.", "error");
+                          } finally {
+                            setCreatingCloudBackup(false);
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+                        {creatingCloudBackup ? "جاري الحفظ..." : "حفظ في Firebase"}
+                      </button>
+                      <button type="button" onClick={() => setCloudBackupName("")}
+                        className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold">إلغاء</button>
+                    </div>
+                  )}
+
+                  {cloudBackups.length === 0 ? (
+                    <div className="p-5 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                      <Cloud className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-slate-600">لا توجد نسخ احتياطية سحابية محفوظة بعد</p>
+                      <p className="text-[11px] text-slate-400 mt-1">أنشئ نسخة جديدة لإنشاء نقطة استعادة آمنة في Firebase.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {cloudBackups.map((backup) => (
+                        <div key={backup.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">{backup.name}</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{new Date(backup.createdAt).toLocaleString("ar-IQ")} · {backup.stats}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={async () => {
+                              if (!window.confirm(`هل تريد استعادة النسخة "${backup.name}"؟ سيتم استبدال البيانات الحالية.`)) return;
+                              if (!onRestoreCloudBackup) return;
+                              try {
+                                const result = await onRestoreCloudBackup(backup.id);
+                                if (result?.success) showToast("تمت استعادة النسخة السحابية بنجاح.");
+                                else showToast(result?.error || "فشلت استعادة النسخة.", "error");
+                              } catch { showToast("تعذر استعادة النسخة السحابية.", "error"); }
+                            }} className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold">استعادة</button>
+                            <button type="button" onClick={async () => {
+                              if (!window.confirm("هل تريد بالتأكيد حذف هذه النسخة السحابية من Firebase؟")) return;
+                              if (!onDeleteCloudBackup) return;
+                              try { await onDeleteCloudBackup(backup.id); showToast("تم حذف النسخة السحابية."); }
+                              catch { showToast("تعذر حذف النسخة السحابية.", "error"); }
+                            }} className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold">حذف</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* System maintenance and reset tools */}
+                <div className="p-5 rounded-2xl border border-rose-100 bg-white space-y-4">
+                  <h4 className="text-xs font-bold text-rose-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> أدوات الصيانة والتصفير وإعادة التعيين
+                  </h4>
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                    <p className="text-xs font-bold text-amber-900">إعادة تعيين عينات البيانات التوضيحية للتدريب</p>
+                    <p className="text-[11px] text-amber-800">سيؤدي ذلك إلى إعادة البيانات إلى عينات العرض التوضيحية وقد يمسح تعديلاتك الحالية.</p>
+                    <button type="button" onClick={() => {
+                      if (window.confirm("هل تريد إعادة تعيين كافة البيانات إلى عينات العرض التوضيحية؟ سيؤدي ذلك لمسح أي تعديلات قمت بها حالياً.")) {
+                        resetToDefault?.();
+                        showToast("تم طلب إعادة تعيين البيانات التوضيحية.");
+                        setTimeout(() => window.location.reload(), 800);
+                      }
+                    }} disabled={!resetToDefault} className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold disabled:opacity-50">إعادة تعيين عينات البيانات التوضيحية للتدريب</button>
+                  </div>
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 space-y-2">
+                    <p className="text-xs font-bold text-rose-900">مسح كافة السجلات الحالية والبدء من الصفر</p>
+                    <p className="text-[11px] text-rose-800">تحذير: سيؤدي هذا الإجراء إلى حذف السجلات الحالية ولا يمكن التراجع عنه.</p>
+                    <button type="button" onClick={() => {
+                      if (window.confirm("تحذير شديد الخطورة: هل أنت متأكد من رغبتك في تصفير النظام وحذف كافة العملاء، الفواتير، البضائع والدفعات للبدء من الصفر؟ لا يمكن التراجع عن هذا الإجراء.")) {
+                        clearAllData?.();
+                        showToast("تم طلب تصفير السجلات.");
+                        setTimeout(() => window.location.reload(), 800);
+                      }
+                    }} disabled={!clearAllData} className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold disabled:opacity-50">مسح كافة السجلات الحالية والبدء من الصفر</button>
                   </div>
                 </div>
               </div>
