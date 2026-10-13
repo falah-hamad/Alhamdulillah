@@ -124,7 +124,9 @@ function ProductsViewContent({
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set(
+    rawProducts.filter(product => product && !product.isDeleted).map(product => product.category?.trim() || "بدون تصنيف")
+  ));
   const [showAiImport, setShowAiImport] = useState(false);
   const [aiImportText, setAiImportText] = useState("");
   const [aiImportItems, setAiImportItems] = useState<AIParsedProduct[]>([]);
