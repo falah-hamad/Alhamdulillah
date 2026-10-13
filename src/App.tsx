@@ -920,6 +920,7 @@ export default function App() {
           isOpen={isAccountModalOpen}
           onClose={() => setIsAccountModalOpen(false)}
           storeSettings={settings}
+          updateSettings={updateSettings}
           onNavigateToSettings={() => setCurrentTab("settings")}
           onExportData={handleExportBackup}
           onImportData={importData}
