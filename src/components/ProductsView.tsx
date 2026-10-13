@@ -3,7 +3,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
-  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
@@ -103,6 +103,7 @@ function ProductsViewContent({
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
   const [pressedItem, setPressedItem] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const longPressTimer = useRef<number | null>(null);
@@ -499,7 +500,29 @@ function ProductsViewContent({
             {groupedProducts.map(([category, categoryProducts]) => (
               <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
                 <div
-                  className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b select-none transition-colors duration-150 ${pressedItem === `category:${category}` ? "bg-blue-100/80 border-blue-300 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "bg-slate-50 border-slate-200"}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={!collapsedCategories.has(category)}
+                  className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b select-none cursor-pointer transition-colors duration-150 ${pressedItem === `category:${category}` ? "bg-blue-100/80 border-blue-300 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "bg-slate-50 border-slate-200"}`}
+                  onClick={event => {
+                    if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                    if ((event.target as HTMLElement).closest("button")) return;
+                    setCollapsedCategories(current => {
+                      const next = new Set(current);
+                      if (next.has(category)) next.delete(category); else next.add(category);
+                      return next;
+                    });
+                  }}
+                  onKeyDown={event => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setCollapsedCategories(current => {
+                        const next = new Set(current);
+                        if (next.has(category)) next.delete(category); else next.add(category);
+                        return next;
+                      });
+                    }
+                  }}
                   onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 150); setOpenCategoryMenu(category); setOpenProductMenuId(null); }}
                   onTouchStart={event => startLongPress(event, 150, `category:${category}`, () => { setOpenCategoryMenu(category); setOpenProductMenuId(null); })}
                   onTouchEnd={clearLongPress}
@@ -511,7 +534,10 @@ function ProductsViewContent({
                     <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600 shrink-0" /> <span className="truncate">{category}</span></h3>
                     <span className="text-xs text-slate-500 mt-1 block">{categoryProducts.length} صنف</span>
                   </div>
-                  <div className="relative shrink-0 text-xs text-slate-400">اضغط مطولاً</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="hidden sm:inline text-xs text-slate-400">اضغط مطولاً للإجراءات</span>
+                    {collapsedCategories.has(category) ? <ChevronDown className="w-5 h-5 text-slate-600" aria-hidden="true" /> : <ChevronUp className="w-5 h-5 text-slate-600" aria-hidden="true" />}
+                  </div>
                   {openCategoryMenu === category && (
                       <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                         <button type="button" onClick={() => { setOpenCategoryMenu(null); openAdd(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="w-4 h-4 text-blue-600" /> إضافة بضاعة لهذا التصنيف</button>
@@ -520,7 +546,7 @@ function ProductsViewContent({
                       </div>
                     )}
                 </div>
-                <div className="w-full overflow-x-auto">
+                {!collapsedCategories.has(category) && <div className="w-full overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm text-right">
                     <thead className="bg-white text-slate-500 text-xs">
                       <tr>
@@ -583,7 +609,7 @@ function ProductsViewContent({
                       })}
                     </tbody>
                   </table>
-                </div>
+                </div>}
               </section>
             ))}
           </div>
