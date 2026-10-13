@@ -92,6 +92,7 @@ function ProductsViewContent({
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
+  const [pressedItem, setPressedItem] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const longPressTimer = useRef<number | null>(null);
   const placeMenuAt = (x: number, y: number, height: number) => {
@@ -104,13 +105,15 @@ function ProductsViewContent({
       window.clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+    setPressedItem(null);
   };
-  const startLongPress = (event: React.TouchEvent, height: number, open: () => void) => {
+  const startLongPress = (event: React.TouchEvent, height: number, itemKey: string, open: () => void) => {
     clearLongPress();
     const touch = event.touches[0];
     if (!touch) return;
     const x = touch.clientX;
     const y = touch.clientY;
+    setPressedItem(itemKey);
     longPressTimer.current = window.setTimeout(() => {
       placeMenuAt(x, y, height);
       open();
@@ -469,9 +472,9 @@ function ProductsViewContent({
             {groupedProducts.map(([category, categoryProducts]) => (
               <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
                 <div
-                  className="flex items-center justify-between gap-2 bg-slate-50 px-3 sm:px-4 py-3 border-b border-slate-200 select-none"
+                  className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b select-none transition-colors duration-150 ${pressedItem === `category:${category}` ? "bg-blue-100/80 border-blue-300 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "bg-slate-50 border-slate-200"}`}
                   onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 150); setOpenCategoryMenu(category); setOpenProductMenuId(null); }}
-                  onTouchStart={event => startLongPress(event, 150, () => { setOpenCategoryMenu(category); setOpenProductMenuId(null); })}
+                  onTouchStart={event => startLongPress(event, 150, `category:${category}`, () => { setOpenCategoryMenu(category); setOpenProductMenuId(null); })}
                   onTouchEnd={clearLongPress}
                   onTouchMove={clearLongPress}
                   onTouchCancel={clearLongPress}
@@ -508,9 +511,9 @@ function ProductsViewContent({
                         return (
                           <tr
                             key={product.id}
-                            className="hover:bg-slate-50/80 select-none"
+                            className={`select-none transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-slate-50/80"}`}
                             onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); setOpenCategoryMenu(null); }}
-                            onTouchStart={event => startLongPress(event, 360, () => { setOpenProductMenuId(product.id); setOpenCategoryMenu(null); })}
+                            onTouchStart={event => startLongPress(event, 360, `product:${product.id}`, () => { setOpenProductMenuId(product.id); setOpenCategoryMenu(null); })}
                             onTouchEnd={clearLongPress}
                             onTouchMove={clearLongPress}
                             onTouchCancel={clearLongPress}
