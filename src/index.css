@@ -382,3 +382,59 @@ select,
 textarea {
   min-width: 0;
 }
+
+
+/* Accounting reports: keep the on-screen document proportions and colors when printed. */
+.report-document {
+  direction: rtl;
+  text-align: right;
+  background: #fff;
+  color: #0f172a;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@media print {
+  .report-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .report-document table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+  }
+
+  .report-document thead {
+    display: table-header-group !important;
+  }
+
+  .report-document tfoot {
+    display: table-footer-group !important;
+  }
+
+  .report-document tr,
+  .report-document th,
+  .report-document td {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .report-document img {
+    max-width: 100% !important;
+    object-fit: contain !important;
+  }
+
+  .report-document .overflow-x-auto {
+    overflow: visible !important;
+  }
+}
