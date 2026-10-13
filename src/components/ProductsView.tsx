@@ -1,12 +1,13 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
-  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X,
+  Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList,
   Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
+import { parseProductsFromTextServer } from "../lib/cloudFunctions";
 import { useAuth } from "../contexts/AuthContext";
 
 interface ProductsViewProps {
@@ -17,6 +18,8 @@ interface ProductsViewProps {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }
+
+type AIParsedProduct = { name: string; category: string; quantity: number; unitName: string; purchasePrice: number; salePrice: number; supplierName?: string; supplierPhone?: string; barcode?: string; description?: string; notes?: string; minStock?: number };
 
 type ProductForm = {
   name: string;
@@ -104,6 +107,11 @@ function ProductsViewContent({
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
+  const [showAiImport, setShowAiImport] = useState(false);
+  const [aiImportText, setAiImportText] = useState("");
+  const [aiImportItems, setAiImportItems] = useState<AIParsedProduct[]>([]);
+  const [isParsingAi, setIsParsingAi] = useState(false);
+  const [aiImportError, setAiImportError] = useState("");
   const [pressedItem, setPressedItem] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const longPressTimer = useRef<number | null>(null);
@@ -184,6 +192,50 @@ function ProductsViewContent({
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
+
+  const parseAiImport = async () => {
+    if (!aiImportText.trim()) { setAiImportError("اكتب تفاصيل البضاعة أولاً."); return; }
+    setIsParsingAi(true); setAiImportError(""); setAiImportItems([]);
+    try {
+      const parsed = await parseProductsFromTextServer(aiImportText.trim());
+      if (!parsed.length) { setAiImportError("لم أستطع استخراج أصناف واضحة. أضف أسماء البضاعة أو الأسعار ثم حاول مرة أخرى."); return; }
+      setAiImportItems(parsed.map((item: any) => ({
+        name: String(item.name || "").trim(), category: String(item.category || "غير مصنف").trim() || "غير مصنف",
+        quantity: Math.max(0, Number(item.quantity) || 0), unitName: String(item.unitName || "قطعة").trim() || "قطعة",
+        purchasePrice: Math.max(0, Number(item.purchasePrice) || 0), salePrice: Math.max(0, Number(item.salePrice) || 0),
+        supplierName: item.supplierName ? String(item.supplierName).trim() : undefined,
+        supplierPhone: item.supplierPhone ? String(item.supplierPhone).trim() : undefined,
+        barcode: item.barcode ? String(item.barcode).trim() : undefined,
+        description: item.description ? String(item.description).trim() : undefined,
+        notes: item.notes ? String(item.notes).trim() : undefined, minStock: Math.max(0, Number(item.minStock) || 0),
+      })).filter((item: AIParsedProduct) => item.name));
+    } catch (error: any) {
+      setAiImportError(error?.message || "تعذر تحليل النص بالذكاء الاصطناعي. تحقق من الاتصال وإعدادات الخدمة.");
+    } finally { setIsParsingAi(false); }
+  };
+
+  const saveAiImportedProducts = () => {
+    const validItems = aiImportItems.filter(item => item.name.trim() && item.category.trim());
+    if (!validItems.length) { setAiImportError("لا توجد أصناف صالحة للحفظ."); return; }
+    const createdAt = nowIso();
+    validItems.forEach(item => {
+      const purchasePrice = Math.max(0, Number(item.purchasePrice) || 0);
+      const salePrice = Math.max(0, Number(item.salePrice) || 0);
+      const quantity = Math.max(0, Number(item.quantity) || 0);
+      addProduct({
+        name: item.name.trim(), category: item.category.trim(), quantity,
+        unitName: item.unitName.trim() || "قطعة", purchasePrice, salePrice,
+        supplierName: item.supplierName || undefined, supplierPhone: item.supplierPhone || undefined,
+        barcode: item.barcode || undefined, description: item.description || undefined,
+        notes: item.notes || undefined, minStock: Math.max(0, Number(item.minStock) || 0),
+        isFavorite: false,
+        priceHistory: [{ id: priceId(), changedAt: createdAt, purchasePrice, salePrice, supplierName: item.supplierName, note: "تم تسجيل الصنف عبر الاستيراد الذكي من النص" }],
+        stockMovements: quantity > 0 ? [{ id: movementId(), type: "opening", quantity, createdAt, note: "الرصيد الافتتاحي من الاستيراد الذكي", unitCost: purchasePrice }] : [],
+      });
+    });
+    setShowAiImport(false); setAiImportText(""); setAiImportItems([]); setAiImportError("");
+    alert(`تمت إضافة ${validItems.length} صنفاً إلى مستودع البضائع.`);
+  };
 
   const openAdd = (category = "") => {
     setEditingProduct(null);
@@ -470,6 +522,7 @@ function ProductsViewContent({
             <p className="text-xs text-slate-500 mt-1">بطاقات بالصور والأسعار والمجهّزين وسجل حركة المخزون.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setShowAiImport(true); setAiImportError(""); setAiImportItems([]); }} className="inline-flex items-center gap-2 px-3 py-2.5 border border-violet-200 bg-violet-50 text-violet-700 rounded-lg text-sm font-semibold"><Sparkles className="w-4 h-4" /> إدخال بالذكاء الاصطناعي</button>
             <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Layers className="w-4 h-4" /> إدارة التصنيفات</button>
             <button type="button" onClick={() => { setShowTrash(v => !v); setShowCategoryManager(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> المهملات ({trashedProducts.length})</button>
             <button onClick={openAdd} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"><PlusCircle className="w-4 h-4" /> إضافة بضاعة</button>
@@ -688,6 +741,34 @@ function ProductsViewContent({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {showAiImport && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/60 flex items-center justify-center p-3 sm:p-5">
+          <section dir="rtl" className="bg-white w-full max-w-4xl max-h-[94dvh] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-violet-600" /> ترتيب البضاعة بالذكاء الاصطناعي</h3><p className="text-sm text-slate-500 mt-1">أرسل النص كما هو، حتى لو كان غير مرتب. سيستخرج الأصناف والأسعار والكميات ويقترح التصنيفات.</p></div><button type="button" onClick={() => setShowAiImport(false)} className="p-2 rounded-lg hover:bg-slate-100" aria-label="إغلاق"><X className="w-5 h-5" /></button></div>
+            <label className="block text-sm font-semibold text-slate-700">النص الذي يحتوي على بيانات البضاعة<textarea value={aiImportText} onChange={e => setAiImportText(e.target.value)} rows={6} className="mt-2 w-full p-3 border border-slate-200 rounded-xl text-sm leading-6 focus:outline-blue-500" placeholder={"مثال:\nاشتريت 10 كارتونات ماء، سعر الشراء 5000 للكارتون والبيع 6500\n20 علبة عصير برتقال شراء 750 وبيع 1000\nكلها من مجهز أبو علي"} /></label>
+            {aiImportError && <p role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-3">{aiImportError}</p>}
+            <div className="flex flex-wrap gap-2"><button type="button" disabled={isParsingAi || !aiImportText.trim()} onClick={parseAiImport} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Sparkles className="w-4 h-4" /> {isParsingAi ? "جاري تحليل النص..." : "حلّل ورتّب النص"}</button>{aiImportItems.length > 0 && <button type="button" onClick={() => setAiImportItems([])} className="px-4 py-2.5 border rounded-lg text-sm">مسح النتائج</button>}</div>
+            {aiImportItems.length > 0 && <>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">راجع البيانات والأسعار والتصنيفات قبل الحفظ. أي معلومة غير مذكورة في النص تُترك بصفر أو فارغة ولا تُخمن.</div>
+              <div className="overflow-x-auto border rounded-xl"><table className="w-full min-w-[900px] text-sm text-right">
+                <thead className="bg-slate-50 text-slate-600"><tr>{["اسم الصنف","التصنيف","الكمية","الوحدة","سعر الشراء","سعر البيع","المجهّز"].map(label => <th key={label} className="p-2 border-b">{label}</th>)}<th className="p-2 border-b">حذف</th></tr></thead>
+                <tbody>{aiImportItems.map((item, index) => <tr key={index} className="border-b last:border-b-0">
+                  <td className="p-2"><input aria-label="اسم الصنف" value={item.name} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,name:e.target.value} : x))} className="w-36 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="التصنيف" value={item.category} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,category:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="الكمية" type="number" min="0" step="any" value={item.quantity} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,quantity:Math.max(0,Number(e.target.value)||0)} : x))} className="w-24 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="الوحدة" value={item.unitName} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,unitName:e.target.value} : x))} className="w-24 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="سعر الشراء" type="number" min="0" value={item.purchasePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,purchasePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="سعر البيع" type="number" min="0" value={item.salePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,salePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="المجهّز" value={item.supplierName || ""} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,supplierName:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><button type="button" onClick={() => setAiImportItems(current => current.filter((_,i) => i !== index))} className="p-2 text-rose-600 rounded-lg hover:bg-rose-50" aria-label="حذف الصنف"><Trash2 className="w-4 h-4" /></button></td>
+                </tr>)}</tbody>
+              </table></div><p className="text-xs text-slate-500">عدد الأصناف المستخرجة: {aiImportItems.length}. يمكنك تعديل أي قيمة أو حذف صنف قبل الحفظ.</p>
+            </>}
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 border-t pt-4"><button type="button" onClick={() => setShowAiImport(false)} className="px-4 py-2.5 border rounded-lg text-sm">إلغاء</button><button type="button" disabled={!aiImportItems.length || isParsingAi} onClick={saveAiImportedProducts} className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">حفظ الأصناف في المستودع ({aiImportItems.length})</button></div>
+          </section>
         </div>
       )}
 
