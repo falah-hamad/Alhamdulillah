@@ -91,9 +91,6 @@ export default function SettingsView({
   const [currency, setCurrency] = useState(settings.currency);
   const [signaturePlaceholder, setSignaturePlaceholder] = useState(settings.signaturePlaceholder || "");
   const [logoUploading, setLogoUploading] = useState(false);
-  const [creatingCloudBackup, setCreatingCloudBackup] = useState(false);
-  const [customBackupName, setCustomBackupName] = useState("");
-  const [showBackupNameInput, setShowBackupNameInput] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when settings prop updates
@@ -180,20 +177,6 @@ export default function SettingsView({
     }
   };
 
-  const handleCreateCloudBackup = async () => {
-    if (!onCreateCloudBackup) return;
-    try {
-      setCreatingCloudBackup(true);
-      await onCreateCloudBackup(customBackupName.trim() || undefined);
-      setCustomBackupName("");
-      setShowBackupNameInput(false);
-      showMsg("success", "تم أخذ وحفظ النسخة السحابية بنجاح في Firebase!");
-    } catch (err) {
-      showMsg("error", "حدث خطأ أثناء حفظ النسخة السحابية.");
-    } finally {
-      setCreatingCloudBackup(false);
-    }
-  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1025,158 +1008,6 @@ export default function SettingsView({
       </>
       )}
 
-      {/* 2.5. Firebase Cloud Backups */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-blue-600" />
-              النسخ الاحتياطي السحابي التلقائي (Firebase Cloud Backups)
-            </h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              يتم حفظ واسترجاع النسخ السحابية مباشرة في حسابك بـ Firebase لحماية كامل بياناتك من الضياع
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowBackupNameInput(!showBackupNameInput)}
-            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
-          >
-            <Cloud className="w-3.5 h-3.5" />
-            أخذ نسخة سحابية جديدة الآن
-          </button>
-        </div>
-
-        {/* New Backup Name Form */}
-        {showBackupNameInput && (
-          <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-200 space-y-3">
-            <label className="block text-xs font-bold text-slate-700">
-              تسمية النسخة السحابية (اختياري):
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customBackupName}
-                onChange={(e) => setCustomBackupName(e.target.value)}
-                placeholder={`نسخة احتياطية ${new Date().toLocaleDateString("ar-SA")}`}
-                className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-              />
-              <button
-                type="button"
-                disabled={creatingCloudBackup}
-                onClick={handleCreateCloudBackup}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-              >
-                {creatingCloudBackup ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                حفظ في السحابة
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBackupNameInput(false)}
-                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors"
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Backups List */}
-        {cloudBackups.length === 0 ? (
-          <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-            <Cloud className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-bold text-slate-600">لا توجد نسخ احتياطية سحابية محفوظة بعد</p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              انقر على &quot;أخذ نسخة سحابية جديدة الآن&quot; لإنشاء نقطة استعادة آمنة في Firebase
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {cloudBackups.map((b) => (
-              <div
-                key={b.id}
-                className="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800">{b.name}</span>
-                    <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-mono">
-                      {new Date(b.createdAt).toLocaleDateString("ar-SA")} {new Date(b.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-mono">{b.stats}</p>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm(`هل أنت متأكد من استعادة النسخة السحابية: "${b.name}"؟ سيتم استبدال البيانات الحالية.`)) {
-                        if (onRestoreCloudBackup) {
-                          const res = await onRestoreCloudBackup(b.id);
-                          if (res?.success) {
-                            showMsg("success", "تمت استعادة النسخة الاحتياطية بنجاح!");
-                          } else {
-                            showMsg("error", res?.error || "فشلت الاستعادة.");
-                          }
-                        }
-                      }
-                    }}
-                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
-                    استعادة
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm(`هل تريد بالتأكيد حذف هذه النسخة السحابية من Firebase؟`)) {
-                        if (onDeleteCloudBackup) {
-                          await onDeleteCloudBackup(b.id);
-                          showMsg("success", "تم حذف النسخة السحابية بنجاح.");
-                        }
-                      }
-                    }}
-                    className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer"
-                    title="حذف النسخة"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 3. System Resets */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
-        <h2 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-          <Trash2 className="w-4 h-4 text-rose-600" /> أدوات الصيانة والتصفير وإعادة التعيين
-        </h2>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleResetToDemo}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-          >
-            <RefreshCw className="w-4 h-4 text-amber-600 animate-spin-hover" />
-            إعادة تعيين عينات البيانات التوضيحية للتدريب
-          </button>
-
-          <button
-            onClick={handleClearEverything}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-4 h-4 text-rose-600" />
-            مسح كافة السجلات الحالية والبدء من الصفر
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
