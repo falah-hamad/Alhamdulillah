@@ -832,6 +832,7 @@ export default function SettingsView({
 
       {/* 2. Data Backup and Portability */}
       {!currentUser && (
+      <>
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -1021,6 +1022,7 @@ export default function SettingsView({
         </div>
       )}
 
+      </>
       )}
 
       {/* 2.5. Firebase Cloud Backups */}
