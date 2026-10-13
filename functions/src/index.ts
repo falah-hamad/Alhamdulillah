@@ -677,7 +677,7 @@ function generateDeterministicAnswer(question: string, stats: ReturnType<typeof 
 }
 
 
-export const askFinancialAssistant = functions.https.onCall(async (data, context) => {
+export const askFinancialAssistant = functions.runWith({ secrets: ["GEMINI_API_KEY"] }).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "يجب تسجيل الدخول لاستخدام المساعد الذكي.");
   }
@@ -879,7 +879,7 @@ export const askFinancialAssistant = functions.https.onCall(async (data, context
 /**
  * 7. Test Gemini Model Connectivity via Firebase Functions
  */
-export const testGeminiModel = functions.https.onCall(async (data, context) => {
+export const testGeminiModel = functions.runWith({ secrets: ["GEMINI_API_KEY"] }).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "يجب تسجيل الدخول لفحص الاتصال.");
   }
@@ -929,7 +929,7 @@ export const testGeminiModel = functions.https.onCall(async (data, context) => {
 
 
 /** Parse unstructured inventory text into editable product records. Model access remains server-side. */
-export const parseProductsFromText = functions.https.onCall(async (data, context) => {
+export const parseProductsFromText = functions.runWith({ secrets: ["GEMINI_API_KEY"] }).https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "يجب تسجيل الدخول لاستخدام ترتيب البضاعة بالذكاء الاصطناعي.");
   const rawText = typeof data?.text === "string" ? data.text.trim() : "";
   if (!rawText) throw new functions.https.HttpsError("invalid-argument", "أرسل نص البضاعة أولاً.");
