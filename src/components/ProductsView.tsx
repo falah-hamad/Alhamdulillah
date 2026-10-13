@@ -831,6 +831,14 @@ function ProductsViewContent({
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "return"); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> مرتجع</button>
               <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "damaged"); }} className="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm inline-flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تالف</button>
             </div>
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs text-slate-500">السجلات والتفاصيل الإضافية</p>
+              <div className="flex flex-wrap items-center gap-2" aria-label="سجلات البضاعة">
+                <button type="button" onClick={() => setDetailsTab("prices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "prices" ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="سجل الأسعار"><History className="h-4 w-4" /> سجل الأسعار</button>
+                <button type="button" onClick={() => setDetailsTab("stock")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "stock" ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="حركة المخزون"><Clock className="h-4 w-4" /> حركة المخزون</button>
+                <button type="button" onClick={() => setDetailsTab("invoices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "invoices" ? "border-violet-300 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="الفواتير المرتبطة"><FileText className="h-4 w-4" /> الفواتير المرتبطة</button>
+              </div>
+            </div>
             {detailsTab === "prices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
               {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}</div>)}</div>}
@@ -901,12 +909,4 @@ export default function ProductsView(props: ProductsViewProps) {
       <ProductsViewContent {...props} />
     </ProductsViewErrorBoundary>
   );
-}            <div className="border-t pt-3 space-y-3">
-              <p className="text-xs text-slate-500">السجلات والتفاصيل الإضافية</p>
-              <div className="flex flex-wrap items-center gap-2" aria-label="سجلات البضاعة">
-                <button type="button" onClick={() => setDetailsTab("prices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "prices" ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="سجل الأسعار"><History className="h-4 w-4" /> سجل الأسعار</button>
-                <button type="button" onClick={() => setDetailsTab("stock")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "stock" ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="حركة المخزون"><Clock className="h-4 w-4" /> حركة المخزون</button>
-                <button type="button" onClick={() => setDetailsTab("invoices")} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${detailsTab === "invoices" ? "border-violet-300 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`} title="الفواتير المرتبطة"><FileText className="h-4 w-4" /> الفواتير المرتبطة</button>
-              </div>
-            </div>
-
+}
