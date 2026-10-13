@@ -604,10 +604,10 @@ function ProductsViewContent({
                     <thead className="bg-white text-slate-500 text-xs">
                       <tr>
                                                 <th scope="col" className="px-3 py-3 font-semibold">اسم البضاعة</th>
+                        <th scope="col" className="px-3 py-3 font-semibold">الصورة</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر الشراء</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">الربح / قطعة</th>
-                        <th scope="col" className="px-3 py-3 font-semibold">الصورة</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -648,14 +648,14 @@ function ProductsViewContent({
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-3 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className="px-3 py-3 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className={`px-3 py-3 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
                             <td className="px-3 py-3">
                               <button type="button" onClick={() => openDetails(product)} className="w-12 h-12 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center" title={`عرض صورة ${product.name}`} aria-label={`تفاصيل ${product.name}`}>
                                 {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-5 h-5 text-slate-300" />}
                               </button>
                             </td>
+                            <td className="px-3 py-3 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className="px-3 py-3 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
+                            <td className={`px-3 py-3 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
 
                           </tr>
                         );
