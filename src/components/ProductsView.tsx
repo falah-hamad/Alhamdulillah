@@ -96,10 +96,12 @@ function ProductsViewContent({
   const [detailsTab, setDetailsTab] = useState<"overview" | "prices" | "stock" | "invoices">("overview");
   const [priceDeleteEntryId, setPriceDeleteEntryId] = useState<string | null>(null);
   const priceLongPressTimer = useRef<number | null>(null);
+  const suppressPriceDeleteDismissClick = useRef(false);
   const startPriceLongPress = (entryId: string) => {
     if (priceLongPressTimer.current !== null) window.clearTimeout(priceLongPressTimer.current);
     priceLongPressTimer.current = window.setTimeout(() => {
       setPriceDeleteEntryId(entryId);
+      suppressPriceDeleteDismissClick.current = true;
       priceLongPressTimer.current = null;
     }, 600);
   };
@@ -815,7 +817,7 @@ function ProductsViewContent({
 
       {detailsProduct && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-2xl shadow-xl p-4 sm:p-6 space-y-5">
+          <div onClick={() => { if (suppressPriceDeleteDismissClick.current) { suppressPriceDeleteDismissClick.current = false; return; } setPriceDeleteEntryId(null); }} className="bg-white w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-2xl shadow-xl p-4 sm:p-6 space-y-5">
             <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-800">{detailsProduct.name}</h3><p className="text-xs text-slate-500 mt-1">{detailsProduct.category} {detailsProduct.barcode ? `• ${detailsProduct.barcode}` : ""}</p></div><button onClick={() => setDetailsProduct(null)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-1 space-y-2">
