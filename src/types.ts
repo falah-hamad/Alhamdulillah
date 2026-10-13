@@ -59,6 +59,7 @@ export interface Product {
   category: string;
   barcode?: string;
   imageUrl?: string;
+  imageUrls?: string[]; // صور متعددة للصنف، مع إبقاء imageUrl للتوافق مع السجلات القديمة
   description?: string;
   notes?: string;
   supplierName?: string;
