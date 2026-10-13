@@ -95,6 +95,7 @@ function ProductsViewContent({
   const [pressedItem, setPressedItem] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const longPressTimer = useRef<number | null>(null);
+  const suppressNextClick = useRef(false);
   const placeMenuAt = (x: number, y: number, height: number) => {
     const top = y + height + 8 <= window.innerHeight ? y + 4 : Math.max(8, y - height - 4);
     const left = Math.max(8, Math.min(x - 192, window.innerWidth - 200));
@@ -115,6 +116,7 @@ function ProductsViewContent({
     const y = touch.clientY;
     setPressedItem(itemKey);
     longPressTimer.current = window.setTimeout(() => {
+      suppressNextClick.current = true;
       placeMenuAt(x, y, height);
       open();
       longPressTimer.current = null;
@@ -502,7 +504,6 @@ function ProductsViewContent({
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">سعر البيع</th>
                         <th scope="col" className="px-3 py-3 font-semibold whitespace-nowrap">الربح / قطعة</th>
                         <th scope="col" className="px-3 py-3 font-semibold">الصورة</th>
-                        <th scope="col" className="px-3 py-3 font-semibold">الإجراءات</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -511,7 +512,14 @@ function ProductsViewContent({
                         return (
                           <tr
                             key={product.id}
-                            className={`select-none transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-slate-50/80"}`}
+                            className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-slate-50/80"}`}
+                            onClick={event => {
+                              if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                              if ((event.target as HTMLElement).closest("button")) return;
+                              setOpenProductMenuId(null);
+                              setOpenCategoryMenu(null);
+                              openDetails(product);
+                            }}
                             onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); setOpenCategoryMenu(null); }}
                             onTouchStart={event => startLongPress(event, 360, `product:${product.id}`, () => { setOpenProductMenuId(product.id); setOpenCategoryMenu(null); })}
                             onTouchEnd={clearLongPress}
@@ -531,24 +539,19 @@ function ProductsViewContent({
                                 {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-5 h-5 text-slate-300" />}
                               </button>
                             </td>
-                            <td className="px-3 py-3">
-                              <div className="relative flex justify-end">
-                                <span className="text-xs text-slate-400">اضغط مطولاً</span>
-                                {openProductMenuId === product.id && (
-                                  <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) { void updateProduct({ ...product, name }); } }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "move"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Layers className="w-4 h-4" /> نقل إلى تصنيف</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "copy"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><ClipboardList className="w-4 h-4" /> نسخ البضاعة</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); setMovementProduct(product); setMovementType("restock"); setMovementQty("1"); setMovementNote(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><PackagePlus className="w-4 h-4" /> إضافة للمخزون</button>
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); void updateProduct({ ...product, isFavorite: !product.isFavorite }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Star className="w-4 h-4" /> {product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button>
-                                    <div className="my-1 border-t border-slate-100" />
-                                    <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
-                                  </div>
-                                )}
+                            {openProductMenuId === product.id && (
+                              <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) { void updateProduct({ ...product, name }); } }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "move"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Layers className="w-4 h-4" /> نقل إلى تصنيف</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "copy"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><ClipboardList className="w-4 h-4" /> نسخ البضاعة</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); setMovementProduct(product); setMovementType("restock"); setMovementQty("1"); setMovementNote(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><PackagePlus className="w-4 h-4" /> إضافة للمخزون</button>
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); void updateProduct({ ...product, isFavorite: !product.isFavorite }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Star className="w-4 h-4" /> {product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button>
+                                <div className="my-1 border-t border-slate-100" />
+                                <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
                               </div>
-                            </td>
+                            )}
                           </tr>
                         );
                       })}
