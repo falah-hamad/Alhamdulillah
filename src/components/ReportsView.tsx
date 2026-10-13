@@ -592,20 +592,19 @@ export default function ReportsView({
             </div>
           )}
 
-          {/* Formal Stamp/Signature section in reports */}
-          <div className="pt-10 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600 text-center">
-            <div>
-              <p className="font-semibold">الموظف المدخل والمعد للتقرير</p>
-              <p className="mt-8 border-t border-dotted border-slate-300 w-48 mx-auto pt-1 text-[11px] text-slate-400">عبدالرحمن الحربي</p>
-            </div>
+          {/* اعتماد التقرير والختم الرسمي من هوية المؤسسة */}
+          <div className="pt-10 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs text-slate-600 text-center print:break-inside-avoid">
             <div>
               <p className="font-semibold">المدير المالي والاعتماد والمصادقة</p>
               <p className="mt-8 border-t border-dotted border-slate-300 w-48 mx-auto pt-1 text-[11px] text-slate-400">{settings.signaturePlaceholder || "المحاسب المسؤول"}</p>
             </div>
-            <div className="flex flex-col items-center justify-center">
-              <div className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-full flex items-center justify-center text-[9px] text-slate-300 font-sans tracking-wide uppercase select-none">
-                الختم الرسمي
-              </div>
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="font-semibold">الختم الرسمي</p>
+              {settings.stampUrl ? (
+                <img src={settings.stampUrl} alt="الختم الرسمي للمؤسسة" className="w-28 h-28 object-contain print:w-24 print:h-24" />
+              ) : (
+                <div className="w-24 h-24 border border-dashed border-slate-300 rounded-full flex items-center justify-center text-[10px] text-slate-400">لم تتم إضافة ختم</div>
+              )}
             </div>
           </div>
 
