@@ -8,6 +8,7 @@ import { PushNotifications, type Token } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
+import { recordDownloadedFile } from './downloads';
 
 interface NativePrintBridge {
   printHtml(options: { html: string; title: string }): Promise<{ opened?: boolean }>;
@@ -252,7 +253,20 @@ export async function saveNativeJsonFile(fileName: string, content: string) {
     fileName: safeName,
     content,
   });
-  return saved.fileName || safeName;
+  const confirmedName = saved.fileName || safeName;
+  try {
+    const lowerName = confirmedName.toLowerCase();
+    const category = lowerName.includes("chat") || lowerName.includes("محادث")
+      ? "محادثة"
+      : lowerName.includes("report") || lowerName.includes("تقرير")
+        ? "تقرير"
+        : "نسخة احتياطية";
+    await recordDownloadedFile(confirmedName, new Blob([content], { type: "application/json;charset=utf-8" }), category);
+  } catch (trackingError) {
+    // The Android save already succeeded; a local history failure must not report the save as failed.
+    console.warn("Could not add saved Android file to in-app downloads:", trackingError);
+  }
+  return confirmedName;
 }
 
 type NativePushPermissionResult = {
