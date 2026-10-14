@@ -1,4 +1,4 @@
-import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -8,6 +8,13 @@ import { PushNotifications, type Token } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
+
+interface NativePrintBridge {
+  printHtml(options: { html: string; title: string }): Promise<{ opened?: boolean }>;
+  saveTextFile(options: { fileName: string; content: string }): Promise<{ uri: string; fileName: string }>;
+}
+
+const NativePrintBridgePlugin = registerPlugin<NativePrintBridge>('NativePrint');
 
 export const isNativeAndroid = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -241,8 +248,11 @@ export async function pickNativeJsonFile() {
 export async function saveNativeJsonFile(fileName: string, content: string) {
   if (!isNativeAndroid()) return null;
   const safeName = fileName.replace(/[\\/:*?"<>|]+/g, '_');
-  await saveNativeTextFile(`backups/${safeName}`, content);
-  return `Documents/backups/${safeName}`;
+  const saved = await NativePrintBridgePlugin.saveTextFile({
+    fileName: safeName,
+    content,
+  });
+  return saved.fileName || safeName;
 }
 
 type NativePushPermissionResult = {
