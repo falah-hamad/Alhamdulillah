@@ -598,10 +598,11 @@ export async function printElement(
     } catch (error) {
       console.error("Android native print failed:", error);
       const detail = error instanceof Error ? error.message : String(error || "");
-      throw new Error(
+      const message =
         "تعذرت طباعة المستند على Android. " +
-        (detail ? "التفاصيل: " + detail : "تأكد من تثبيت أحدث نسخة من التطبيق.")
-      );
+        (detail ? "التفاصيل: " + detail : "تأكد من تثبيت أحدث نسخة من التطبيق.");
+      window.alert(message);
+      throw new Error(message);
     }
   }
 
