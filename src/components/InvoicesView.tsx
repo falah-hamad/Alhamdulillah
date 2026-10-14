@@ -369,10 +369,10 @@ export default function InvoicesView({
 
       {/* Invoice Voucher Modal for Printing & PDF Export */}
       {previewInvoice && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 no-print overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header & Actions */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-200 no-print">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
                 <h3 className="font-extrabold text-slate-800 text-sm">
@@ -419,13 +419,19 @@ export default function InvoicesView({
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    if (isPrinting) return;
                     setIsPrinting(true);
-                    printElement("invoice-receipt-voucher", {
-                      title: `وصل_فاتورة_${previewInvoice.invoiceNumber}_${previewInvoice.customerName}`,
-                      onComplete: () => setIsPrinting(false),
-                    });
-                    setTimeout(() => setIsPrinting(false), 2000);
+                    try {
+                      await printElement("invoice-receipt-voucher", {
+                        title: `وصل_فاتورة_${previewInvoice.invoiceNumber}_${previewInvoice.customerName}`,
+                      });
+                    } catch (error) {
+                      console.error("Invoice receipt print failed:", error);
+                      alert("تعذرت طباعة وصل الفاتورة. جرّب زر حفظ PDF.");
+                    } finally {
+                      setIsPrinting(false);
+                    }
                   }}
                   disabled={isPrinting}
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
