@@ -482,7 +482,7 @@ export default function InvoicesView({
             <div className="p-6 max-h-[75vh] overflow-y-auto">
               <div
                 id="invoice-receipt-voucher"
-                className="print-container bg-white border-2 border-slate-300 rounded-xl p-6 text-slate-800 space-y-5 relative"
+                className="invoice-receipt-voucher-printable bg-white border-2 border-slate-300 rounded-xl p-6 text-slate-800 space-y-5 relative"
               >
                 {/* Decorative side border */}
                 <div className="absolute top-0 right-0 bottom-0 w-2.5 bg-blue-600" />
