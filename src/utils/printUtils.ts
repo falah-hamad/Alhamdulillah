@@ -332,10 +332,23 @@ export async function printElement(
 
   const preparedClone = preparePrintableClone(element);
 
-  // Collect active style tags and stylesheets
+  // Collect active style tags and stylesheets.
+  // A standalone Android WebView cannot rely on the app WebView's asset interceptor,
+  // so inline same-origin stylesheet rules as a fallback for native printing.
   const styles: string[] = [];
   document.querySelectorAll("style, link[rel='stylesheet']").forEach((node) => {
     styles.push(node.outerHTML);
+
+    if (Capacitor.isNativePlatform() && node instanceof HTMLLinkElement && node.sheet) {
+      try {
+        const rules = Array.from((node.sheet as CSSStyleSheet).cssRules)
+          .map((rule) => rule.cssText)
+          .join("\\n");
+        if (rules) styles.push("<style>" + rules + "</style>");
+      } catch {
+        // Cross-origin stylesheets (for example Google Fonts) remain linked above.
+      }
+    }
   });
 
   // Create an iframe with real layout dimensions (A4 width 210mm) and opacity 0
