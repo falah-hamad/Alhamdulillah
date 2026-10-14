@@ -32,8 +32,11 @@ public class NativePrintPlugin extends Plugin {
 
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
+        intent.setType(fileName.toLowerCase().endsWith(".json")
+            ? "application/json"
+            : "text/plain");
         intent.putExtra(Intent.EXTRA_TITLE, fileName);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         startActivityForResult(call, intent, "handleSaveTextFileResult");
     }
 
@@ -78,6 +81,8 @@ public class NativePrintPlugin extends Plugin {
             try {
                 WebView printWebView = new WebView(getContext());
                 printWebView.getSettings().setJavaScriptEnabled(false);
+                printWebView.getSettings().setDefaultTextEncodingName("UTF-8");
+                printWebView.getSettings().setSupportZoom(false);
                 printWebView.setBackgroundColor(android.graphics.Color.WHITE);
                 printWebView.setWebViewClient(new WebViewClient() {
                     @Override
@@ -113,8 +118,11 @@ public class NativePrintPlugin extends Plugin {
                         }, 350);
                     }
                 });
+                // The caller embeds same-origin stylesheet rules into this HTML.
+                // Use a neutral base URL so the standalone WebView never depends
+                // on the main Capacitor WebView's private asset interception.
                 printWebView.loadDataWithBaseURL(
-                    "https://localhost/",
+                    "about:blank",
                     html,
                     "text/html",
                     "UTF-8",
