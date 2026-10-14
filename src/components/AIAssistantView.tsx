@@ -632,15 +632,31 @@ export default function AIAssistantView({
   };
 
   // Export all conversations JSON
-  const handleExportAllJSON = () => {
+  const handleExportAllJSON = async () => {
     const jsonStr = JSON.stringify(conversations, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `سجل_محادثات_الذكاء_الاصطناعي_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const fileName = `سجل_محادثات_الذكاء_الاصطناعي_${new Date().toISOString().split("T")[0]}.json`;
+
+    try {
+      const { isNativeAndroid, saveNativeJsonFile } = await import("../lib/native");
+      if (isNativeAndroid()) {
+        await saveNativeJsonFile(fileName, jsonStr);
+        setNotice("اختر مكان حفظ ملف المحادثات من نافذة الحفظ التي ظهرت.");
+        return;
+      }
+
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error("Conversation export failed:", error);
+      setNotice("تعذر حفظ ملف المحادثات. حاول مرة أخرى.");
+    }
   };
 
   // Clear all conversations
