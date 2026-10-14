@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi, Sparkles } from "lucide-react";
+import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi, Sparkles, Download } from "lucide-react";
 import { App as CapApp } from "@capacitor/app";
 import { useAccountingData } from "./hooks/useAccountingData";
 import { isInvoiceOverdue } from "./utils/overdueUtils";
@@ -369,7 +369,11 @@ export default function App() {
       const fileName = `store_backup_${currentUser?.email?.split('@')[0] || 'account'}_${timestamp.slice(0, 10)}.json`;
       const rawJson = JSON.stringify(backupData, null, 2);
       if (isNativeAndroid()) {
-        await saveNativeJsonFile(fileName, rawJson);
+        const savedFileName = await saveNativeJsonFile(fileName, rawJson);
+        if (!savedFileName) {
+          throw new Error("لم يرجع نظام أندرويد تأكيداً بحفظ الملف");
+        }
+        window.alert("تم حفظ النسخة الاحتياطية بنجاح باسم: " + savedFileName);
         return;
       }
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(rawJson)}`;
