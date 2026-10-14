@@ -1,11 +1,17 @@
 package com.falah.allahisgreat1;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import com.getcapacitor.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -14,6 +20,49 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "NativePrint")
 public class NativePrintPlugin extends Plugin {
+    @PluginMethod
+    public void saveTextFile(PluginCall call) {
+        String fileName = call.getString("fileName", "backup.json");
+        String content = call.getString("content");
+        if (content == null) {
+            call.reject("محتوى الملف فارغ");
+            return;
+        }
+
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, fileName);
+        startActivityForResult(call, intent, "handleSaveTextFileResult");
+    }
+
+    @ActivityCallback
+    private void handleSaveTextFileResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                || result.getData().getData() == null) {
+            call.reject("تم إلغاء حفظ الملف أو لم يتم اختيار موقع للحفظ");
+            return;
+        }
+
+        Uri uri = result.getData().getData();
+        String content = call.getString("content");
+        String fileName = call.getString("fileName", "backup.json");
+        try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+            if (output == null) {
+                call.reject("تعذر فتح الملف للكتابة");
+                return;
+            }
+            output.write(content.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+            JSObject response = new JSObject();
+            response.put("uri", uri.toString());
+            response.put("fileName", fileName);
+            call.resolve(response);
+        } catch (Exception e) {
+            call.reject("تعذر حفظ الملف: " + e.getMessage(), e);
+        }
+    }
     @PluginMethod
     public void printHtml(PluginCall call) {
         String html = call.getString("html");
