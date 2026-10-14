@@ -558,7 +558,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-[100dvh] overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto">
         
         {/* Top Navbar Header */}
         <header className="min-h-16 h-auto bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-y-2 py-2 px-2 sm:px-6 shrink-0 no-print">
