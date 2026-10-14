@@ -214,7 +214,7 @@ export default function SettingsView({
 
       if (isNativeAndroid()) {
         const savedPath = await saveNativeJsonFile(fileName, jsonStr);
-        showMsg("success", `تم حفظ النسخة الاحتياطية داخل ${savedPath || "مجلد المستندات"} بنجاح.`);
+        showMsg("success", `تم حفظ النسخة الاحتياطية باسم ${savedPath || fileName} بنجاح.`);
         return;
       }
 
