@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi, Sparkles, Download } from "lucide-react";
+import { Menu, Calendar, BookOpen, User, Building2, ShieldAlert, BellRing, Bell, LogOut, Cloud, WifiOff, Wifi, Sparkles } from "lucide-react";
 import { App as CapApp } from "@capacitor/app";
 import { useAccountingData } from "./hooks/useAccountingData";
 import { isInvoiceOverdue } from "./utils/overdueUtils";
@@ -33,6 +33,8 @@ import AuthModal from "./components/AuthModal";
 import AccountManagerModal from "./components/AccountManagerModal";
 import NotificationCenterModal from "./components/NotificationCenterModal";
 import { AppNotification } from "./types";
+import DownloadsView from "./components/DownloadsView";
+import { trackDownloadAnchor } from "./lib/downloads";
 
 
 // Views
@@ -148,6 +150,18 @@ export default function App() {
   useEffect(() => {
     setShowFirstLaunchOnboarding(!isFirstLaunchCompleted());
     setShowCoachMarks(isFirstLaunchCompleted() && !isCoachMarksCompleted());
+  }, []);
+
+  // Capture in-app file exports so they also appear in the Downloads center.
+  useEffect(() => {
+    const captureDownload = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest("a[download]") as HTMLAnchorElement | null;
+      if (anchor) void trackDownloadAnchor(anchor);
+    };
+    document.addEventListener("click", captureDownload, true);
+    return () => document.removeEventListener("click", captureDownload, true);
   }, []);
 
   useEffect(() => {
@@ -592,7 +606,7 @@ export default function App() {
                 {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
                 {currentTab === "stats" && "التقارير البيانية والحسابات"}
                 {currentTab === "reports" && "تصدير التقارير المعتمدة"}
-                {currentTab === "downloads" && "تنزيل النسخ الاحتياطية والملفات"}
+                {currentTab === "downloads" && "التنزيلات"}
                 {currentTab === "settings" && "الإعدادات وتأمين البيانات"}
               </h1>
             </div>
@@ -903,32 +917,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === "downloads" && (
-            <section className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-50 p-3 text-blue-700">
-                    <Download className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900">التنزيل والنسخ الاحتياطي</h2>
-                    <p className="mt-1 text-sm text-slate-500">نزّل نسخة JSON من بيانات حسابك للاحتفاظ بها أو استعادتها لاحقاً.</p>
-                  </div>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                  تشمل النسخة المجلدات والعملاء والبضائع والفواتير والدفعات وسجل التغييرات والإعدادات. اختر مكان الحفظ من نافذة أندرويد، وانتظر رسالة نجاح الحفظ.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleExportBackup()}
-                  className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  <Download className="h-4 w-4" />
-                  تنزيل نسخة احتياطية الآن
-                </button>
-              </div>
-            </section>
-          )}
+          {currentTab === "downloads" && <DownloadsView />}
 
           {currentTab === "settings" && (
             <SettingsView
