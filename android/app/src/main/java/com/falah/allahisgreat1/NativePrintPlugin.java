@@ -6,8 +6,16 @@ import android.content.Intent;
 import android.net.Uri;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import android.os.CancellationSignal;
+import android.os.ParcelFileDescriptor;
+import android.print.PageRange;
 import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -67,6 +75,17 @@ public class NativePrintPlugin extends Plugin {
             call.reject("تعذر حفظ الملف: " + e.getMessage(), e);
         }
     }
+    private void removePrintWebView(WebView view, ViewGroup parent) {
+        try {
+            if (parent != null) {
+                parent.removeView(view);
+            }
+            view.stopLoading();
+            view.destroy();
+        } catch (Exception ignored) {
+        }
+    }
+
     @PluginMethod
     public void printHtml(PluginCall call) {
         String html = call.getString("html");
@@ -84,6 +103,24 @@ public class NativePrintPlugin extends Plugin {
                 printWebView.getSettings().setDefaultTextEncodingName("UTF-8");
                 printWebView.getSettings().setSupportZoom(false);
                 printWebView.setBackgroundColor(android.graphics.Color.WHITE);
+                printWebView.setClickable(false);
+                printWebView.setFocusable(false);
+
+                // Android's print adapter needs a laid-out WebView. Attach it behind
+                // the app content instead of printing from a detached WebView (which
+                // can result in blank output or a print dialog that never completes).
+                View contentRoot = getActivity().findViewById(android.R.id.content);
+                ViewGroup printParent = contentRoot instanceof ViewGroup
+                    ? (ViewGroup) contentRoot
+                    : null;
+                if (printParent != null) {
+                    printWebView.setAlpha(0.01f);
+                    printParent.addView(printWebView, 0, new ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ));
+                }
+
                 printWebView.setWebViewClient(new WebViewClient() {
                     @Override
                     public void onPageFinished(WebView view, String url) {
@@ -93,7 +130,7 @@ public class NativePrintPlugin extends Plugin {
                                     (PrintManager) getContext().getSystemService(Context.PRINT_SERVICE);
                                 if (printManager == null) {
                                     call.reject("خدمة الطباعة غير متاحة على هذا الجهاز");
-                                    view.destroy();
+                                    removePrintWebView(view, printParent);
                                     return;
                                 }
 
@@ -103,17 +140,46 @@ public class NativePrintPlugin extends Plugin {
                                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                                     .build();
 
-                                printManager.print(
-                                    title,
-                                    view.createPrintDocumentAdapter(title),
-                                    attributes
-                                );
+                                PrintDocumentAdapter delegate = view.createPrintDocumentAdapter(title);
+                                PrintDocumentAdapter retainedAdapter = new PrintDocumentAdapter() {
+                                    @Override
+                                    public void onLayout(
+                                        PrintAttributes oldAttributes,
+                                        PrintAttributes newAttributes,
+                                        CancellationSignal cancellationSignal,
+                                        LayoutResultCallback callback,
+                                        Bundle extras
+                                    ) {
+                                        delegate.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras);
+                                    }
+
+                                    @Override
+                                    public void onWrite(
+                                        PageRange[] pages,
+                                        ParcelFileDescriptor destination,
+                                        CancellationSignal cancellationSignal,
+                                        WriteResultCallback callback
+                                    ) {
+                                        delegate.onWrite(pages, destination, cancellationSignal, callback);
+                                    }
+
+                                    @Override
+                                    public void onFinish() {
+                                        try {
+                                            delegate.onFinish();
+                                        } finally {
+                                            removePrintWebView(view, printParent);
+                                        }
+                                    }
+                                };
+
+                                printManager.print(title, retainedAdapter, attributes);
                                 JSObject result = new JSObject();
                                 result.put("opened", true);
                                 call.resolve(result);
                             } catch (Exception e) {
                                 call.reject("تعذر فتح نافذة إنشاء PDF: " + e.getMessage(), e);
-                                view.destroy();
+                                removePrintWebView(view, printParent);
                             }
                         }, 350);
                     }
