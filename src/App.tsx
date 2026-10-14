@@ -381,6 +381,8 @@ export default function App() {
       downloadAnchor.remove();
     } catch (e) {
       console.error("Export backup error:", e);
+      const detail = e instanceof Error ? e.message : String(e || "");
+      window.alert("تعذر حفظ النسخة الاحتياطية. " + (detail ? "التفاصيل: " + detail : "أعد المحاولة بعد تحديث التطبيق."));
     }
   };
 
