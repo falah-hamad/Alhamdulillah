@@ -333,13 +333,24 @@ textarea {
   }
 }
 
-/* Respect Android/iOS safe areas when content touches screen edges. */
+/* Respect Android/iOS system bars and display cutouts. Native Android also
+   fits the app window between the system bars; these env values are a fallback
+   for WebViews that expose non-zero safe-area insets. */
 @supports (padding: max(0px)) {
   body {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: max(var(--app-page-gutter), env(safe-area-inset-right, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: max(var(--app-page-gutter), env(safe-area-inset-left, 0px));
   }
 }
+
+/* The app shell must not force a second full viewport below the header. */
+#root,
+#root > div {
+  min-height: 100dvh;
+}
+
 
 
 /* Narrow-screen layout safeguards: avoid cramped multi-column cards and clipped labels. */
