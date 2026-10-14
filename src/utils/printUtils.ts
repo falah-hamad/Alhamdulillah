@@ -376,10 +376,7 @@ export async function printElement(
       <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
       ${styles.join("\n")}
       <style>
-        @page {
-          size: A4 portrait;
-          margin: 8mm 8mm 8mm 8mm;
-        }
+        ${element.id === "vertical-ledger-sheet" ? "@page { size: A4 portrait; margin: 0; }" : "@page { size: A4 portrait; margin: 8mm; }"}
         *, *::before, *::after {
           box-sizing: border-box !important;
           -webkit-print-color-adjust: exact !important;
@@ -536,6 +533,24 @@ export async function printElement(
         [data-no-print="true"],
         .active-row-controls {
           display: none !important;
+        }
+
+        #vertical-ledger-sheet .a4-page {
+          width: 210mm !important;
+          height: 297mm !important;
+          min-height: 297mm !important;
+          max-height: 297mm !important;
+          padding: 6.35mm 8.47mm !important;
+          margin: 0 !important;
+          box-sizing: border-box !important;
+          page-break-after: always !important;
+          break-after: page !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        #vertical-ledger-sheet .a4-page:last-child {
+          page-break-after: auto !important;
+          break-after: auto !important;
         }
       </style>
     </head>
