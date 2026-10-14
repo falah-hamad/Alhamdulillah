@@ -1,5 +1,3 @@
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 interface NativePrintPlugin {
@@ -644,6 +642,11 @@ export async function printElement(
  * Handles modern Tailwind v4 colors without crashing html2canvas.
  * Guarantees that multi-page A4 receipts & ledger sheets export completely without blank pages or clipping.
  */
+/**
+ * Exports the target as a real, selectable-text document using the platform print pipeline.
+ * Browser printing remains HTML-based; Android uses its native WebView PrintDocumentAdapter.
+ * Users can choose "Save as PDF" in the platform print dialog.
+ */
 export async function exportElementToPDF(
   elementOrId: HTMLElement | string,
   options: {
@@ -660,173 +663,6 @@ export async function exportElementToPDF(
     throw new Error("العنصر المطلوب تصديره غير موجود");
   }
 
-  // Android: use native WebView printing so PDF text stays selectable/copyable.
-  // The browser's existing PDF export path is intentionally unchanged.
-  if (Capacitor.isNativePlatform()) {
-    await printElement(element, { title: options.title || options.filename });
-    return;
-  }
-
-  // 1. Wait for web fonts (Cairo, JetBrains Mono, etc.) to be fully loaded
-  if (document.fonts && document.fonts.ready) {
-    await document.fonts.ready;
-  }
-
-  // 2. Intercept styles to replace oklch/oklab with safe rgb/hex for html2canvas
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = createComputedStyleProxy(originalGetComputedStyle);
-
-  try {
-    // 3. Look for discrete pre-paginated A4 pages
-    // Supports paper-ledger pages ([data-page-sheet='true'], [id^='paper-page-'])
-    // and vertical-ledger-sheet pages ([id^='vertical-ledger-page-'], .a4-page)
-    const rawPages = Array.from(
-      element.querySelectorAll<HTMLElement>(
-        "[data-page-sheet='true'], [id^='paper-page-'], [id^='vertical-ledger-page-'], .paper-page-sheet, .a4-page"
-      )
-    );
-
-    // Filter out duplicates (if nested)
-    const pageSheets: HTMLElement[] = [];
-    rawPages.forEach((page) => {
-      const isNested = pageSheets.some((p) => p.contains(page));
-      if (!isNested) {
-        pageSheets.push(page);
-      }
-    });
-
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-      compress: true,
-    });
-
-    const filename = options.filename.endsWith(".pdf")
-      ? options.filename
-      : `${options.filename}.pdf`;
-
-    // Helper to sanitize the iframe document cloned by html2canvas
-    const sanitizeClonedDoc = (clonedDoc: Document, clonedEl: HTMLElement) => {
-      // 1. Hook iframe window computed style if present
-      if (clonedDoc.defaultView) {
-        try {
-          const orig = clonedDoc.defaultView.getComputedStyle;
-          clonedDoc.defaultView.getComputedStyle = createComputedStyleProxy(orig);
-        } catch {}
-      }
-
-      // 2. Set safe background colors on root elements
-      if (clonedDoc.documentElement) {
-        clonedDoc.documentElement.style.backgroundColor = "#ffffff";
-      }
-      if (clonedDoc.body) {
-        clonedDoc.body.style.backgroundColor = "#ffffff";
-      }
-
-      // 3. Sanitize all <style> tags to eliminate any oklch/oklab in Tailwind rules
-      clonedDoc.querySelectorAll("style").forEach((styleTag) => {
-        if (styleTag.textContent && (styleTag.textContent.includes("oklch") || styleTag.textContent.includes("oklab"))) {
-          styleTag.textContent = sanitizeColorString(styleTag.textContent);
-        }
-      });
-
-      // 4. Sanitize cloned element tree (inputs to spans, remove buttons, sanitize inline styles)
-      sanitizeClonedPage(clonedEl);
-    };
-
-    if (pageSheets.length > 0) {
-      // Export each discrete A4 page sheet sequentially
-      for (let i = 0; i < pageSheets.length; i++) {
-        const sheet = pageSheets[i];
-        const computed = originalGetComputedStyle.call(window, sheet);
-        const bg =
-          sheet.style.backgroundColor ||
-          (computed.backgroundColor !== "rgba(0, 0, 0, 0)" && computed.backgroundColor !== "transparent"
-            ? computed.backgroundColor
-            : "#fcfbf5");
-
-        const canvas = await html2canvas(sheet, {
-          scale: 2, // 300 DPI high resolution
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: sanitizeColorString(bg) || "#fcfbf5",
-          onclone: (clonedDoc, clonedEl) => {
-            sanitizeClonedDoc(clonedDoc, clonedEl);
-          },
-        });
-
-        const imgData = canvas.toDataURL("image/jpeg", 0.98);
-
-        if (i > 0) {
-          pdf.addPage("a4", "portrait");
-        }
-
-        const canvasAspect = canvas.width / canvas.height;
-        const a4Width = 210;
-        const a4Height = 297;
-
-        // Fit accurately into A4 page preserving aspect ratio
-        const renderHeight = a4Width / canvasAspect;
-        if (renderHeight <= a4Height) {
-          const yOffset = (a4Height - renderHeight) / 2;
-          pdf.addImage(imgData, "JPEG", 0, yOffset, a4Width, renderHeight, undefined, "FAST");
-        } else {
-          const fitWidth = a4Height * canvasAspect;
-          const xOffset = (a4Width - fitWidth) / 2;
-          pdf.addImage(imgData, "JPEG", xOffset, 0, fitWidth, a4Height, undefined, "FAST");
-        }
-      }
-    } else {
-      // Single unpaginated element (receipt voucher, customer statement card, etc.)
-      const computed = originalGetComputedStyle.call(window, element);
-      const bg =
-        element.style.backgroundColor ||
-        (computed.backgroundColor !== "rgba(0, 0, 0, 0)" && computed.backgroundColor !== "transparent"
-          ? computed.backgroundColor
-          : "#ffffff");
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: sanitizeColorString(bg) || "#ffffff",
-        onclone: (clonedDoc, clonedEl) => {
-          sanitizeClonedDoc(clonedDoc, clonedEl);
-        },
-      });
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
-      const imgWidth = 200; // 5mm margin on left and right
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const pageHeight = 287; // 297 - 10mm margins
-
-      if (imgHeight <= pageHeight) {
-        const xOffset = (210 - imgWidth) / 2;
-        const yOffset = Math.max(5, (297 - imgHeight) / 2);
-        pdf.addImage(imgData, "JPEG", xOffset, yOffset, imgWidth, imgHeight, undefined, "FAST");
-      } else {
-        // Multi-page slicing for very long elements
-        let heightLeft = imgHeight;
-        let position = 5;
-        const xOffset = (210 - imgWidth) / 2;
-
-        pdf.addImage(imgData, "JPEG", xOffset, position, imgWidth, imgHeight, undefined, "FAST");
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position -= pageHeight;
-          pdf.addPage("a4", "portrait");
-          pdf.addImage(imgData, "JPEG", xOffset, position, imgWidth, imgHeight, undefined, "FAST");
-          heightLeft -= pageHeight;
-        }
-      }
-    }
-
-    pdf.save(filename);
-  } finally {
-    window.getComputedStyle = originalGetComputedStyle;
-  }
+  const title = options.title || options.filename.replace(/\\.pdf$/i, "");
+  await printElement(element, { title });
 }
