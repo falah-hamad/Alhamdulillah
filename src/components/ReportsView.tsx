@@ -15,7 +15,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
-import { exportElementToPDF } from "../utils/printUtils";
+import { printElement, exportElementToPDF } from "../utils/printUtils";
 
 interface ReportsViewProps {
   customers: Customer[];
@@ -274,10 +274,17 @@ export default function ReportsView({
     };
   }, [products]);
 
-  const handlePrint = () => {
-    // Keep the existing browser print dialog on web. Native Android print actions
-    // are handled by printElement's PDF fallback throughout the app.
-    window.print();
+  const handlePrint = async () => {
+    // Print only the report document so the financial summary, customer counts,
+    // approval/signature section and official stamp are included on web and Android.
+    try {
+      await printElement("accounting-report-document", {
+        title: `تقرير_مالي_${reportType}`,
+      });
+    } catch (error) {
+      console.error("Failed to print accounting report:", error);
+      alert("تعذرت طباعة التقرير. حاول استخدام زر حفظ PDF.");
+    }
   };
 
   const handleExportPDF = async () => {
