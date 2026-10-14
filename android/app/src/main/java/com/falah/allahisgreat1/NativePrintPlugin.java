@@ -122,7 +122,8 @@ public class NativePrintPlugin extends Plugin {
                     ? (ViewGroup) contentRoot
                     : null;
                 if (printParent != null) {
-                    printWebView.setAlpha(0.01f);
+                    // Keep the print WebView fully rendered; it is inserted at index 0 behind the app's visible WebView.
+                    printWebView.setAlpha(1f);
                     printParent.addView(printWebView, 0, new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
