@@ -288,7 +288,7 @@ function ProductsViewContent({
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+    const files: File[] = event.currentTarget.files ? Array.from(event.currentTarget.files) as File[] : [];
     if (files.length === 0) return;
     const invalidType = files.find(file => !file.type.startsWith("image/"));
     if (invalidType) {
