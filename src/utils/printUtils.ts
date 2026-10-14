@@ -577,6 +577,16 @@ export async function printElement(
   doc.write(htmlContent);
   doc.close();
 
+  // Android prints the prepared HTML directly through the native print framework.
+  // Do not wait for the hidden iframe's fonts/paint: the native WebView has its own
+  // page-finished callback and this avoids a stalled export on Android.
+  if (Capacitor.isNativePlatform()) {
+    iframe.remove();
+    await NativePrint.printHtml({ html: htmlContent, title });
+    options.onComplete?.();
+    return;
+  }
+
   try {
     // 1. Wait for web fonts in the iframe
     if (doc.fonts && doc.fonts.ready) {
@@ -606,18 +616,7 @@ export async function printElement(
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   await new Promise((r) => setTimeout(r, 200));
 
-  // 4. Trigger print. Android uses the native WebView print pipeline,
-  // which creates a text-based PDF rather than rasterizing the page to a canvas.
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await NativePrint.printHtml({ html: htmlContent, title });
-    } finally {
-      iframe.remove();
-      options.onComplete?.();
-    }
-    return;
-  }
-
+  // 4. Trigger browser print. Android has already returned through its native path above.
   try {
     iframe.contentWindow?.focus();
     iframe.contentWindow?.print();
