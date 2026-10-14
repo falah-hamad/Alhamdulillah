@@ -1,6 +1,12 @@
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+interface NativePrintPlugin {
+  printHtml(options: { html: string; title: string }): Promise<void>;
+}
+
+const NativePrint = registerPlugin<NativePrintPlugin>("NativePrint");
 
 /**
  * Comprehensive Print & PDF Export Utilities for Debt Receipts & Accounting Sheets
@@ -324,15 +330,6 @@ export async function printElement(
 
   const title = options.title || "طباعة وصل الدين";
 
-  // Android/iOS WebView does not consistently expose a native browser print dialog.
-  // Export the exact target element as a PDF instead of printing the entire app shell.
-  if (Capacitor.isNativePlatform()) {
-    const filename = title.replace(/[\\/:*?"<>|]/g, "_").trim() || "document";
-    await exportElementToPDF(element, { filename, title });
-    options.onComplete?.();
-    return;
-  }
-
   const preparedClone = preparePrintableClone(element);
 
   // Collect active style tags and stylesheets
@@ -598,7 +595,18 @@ export async function printElement(
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   await new Promise((r) => setTimeout(r, 200));
 
-  // 4. Trigger print
+  // 4. Trigger print. Android uses the native WebView print pipeline,
+  // which creates a text-based PDF rather than rasterizing the page to a canvas.
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await NativePrint.printHtml({ html: htmlContent, title });
+    } finally {
+      iframe.remove();
+      options.onComplete?.();
+    }
+    return;
+  }
+
   try {
     iframe.contentWindow?.focus();
     iframe.contentWindow?.print();
@@ -637,6 +645,13 @@ export async function exportElementToPDF(
 
   if (!element) {
     throw new Error("العنصر المطلوب تصديره غير موجود");
+  }
+
+  // Android: use native WebView printing so PDF text stays selectable/copyable.
+  // The browser's existing PDF export path is intentionally unchanged.
+  if (Capacitor.isNativePlatform()) {
+    await printElement(element, { title: options.title || options.filename });
+    return;
   }
 
   // 1. Wait for web fonts (Cairo, JetBrains Mono, etc.) to be fully loaded
