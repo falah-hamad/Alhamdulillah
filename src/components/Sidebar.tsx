@@ -17,6 +17,7 @@ import {
   Cloud,
   AlertTriangle,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { SystemSettings } from "../types";
 import { useAuth } from "../contexts/AuthContext";
@@ -70,6 +71,7 @@ export default function Sidebar({
     { id: "invoices", label: "الفواتير", icon: FileText },
     { id: "stats", label: "الحسابات", icon: BarChart3 },
     { id: "reports", label: "التقارير", icon: TrendingUp },
+    { id: "downloads", label: "التنزيل", icon: Download },
     { id: "settings", label: "الإعدادات", icon: Settings },
   ];
 
