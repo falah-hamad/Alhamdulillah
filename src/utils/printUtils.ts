@@ -588,8 +588,8 @@ export async function printElement(
     // above, so printing does not silently lose its layout when /assets URLs
     // cannot be resolved from the separate WebView.
     const nativeHtmlContent = htmlContent
-      .replace(/<link\\b[^>]*>/gi, "")
-      .replace(/@import\\s+(?:url\\([^)]*\\)|[^;]+);?/gi, "");
+      .replace(/<link\b[^>]*>/gi, "")
+      .replace(/@import\s+(?:url\([^)]*\)|[^;]+);?/gi, "");
 
     try {
       await NativePrint.printHtml({ html: nativeHtmlContent, title });
