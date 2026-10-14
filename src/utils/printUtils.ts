@@ -582,7 +582,16 @@ export async function printElement(
   // page-finished callback and this avoids a stalled export on Android.
   if (Capacitor.isNativePlatform()) {
     iframe.remove();
-    await NativePrint.printHtml({ html: htmlContent, title });
+
+    // The standalone native print WebView does not have Capacitor's asset
+    // interceptor. Remove stylesheet links and rely on the CSS rules embedded
+    // above, so printing does not silently lose its layout when /assets URLs
+    // cannot be resolved from the separate WebView.
+    const nativeHtmlContent = htmlContent
+      .replace(/<link\\b[^>]*>/gi, "")
+      .replace(/@import\\s+(?:url\\([^)]*\\)|[^;]+);?/gi, "");
+
+    await NativePrint.printHtml({ html: nativeHtmlContent, title });
     options.onComplete?.();
     return;
   }
