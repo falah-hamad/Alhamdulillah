@@ -7,7 +7,7 @@ def releaseKeyPassword = project.findProperty('ANDROID_KEY_PASSWORD') ?: System.
 def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
 
 android {
-    namespace "com.falahhamad.deftaraldeyon"
+    namespace "com.falah.allahisgreat1"
     compileSdk rootProject.ext.compileSdkVersion
     signingConfigs {
         release {
