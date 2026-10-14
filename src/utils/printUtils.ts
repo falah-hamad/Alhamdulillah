@@ -536,12 +536,15 @@ export async function printElement(
         }
 
         #vertical-ledger-sheet .a4-page {
-          width: 210mm !important;
-          height: 297mm !important;
-          min-height: 297mm !important;
-          max-height: 297mm !important;
-          padding: 6.35mm 8.47mm !important;
-          margin: 0 !important;
+          /* Keep the full sheet inside the printer's reliable printable area.
+             Center it on A4 so neither side is clipped by browser/printer margins. */
+          width: 194mm !important;
+          max-width: 194mm !important;
+          height: 274.2mm !important;
+          min-height: 274.2mm !important;
+          max-height: 274.2mm !important;
+          padding: 5.87mm 7.82mm !important;
+          margin: 0 auto !important;
           box-sizing: border-box !important;
           page-break-after: always !important;
           break-after: page !important;
