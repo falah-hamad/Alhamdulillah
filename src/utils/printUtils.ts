@@ -663,6 +663,6 @@ export async function exportElementToPDF(
     throw new Error("العنصر المطلوب تصديره غير موجود");
   }
 
-  const title = options.title || options.filename.replace(/\\.pdf$/i, "");
+  const title = options.title || options.filename.replace(/\.pdf$/i, "");
   await printElement(element, { title });
 }
