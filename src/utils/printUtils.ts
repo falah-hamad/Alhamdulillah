@@ -591,9 +591,18 @@ export async function printElement(
       .replace(/<link\\b[^>]*>/gi, "")
       .replace(/@import\\s+(?:url\\([^)]*\\)|[^;]+);?/gi, "");
 
-    await NativePrint.printHtml({ html: nativeHtmlContent, title });
-    options.onComplete?.();
-    return;
+    try {
+      await NativePrint.printHtml({ html: nativeHtmlContent, title });
+      options.onComplete?.();
+      return;
+    } catch (error) {
+      console.error("Android native print failed:", error);
+      const detail = error instanceof Error ? error.message : String(error || "");
+      throw new Error(
+        "تعذرت طباعة المستند على Android. " +
+        (detail ? "التفاصيل: " + detail : "تأكد من تثبيت أحدث نسخة من التطبيق.")
+      );
+    }
   }
 
   try {
