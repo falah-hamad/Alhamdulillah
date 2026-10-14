@@ -341,7 +341,7 @@ export async function printElement(
       try {
         const rules = Array.from((node.sheet as CSSStyleSheet).cssRules)
           .map((rule) => rule.cssText)
-          .join("\\n");
+          .join("\n");
         if (rules) styles.push("<style>" + rules + "</style>");
       } catch {
         // Cross-origin stylesheets (for example Google Fonts) remain linked above.
