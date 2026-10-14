@@ -639,8 +639,8 @@ export default function AIAssistantView({
     try {
       const { isNativeAndroid, saveNativeJsonFile } = await import("../lib/native");
       if (isNativeAndroid()) {
-        await saveNativeJsonFile(fileName, jsonStr);
-        setNotice("اختر مكان حفظ ملف المحادثات من نافذة الحفظ التي ظهرت.");
+        const savedName = await saveNativeJsonFile(fileName, jsonStr);
+        setNotice(`تم حفظ ملف المحادثات باسم ${savedName || fileName}.`);
         return;
       }
 
