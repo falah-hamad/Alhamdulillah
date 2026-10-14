@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
@@ -60,19 +61,26 @@ public class NativePrintPlugin extends Plugin {
         Uri uri = result.getData().getData();
         String content = call.getString("content");
         String fileName = call.getString("fileName", "backup.json");
-        try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
-            if (output == null) {
-                call.reject("تعذر فتح الملف للكتابة");
+        try {
+            if (content == null || content.isEmpty()) {
+                call.reject("محتوى النسخة الاحتياطية فارغ");
                 return;
             }
-            output.write(content.getBytes(StandardCharsets.UTF_8));
-            output.flush();
+            try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+                if (output == null) {
+                    call.reject("تعذر فتح الملف الذي اخترته للكتابة");
+                    return;
+                }
+                output.write(content.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+            }
             JSObject response = new JSObject();
             response.put("uri", uri.toString());
             response.put("fileName", fileName);
             call.resolve(response);
         } catch (Exception e) {
-            call.reject("تعذر حفظ الملف: " + e.getMessage(), e);
+            String detail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            call.reject("تعذر حفظ النسخة الاحتياطية في الموقع المحدد: " + detail, e);
         }
     }
     private void removePrintWebView(WebView view, ViewGroup parent) {
