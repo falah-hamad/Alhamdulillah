@@ -118,11 +118,10 @@ public class NativePrintPlugin extends Plugin {
                         }, 350);
                     }
                 });
-                // The caller embeds same-origin stylesheet rules into this HTML.
-                // Use a neutral base URL so the standalone WebView never depends
-                // on the main Capacitor WebView's private asset interception.
+                // The caller embeds stylesheet rules into this HTML. Keep a
+                // stable HTTPS base for absolute/relative remote document assets.
                 printWebView.loadDataWithBaseURL(
-                    "about:blank",
+                    "https://localhost/",
                     html,
                     "text/html",
                     "UTF-8",
