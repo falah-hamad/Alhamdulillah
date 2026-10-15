@@ -25,6 +25,7 @@ import android.provider.MediaStore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -355,6 +356,7 @@ public class NativePrintPlugin extends Plugin {
                                                         response.put("uri", savedUri.toString());
                                                         response.put("fileName", finalFileName);
                                                         response.put("base64", android.util.Base64.encodeToString(pdfBytes, android.util.Base64.NO_WRAP));
+                                                        Toast.makeText(getContext(), "تم حفظ الملف بنجاح", Toast.LENGTH_SHORT).show();
                                                         call.resolve(response);
                                                     } catch (Exception e) {
                                                         call.reject("تعذر حفظ ملف PDF: " +
@@ -422,5 +424,4 @@ public class NativePrintPlugin extends Plugin {
             pdfView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
         });
     }
-}
 }
