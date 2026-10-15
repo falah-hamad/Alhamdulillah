@@ -483,7 +483,7 @@ public class NativePrintPlugin extends Plugin {
                                 ContentValues values = new ContentValues();
                                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                                 values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
-                                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Alhamdulillah");
                                 values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                                 savedUri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                                 if (savedUri == null) throw new java.io.IOException("تعذر إنشاء الملف داخل مجلد التنزيلات");
