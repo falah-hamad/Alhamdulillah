@@ -692,14 +692,16 @@ export const askFinancialAssistant = functions.runWith({ secrets: ["GEMINI_API_K
   let customers: any[] = [];
   let invoices: any[] = [];
   let payments: any[] = [];
+  let products: any[] = [];
   let currency = "د.ع";
 
   try {
-    const [foldSnap, custSnap, invSnap, paySnap, setDoc] = await Promise.all([
+    const [foldSnap, custSnap, invSnap, paySnap, productSnap, setDoc] = await Promise.all([
       db.collection("users").doc(userId).collection("folders").get(),
       db.collection("users").doc(userId).collection("customers").get(),
       db.collection("users").doc(userId).collection("invoices").get(),
       db.collection("users").doc(userId).collection("payments").get(),
+      db.collection("users").doc(userId).collection("products").get(),
       db.collection("users").doc(userId).collection("settings").doc("general").get(),
     ]);
 
@@ -707,6 +709,7 @@ export const askFinancialAssistant = functions.runWith({ secrets: ["GEMINI_API_K
     customers = custSnap.docs.map((d: any) => d.data());
     invoices = invSnap.docs.map((d: any) => d.data());
     payments = paySnap.docs.map((d: any) => d.data());
+    products = productSnap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
     if (setDoc.exists && setDoc.data()?.currency) {
       currency = setDoc.data()?.currency;
     }
@@ -766,8 +769,8 @@ export const askFinancialAssistant = functions.runWith({ secrets: ["GEMINI_API_K
 
       const systemInstruction =
         "أنت مساعد محاسبي ذكي يفهم الطلبات الجديدة ويستنتج طريقة تنفيذها، ولست نظام أجوبة محفوظة.\n" +
-        "إذا كان السؤال عن بيانات حساب المستخدم أو ديونه أو عملائه أو دفعاته أو مجلداته، يجب استخدام أداة أو أكثر قبل ذكر أي حقيقة أو رقم. لا تخترع أسماء أو أرقاماً.\n" +
-        "يمكنك جمع عدة شروط معاً: تحديد المجلد ثم نطاق الدين المتبقي ثم الترتيب واختيار العدد المطلوب. استخدم الأدوات مرة أخرى إذا احتجت نتائج إضافية.\n" +
+        "إذا كان السؤال عن بيانات حساب المستخدم أو ديونه أو عملائه أو دفعاته أو مجلداته أو البضاعة أو المخزون أو الأسعار أو المجهزين، يجب استخدام أداة أو أكثر قبل ذكر أي حقيقة أو رقم. لا تخترع أسماء أو أرقاماً.\n" +
+        "يمكنك جمع عدة شروط معاً: تحديد المجلد ثم نطاق الدين المتبقي ثم الترتيب واختيار العدد المطلوب. وبالنسبة للبضاعة، استخدم البحث والتصنيف ونطاق الأسعار والكمية والحد الأدنى للمخزون وسجل الأسعار والحركات حسب السؤال. استخدم الأدوات مرة أخرى إذا احتجت نتائج إضافية.\n" +
         "الأدوات المتاحة للقراءة والتحليل فقط ولا تغيّر البيانات؛ لا تدّع تنفيذ إجراء لا تتيحه أداة.\n" +
         "إذا كان الاسم ملتبساً أو الطلب غامضاً بما يؤثر على النتيجة، اطلب التوضيح. إذا لم تدعم الأدوات طلباً بعينه، اشرح القيد ولا تستبدله بملخص عام.\n" +
         "للأسئلة العامة غير المتعلقة ببيانات الحساب، أجب بصورة طبيعية. تحدث بالعربية الواضحة أو باللهجة العراقية المناسبة. العملة: " + currency + ".\n" +
@@ -804,7 +807,7 @@ export const askFinancialAssistant = functions.runWith({ secrets: ["GEMINI_API_K
           if (!call.name) continue;
           let result: unknown;
           try {
-            result = executeFinancialAssistantTool(call.name, (call.args ?? {}) as Record<string, unknown>, dataset);
+            result = executeFinancialAssistantTool(call.name, (call.args ?? {}) as Record<string, unknown>, dataset, products);
           } catch (toolError) {
             result = { error: "تعذر تنفيذ أداة المحاسبة بأمان." };
             console.error("Financial assistant tool failed:", call.name, toolError);
