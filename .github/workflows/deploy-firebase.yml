@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Authenticate to Google Cloud with Workload Identity Federation
         uses: google-github-actions/auth@v2
@@ -40,7 +40,7 @@ jobs:
         run: node -e "JSON.parse(require('fs').readFileSync('firebase.json', 'utf8')); console.log('firebase.json is valid JSON')"
 
       - name: Install Cloud Functions dependencies
-        run: npm ci --prefix functions
+        run: npm install --prefix functions --no-audit --no-fund
 
       - name: Build Cloud Functions
         run: npm --prefix functions run build
