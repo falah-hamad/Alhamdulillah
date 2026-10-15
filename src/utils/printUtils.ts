@@ -622,18 +622,54 @@ export async function printElement(
 
     try {
       if (options.download) {
-        const result = await NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title });
-        if (!result.base64) {
-          throw new Error("تم حفظ الملف لكن لم تُستلم بيانات PDF لتسجيله داخل قسم التنزيلات.");
+        // A native bridge that never resolves must not leave the UI in
+        // "downloading" forever. The native side may still finish later, but
+        // this timeout releases the caller and exposes a useful error.
+        let timeoutId: number | undefined;
+        let result: Awaited<ReturnType<typeof NativePrint.downloadHtmlPdf>>;
+        try {
+          result = await Promise.race([
+            NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title }),
+            new Promise<never>((_, reject) => {
+              timeoutId = window.setTimeout(
+                () => reject(new Error("انتهت مهلة إنشاء PDF على أندرويد بعد 45 ثانية. لم يستجب مكوّن التنزيل؛ أعد المحاولة، وإذا تكرر الخطأ أرسل سجل البناء والتشغيل.")),
+                45_000
+              );
+            }),
+          ]);
+        } finally {
+          if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         }
-        const binary = atob(result.base64);
+
+        if (!result.base64) {
+          throw new Error(
+            `مكوّن أندرويد لم يُرجع بيانات PDF. الملف: ${result.fileName || title}; المسار: ${result.uri || "غير متوفر"}`
+          );
+        }
+        // Accept either a raw Base64 payload or a data URL, then pass only
+        // the raw payload to Blob decoding.
+        const cleanBase64 = result.base64.replace(/^data:application\/pdf;base64,/i, "").replace(/\\s/g, "");
+        let binary: string;
+        try {
+          binary = atob(cleanBase64);
+        } catch (decodeError) {
+          throw new Error("وصلت بيانات PDF من أندرويد لكنها ليست Base64 صالحاً: " +
+            (decodeError instanceof Error ? decodeError.message : String(decodeError)));
+        }
         const bytes = new Uint8Array(binary.length);
         for (let index = 0; index < binary.length; index += 1) {
           bytes[index] = binary.charCodeAt(index);
         }
+        if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") {
+          throw new Error("البيانات المستلمة لا تحتوي على ترويسة PDF صالحة.");
+        }
         const fileName = result.fileName || `${title.replace(/\.pdf$/i, "")}.pdf`;
         const pdfBlob = new Blob([bytes], { type: "application/pdf" });
-        await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+        try {
+          await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+        } catch (storageError) {
+          console.warn("PDF saved by Android, but in-app download history failed:", storageError);
+        }
       } else {
         await NativePrint.printHtml({ html: nativeHtmlContent, title });
       }
@@ -641,11 +677,9 @@ export async function printElement(
       return;
     } catch (error) {
       console.error("Android native print failed:", error);
-      const detail = error instanceof Error ? error.message : String(error || "");
-      const message =
-        "تعذرت طباعة المستند على Android. " +
-        (detail ? "التفاصيل: " + detail : "تأكد من تثبيت أحدث نسخة من التطبيق.");
-      window.alert(message);
+      const detail = error instanceof Error ? error.message : String(error || error);
+      const message = detail || "سبب الخطأ غير معروف. تحقق من نسخة التطبيق وسجل التشغيل.";
+      window.alert("تعذر إنشاء ملف PDF على Android. السبب: " + message);
       throw new Error(message);
     }
   }
