@@ -247,7 +247,7 @@ public class NativePrintPlugin extends Plugin {
                             try {
                                 ContentValues values = new ContentValues();
                                 String safeName = title == null ? "Alhamdulillah" : title.trim();
-                                safeName = safeName.replaceAll("[\\\\/:*?\\"<>|]", "_");
+                                safeName = safeName.replaceAll("[\\\\/:*?<>|]", "_").replace("\\\"", "_");
                                 if (safeName.isEmpty()) safeName = "Alhamdulillah";
                                 if (!safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
                                     safeName += ".pdf";
