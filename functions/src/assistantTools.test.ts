@@ -276,6 +276,52 @@ test("get_payment_reconciliation flags differences between invoice-paid values a
   assert.equal(result.customers[0].difference, 1000);
 });
 
+
+test("search_products filters, sorts, and excludes deleted inventory items", () => {
+  const products = [
+    { id: "pr1", name: "شاي", category: "مواد غذائية", quantity: 5, minStock: 2, purchasePrice: 1000, salePrice: 1500, supplierName: "مجهز أ" },
+    { id: "pr2", name: "سكر", category: "مواد غذائية", quantity: 1, minStock: 3, purchasePrice: 800, salePrice: 1200, supplierName: "مجهز ب" },
+    { id: "pr3", name: "صابون", category: "تنظيف", quantity: 10, minStock: 2, purchasePrice: 500, salePrice: 900, isDeleted: true },
+  ];
+  const result = executeFinancialAssistantTool("search_products", {
+    category: "مواد غذائية", lowStockOnly: true, sortBy: "quantity", sortDirection: "asc",
+  }, fixture(), products) as any;
+  assert.equal(result.totalMatches, 1);
+  assert.equal(result.products[0].name, "سكر");
+  assert.equal(result.products[0].potentialProfit, 400);
+});
+
+test("get_inventory_summary computes stock value and potential gross profit", () => {
+  const products = [
+    { id: "pr1", name: "شاي", quantity: 5, purchasePrice: 1000, salePrice: 1500, minStock: 2 },
+    { id: "pr2", name: "سكر", quantity: 2, purchasePrice: 800, salePrice: 1200, minStock: 3 },
+    { id: "pr3", name: "محذوف", quantity: 100, purchasePrice: 1, salePrice: 2, isDeleted: true },
+  ];
+  const result = executeFinancialAssistantTool("get_inventory_summary", {}, fixture(), products) as any;
+  assert.equal(result.productCount, 2);
+  assert.equal(result.totalQuantity, 7);
+  assert.equal(result.totalCostValue, 6600);
+  assert.equal(result.totalSaleValue, 9900);
+  assert.equal(result.potentialGrossProfit, 3300);
+  assert.equal(result.lowStockCount, 1);
+});
+
+test("get_product_price_history and stock movements return only the selected product records", () => {
+  const products = [
+    { id: "pr1", name: "شاي", quantity: 5, purchasePrice: 1000, salePrice: 1500,
+      priceHistory: [{ changedAt: "2026-02-01", purchasePrice: 900, salePrice: 1400, previousPurchasePrice: 800, previousSalePrice: 1300 }],
+      stockMovements: [{ id: "m1", type: "restock", quantity: 5, createdAt: "2026-02-02", note: "توريد جديد" }] },
+  ];
+  const history = executeFinancialAssistantTool("get_product_price_history", { productName: "شاي" }, fixture(), products) as any;
+  assert.equal(history.found, true);
+  assert.equal(history.history.length, 1);
+  assert.equal(history.history[0].previousPurchasePrice, 800);
+  const movements = executeFinancialAssistantTool("get_product_stock_movements", { productName: "شاي", movementType: "restock" }, fixture(), products) as any;
+  assert.equal(movements.found, true);
+  assert.equal(movements.totalMatches, 1);
+  assert.equal(movements.movements[0].note, "توريد جديد");
+});
+
 test("unknown tool returns an explicit error rather than fabricated data", () => {
   const result = executeFinancialAssistantTool("unknown_tool", {}, fixture()) as any;
   assert.match(result.error, /غير معروفة/);
