@@ -95,9 +95,9 @@ export default function DownloadsView() {
     }
   };
 
-  const handleOpen = (file: DownloadRecord) => {
+  const handleOpen = async (file: DownloadRecord) => {
     try {
-      openStoredFile(file);
+      await openStoredFile(file);
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر فتح الملف.");
     }
@@ -184,7 +184,7 @@ export default function DownloadsView() {
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     {tab === "files" ? (
                       <>
-                        <button type="button" onClick={() => handleOpen(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink className="h-3.5 w-3.5" /> فتح</button>
+                        <button type="button" onClick={() => void handleOpen(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink className="h-3.5 w-3.5" /> فتح</button>
                         <button type="button" onClick={() => void handleShare(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Share2 className="h-3.5 w-3.5" /> مشاركة</button>
                         <button type="button" onClick={() => void handleRename(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Pencil className="h-3.5 w-3.5" /> إعادة تسمية</button>
                         <button type="button" onClick={() => downloadStoredFile(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Download className="h-3.5 w-3.5" /> تنزيل</button>
