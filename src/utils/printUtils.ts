@@ -674,7 +674,6 @@ export async function printElement(
   }
 
   // Android prints the prepared HTML directly through the native print framework.
- the prepared HTML directly through the native print framework.
   // Do not wait for the hidden iframe's fonts/paint: the native WebView has its own
   // page-finished callback and this avoids a stalled export on Android.
   if (Capacitor.isNativePlatform()) {
