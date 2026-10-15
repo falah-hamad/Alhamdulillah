@@ -633,7 +633,7 @@ export async function printElement(
 
       let binary: string;
       try {
-        binary = atob(payload.base64.replace(/^data:application\\/pdf;base64,/i, "").replace(/\\s/g, ""));
+        binary = atob(payload.base64.replace(/^data:application\/pdf;base64,/i, "").replace(/\s/g, ""));
       } catch (decodeError) {
         throw new Error("وصلت بيانات PDF غير صالحة: " +
           (decodeError instanceof Error ? decodeError.message : String(decodeError)));
@@ -816,7 +816,7 @@ export async function exportElementToPDF(
 
   const requestedName = (options.filename || options.title || "Alhamdulillah")
     .trim()
-    .replace(/\\.pdf$/i, "");
+    .replace(/\.pdf$/i, "");
   const title = requestedName || "Alhamdulillah";
 
   // Same entry point for both platforms. printElement routes web downloads to
