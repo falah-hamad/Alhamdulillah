@@ -43,55 +43,67 @@ public class NativePrintPlugin extends Plugin {
     public void saveTextFile(PluginCall call) {
         String fileName = call.getString("fileName", "backup.json");
         String content = call.getString("content");
-        if (content == null) {
+        if (content == null || content.isEmpty()) {
             call.reject("محتوى الملف فارغ");
             return;
         }
-
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(fileName.toLowerCase().endsWith(".json")
-            ? "application/json"
-            : "text/plain");
-        intent.putExtra(Intent.EXTRA_TITLE, fileName);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        startActivityForResult(call, intent, "handleSaveTextFileResult");
-    }
-
-    @ActivityCallback
-    private void handleSaveTextFileResult(PluginCall call, ActivityResult result) {
-        if (call == null) return;
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
-                || result.getData().getData() == null) {
-            call.reject("تم إلغاء حفظ الملف أو لم يتم اختيار موقع للحفظ");
-            return;
-        }
-
-        Uri uri = result.getData().getData();
-        String content = call.getString("content");
-        String fileName = call.getString("fileName", "backup.json");
         try {
-            if (content == null || content.isEmpty()) {
-                call.reject("محتوى النسخة الاحتياطية فارغ");
-                return;
-            }
-            try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    call.reject("تعذر فتح الملف الذي اخترته للكتابة");
-                    return;
-                }
-                output.write(content.getBytes(StandardCharsets.UTF_8));
-                output.flush();
-            }
+            String safeName = sanitizeDownloadName(fileName, "backup.json");
+            Uri uri = saveToAppDownloads(safeName,
+                safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".json") ? "application/json" : "text/plain",
+                content.getBytes(StandardCharsets.UTF_8));
             JSObject response = new JSObject();
             response.put("uri", uri.toString());
-            response.put("fileName", fileName);
+            response.put("fileName", safeName);
+            Toast.makeText(getContext(), "تم حفظ الملف داخل التنزيلات/Alhamdulillah", Toast.LENGTH_SHORT).show();
             call.resolve(response);
         } catch (Exception e) {
-            String detail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            call.reject("تعذر حفظ النسخة الاحتياطية في الموقع المحدد: " + detail, e);
+            call.reject("تعذر حفظ الملف داخل مجلد Alhamdulillah: " +
+                (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
         }
     }
+
+    private String sanitizeDownloadName(String requestedName, String fallbackName) {
+        String name = requestedName == null ? fallbackName : requestedName.trim();
+        name = name.replaceAll("[\\\\/:*?<>|\\\"]", "_");
+        return name.isEmpty() ? fallbackName : name;
+    }
+
+    private Uri saveToAppDownloads(String fileName, String mimeType, byte[] bytes) throws java.io.IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+            values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Alhamdulillah");
+            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+            Uri uri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) throw new java.io.IOException("تعذر إنشاء الملف داخل التنزيلات/Alhamdulillah");
+            try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                if (output == null) throw new java.io.IOException("تعذر فتح الملف للكتابة");
+                output.write(bytes);
+                output.flush();
+            } catch (Exception writeError) {
+                getContext().getContentResolver().delete(uri, null, null);
+                if (writeError instanceof java.io.IOException) throw (java.io.IOException) writeError;
+                throw new java.io.IOException(writeError);
+            }
+            ContentValues completed = new ContentValues();
+            completed.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            getContext().getContentResolver().update(uri, completed, null, null);
+            return uri;
+        }
+        File downloads = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (downloads == null) throw new java.io.IOException("مجلد التنزيلات غير متاح");
+        File appFolder = new File(downloads, "Alhamdulillah");
+        if (!appFolder.exists() && !appFolder.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد Alhamdulillah");
+        File outputFile = new File(appFolder, fileName);
+        try (OutputStream output = new FileOutputStream(outputFile)) {
+            output.write(bytes);
+            output.flush();
+        }
+        return Uri.fromFile(outputFile);
+    }
+
     /**
      * Saves a PDF already rendered by the shared server-side Chromium engine.
      * This avoids Android's Canvas-based re-rendering, which can alter layout.
@@ -123,7 +135,7 @@ public class NativePrintPlugin extends Plugin {
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                 values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
-                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Alhamdulillah");
                 values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                 savedUri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                 if (savedUri == null) throw new java.io.IOException("تعذر إنشاء الملف داخل مجلد التنزيلات");
@@ -141,8 +153,9 @@ public class NativePrintPlugin extends Plugin {
             } else {
                 File downloads = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                 if (downloads == null) throw new java.io.IOException("مجلد التنزيلات غير متاح");
-                if (!downloads.exists() && !downloads.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد التنزيلات");
-                File outputFile = new File(downloads, fileName);
+                File appFolder = new File(downloads, "Alhamdulillah");
+                if (!appFolder.exists() && !appFolder.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد Alhamdulillah");
+                File outputFile = new File(appFolder, fileName);
                 try (OutputStream output = new FileOutputStream(outputFile)) {
                     output.write(pdfBytes);
                     output.flush();
@@ -158,6 +171,31 @@ public class NativePrintPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("تعذر حفظ ملف PDF في التنزيلات: " +
                     (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        }
+    }
+
+    @PluginMethod
+    public void saveFileBase64(PluginCall call) {
+        String encoded = call.getString("base64");
+        String requestedName = call.getString("fileName", "download.bin");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        if (encoded == null || encoded.trim().isEmpty()) {
+            call.reject("بيانات الملف فارغة");
+            return;
+        }
+        try {
+            byte[] bytes = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT);
+            if (bytes.length == 0) throw new java.io.IOException("الملف فارغ");
+            String fileName = sanitizeDownloadName(requestedName, "download.bin");
+            Uri uri = saveToAppDownloads(fileName, mimeType, bytes);
+            JSObject response = new JSObject();
+            response.put("uri", uri.toString());
+            response.put("fileName", fileName);
+            Toast.makeText(getContext(), "تم حفظ الملف داخل التنزيلات/Alhamdulillah", Toast.LENGTH_SHORT).show();
+            call.resolve(response);
+        } catch (Exception e) {
+            call.reject("تعذر حفظ الملف داخل مجلد Alhamdulillah: " +
+                (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
         }
     }
 
