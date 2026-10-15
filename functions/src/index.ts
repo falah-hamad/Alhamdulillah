@@ -1018,7 +1018,7 @@ export const generatePdfFromHtml = functions.runWith({
   const safeHtml = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<base\b[^>]*>/gi, "")
-    .replace(/<head\\b([^>]*)>/i, (_match: string, attrs: string) => '<head' + attrs + '>' + baseTag);
+    .replace(/<head\b([^>]*)>/i, (_match: string, attrs: string) => "<head" + attrs + ">" + baseTag);
 
   let browser: any;
   try {
