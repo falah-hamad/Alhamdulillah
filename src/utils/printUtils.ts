@@ -679,7 +679,6 @@ export async function printElement(
       console.error("Android native print failed:", error);
       const detail = error instanceof Error ? error.message : String(error || error);
       const message = detail || "سبب الخطأ غير معروف. تحقق من نسخة التطبيق وسجل التشغيل.";
-      window.alert("تعذر إنشاء ملف PDF على Android. السبب: " + message);
       throw new Error(message);
     }
   }
