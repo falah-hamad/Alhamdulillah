@@ -92,6 +92,75 @@ public class NativePrintPlugin extends Plugin {
             call.reject("تعذر حفظ النسخة الاحتياطية في الموقع المحدد: " + detail, e);
         }
     }
+    /**
+     * Saves a PDF already rendered by the shared server-side Chromium engine.
+     * This avoids Android's Canvas-based re-rendering, which can alter layout.
+     */
+    @PluginMethod
+    public void savePdfBase64(PluginCall call) {
+        String encoded = call.getString("base64");
+        String requestedName = call.getString("fileName", "Alhamdulillah.pdf");
+        if (encoded == null || encoded.trim().isEmpty()) {
+            call.reject("بيانات ملف PDF فارغة");
+            return;
+        }
+
+        try {
+            byte[] pdfBytes = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT);
+            if (pdfBytes.length < 5 || pdfBytes[0] != '%' || pdfBytes[1] != 'P' ||
+                    pdfBytes[2] != 'D' || pdfBytes[3] != 'F' || pdfBytes[4] != '-') {
+                call.reject("البيانات المستلمة لا تحتوي على ملف PDF صالح");
+                return;
+            }
+
+            String fileName = requestedName == null ? "Alhamdulillah.pdf" : requestedName.trim();
+            fileName = fileName.replaceAll("[\\\\/:*?<>|\\\"]", "_");
+            if (fileName.isEmpty()) fileName = "Alhamdulillah.pdf";
+            if (!fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) fileName += ".pdf";
+
+            Uri savedUri;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                savedUri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (savedUri == null) throw new java.io.IOException("تعذر إنشاء الملف داخل مجلد التنزيلات");
+                try (OutputStream output = getContext().getContentResolver().openOutputStream(savedUri, "w")) {
+                    if (output == null) throw new java.io.IOException("تعذر فتح ملف PDF للكتابة");
+                    output.write(pdfBytes);
+                    output.flush();
+                } catch (Exception writeError) {
+                    getContext().getContentResolver().delete(savedUri, null, null);
+                    throw writeError;
+                }
+                ContentValues completed = new ContentValues();
+                completed.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                getContext().getContentResolver().update(savedUri, completed, null, null);
+            } else {
+                File downloads = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (downloads == null) throw new java.io.IOException("مجلد التنزيلات غير متاح");
+                if (!downloads.exists() && !downloads.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد التنزيلات");
+                File outputFile = new File(downloads, fileName);
+                try (OutputStream output = new FileOutputStream(outputFile)) {
+                    output.write(pdfBytes);
+                    output.flush();
+                }
+                savedUri = Uri.fromFile(outputFile);
+            }
+
+            JSObject response = new JSObject();
+            response.put("uri", savedUri.toString());
+            response.put("fileName", fileName);
+            Toast.makeText(getContext(), "تم حفظ ملف PDF في التنزيلات", Toast.LENGTH_SHORT).show();
+            call.resolve(response);
+        } catch (Exception e) {
+            call.reject("تعذر حفظ ملف PDF في التنزيلات: " +
+                    (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        }
+    }
+
     private void removePrintWebView(WebView view, ViewGroup parent) {
         try {
             if (parent != null) {
