@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { processFullAccountingDataset } from "./accountingEngine";
 import { executeFinancialAssistantTool } from "./assistantTools";
 
-function fixture() {
+function fixture(extraInvoices: any[] = []) {
   return processFullAccountingDataset(
     [
       { id: "c1", name: "أحمد علي", folderId: "f1" },
@@ -18,6 +18,7 @@ function fixture() {
       { id: "i1", customerId: "c1", grandTotal: 12000, paidAmount: 2000, remainingAmount: 10000, date: "2026-01-01" },
       { id: "i2", customerId: "c2", grandTotal: 18000, paidAmount: 3000, remainingAmount: 15000, date: "2026-01-02" },
       { id: "i3", customerId: "c3", grandTotal: 7000, paidAmount: 1000, remainingAmount: 6000, date: "2026-01-03" },
+      ...extraInvoices,
     ],
     [
       { id: "p1", customerId: "c1", amount: 2000, date: "2026-01-10", method: "نقدي" },
@@ -214,11 +215,10 @@ test("get_invoice_status_summary groups invoice balances and excludes deleted in
 });
 
 test("get_collection_priorities ranks overdue debtors and supports folder filters", () => {
-  const dataset = fixture();
-  dataset.rawInvoices.push(
+  const dataset = fixture([
     { id: "late1", customerId: "c1", grandTotal: 50000, paidAmount: 10000, remainingAmount: 40000, date: "2026-01-01", dueDate: "2026-01-15" },
-    { id: "late2", customerId: "c2", grandTotal: 20000, paidAmount: 0, remainingAmount: 20000, date: "2026-01-01", dueDate: "2026-01-15" }
-  );
+    { id: "late2", customerId: "c2", grandTotal: 20000, paidAmount: 0, remainingAmount: 20000, date: "2026-01-01", dueDate: "2026-01-15" },
+  ]);
   const result = executeFinancialAssistantTool("get_collection_priorities", {
     folderName: "المحل",
     minOverdueAmount: 1,
