@@ -705,6 +705,7 @@ export async function exportElementToPDF(
     import("jspdf"),
   ]);
   const clone = preparePrintableClone(element);
+  clone.id = `pdf-export-clone-${Date.now()}`;
   const computed = window.getComputedStyle(element);
   const renderHost = document.createElement("div");
   renderHost.setAttribute("aria-hidden", "true");
@@ -749,7 +750,7 @@ export async function exportElementToPDF(
       height: clone.scrollHeight,
       windowWidth: Math.max(clone.scrollWidth, 794),
       onclone: (clonedDocument) => {
-        const clonedTarget = clonedDocument.body.querySelector("div");
+        const clonedTarget = clonedDocument.getElementById(clone.id);
         if (clonedTarget instanceof HTMLElement) sanitizeClonedPage(clonedTarget);
       },
     });
