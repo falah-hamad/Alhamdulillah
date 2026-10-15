@@ -604,7 +604,7 @@ export async function printElement(
         for (let index = 0; index < binary.length; index += 1) {
           bytes[index] = binary.charCodeAt(index);
         }
-        const fileName = result.fileName || `${title.replace(/\\.pdf$/i, "")}.pdf`;
+        const fileName = result.fileName || `${title.replace(/\.pdf$/i, "")}.pdf`;
         const pdfBlob = new Blob([bytes], { type: "application/pdf" });
         await recordDownloadedFile(fileName, pdfBlob, "تقرير");
       } else {
@@ -688,7 +688,7 @@ export async function exportElementToPDF(
 
   const requestedName = (options.filename || options.title || "Alhamdulillah")
     .trim()
-    .replace(/\\.pdf$/i, "");
+    .replace(/\.pdf$/i, "");
   const title = requestedName || "Alhamdulillah";
   const fileName = `${title}.pdf`;
 
