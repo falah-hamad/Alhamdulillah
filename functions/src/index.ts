@@ -977,6 +977,8 @@ export const parseProductsFromText = functions.runWith({ secrets: ["GEMINI_API_K
  * Render the app's existing HTML receipt/report to a real text/vector PDF.
  * The browser supplies the already prepared printable markup; data is not stored.
  */
+let sharedPdfBrowser: any;
+
 export const generatePdfFromHtml = functions.runWith({
   timeoutSeconds: 120,
   memory: "1GB",
@@ -1021,17 +1023,23 @@ export const generatePdfFromHtml = functions.runWith({
     .replace(/<head\b([^>]*)>/i, (_match: string, attrs: string) => "<head" + attrs + ">" + baseTag);
 
   let browser: any;
+  let page: any;
   try {
     const chromium = require("@sparticuz/chromium");
     const puppeteer = require("puppeteer-core");
-    browser = await puppeteer.launch({
-      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
-      defaultViewport: { width: 1280, height: 1600, deviceScaleFactor: 1 },
-      executablePath: await chromium.executablePath(),
-      headless: "shell",
-    });
 
-    const page = await browser.newPage();
+    // Reuse Chromium in warm function instances. Launching/extracting Chromium
+    // for every export adds avoidable latency; each request still gets its own page.
+    if (!sharedPdfBrowser || !sharedPdfBrowser.isConnected()) {
+      sharedPdfBrowser = await puppeteer.launch({
+        args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+        defaultViewport: { width: 1280, height: 1600, deviceScaleFactor: 1 },
+        executablePath: await chromium.executablePath(),
+        headless: "shell",
+      });
+    }
+    browser = sharedPdfBrowser;
+    page = await browser.newPage();
     await page.setRequestInterception(true);
     page.on("request", (request: any) => {
       try {
@@ -1092,11 +1100,12 @@ export const generatePdfFromHtml = functions.runWith({
     const detail = String(error?.message || error || "سبب غير معروف").slice(0, 500);
     throw new functions.https.HttpsError("internal", "تعذر إنشاء PDF نصي: " + detail);
   } finally {
-    if (browser) {
+    // Close only this request's page; keep Chromium warm for the next export.
+    if (page) {
       try {
-        await browser.close();
+        await page.close();
       } catch (closeError) {
-        console.warn("PDF Chromium cleanup failed:", closeError);
+        console.warn("PDF page cleanup failed:", closeError);
       }
     }
   }
