@@ -18,6 +18,7 @@ import {
 } from "../lib/downloads";
 
 type DownloadsTab = "files" | "trash";
+type DownloadSort = "newest" | "oldest" | "nameAsc" | "nameDesc" | "sizeDesc" | "sizeAsc" | "category";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} بايت`;
@@ -37,6 +38,7 @@ export default function DownloadsView() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<DownloadsTab>("files");
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<DownloadSort>("newest");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -107,8 +109,8 @@ export default function DownloadsView() {
     try {
       const shared = await shareStoredFile(file);
       if (!shared) {
-        downloadStoredFile(file);
-        window.alert("المشاركة المباشرة غير مدعومة هنا؛ نزّلنا نسخة لتقدر تشاركها من مدير الملفات.");
+        await downloadStoredFile(file);
+        window.alert("المشاركة المباشرة غير مدعومة هنا؛ تم حفظ نسخة داخل مجلد Downloads/Alhamdulillah لتشاركها من مدير الملفات.");
       }
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") return;
@@ -116,7 +118,20 @@ export default function DownloadsView() {
     }
   };
 
-  const visibleFiles = files.filter((file) => file.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const visibleFiles = files
+    .filter((file) => file.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "oldest": return a.createdAt - b.createdAt;
+        case "nameAsc": return a.name.localeCompare(b.name, "ar");
+        case "nameDesc": return b.name.localeCompare(a.name, "ar");
+        case "sizeDesc": return b.size - a.size;
+        case "sizeAsc": return a.size - b.size;
+        case "category": return String(a.category).localeCompare(String(b.category), "ar") || b.createdAt - a.createdAt;
+        case "newest":
+        default: return b.createdAt - a.createdAt;
+      }
+    });
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-4 p-3 sm:p-6" dir="rtl">
@@ -145,8 +160,20 @@ export default function DownloadsView() {
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث باسم الملف..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label htmlFor="downloads-sort" className="text-xs font-semibold text-slate-600">فرز حسب:</label>
+          <select id="downloads-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as DownloadSort)} className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400">
+            <option value="newest">الأحدث أولاً</option>
+            <option value="oldest">الأقدم أولاً</option>
+            <option value="nameAsc">الاسم: أ إلى ي</option>
+            <option value="nameDesc">الاسم: ي إلى أ</option>
+            <option value="sizeDesc">الحجم: الأكبر أولاً</option>
+            <option value="sizeAsc">الحجم: الأصغر أولاً</option>
+            <option value="category">نوع الملف</option>
+          </select>
+        </div>
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          ملاحظة: إدارة هذه الصفحة تخص النسخة المحفوظة داخل التطبيق. النقل للمهملات أو إعادة التسمية هنا لا يغيّر الملف الأصلي في مجلد تنزيلات أندرويد.
+          تنزيل ملفات أندرويد من هذه الصفحة يحفظها داخل مجلد Downloads/Alhamdulillah. أما إعادة التسمية والمهملات فتخص النسخة المسجلة داخل التطبيق.
         </p>
       </div>
 
@@ -187,7 +214,7 @@ export default function DownloadsView() {
                         <button type="button" onClick={() => void handleOpen(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink className="h-3.5 w-3.5" /> فتح</button>
                         <button type="button" onClick={() => void handleShare(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Share2 className="h-3.5 w-3.5" /> مشاركة</button>
                         <button type="button" onClick={() => void handleRename(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Pencil className="h-3.5 w-3.5" /> إعادة تسمية</button>
-                        <button type="button" onClick={() => downloadStoredFile(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Download className="h-3.5 w-3.5" /> تنزيل</button>
+                        <button type="button" onClick={() => void downloadStoredFile(file).catch((e) => setError(e instanceof Error ? e.message : "تعذر تنزيل الملف."))} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Download className="h-3.5 w-3.5" /> تنزيل</button>
                         <button type="button" onClick={() => void handleMoveToTrash(file)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-100 px-2.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" /> إلى المهملات</button>
                       </>
                     ) : (
