@@ -35,6 +35,14 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Install Firebase Functions dependencies
+        working-directory: functions
+        run: npm install --no-audit --no-fund
+
+      - name: Build Firebase Functions
+        working-directory: functions
+        run: npm run build
+
       - name: Authenticate to Google Cloud with Workload Identity Federation
         uses: google-github-actions/auth@v2
         with:
@@ -44,6 +52,13 @@ jobs:
 
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
+
+      - name: Deploy PDF renderer function only
+        run: >-
+          firebase deploy
+          --only functions:generatePdfFromHtml
+          --project gen-lang-client-0628217852
+          --non-interactive
 
       - name: Deploy web frontend only
         run: >-
