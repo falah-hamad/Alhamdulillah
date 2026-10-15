@@ -767,20 +767,29 @@ export async function exportElementToPDF(
       })
     ));
 
-    const canvas = await html2canvas(clone, {
-      scale: Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)),
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: "#ffffff",
-      logging: false,
-      width: clone.scrollWidth,
-      height: clone.scrollHeight,
-      windowWidth: Math.max(clone.scrollWidth, 794),
-      onclone: (clonedDocument) => {
-        const clonedTarget = clonedDocument.getElementById(clone.id);
-        if (clonedTarget instanceof HTMLElement) sanitizeClonedPage(clonedTarget);
-      },
-    });
+    // Tailwind v4 emits OKLCH colors, which html2canvas 1.x cannot parse.
+    // Temporarily normalize computed colors while html2canvas reads the DOM.
+    const originalGetComputedStyle = window.getComputedStyle;
+    let canvas: HTMLCanvasElement;
+    try {
+      window.getComputedStyle = createComputedStyleProxy(originalGetComputedStyle) as typeof window.getComputedStyle;
+      canvas = await html2canvas(clone, {
+        scale: Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)),
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: clone.scrollWidth,
+        height: clone.scrollHeight,
+        windowWidth: Math.max(clone.scrollWidth, 794),
+        onclone: (clonedDocument) => {
+          const clonedTarget = clonedDocument.getElementById(clone.id);
+          if (clonedTarget instanceof HTMLElement) sanitizeClonedPage(clonedTarget);
+        },
+      });
+    } finally {
+      window.getComputedStyle = originalGetComputedStyle;
+    }
 
     if (!canvas.width || !canvas.height) throw new Error("المستند فارغ ولا يمكن تحويله إلى PDF");
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
@@ -821,8 +830,13 @@ export async function exportElementToPDF(
     throw new Error("لم يتم إنشاء ملف PDF صالح");
   }
 
-  // Store first; only trigger the browser download after the in-app library succeeds.
-  await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+  // Trigger the real browser download even if optional in-app IndexedDB tracking is blocked.
+  // Some browser privacy/storage settings can reject IndexedDB without preventing downloads.
+  try {
+    await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+  } catch (storageError) {
+    console.warn("PDF created, but could not save it to the in-app downloads list:", storageError);
+  }
   const url = URL.createObjectURL(pdfBlob);
   const anchor = document.createElement("a");
   anchor.href = url;
