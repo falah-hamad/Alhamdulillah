@@ -8,6 +8,8 @@ export interface DownloadRecord {
   size: number;
   createdAt: number;
   blob: Blob;
+  /** Timestamp when moved to the in-app recycle bin; absent while active. */
+  deletedAt?: number;
 }
 
 const DB_NAME = "alhamdulillah-downloads";
@@ -64,7 +66,7 @@ export async function recordDownloadedFile(
   announceChange();
 }
 
-export async function listDownloadedFiles(): Promise<DownloadRecord[]> {
+async function readAllDownloadRecords(): Promise<DownloadRecord[]> {
   const db = await openDownloadsDb();
   const records = await new Promise<DownloadRecord[]>((resolve, reject) => {
     const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
@@ -75,16 +77,61 @@ export async function listDownloadedFiles(): Promise<DownloadRecord[]> {
   return records.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function removeDownloadedFile(id: string): Promise<void> {
+export async function listDownloadedFiles(): Promise<DownloadRecord[]> {
+  return (await readAllDownloadRecords()).filter((record) => !record.deletedAt);
+}
+
+export async function listTrashFiles(): Promise<DownloadRecord[]> {
+  return (await readAllDownloadRecords()).filter((record) => Boolean(record.deletedAt));
+}
+
+async function updateDownloadRecord(id: string, update: (record: DownloadRecord) => DownloadRecord | null): Promise<void> {
   const db = await openDownloadsDb();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, "readwrite");
-    transaction.objectStore(STORE_NAME).delete(id);
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const record = request.result as DownloadRecord | undefined;
+      if (!record) return;
+      const next = update(record);
+      if (next) store.put(next);
+      else store.delete(id);
+    };
+    request.onerror = () => reject(request.error || new Error("تعذر الوصول إلى الملف"));
     transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error || new Error("تعذر حذف الملف من سجل التنزيلات"));
+    transaction.onerror = () => reject(transaction.error || new Error("تعذر تحديث الملف"));
+    transaction.onabort = () => reject(transaction.error || new Error("تم إلغاء تحديث الملف"));
   });
   db.close();
   announceChange();
+}
+
+export async function moveDownloadedFileToTrash(id: string): Promise<void> {
+  await updateDownloadRecord(id, (record) => ({ ...record, deletedAt: Date.now() }));
+}
+
+export async function restoreDownloadedFile(id: string): Promise<void> {
+  await updateDownloadRecord(id, (record) => {
+    const restored = { ...record };
+    delete restored.deletedAt;
+    return restored;
+  });
+}
+
+export async function permanentlyDeleteDownloadedFile(id: string): Promise<void> {
+  await updateDownloadRecord(id, () => null);
+}
+
+/** Legacy helper retained for any existing callers; this permanently removes the in-app copy. */
+export async function removeDownloadedFile(id: string): Promise<void> {
+  await permanentlyDeleteDownloadedFile(id);
+}
+
+export async function renameDownloadedFile(id: string, name: string): Promise<void> {
+  const cleanName = name.trim().replace(/[\\\\/:*?"<>|]/g, "_");
+  if (!cleanName) throw new Error("اكتب اسمًا صالحًا للملف");
+  await updateDownloadRecord(id, (record) => ({ ...record, name: cleanName }));
 }
 
 export function subscribeToDownloads(callback: () => void): () => void {
@@ -117,6 +164,28 @@ export async function trackDownloadAnchor(anchor: HTMLAnchorElement): Promise<vo
   } catch (error) {
     console.warn("Could not add file to in-app downloads:", error);
   }
+}
+
+export function openStoredFile(record: DownloadRecord): void {
+  const url = URL.createObjectURL(record.blob);
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    URL.revokeObjectURL(url);
+    throw new Error("المتصفح منع فتح الملف؛ اسمح بفتح النوافذ أو نزّل الملف وافتحه من الهاتف");
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export async function shareStoredFile(record: DownloadRecord): Promise<boolean> {
+  const shareNavigator = navigator as Navigator & {
+    canShare?: (data?: ShareData) => boolean;
+    share?: (data: ShareData) => Promise<void>;
+  };
+  if (!shareNavigator.share) return false;
+  const file = new File([record.blob], record.name, { type: record.mimeType || record.blob.type || "application/octet-stream" });
+  if (shareNavigator.canShare && !shareNavigator.canShare({ files: [file] })) return false;
+  await shareNavigator.share({ files: [file], title: record.name });
+  return true;
 }
 
 export function downloadStoredFile(record: DownloadRecord): void {
