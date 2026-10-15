@@ -147,6 +147,64 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
             },
           },
           {
+            name: "search_products",
+            description: "ابحث في بضاعة المستخدم الفعلية حسب الاسم أو التصنيف أو المجهز أو نطاق سعر الشراء/البيع أو كمية المخزون، مع ترتيب النتائج. لا تخمّن إذا لم توجد نتائج.",
+            parameters: { type: Type.OBJECT, properties: {
+              nameContains: { type: Type.STRING, description: "اسم الصنف أو جزء منه." },
+              category: { type: Type.STRING, description: "التصنيف أو جزء منه." },
+              supplierName: { type: Type.STRING, description: "اسم المجهز أو جزء منه." },
+              minSalePrice: { type: Type.NUMBER }, maxSalePrice: { type: Type.NUMBER },
+              minPurchasePrice: { type: Type.NUMBER }, maxPurchasePrice: { type: Type.NUMBER },
+              minQuantity: { type: Type.NUMBER }, maxQuantity: { type: Type.NUMBER },
+              lowStockOnly: { type: Type.BOOLEAN, description: "عرض الأصناف التي وصلت إلى الحد الأدنى للمخزون أو أقل." },
+              sortBy: { type: Type.STRING, enum: ["name", "quantity", "salePrice", "purchasePrice", "profit"] },
+              sortDirection: { type: Type.STRING, enum: ["asc", "desc"] },
+              limit: { type: Type.NUMBER, description: "عدد النتائج 1-100." },
+            } },
+          },
+          {
+            name: "get_inventory_summary",
+            description: "احسب إحصائيات البضاعة الفعلية: عدد الأصناف والكميات وقيمة المخزون بسعر الشراء والبيع والربح الإجمالي المحتمل، مع مقارنة التصنيفات.",
+            parameters: { type: Type.OBJECT, properties: {
+              category: { type: Type.STRING, description: "تصنيف اختياري لتقييد الملخص." },
+            } },
+          },
+          {
+            name: "get_low_stock_products",
+            description: "اعرض الأصناف التي وصلت كميتها إلى حد التنبيه minStock أو أقل، بما فيها الأصناف التي نفدت، مع الكمية والحد والمجهز.",
+            parameters: { type: Type.OBJECT, properties: {
+              category: { type: Type.STRING },
+              includeOutOfStockOnly: { type: Type.BOOLEAN, description: "إرجاع الأصناف التي كميتها صفر فقط." },
+              limit: { type: Type.NUMBER },
+            } },
+          },
+          {
+            name: "get_product_price_history",
+            description: "استرجع سجل تغير أسعار الشراء والبيع والمجهزين لصنف محدد بالاسم أو المعرف، دون اختلاق سجلات قديمة.",
+            parameters: { type: Type.OBJECT, properties: {
+              productName: { type: Type.STRING, description: "اسم الصنف أو جزء منه." },
+              productId: { type: Type.STRING, description: "معرف الصنف إذا كان معروفاً." },
+              limit: { type: Type.NUMBER },
+            } },
+          },
+          {
+            name: "get_product_stock_movements",
+            description: "استرجع حركات مخزون صنف محدد: رصيد افتتاحي أو توريد أو بيع أو مرتجع أو تالف أو تسوية، مع التاريخ والكمية والملاحظات.",
+            parameters: { type: Type.OBJECT, properties: {
+              productName: { type: Type.STRING },
+              productId: { type: Type.STRING },
+              movementType: { type: Type.STRING, enum: ["opening", "restock", "sale", "return", "damaged", "adjustment"] },
+              fromDate: { type: Type.STRING, description: "بداية شاملة YYYY-MM-DD." },
+              toDate: { type: Type.STRING, description: "نهاية شاملة YYYY-MM-DD." },
+              limit: { type: Type.NUMBER },
+            } },
+          },
+          {
+            name: "get_inventory_category_summary",
+            description: "قارن البضاعة حسب التصنيفات: عدد الأصناف وإجمالي الكمية وقيمة الشراء وقيمة البيع والربح المحتمل.",
+            parameters: { type: Type.OBJECT, properties: {} },
+          },
+          {
             name: "search_payments",
             description: "ابحث في الدفعات حسب العميل أو فترة التاريخ أو مبلغ الدفعة. التاريخ بصيغة YYYY-MM-DD.",
             parameters: {
@@ -180,7 +238,13 @@ export type FinancialToolName =
   | "get_customer_ledger"
   | "get_folder_summary"
   | "search_payments"
-  | "get_payment_summary";
+  | "get_payment_summary"
+  | "search_products"
+  | "get_inventory_summary"
+  | "get_low_stock_products"
+  | "get_product_price_history"
+  | "get_product_stock_movements"
+  | "get_inventory_category_summary";
 
 function normalize(value: unknown): string {
   return String(value ?? "")
@@ -219,9 +283,163 @@ function customerRow(c: CustomerDebtSummary) {
 export function executeFinancialAssistantTool(
   name: FinancialToolName | string,
   args: Record<string, unknown>,
-  dataset: ProcessedFinancialDataset
+  dataset: ProcessedFinancialDataset,
+  productsRaw: any[] = []
 ): unknown {
   switch (name) {
+    case "search_products": {
+      const nameQuery = normalize(args.nameContains);
+      const categoryQuery = normalize(args.category);
+      const supplierQuery = normalize(args.supplierName);
+      const bounds = [
+        ["minSalePrice", args.minSalePrice], ["maxSalePrice", args.maxSalePrice],
+        ["minPurchasePrice", args.minPurchasePrice], ["maxPurchasePrice", args.maxPurchasePrice],
+        ["minQuantity", args.minQuantity], ["maxQuantity", args.maxQuantity],
+      ] as const;
+      for (const [key, value] of bounds) {
+        if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) return { error: `قيمة الفلترة ${key} غير صالحة.` };
+      }
+      const minSale = args.minSalePrice === undefined ? null : Number(args.minSalePrice);
+      const maxSale = args.maxSalePrice === undefined ? null : Number(args.maxSalePrice);
+      const minCost = args.minPurchasePrice === undefined ? null : Number(args.minPurchasePrice);
+      const maxCost = args.maxPurchasePrice === undefined ? null : Number(args.maxPurchasePrice);
+      const minQty = args.minQuantity === undefined ? null : Number(args.minQuantity);
+      const maxQty = args.maxQuantity === undefined ? null : Number(args.maxQuantity);
+      if ((minSale !== null && maxSale !== null && minSale > maxSale) ||
+          (minCost !== null && maxCost !== null && minCost > maxCost) ||
+          (minQty !== null && maxQty !== null && minQty > maxQty)) return { error: "الحد الأدنى يجب ألا يتجاوز الحد الأعلى." };
+      let rows = (productsRaw || []).filter((p: any) => p && p.isDeleted !== true).map((p: any) => {
+        const purchasePrice = Math.max(0, Number(p.purchasePrice) || 0);
+        const salePrice = Math.max(0, Number(p.salePrice) || 0);
+        const quantity = Math.max(0, Number(p.quantity) || 0);
+        return {
+          id: String(p.id ?? ""), name: String(p.name ?? "بدون اسم"),
+          category: String(p.category ?? "بدون تصنيف") || "بدون تصنيف",
+          supplierName: String(p.supplierName ?? ""), supplierPhone: String(p.supplierPhone ?? ""),
+          barcode: String(p.barcode ?? ""), quantity, unitName: String(p.unitName ?? "قطعة"),
+          purchasePrice, salePrice, unitProfit: salePrice - purchasePrice,
+          stockCostValue: purchasePrice * quantity, stockSaleValue: salePrice * quantity,
+          potentialProfit: (salePrice - purchasePrice) * quantity,
+          minStock: Math.max(0, Number(p.minStock) || 0),
+          description: String(p.description ?? ""), notes: String(p.notes ?? ""),
+        };
+      }).filter((p: any) => {
+        if (nameQuery && !normalize(p.name).includes(nameQuery)) return false;
+        if (categoryQuery && !normalize(p.category).includes(categoryQuery)) return false;
+        if (supplierQuery && !normalize(p.supplierName).includes(supplierQuery)) return false;
+        if (minSale !== null && p.salePrice < minSale) return false;
+        if (maxSale !== null && p.salePrice > maxSale) return false;
+        if (minCost !== null && p.purchasePrice < minCost) return false;
+        if (maxCost !== null && p.purchasePrice > maxCost) return false;
+        if (minQty !== null && p.quantity < minQty) return false;
+        if (maxQty !== null && p.quantity > maxQty) return false;
+        if (args.lowStockOnly === true && p.quantity > p.minStock) return false;
+        return true;
+      });
+      const sortBy = String(args.sortBy ?? "name");
+      const direction = args.sortDirection === "asc" ? 1 : -1;
+      rows.sort((a: any, b: any) => {
+        if (sortBy === "name") return direction * a.name.localeCompare(b.name, "ar");
+        const av = sortBy === "quantity" ? a.quantity : sortBy === "salePrice" ? a.salePrice : sortBy === "purchasePrice" ? a.purchasePrice : a.unitProfit;
+        const bv = sortBy === "quantity" ? b.quantity : sortBy === "salePrice" ? b.salePrice : sortBy === "purchasePrice" ? b.purchasePrice : b.unitProfit;
+        return direction * (av - bv);
+      });
+      const totalMatches = rows.length;
+      const limit = safeLimit(args.limit, 30, 100);
+      return { totalMatches, returned: Math.min(totalMatches, limit), products: rows.slice(0, limit), currency: dataset.currency, source: "user_inventory_records" };
+    }
+
+    case "get_inventory_summary": {
+      const categoryQuery = normalize(args.category);
+      const rows = (productsRaw || []).filter((p: any) => p && p.isDeleted !== true && (!categoryQuery || normalize(p.category).includes(categoryQuery)));
+      const totalQuantity = rows.reduce((sum: number, p: any) => sum + Math.max(0, Number(p.quantity) || 0), 0);
+      const totalCostValue = rows.reduce((sum: number, p: any) => sum + Math.max(0, Number(p.purchasePrice) || 0) * Math.max(0, Number(p.quantity) || 0), 0);
+      const totalSaleValue = rows.reduce((sum: number, p: any) => sum + Math.max(0, Number(p.salePrice) || 0) * Math.max(0, Number(p.quantity) || 0), 0);
+      const lowStockCount = rows.filter((p: any) => Math.max(0, Number(p.quantity) || 0) <= Math.max(0, Number(p.minStock) || 0)).length;
+      return { productCount: rows.length, totalQuantity, lowStockCount, totalCostValue, totalSaleValue, potentialGrossProfit: totalSaleValue - totalCostValue, category: args.category ?? null, currency: dataset.currency, note: "الربح المحتمل تقديري على أساس سعر البيع الحالي ناقص كلفة الشراء الحالية، ولا يساوي الربح المحقق من المبيعات." };
+    }
+
+    case "get_low_stock_products": {
+      const categoryQuery = normalize(args.category);
+      let rows = (productsRaw || []).filter((p: any) => p && p.isDeleted !== true).map((p: any) => ({
+        id: String(p.id ?? ""), name: String(p.name ?? "بدون اسم"), category: String(p.category ?? "بدون تصنيف"),
+        quantity: Math.max(0, Number(p.quantity) || 0), minStock: Math.max(0, Number(p.minStock) || 0),
+        unitName: String(p.unitName ?? "قطعة"), supplierName: String(p.supplierName ?? ""),
+        supplierPhone: String(p.supplierPhone ?? ""), salePrice: Math.max(0, Number(p.salePrice) || 0),
+        purchasePrice: Math.max(0, Number(p.purchasePrice) || 0),
+      })).filter((p: any) => {
+        if (categoryQuery && !normalize(p.category).includes(categoryQuery)) return false;
+        if (args.includeOutOfStockOnly === true) return p.quantity <= 0;
+        return p.quantity <= p.minStock;
+      }).sort((a: any, b: any) => a.quantity - b.quantity || a.name.localeCompare(b.name, "ar"));
+      const totalMatches = rows.length;
+      const limit = safeLimit(args.limit, 50, 100);
+      return { totalMatches, returned: Math.min(totalMatches, limit), products: rows.slice(0, limit), currency: dataset.currency };
+    }
+
+    case "get_product_price_history": {
+      const query = normalize(args.productName ?? args.productId);
+      if (!query) return { error: "اسم الصنف أو معرفه مطلوب." };
+      const matches = (productsRaw || []).filter((p: any) => p && p.isDeleted !== true &&
+        (String(p.id ?? "") === String(args.productId ?? "") || normalize(p.name) === query || normalize(p.name).includes(query)));
+      if (!matches.length) return { found: false, message: "لم يتم العثور على صنف مطابق." };
+      if (matches.length > 1 && !matches.some((p: any) => String(p.id ?? "") === String(args.productId ?? ""))) {
+        return { found: false, ambiguous: true, matches: matches.slice(0, 10).map((p: any) => ({ id: p.id, name: p.name, category: p.category })) };
+      }
+      const p = matches.find((item: any) => String(item.id ?? "") === String(args.productId ?? "")) ?? matches[0];
+      const history = (Array.isArray(p.priceHistory) ? p.priceHistory : []).map((h: any) => ({
+        changedAt: String(h.changedAt ?? ""), purchasePrice: Number(h.purchasePrice) || 0, salePrice: Number(h.salePrice) || 0,
+        previousPurchasePrice: h.previousPurchasePrice === undefined ? null : Number(h.previousPurchasePrice) || 0,
+        previousSalePrice: h.previousSalePrice === undefined ? null : Number(h.previousSalePrice) || 0,
+        supplierName: String(h.supplierName ?? ""), note: String(h.note ?? ""),
+      })).sort((a: any, b: any) => b.changedAt.localeCompare(a.changedAt));
+      return { found: true, product: { id: p.id, name: p.name, category: p.category, currentPurchasePrice: Number(p.purchasePrice) || 0, currentSalePrice: Number(p.salePrice) || 0 }, history: history.slice(0, safeLimit(args.limit, 30, 100)), totalHistoryEntries: history.length, currency: dataset.currency };
+    }
+
+    case "get_product_stock_movements": {
+      const query = normalize(args.productName ?? args.productId);
+      if (!query) return { error: "اسم الصنف أو معرفه مطلوب." };
+      const matches = (productsRaw || []).filter((p: any) => p && p.isDeleted !== true &&
+        (String(p.id ?? "") === String(args.productId ?? "") || normalize(p.name) === query || normalize(p.name).includes(query)));
+      if (!matches.length) return { found: false, message: "لم يتم العثور على صنف مطابق." };
+      if (matches.length > 1 && !matches.some((p: any) => String(p.id ?? "") === String(args.productId ?? ""))) {
+        return { found: false, ambiguous: true, matches: matches.slice(0, 10).map((p: any) => ({ id: p.id, name: p.name, category: p.category })) };
+      }
+      const p = matches.find((item: any) => String(item.id ?? "") === String(args.productId ?? "")) ?? matches[0];
+      const from = args.fromDate ? String(args.fromDate) : "";
+      const to = args.toDate ? String(args.toDate) : "";
+      if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)) || (from && to && from > to)) return { error: "نطاق التاريخ غير صالح؛ استخدم YYYY-MM-DD." };
+      let movements = (Array.isArray(p.stockMovements) ? p.stockMovements : []).map((m: any) => ({
+        id: String(m.id ?? ""), type: String(m.type ?? "adjustment"), quantity: Number(m.quantity) || 0,
+        createdAt: String(m.createdAt ?? ""), note: String(m.note ?? ""), referenceId: String(m.referenceId ?? ""),
+        customerName: String(m.customerName ?? ""), unitCost: m.unitCost === undefined ? null : Number(m.unitCost) || 0,
+      })).filter((m: any) => {
+        const dateKey = m.createdAt.slice(0, 10);
+        if (from && (!dateKey || dateKey < from)) return false;
+        if (to && (!dateKey || dateKey > to)) return false;
+        if (args.movementType && m.type !== args.movementType) return false;
+        return true;
+      }).sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt));
+      const totalMatches = movements.length;
+      return { found: true, product: { id: p.id, name: p.name, category: p.category, quantity: Number(p.quantity) || 0, unitName: p.unitName || "قطعة" }, totalMatches, movements: movements.slice(0, safeLimit(args.limit, 50, 100)), currency: dataset.currency };
+    }
+
+    case "get_inventory_category_summary": {
+      const groups = new Map<string, any>();
+      for (const p of (productsRaw || []).filter((item: any) => item && item.isDeleted !== true)) {
+        const category = String(p.category ?? "").trim() || "بدون تصنيف";
+        const row = groups.get(category) ?? { category, productCount: 0, totalQuantity: 0, totalCostValue: 0, totalSaleValue: 0 };
+        const quantity = Math.max(0, Number(p.quantity) || 0);
+        row.productCount += 1;
+        row.totalQuantity += quantity;
+        row.totalCostValue += Math.max(0, Number(p.purchasePrice) || 0) * quantity;
+        row.totalSaleValue += Math.max(0, Number(p.salePrice) || 0) * quantity;
+        groups.set(category, row);
+      }
+      const categories = Array.from(groups.values()).map((row) => ({ ...row, potentialGrossProfit: row.totalSaleValue - row.totalCostValue, currency: dataset.currency })).sort((a, b) => b.totalCostValue - a.totalCostValue);
+      return { categories, categoryCount: categories.length, currency: dataset.currency };
+    }
+
     case "get_portfolio_summary":
       return {
         ...dataset.portfolio,
