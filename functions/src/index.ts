@@ -971,3 +971,133 @@ export const parseProductsFromText = functions.runWith({ secrets: ["GEMINI_API_K
     throw new functions.https.HttpsError("internal", "تعذر تحليل النص. حاول تقسيمه إلى أجزاء أصغر أو أعد المحاولة.");
   }
 });
+
+
+/**
+ * Render the app's existing HTML receipt/report to a real text/vector PDF.
+ * The browser supplies the already prepared printable markup; data is not stored.
+ */
+export const generatePdfFromHtml = functions.runWith({
+  timeoutSeconds: 120,
+  memory: "1GB",
+}).https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "يجب تسجيل الدخول لتنزيل ملف PDF.");
+  }
+
+  const html = typeof data?.html === "string" ? data.html : "";
+  const requestedBaseUrl = typeof data?.baseUrl === "string" ? data.baseUrl : "";
+  if (!html.trim()) {
+    throw new functions.https.HttpsError("invalid-argument", "محتوى التقرير فارغ.");
+  }
+  if (html.length > 3_000_000) {
+    throw new functions.https.HttpsError("invalid-argument", "حجم التقرير كبير جداً لإنشاء PDF. قلل عدد الصفحات أو الصور.");
+  }
+
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(requestedBaseUrl);
+  } catch {
+    throw new functions.https.HttpsError("invalid-argument", "رابط مصدر التقرير غير صالح.");
+  }
+  const host = baseUrl.hostname.toLowerCase();
+  const trustedHost = [
+    ".web.app",
+    ".firebaseapp.com",
+    ".vercel.app",
+    ".vercel.live",
+    ".googleusercontent.com",
+  ].some((suffix) => host.endsWith(suffix));
+  if (baseUrl.protocol !== "https:" || !trustedHost) {
+    throw new functions.https.HttpsError("invalid-argument", "مصدر التقرير غير مسموح به لإنشاء PDF.");
+  }
+
+  // Do not execute markup-provided JavaScript in the renderer. Relative app
+  // stylesheet and image paths resolve against the verified public app origin.
+  const baseTag = '<base href="' + baseUrl.origin.replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '/">';
+  const safeHtml = html
+    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, "")
+    .replace(/<base\\b[^>]*>/gi, "")
+    .replace(/<head\\b([^>]*)>/i, (_match: string, attrs: string) => '<head' + attrs + '>' + baseTag);
+
+  let browser: any;
+  try {
+    const chromium = require("@sparticuz/chromium");
+    const puppeteer = require("puppeteer-core");
+    browser = await puppeteer.launch({
+      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+      defaultViewport: { width: 1280, height: 1600, deviceScaleFactor: 1 },
+      executablePath: await chromium.executablePath(),
+      headless: "shell",
+    });
+
+    const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", (request: any) => {
+      try {
+        const url = new URL(request.url());
+        const requestHost = url.hostname.toLowerCase();
+        const resourceAllowed =
+          url.protocol === "data:" ||
+          url.protocol === "blob:" ||
+          url.protocol === "about:" ||
+          requestHost === host ||
+          [
+            "fonts.googleapis.com",
+            "fonts.gstatic.com",
+            "firebasestorage.googleapis.com",
+            "storage.googleapis.com",
+            "lh3.googleusercontent.com",
+          ].includes(requestHost);
+        if (request.resourceType() === "script" || !resourceAllowed) {
+          void request.abort().catch(() => undefined);
+        } else {
+          void request.continue().catch(() => undefined);
+        }
+      } catch {
+        void request.abort().catch(() => undefined);
+      }
+    });
+
+    await page.setJavaScriptEnabled(false);
+    await page.emulateMediaType("print");
+    await page.setContent(safeHtml, { waitUntil: "networkidle0", timeout: 30_000 });
+    await page.evaluate(async () => {
+      if (document.fonts?.ready) await document.fonts.ready;
+    });
+
+    const pdfBytes = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+      displayHeaderFooter: false,
+      timeout: 45_000,
+    });
+    if (!pdfBytes || pdfBytes.length < 5) {
+      throw new Error("محرك PDF لم يُرجع ملفاً صالحاً.");
+    }
+    const signature = Buffer.from(pdfBytes).subarray(0, 5).toString("ascii");
+    if (signature !== "%PDF-") {
+      throw new Error("الملف الناتج لا يحتوي على ترويسة PDF صحيحة.");
+    }
+
+    return {
+      success: true,
+      fileName: String(data?.title || "Alhamdulillah").replace(/[\\\\/:*?"<>|]+/g, "_").slice(0, 140) + ".pdf",
+      base64: Buffer.from(pdfBytes).toString("base64"),
+    };
+  } catch (error: any) {
+    console.error("generatePdfFromHtml failed:", error);
+    if (error instanceof functions.https.HttpsError) throw error;
+    const detail = String(error?.message || error || "سبب غير معروف").slice(0, 500);
+    throw new functions.https.HttpsError("internal", "تعذر إنشاء PDF نصي: " + detail);
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.warn("PDF Chromium cleanup failed:", closeError);
+      }
+    }
+  }
+});
