@@ -1016,8 +1016,8 @@ export const generatePdfFromHtml = functions.runWith({
   // stylesheet and image paths resolve against the verified public app origin.
   const baseTag = '<base href="' + baseUrl.origin.replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '/">';
   const safeHtml = html
-    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, "")
-    .replace(/<base\\b[^>]*>/gi, "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<base\b[^>]*>/gi, "")
     .replace(/<head\\b([^>]*)>/i, (_match: string, attrs: string) => '<head' + attrs + '>' + baseTag);
 
   let browser: any;
@@ -1083,7 +1083,7 @@ export const generatePdfFromHtml = functions.runWith({
 
     return {
       success: true,
-      fileName: String(data?.title || "Alhamdulillah").replace(/[\\\\/:*?"<>|]+/g, "_").slice(0, 140) + ".pdf",
+      fileName: String(data?.title || "Alhamdulillah").replace(/[^\p{L}\p{N}_ -]+/gu, "_").slice(0, 140).trim() + ".pdf",
       base64: Buffer.from(pdfBytes).toString("base64"),
     };
   } catch (error: any) {
