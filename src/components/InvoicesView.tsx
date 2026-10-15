@@ -451,7 +451,7 @@ export default function InvoicesView({
                       });
                     } catch (err) {
                       console.error("PDF export error", err);
-                      alert("حدث خطأ أثناء إنشاء PDF، يمكنك استخدام زر الطباعة المباشرة.");
+                      alert("تعذر إنشاء ملف PDF: " + (err instanceof Error ? err.message : String(err)));
                     } finally {
                       setIsExportingPDF(false);
                     }
