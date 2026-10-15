@@ -289,7 +289,7 @@ public class NativePrintPlugin extends Plugin {
                             View contentRoot = getActivity().findViewById(android.R.id.content);
                             ViewGroup parent = contentRoot instanceof ViewGroup ? (ViewGroup) contentRoot : null;
                             if (parent != null) {
-                                pdfView.setAlpha(0f);
+                                pdfView.setAlpha(1f);
                                 parent.addView(pdfView, 0, new ViewGroup.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.MATCH_PARENT
