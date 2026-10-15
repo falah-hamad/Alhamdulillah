@@ -1,3 +1,5 @@
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
 export type DownloadCategory = "نسخة احتياطية" | "تقرير" | "محادثة" | "ملف";
 
 export interface DownloadRecord {
@@ -15,6 +17,12 @@ export interface DownloadRecord {
 const DB_NAME = "alhamdulillah-downloads";
 const STORE_NAME = "files";
 const CHANGE_EVENT = "alhamdulillah-downloads-changed";
+
+interface NativePdfOpenPlugin {
+  openPdfWithChooser(options: { base64: string; fileName: string }): Promise<{ openedChooser: boolean }>;
+}
+const NativePdfOpen = registerPlugin<NativePdfOpenPlugin>("NativePrint");
+
 
 function openDownloadsDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -166,7 +174,23 @@ export async function trackDownloadAnchor(anchor: HTMLAnchorElement): Promise<vo
   }
 }
 
-export function openStoredFile(record: DownloadRecord): void {
+export async function openStoredFile(record: DownloadRecord): Promise<void> {
+  if (Capacitor.isNativePlatform() && record.mimeType === "application/pdf") {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("تعذر تجهيز ملف PDF للفتح"));
+      reader.onload = () => {
+        const value = typeof reader.result === "string" ? reader.result : "";
+        const comma = value.indexOf(",");
+        if (comma < 0) reject(new Error("تعذر قراءة بيانات PDF"));
+        else resolve(value.slice(comma + 1));
+      };
+      reader.readAsDataURL(record.blob);
+    });
+    await NativePdfOpen.openPdfWithChooser({ base64: dataUrl, fileName: record.name });
+    return;
+  }
+
   const url = URL.createObjectURL(record.blob);
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   if (!opened) {
