@@ -161,6 +161,59 @@ public class NativePrintPlugin extends Plugin {
         }
     }
 
+    /**
+     * Opens a cached PDF with Android's system resolver so the user can choose
+     * any compatible PDF reader installed on their device.
+     */
+    @PluginMethod
+    public void openPdfWithChooser(PluginCall call) {
+        String encoded = call.getString("base64");
+        String requestedName = call.getString("fileName", "Alhamdulillah.pdf");
+        if (encoded == null || encoded.trim().isEmpty()) {
+            call.reject("بيانات ملف PDF فارغة");
+            return;
+        }
+        try {
+            byte[] bytes = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT);
+            if (bytes.length < 5 || bytes[0] != '%' || bytes[1] != 'P' ||
+                    bytes[2] != 'D' || bytes[3] != 'F' || bytes[4] != '-') {
+                call.reject("الملف ليس PDF صالحًا");
+                return;
+            }
+            String fileName = requestedName == null ? "Alhamdulillah.pdf" : requestedName.trim();
+            fileName = fileName.replaceAll("[\\\\/:*?<>|\\\"]", "_");
+            if (fileName.isEmpty()) fileName = "Alhamdulillah.pdf";
+            if (!fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) fileName += ".pdf";
+
+            File openDir = new File(getContext().getCacheDir(), "pdf-open");
+            if (!openDir.exists() && !openDir.mkdirs()) {
+                throw new java.io.IOException("تعذر تجهيز ملف PDF للفتح");
+            }
+            File openFile = new File(openDir, fileName);
+            try (OutputStream output = new FileOutputStream(openFile)) {
+                output.write(bytes);
+                output.flush();
+            }
+            Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                getContext(), getContext().getPackageName() + ".fileprovider", openFile
+            );
+            Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+            viewIntent.setDataAndType(contentUri, "application/pdf");
+            viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(viewIntent, "فتح ملف PDF باستخدام");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().startActivity(chooser);
+            JSObject response = new JSObject();
+            response.put("openedChooser", true);
+            call.resolve(response);
+        } catch (android.content.ActivityNotFoundException e) {
+            call.reject("ماكو تطبيق مثبت يفتح ملفات PDF على هذا الجهاز", e);
+        } catch (Exception e) {
+            call.reject("تعذر فتح قائمة تطبيقات PDF: " +
+                (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        }
+    }
+
     private void removePrintWebView(WebView view, ViewGroup parent) {
         try {
             if (parent != null) {
