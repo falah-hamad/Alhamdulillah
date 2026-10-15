@@ -20,6 +20,7 @@ const CHANGE_EVENT = "alhamdulillah-downloads-changed";
 
 interface NativePdfOpenPlugin {
   openPdfWithChooser(options: { base64: string; fileName: string }): Promise<{ openedChooser: boolean }>;
+  saveFileBase64(options: { base64: string; fileName: string; mimeType: string }): Promise<{ uri: string; fileName: string }>;
 }
 const NativePdfOpen = registerPlugin<NativePdfOpenPlugin>("NativePrint");
 
@@ -212,7 +213,27 @@ export async function shareStoredFile(record: DownloadRecord): Promise<boolean> 
   return true;
 }
 
-export function downloadStoredFile(record: DownloadRecord): void {
+export async function downloadStoredFile(record: DownloadRecord): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("تعذر تجهيز الملف للتنزيل"));
+      reader.onload = () => {
+        const value = typeof reader.result === "string" ? reader.result : "";
+        const comma = value.indexOf(",");
+        if (comma < 0) reject(new Error("تعذر قراءة بيانات الملف"));
+        else resolve(value.slice(comma + 1));
+      };
+      reader.readAsDataURL(record.blob);
+    });
+    await NativePdfOpen.saveFileBase64({
+      base64,
+      fileName: record.name,
+      mimeType: record.mimeType || record.blob.type || "application/octet-stream",
+    });
+    return;
+  }
+
   const url = URL.createObjectURL(record.blob);
   const anchor = document.createElement("a");
   anchor.href = url;
