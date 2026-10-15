@@ -175,6 +175,43 @@ export async function trackDownloadAnchor(anchor: HTMLAnchorElement): Promise<vo
   }
 }
 
+export async function saveDownloadAnchorToDevice(anchor: HTMLAnchorElement): Promise<void> {
+  const name = anchor.download?.trim() || "download";
+  const href = anchor.href;
+  if (!href || href.startsWith("javascript:")) throw new Error("رابط التنزيل غير صالح");
+  const response = await fetch(href);
+  if (!response.ok) throw new Error("تعذر قراءة الملف المراد تنزيله");
+  const blob = await response.blob();
+  const lowerName = name.toLowerCase();
+  const category = lowerName.includes("backup") || lowerName.includes("نسخة") || lowerName.endsWith(".json")
+    ? "نسخة احتياطية"
+    : lowerName.includes("report") || lowerName.includes("تقرير") || lowerName.endsWith(".pdf")
+      ? "تقرير"
+      : lowerName.includes("chat") || lowerName.includes("محادث")
+        ? "محادثة"
+        : "ملف";
+
+  if (Capacitor.isNativePlatform()) {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("تعذر تجهيز الملف للتنزيل"));
+      reader.onload = () => {
+        const value = typeof reader.result === "string" ? reader.result : "";
+        const comma = value.indexOf(",");
+        if (comma < 0) reject(new Error("تعذر قراءة بيانات الملف"));
+        else resolve(value.slice(comma + 1));
+      };
+      reader.readAsDataURL(blob);
+    });
+    await NativePdfOpen.saveFileBase64({
+      base64,
+      fileName: name,
+      mimeType: blob.type || "application/octet-stream",
+    });
+  }
+  await recordDownloadedFile(name, blob, category);
+}
+
 export async function openStoredFile(record: DownloadRecord): Promise<void> {
   if (Capacitor.isNativePlatform() && record.mimeType === "application/pdf") {
     const dataUrl = await new Promise<string>((resolve, reject) => {
