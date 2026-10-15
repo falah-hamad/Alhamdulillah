@@ -875,7 +875,7 @@ export default function VerticalLedgerSheet({
         });
       } catch (err) {
         console.error("PDF export error", err);
-        alert("حدث خطأ أثناء تصدير ملف PDF. يمكنك استخدام زر طباعة وصل الدين مباشرة.");
+        alert("تعذر تصدير PDF: " + (error instanceof Error ? error.message : String(error)));
       } finally {
         setIsExportingPDF(false);
         setViewAllPages(prevViewAll);
