@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 
 interface NativePrintPlugin {
   printHtml(options: { html: string; title: string }): Promise<void>;
+  downloadHtmlPdf(options: { html: string; title: string }): Promise<{ uri?: string; fileName?: string }>;
 }
 
 const NativePrint = registerPlugin<NativePrintPlugin>("NativePrint");
@@ -592,7 +593,11 @@ export async function printElement(
       .replace(/@import\s+(?:url\([^)]*\)|[^;]+);?/gi, "");
 
     try {
-      await NativePrint.printHtml({ html: nativeHtmlContent, title });
+      if (options.download) {
+        await NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title });
+      } else {
+        await NativePrint.printHtml({ html: nativeHtmlContent, title });
+      }
       options.onComplete?.();
       return;
     } catch (error) {
@@ -687,5 +692,8 @@ export async function exportElementToPDF(
   // save location; web pages cannot silently choose the user's Downloads folder.
   const requestedName = options.filename.trim() || options.title || "Alhamdulillah";
   const title = requestedName.replace(/\.pdf$/i, "");
-  await printElement(element, { title });
+  // Android can write the WebView's vector PDF directly into Downloads. Browsers
+  // do not expose a JS API to capture their native print output as a PDF file, so
+  // web export opens the native print dialog and the user chooses Save as PDF.
+  await printElement(element, { title, download: true });
 }
