@@ -4,6 +4,7 @@ import { recordDownloadedFile } from "../lib/downloads";
 interface NativePrintPlugin {
   printHtml(options: { html: string; title: string }): Promise<void>;
   downloadHtmlPdf(options: { html: string; title: string }): Promise<{ uri?: string; fileName?: string; base64?: string }>;
+  savePdfBase64(options: { base64: string; fileName: string }): Promise<{ uri?: string; fileName?: string }>;
 }
 
 
@@ -689,38 +690,35 @@ export async function printElement(
 
     try {
       if (options.download) {
-        // A native bridge that never resolves must not leave the UI in
-        // "downloading" forever. The native side may still finish later, but
-        // this timeout releases the caller and exposes a useful error.
-        let timeoutId: number | undefined;
-        let result: Awaited<ReturnType<typeof NativePrint.downloadHtmlPdf>>;
-        try {
-          result = await Promise.race([
-            NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title }),
-            new Promise<never>((_, reject) => {
-              timeoutId = window.setTimeout(
-                () => reject(new Error("انتهت مهلة إنشاء PDF على أندرويد بعد 45 ثانية. لم يستجب مكوّن التنزيل؛ أعد المحاولة، وإذا تكرر الخطأ أرسل سجل البناء والتشغيل.")),
-                45_000
-              );
-            }),
-          ]);
-        } finally {
-          if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        // Use the same server-side Chromium renderer as Web for identical layout
+        // and selectable text, then let Android save the returned PDF to Downloads.
+        const [{ app }, { getFunctions, httpsCallable }] = await Promise.all([
+          import("../lib/firebase"),
+          import("firebase/functions"),
+        ]);
+        const generatePdf = httpsCallable<
+          { html: string; title: string; baseUrl: string },
+          { success: boolean; fileName: string; base64: string }
+        >(getFunctions(app), "generatePdfFromHtml", { timeout: 120_000 });
+
+        const response = await generatePdf({
+          html: htmlContent,
+          title,
+          baseUrl: "https://gen-lang-client-0628217852.web.app/",
+        });
+        const payload = response.data;
+        if (!payload?.base64) {
+          throw new Error("الخادم لم يُرجع بيانات ملف PDF.");
         }
 
-        if (!result.base64) {
-          throw new Error(
-            `مكوّن أندرويد لم يُرجع بيانات PDF. الملف: ${result.fileName || title}; المسار: ${result.uri || "غير متوفر"}`
-          );
-        }
-        // Accept either a raw Base64 payload or a data URL, then pass only
-        // the raw payload to Blob decoding.
-        const cleanBase64 = result.base64.replace(/^data:application\/pdf;base64,/i, "").replace(/\\s/g, "");
+        const cleanBase64 = payload.base64
+          .replace(/^data:application\/pdf;base64,/i, "")
+          .replace(/\s/g, "");
         let binary: string;
         try {
           binary = atob(cleanBase64);
         } catch (decodeError) {
-          throw new Error("وصلت بيانات PDF من أندرويد لكنها ليست Base64 صالحاً: " +
+          throw new Error("بيانات PDF المستلمة من الخادم غير صالحة: " +
             (decodeError instanceof Error ? decodeError.message : String(decodeError)));
         }
         const bytes = new Uint8Array(binary.length);
@@ -728,15 +726,21 @@ export async function printElement(
           bytes[index] = binary.charCodeAt(index);
         }
         if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") {
-          throw new Error("البيانات المستلمة لا تحتوي على ترويسة PDF صالحة.");
+          throw new Error("الخادم لم ينشئ ملف PDF صالحاً.");
         }
-        const fileName = result.fileName || `${title.replace(/\.pdf$/i, "")}.pdf`;
+
+        const fileName = payload.fileName || `${title.replace(/\.pdf$/i, "")}.pdf`;
+        const saved = await NativePrint.savePdfBase64({
+          base64: cleanBase64,
+          fileName,
+        });
         const pdfBlob = new Blob([bytes], { type: "application/pdf" });
         try {
-          await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+          await recordDownloadedFile(saved.fileName || fileName, pdfBlob, "تقرير");
         } catch (storageError) {
-          console.warn("PDF saved by Android, but in-app download history failed:", storageError);
+          console.warn("Android PDF saved, but in-app download history failed:", storageError);
         }
+        showPdfSavedToast("تم تنزيل PDF واضح ومطابق لتنسيق الويب");
       } else {
         await NativePrint.printHtml({ html: nativeHtmlContent, title });
       }
