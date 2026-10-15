@@ -673,39 +673,135 @@ export async function printElement(
 }
 
 /**
- * Exports an element directly as a high-resolution, vector-accurate PDF file.
- * Handles modern Tailwind v4 colors without crashing html2canvas.
- * Guarantees that multi-page A4 receipts & ledger sheets export completely without blank pages or clipping.
- */
-/**
- * Exports the target as a real, selectable-text document using the platform print pipeline.
- * Browser printing remains HTML-based; Android uses its native WebView PrintDocumentAdapter.
- * Users can choose "Save as PDF" in the platform print dialog.
+ * Creates a downloadable PDF without opening the print dialog.
+ * Android uses the native WebView vector PDF adapter; web uses a high-resolution
+ * DOM capture so the document is saved immediately and also stored in Downloads.
  */
 export async function exportElementToPDF(
   elementOrId: HTMLElement | string,
-  options: {
-    filename: string;
-    title?: string;
-  }
+  options: { filename: string; title?: string }
 ): Promise<void> {
-  const element =
-    typeof elementOrId === "string"
-      ? document.getElementById(elementOrId)
-      : elementOrId;
+  const element = typeof elementOrId === "string"
+    ? document.getElementById(elementOrId)
+    : elementOrId;
+  if (!element) throw new Error("العنصر المطلوب تصديره غير موجود");
 
-  if (!element) {
-    throw new Error("العنصر المطلوب تصديره غير موجود");
+  const requestedName = (options.filename || options.title || "Alhamdulillah")
+    .trim()
+    .replace(/\\.pdf$/i, "");
+  const title = requestedName || "Alhamdulillah";
+  const fileName = `${title}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    await printElement(element, { title, download: true });
+    return;
   }
 
-  // Use the requested filename as the platform print-job name. The browser/Android
-  // print engine renders the HTML DOM as vector/text PDF (not a screenshot), so
-  // saved PDFs keep selectable/searchable text. The platform dialog owns the final
-  // save location; web pages cannot silently choose the user's Downloads folder.
-  const requestedName = options.filename.trim() || options.title || "Alhamdulillah";
-  const title = requestedName.replace(/\.pdf$/i, "");
-  // Android can write the WebView's vector PDF directly into Downloads. Browsers
-  // do not expose a JS API to capture their native print output as a PDF file, so
-  // web export opens the native print dialog and the user chooses Save as PDF.
-  await printElement(element, { title, download: true });
+  // Web browsers do not expose the native print pipeline as a downloadable PDF
+  // byte stream. Render the prepared DOM at high resolution and paginate it
+  // directly with jsPDF instead of opening the print dialog.
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+  const clone = preparePrintableClone(element);
+  const computed = window.getComputedStyle(element);
+  const renderHost = document.createElement("div");
+  renderHost.setAttribute("aria-hidden", "true");
+  renderHost.style.cssText = [
+    "position:fixed",
+    "left:-100000px",
+    "top:0",
+    `width:${Math.max(element.getBoundingClientRect().width, 794)}px`,
+    "background:#ffffff",
+    "z-index:-1",
+    "pointer-events:none",
+  ].join(";");
+  clone.style.width = "100%";
+  clone.style.maxWidth = "none";
+  clone.style.height = "auto";
+  clone.style.maxHeight = "none";
+  clone.style.overflow = "visible";
+  clone.style.backgroundColor = computed.backgroundColor === "rgba(0, 0, 0, 0)"
+    ? "#ffffff"
+    : computed.backgroundColor;
+  renderHost.appendChild(clone);
+  document.body.appendChild(renderHost);
+
+  let pdfBlob: Blob;
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    await Promise.all(Array.from(clone.querySelectorAll("img")).map((img) =>
+      img.complete ? Promise.resolve() : new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        window.setTimeout(resolve, 2500);
+      })
+    ));
+
+    const canvas = await html2canvas(clone, {
+      scale: Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)),
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: "#ffffff",
+      logging: false,
+      width: clone.scrollWidth,
+      height: clone.scrollHeight,
+      windowWidth: Math.max(clone.scrollWidth, 794),
+      onclone: (clonedDocument) => {
+        const clonedTarget = clonedDocument.body.querySelector("div");
+        if (clonedTarget instanceof HTMLElement) sanitizeClonedPage(clonedTarget);
+      },
+    });
+
+    if (!canvas.width || !canvas.height) throw new Error("المستند فارغ ولا يمكن تحويله إلى PDF");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = element.id === "vertical-ledger-sheet" ? 0 : 8;
+    const usableWidth = pageWidth - margin * 2;
+    const usableHeight = pageHeight - margin * 2;
+    const renderedHeight = (canvas.height * usableWidth) / canvas.width;
+    const pageCanvasHeight = Math.max(1, Math.floor((usableHeight / renderedHeight) * canvas.height));
+    let sourceY = 0;
+    let pageIndex = 0;
+
+    while (sourceY < canvas.height) {
+      const sliceHeight = Math.min(pageCanvasHeight, canvas.height - sourceY);
+      const pageCanvas = document.createElement("canvas");
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sliceHeight;
+      const context = pageCanvas.getContext("2d");
+      if (!context) throw new Error("تعذر تجهيز صفحة PDF");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      context.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+
+      if (pageIndex > 0) pdf.addPage("a4", "portrait");
+      const sliceMmHeight = (sliceHeight * usableWidth) / canvas.width;
+      pdf.addImage(pageCanvas.toDataURL("image/jpeg", 0.96), "JPEG", margin, margin, usableWidth, sliceMmHeight, undefined, "FAST");
+      sourceY += sliceHeight;
+      pageIndex += 1;
+    }
+
+    pdfBlob = pdf.output("blob");
+  } finally {
+    renderHost.remove();
+  }
+
+  if (!pdfBlob.size || pdfBlob.type !== "application/pdf") {
+    throw new Error("لم يتم إنشاء ملف PDF صالح");
+  }
+
+  // Store first; only trigger the browser download after the in-app library succeeds.
+  await recordDownloadedFile(fileName, pdfBlob, "تقرير");
+  const url = URL.createObjectURL(pdfBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
