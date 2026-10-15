@@ -252,7 +252,8 @@ public class NativePrintPlugin extends Plugin {
                                 if (!safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
                                     safeName += ".pdf";
                                 }
-                                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                                final String pdfFileName = safeName;
+                                values.put(MediaStore.Downloads.DISPLAY_NAME, pdfFileName);
                                 values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
                                 values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
                                 values.put(MediaStore.Downloads.IS_PENDING, 1);
@@ -262,7 +263,7 @@ public class NativePrintPlugin extends Plugin {
                                 descriptor = getContext().getContentResolver().openFileDescriptor(uri, "w");
                                 if (descriptor == null) throw new Exception("تعذر فتح ملف PDF للكتابة");
 
-                                PrintDocumentAdapter adapter = pdfView.createPrintDocumentAdapter(safeName);
+                                PrintDocumentAdapter adapter = pdfView.createPrintDocumentAdapter(pdfFileName);
                                 Uri outputUri = uri;
                                 ParcelFileDescriptor outputDescriptor = descriptor;
                                 PrintAttributes attributes = new PrintAttributes.Builder()
@@ -287,7 +288,7 @@ public class NativePrintPlugin extends Plugin {
                                                             getContext().getContentResolver().update(outputUri, complete, null, null);
                                                             JSObject response = new JSObject();
                                                             response.put("uri", outputUri.toString());
-                                                            response.put("fileName", safeName);
+                                                            response.put("fileName", pdfFileName);
                                                             call.resolve(response);
                                                         } catch (Exception e) {
                                                             getContext().getContentResolver().delete(outputUri, null, null);
