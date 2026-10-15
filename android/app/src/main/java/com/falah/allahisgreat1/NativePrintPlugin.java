@@ -1,6 +1,10 @@
 package com.falah.allahisgreat1;
 
 import android.app.Activity;
+import android.graphics.pdf.PdfDocument;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.content.Context;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -227,85 +231,111 @@ public class NativePrintPlugin extends Plugin {
         }
 
         getActivity().runOnUiThread(() -> {
-            final WebView pdfView;
-            try {
-                pdfView = new WebView(getContext());
-                pdfView.getSettings().setJavaScriptEnabled(false);
-                pdfView.getSettings().setDefaultTextEncodingName("UTF-8");
-                pdfView.setBackgroundColor(android.graphics.Color.WHITE);
-                pdfView.setAlpha(1f);
-                pdfView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public void onPageFinished(WebView finishedView, String url) {
-                        finishedView.postDelayed(() -> {
-                            try {
-                                String printTitle = title == null ? "Alhamdulillah" : title.trim();
-                                printTitle = printTitle.replaceAll("[\\\\/:*?<>|]", "_").replace("\\\"", "_");
-                                if (printTitle.isEmpty()) printTitle = "Alhamdulillah";
-                                if (printTitle.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
-                                    printTitle = printTitle.substring(0, printTitle.length() - 4);
-                                }
-
-                                PrintManager printManager = (PrintManager) getContext()
-                                    .getSystemService(Context.PRINT_SERVICE);
-                                if (printManager == null) {
-                                    removePrintWebView(pdfView, null);
-                                    call.reject("خدمة الطباعة غير متاحة على هذا الجهاز");
-                                    return;
-                                }
-
-                                PrintDocumentAdapter adapter = pdfView.createPrintDocumentAdapter(printTitle);
-                                PrintAttributes attributes = new PrintAttributes.Builder()
-                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                                    .setResolution(new PrintAttributes.Resolution("pdf", "PDF", 300, 300))
-                                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                                    .build();
-                                printManager.print(printTitle, new PrintDocumentAdapter() {
-                                    @Override
-                                    public void onLayout(
-                                        PrintAttributes oldAttributes,
-                                        PrintAttributes newAttributes,
-                                        CancellationSignal cancellationSignal,
-                                        LayoutResultCallback callback,
-                                        Bundle extras
-                                    ) {
-                                        adapter.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras);
-                                    }
-
-                                    @Override
-                                    public void onWrite(
-                                        PageRange[] pages,
-                                        ParcelFileDescriptor destination,
-                                        CancellationSignal cancellationSignal,
-                                        WriteResultCallback callback
-                                    ) {
-                                        adapter.onWrite(pages, destination, cancellationSignal, callback);
-                                    }
-
-                                    @Override
-                                    public void onFinish() {
-                                        try {
-                                            adapter.onFinish();
-                                        } finally {
-                                            removePrintWebView(pdfView, null);
-                                        }
-                                    }
-                                }, attributes);
-                                JSObject response = new JSObject();
-                                response.put("opened", true);
-                                response.put("fileName", printTitle + ".pdf");
-                                call.resolve(response);
-                            } catch (Exception e) {
-                                removePrintWebView(pdfView, null);
-                                call.reject("تعذر فتح نافذة تنزيل PDF: " + e.getMessage(), e);
+            final WebView pdfView = new WebView(getContext());
+            pdfView.getSettings().setJavaScriptEnabled(false);
+            pdfView.getSettings().setDefaultTextEncodingName("UTF-8");
+            pdfView.setBackgroundColor(android.graphics.Color.WHITE);
+            pdfView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    view.postDelayed(() -> {
+                        try {
+                            String safeTitle = title == null ? "Alhamdulillah" : title.trim();
+                            safeTitle = safeTitle.replaceAll("[\\\\/:*?<>|\\\"]", "_");
+                            if (safeTitle.isEmpty()) safeTitle = "Alhamdulillah";
+                            if (safeTitle.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
+                                safeTitle = safeTitle.substring(0, safeTitle.length() - 4);
                             }
-                        }, 350);
-                    }
-                });
-                pdfView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
-            } catch (Exception e) {
-                call.reject("تعذر تجهيز PDF للتنزيل: " + e.getMessage(), e);
-            }
+                            final String fileName = safeTitle + ".pdf";
+
+                            // Lay out the full HTML document, then render A4 pages directly to PDF.
+                            final int pageWidthPx = 794;
+                            final int pageHeightPx = 1123;
+                            pdfView.measure(
+                                View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                            );
+                            int contentHeight = Math.max(pdfView.getContentHeight(),
+                                pdfView.getMeasuredHeight());
+                            contentHeight = Math.max(contentHeight, pageHeightPx);
+                            pdfView.layout(0, 0, pageWidthPx, contentHeight);
+
+                            PdfDocument document = new PdfDocument();
+                            float scale = 595f / pageWidthPx;
+                            int pageCount = (int) Math.ceil(contentHeight / (pageHeightPx * 1.0));
+                            for (int pageNumber = 0; pageNumber < pageCount; pageNumber++) {
+                                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                                    595, 842, pageNumber + 1
+                                ).create();
+                                PdfDocument.Page page = document.startPage(pageInfo);
+                                android.graphics.Canvas canvas = page.getCanvas();
+                                canvas.save();
+                                canvas.scale(scale, scale);
+                                canvas.translate(0, -pageNumber * pageHeightPx);
+                                canvas.clipRect(0, pageNumber * pageHeightPx,
+                                    pageWidthPx, (pageNumber + 1) * pageHeightPx);
+                                pdfView.draw(canvas);
+                                canvas.restore();
+                                document.finishPage(page);
+                            }
+
+                            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                            document.writeTo(buffer);
+                            document.close();
+                            byte[] pdfBytes = buffer.toByteArray();
+
+                            Uri savedUri;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                ContentValues values = new ContentValues();
+                                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                                values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                                values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                                    Environment.DIRECTORY_DOWNLOADS);
+                                values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                                savedUri = getContext().getContentResolver().insert(
+                                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                                if (savedUri == null) {
+                                    throw new java.io.IOException("تعذر إنشاء الملف داخل مجلد التنزيلات");
+                                }
+                                try (OutputStream output = getContext().getContentResolver()
+                                        .openOutputStream(savedUri, "w")) {
+                                    if (output == null) throw new java.io.IOException("تعذر فتح ملف PDF للكتابة");
+                                    output.write(pdfBytes);
+                                    output.flush();
+                                }
+                                ContentValues completed = new ContentValues();
+                                completed.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                                getContext().getContentResolver().update(savedUri, completed, null, null);
+                            } else {
+                                File downloads = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                                if (downloads == null) throw new java.io.IOException("مجلد التنزيلات غير متاح");
+                                if (!downloads.exists() && !downloads.mkdirs()) {
+                                    throw new java.io.IOException("تعذر إنشاء مجلد التنزيلات");
+                                }
+                                File outputFile = new File(downloads, fileName);
+                                try (FileOutputStream output = new FileOutputStream(outputFile)) {
+                                    output.write(pdfBytes);
+                                    output.flush();
+                                }
+                                savedUri = Uri.fromFile(outputFile);
+                            }
+
+                            JSObject response = new JSObject();
+                            response.put("uri", savedUri.toString());
+                            response.put("fileName", fileName);
+                            response.put("base64", android.util.Base64.encodeToString(
+                                pdfBytes, android.util.Base64.NO_WRAP));
+                            call.resolve(response);
+                        } catch (Exception e) {
+                            call.reject("تعذر تنزيل ملف PDF مباشرةً: " +
+                                (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+                        } finally {
+                            removePrintWebView(pdfView, null);
+                        }
+                    }, 350);
+                }
+            });
+            pdfView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
         });
     }
 
