@@ -31,7 +31,7 @@ jobs:
           node-version: "20"
 
       - name: Install Cloud Functions dependencies
-        run: npm ci --prefix functions
+        run: npm install --prefix functions --no-audit --no-fund
 
       - name: Build Cloud Functions
         run: npm --prefix functions run build
