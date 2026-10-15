@@ -681,6 +681,11 @@ export async function exportElementToPDF(
     throw new Error("العنصر المطلوب تصديره غير موجود");
   }
 
-  const title = options.title || options.filename.replace(/\.pdf$/i, "");
+  // Use the requested filename as the platform print-job name. The browser/Android
+  // print engine renders the HTML DOM as vector/text PDF (not a screenshot), so
+  // saved PDFs keep selectable/searchable text. The platform dialog owns the final
+  // save location; web pages cannot silently choose the user's Downloads folder.
+  const requestedName = options.filename.trim() || options.title || "Alhamdulillah";
+  const title = requestedName.replace(/\.pdf$/i, "");
   await printElement(element, { title });
 }
