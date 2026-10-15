@@ -34,7 +34,7 @@ import AccountManagerModal from "./components/AccountManagerModal";
 import NotificationCenterModal from "./components/NotificationCenterModal";
 import { AppNotification } from "./types";
 import DownloadsView from "./components/DownloadsView";
-import { trackDownloadAnchor } from "./lib/downloads";
+import { saveDownloadAnchorToDevice, trackDownloadAnchor } from "./lib/downloads";
 
 
 // Views
@@ -158,7 +158,17 @@ export default function App() {
       const target = event.target;
       if (!(target instanceof Element)) return;
       const anchor = target.closest("a[download]") as HTMLAnchorElement | null;
-      if (anchor) void trackDownloadAnchor(anchor);
+      if (!anchor) return;
+      if (isNativeAndroid()) {
+        event.preventDefault();
+        event.stopPropagation();
+        void saveDownloadAnchorToDevice(anchor).catch((error) => {
+          const detail = error instanceof Error ? error.message : "تعذر حفظ الملف";
+          window.alert(detail);
+        });
+      } else {
+        void trackDownloadAnchor(anchor);
+      }
     };
     document.addEventListener("click", captureDownload, true);
     return () => document.removeEventListener("click", captureDownload, true);
