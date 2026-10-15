@@ -1,8 +1,9 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { recordDownloadedFile } from "../lib/downloads";
 
 interface NativePrintPlugin {
   printHtml(options: { html: string; title: string }): Promise<void>;
-  downloadHtmlPdf(options: { html: string; title: string }): Promise<{ uri?: string; fileName?: string }>;
+  downloadHtmlPdf(options: { html: string; title: string }): Promise<{ uri?: string; fileName?: string; base64?: string }>;
 }
 
 const NativePrint = registerPlugin<NativePrintPlugin>("NativePrint");
@@ -594,7 +595,18 @@ export async function printElement(
 
     try {
       if (options.download) {
-        await NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title });
+        const result = await NativePrint.downloadHtmlPdf({ html: nativeHtmlContent, title });
+        if (!result.base64) {
+          throw new Error("تم حفظ الملف لكن لم تُستلم بيانات PDF لتسجيله داخل قسم التنزيلات.");
+        }
+        const binary = atob(result.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+        const fileName = result.fileName || `${title.replace(/\\.pdf$/i, "")}.pdf`;
+        const pdfBlob = new Blob([bytes], { type: "application/pdf" });
+        await recordDownloadedFile(fileName, pdfBlob, "تقرير");
       } else {
         await NativePrint.printHtml({ html: nativeHtmlContent, title });
       }
