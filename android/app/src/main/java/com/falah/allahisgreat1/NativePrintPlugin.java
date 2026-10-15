@@ -2,11 +2,14 @@ package com.falah.allahisgreat1;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.Environment;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
@@ -14,6 +17,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
+import android.provider.MediaStore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -207,4 +211,130 @@ public class NativePrintPlugin extends Plugin {
             }
         });
     }
+
+    /**
+     * Creates a selectable/searchable PDF from WebView's print adapter and saves it
+     * directly in the public Downloads collection (Android 10+), without rasterizing
+     * the HTML into a screenshot and without opening the print dialog.
+     */
+    @PluginMethod
+    public void downloadHtmlPdf(PluginCall call) {
+        String html = call.getString("html");
+        String title = call.getString("title", "Alhamdulillah");
+        if (html == null || html.trim().isEmpty()) {
+            call.reject("لا يوجد محتوى لإنشاء ملف PDF");
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            call.reject("التنزيل المباشر إلى مجلد التنزيلات يتطلب Android 10 أو أحدث");
+            return;
+        }
+
+        getActivity().runOnUiThread(() -> {
+            WebView view = null;
+            try {
+                view = new WebView(getContext());
+                view.getSettings().setJavaScriptEnabled(false);
+                view.getSettings().setDefaultTextEncodingName("UTF-8");
+                view.setBackgroundColor(android.graphics.Color.WHITE);
+                final WebView pdfView = view;
+                pdfView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView finishedView, String url) {
+                        finishedView.postDelayed(() -> {
+                            Uri uri = null;
+                            ParcelFileDescriptor descriptor = null;
+                            try {
+                                ContentValues values = new ContentValues();
+                                String safeName = title == null ? "Alhamdulillah" : title.trim();
+                                safeName = safeName.replaceAll("[\\\\/:*?\\"<>|]", "_");
+                                if (safeName.isEmpty()) safeName = "Alhamdulillah";
+                                if (!safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
+                                    safeName += ".pdf";
+                                }
+                                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                                values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                                uri = getContext().getContentResolver().insert(
+                                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                                if (uri == null) throw new Exception("تعذر إنشاء ملف داخل التنزيلات");
+                                descriptor = getContext().getContentResolver().openFileDescriptor(uri, "w");
+                                if (descriptor == null) throw new Exception("تعذر فتح ملف PDF للكتابة");
+
+                                PrintDocumentAdapter adapter = pdfView.createPrintDocumentAdapter(safeName);
+                                Uri outputUri = uri;
+                                ParcelFileDescriptor outputDescriptor = descriptor;
+                                PrintAttributes attributes = new PrintAttributes.Builder()
+                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setResolution(new PrintAttributes.Resolution("pdf", "PDF", 300, 300))
+                                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                                    .build();
+
+                                adapter.onLayout(null, attributes, new CancellationSignal(),
+                                    new PrintDocumentAdapter.LayoutResultCallback() {
+                                        @Override
+                                        public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                                            adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES},
+                                                outputDescriptor, new CancellationSignal(),
+                                                new PrintDocumentAdapter.WriteResultCallback() {
+                                                    @Override
+                                                    public void onWriteFinished(PageRange[] pages) {
+                                                        try {
+                                                            outputDescriptor.close();
+                                                            ContentValues complete = new ContentValues();
+                                                            complete.put(MediaStore.Downloads.IS_PENDING, 0);
+                                                            getContext().getContentResolver().update(outputUri, complete, null, null);
+                                                            JSObject response = new JSObject();
+                                                            response.put("uri", outputUri.toString());
+                                                            response.put("fileName", safeName);
+                                                            call.resolve(response);
+                                                        } catch (Exception e) {
+                                                            getContext().getContentResolver().delete(outputUri, null, null);
+                                                            call.reject("تعذر إكمال حفظ ملف PDF: " + e.getMessage(), e);
+                                                        } finally {
+                                                            removePrintWebView(pdfView, null);
+                                                        }
+                                                    }
+                                                    @Override
+                                                    public void onWriteFailed(CharSequence error) {
+                                                        try { outputDescriptor.close(); } catch (Exception ignored) {}
+                                                        getContext().getContentResolver().delete(outputUri, null, null);
+                                                        call.reject("فشل إنشاء ملف PDF: " + error);
+                                                        removePrintWebView(pdfView, null);
+                                                    }
+                                                    @Override
+                                                    public void onWriteCancelled() {
+                                                        try { outputDescriptor.close(); } catch (Exception ignored) {}
+                                                        getContext().getContentResolver().delete(outputUri, null, null);
+                                                        call.reject("تم إلغاء إنشاء ملف PDF");
+                                                        removePrintWebView(pdfView, null);
+                                                    }
+                                                });
+                                        }
+                                        @Override
+                                        public void onLayoutFailed(CharSequence error) {
+                                            try { outputDescriptor.close(); } catch (Exception ignored) {}
+                                            getContext().getContentResolver().delete(outputUri, null, null);
+                                            call.reject("تعذر تجهيز صفحات PDF: " + error);
+                                            removePrintWebView(pdfView, null);
+                                        }
+                                    }, null);
+                            } catch (Exception e) {
+                                if (descriptor != null) try { descriptor.close(); } catch (Exception ignored) {}
+                                if (uri != null) getContext().getContentResolver().delete(uri, null, null);
+                                call.reject("تعذر تنزيل PDF: " + e.getMessage(), e);
+                                removePrintWebView(pdfView, null);
+                            }
+                        }, 300);
+                    }
+                });
+                view.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+            } catch (Exception e) {
+                if (view != null) removePrintWebView(view, null);
+                call.reject("تعذر تجهيز PDF للتنزيل: " + e.getMessage(), e);
+            }
+        });
+    }
+
 }
