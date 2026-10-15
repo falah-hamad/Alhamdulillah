@@ -1594,7 +1594,7 @@ ${folderCustomers
       });
     } catch (error) {
       console.error("PDF Export error:", error);
-      alert("حدث خطأ أثناء تصدير ملف PDF. يرجى المحاولة مرة أخرى أو استخدام زر الطباعة.");
+      alert("تعذر تصدير PDF: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsExportingPDF(false);
     }
