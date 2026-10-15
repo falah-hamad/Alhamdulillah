@@ -6,7 +6,34 @@ interface NativePrintPlugin {
   downloadHtmlPdf(options: { html: string; title: string }): Promise<{ uri?: string; fileName?: string; base64?: string }>;
 }
 
+
 const NativePrint = registerPlugin<NativePrintPlugin>("NativePrint");
+
+/** Small non-blocking confirmation for direct PDF downloads in the browser. */
+function showPdfSavedToast(message = "تم تنزيل ملف PDF بنجاح"): void {
+  if (typeof document === "undefined") return;
+  const toast = document.createElement("div");
+  toast.textContent = message;
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.style.cssText = [
+    "position:fixed",
+    "left:50%",
+    "bottom:24px",
+    "transform:translateX(-50%)",
+    "z-index:2147483647",
+    "max-width:calc(100vw - 32px)",
+    "padding:12px 18px",
+    "border-radius:12px",
+    "background:#166534",
+    "color:#ffffff",
+    "font:600 14px/1.5 system-ui,sans-serif",
+    "text-align:center",
+    "box-shadow:0 8px 24px rgba(0,0,0,.2)",
+  ].join(";");
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 2800);
+}
 
 /**
  * Comprehensive Print & PDF Export Utilities for Debt Receipts & Accounting Sheets
@@ -805,4 +832,5 @@ export async function exportElementToPDF(
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  showPdfSavedToast();
 }
