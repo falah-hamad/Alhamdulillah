@@ -313,7 +313,7 @@ export function preparePrintableClone(element: HTMLElement): HTMLElement {
  */
 export async function printElement(
   elementOrId: HTMLElement | string,
-  options: { title?: string; onComplete?: () => void } = {}
+  options: { title?: string; onComplete?: () => void; download?: boolean } = {}
 ): Promise<void> {
   const element =
     typeof elementOrId === "string"
