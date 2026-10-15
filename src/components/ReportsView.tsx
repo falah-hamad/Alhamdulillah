@@ -303,7 +303,7 @@ export default function ReportsView({
       });
     } catch (error) {
       console.error("Failed to export accounting report PDF:", error);
-      alert("تعذر إنشاء ملف PDF. تحقق من تحميل الصور والبيانات ثم حاول مرة أخرى.");
+      alert("تعذر إنشاء ملف PDF: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsExportingPDF(false);
     }
