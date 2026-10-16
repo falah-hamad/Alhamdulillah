@@ -2243,19 +2243,19 @@ export default function FileManagerView({
       {/* نافذة تفاصيل العميل */}
       <AnimatePresence>
         {detailsCustomer && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-[60]" onClick={() => setDetailsCustomer(null)}>
-            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl p-5 w-full max-w-sm border border-slate-200 shadow-2xl text-right">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div><h3 className="font-black text-sm text-slate-800">تفاصيل العميل</h3><p className="text-xs text-slate-500 mt-1">{detailsCustomer.name}</p></div>
-                <button type="button" onClick={() => setDetailsCustomer(null)} className="p-2 rounded-xl hover:bg-slate-100"><X className="w-4 h-4" /></button>
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 z-[60]" onClick={() => setDetailsCustomer(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl p-5 sm:p-7 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200 shadow-2xl text-right">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div><h3 className="font-black text-lg text-slate-800">تفاصيل العميل</h3><p className="text-sm text-slate-500 mt-1 break-words">{detailsCustomer.name}</p></div>
+                <button type="button" onClick={() => setDetailsCustomer(null)} aria-label="إغلاق التفاصيل" className="p-2.5 rounded-xl hover:bg-slate-100"><X className="w-5 h-5" /></button>
               </div>
-              <div className="space-y-3 text-xs">
-                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">رقم الهاتف</p><p className="font-bold text-slate-800" dir="ltr">{detailsCustomer.phone || "غير مسجل"}</p></div>
-                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">السكن / العنوان</p><p className="font-bold text-slate-800">{detailsCustomer.address || "غير مسجل"}</p></div>
-                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">هل لديه راتب؟</p><p className="font-bold text-slate-800">{detailsCustomer.hasSalary ? "نعم" : "لا"}</p></div>
-                {detailsCustomer.hasSalary && <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">نوع الراتب</p><p className="font-bold text-slate-800">{detailsCustomer.salaryType || "لم يحدد"}</p></div>}
+              <div className="space-y-4 text-sm">
+                <div className="rounded-2xl bg-slate-50 p-4"><p className="text-slate-500 mb-2">رقم الهاتف</p><p className="font-bold text-base text-slate-800 break-words" dir="ltr">{detailsCustomer.phone || "غير مسجل"}</p></div>
+                <div className="rounded-2xl bg-slate-50 p-4"><p className="text-slate-500 mb-2">السكن / العنوان</p><p className="font-bold text-base text-slate-800 break-words">{detailsCustomer.address || "غير مسجل"}</p></div>
+                <div className="rounded-2xl bg-slate-50 p-4"><p className="text-slate-500 mb-2">هل لديه راتب؟</p><p className="font-bold text-base text-slate-800">{detailsCustomer.hasSalary ? "نعم" : "لا"}</p></div>
+                {detailsCustomer.hasSalary && <div className="rounded-2xl bg-slate-50 p-4"><p className="text-slate-500 mb-2">نوع الراتب</p><p className="font-bold text-base text-slate-800 break-words">{detailsCustomer.salaryType || "لم يحدد"}</p></div>}
               </div>
-              <div className="mt-4 flex justify-end"><button type="button" onClick={() => { const c = detailsCustomer; setDetailsCustomer(null); setEditingCustomer(c); setNewCustName(c.name); setNewCustPhone(c.phone || ""); setNewCustAddress(c.address || ""); setNewCustHasSalary(!!c.hasSalary); setNewCustSalaryType(c.salaryType || ""); setIsCreateCustomerModalOpen(true); }} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold">تعديل البيانات</button></div>
+              <div className="mt-6 flex justify-end"><button type="button" onClick={() => { const c = detailsCustomer; setDetailsCustomer(null); setEditingCustomer(c); setNewCustName(c.name); setNewCustPhone(c.phone || ""); setNewCustAddress(c.address || ""); setNewCustHasSalary(!!c.hasSalary); setNewCustSalaryType(c.salaryType || ""); setIsCreateCustomerModalOpen(true); }} className="px-5 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold">تعديل البيانات</button></div>
             </motion.div>
           </div>
         )}
