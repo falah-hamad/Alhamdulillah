@@ -273,7 +273,6 @@ export default function FileManagerView({
   const [newCustSalaryType, setNewCustSalaryType] = useState("");
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
-  const [newCustOpeningDebt, setNewCustOpeningDebt] = useState("");
 
   // Move Modal State
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
