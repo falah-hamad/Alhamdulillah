@@ -1124,6 +1124,17 @@ export function useAccountingData() {
       }
     }
 
+    // Optimistically update the ledger immediately; cloud sync must not block the visible row.
+    const invWithUser = { ...updated, userId: currentUser?.uid };
+    setInvoices((prev) => {
+      const exists = prev.some((inv) => inv.id === updated.id);
+      const next = exists
+        ? prev.map((inv) => (inv.id === updated.id ? invWithUser : inv))
+        : [invWithUser, ...prev];
+      saveScopedStorage("invoices", next);
+      return next;
+    });
+
     // Adjust associated payment
     const linkedPayment = payments.find((p) => p.invoiceId === updated.id);
     if (linkedPayment) {
@@ -1135,7 +1146,7 @@ export function useAccountingData() {
           return next;
         });
         if (currentUser) {
-          await saveToFirestoreDoc("payments", updatedPayment.id, updatedPayment);
+          void saveToFirestoreDoc("payments", updatedPayment.id, updatedPayment).catch((error) => console.error("Failed to sync linked payment:", error));
         }
       } else {
         setPayments((prev) => {
@@ -1144,7 +1155,7 @@ export function useAccountingData() {
           return next;
         });
         if (currentUser) {
-          await deleteFromFirestoreDoc("payments", linkedPayment.id);
+          void deleteFromFirestoreDoc("payments", linkedPayment.id).catch((error) => console.error("Failed to delete linked payment:", error));
         }
       }
     } else if (updated.paidAmount > 0) {
@@ -1166,22 +1177,14 @@ export function useAccountingData() {
         return next;
       });
       if (currentUser) {
-        await saveToFirestoreDoc("payments", newPayment.id, newPayment);
+        void saveToFirestoreDoc("payments", newPayment.id, newPayment).catch((error) => console.error("Failed to sync new linked payment:", error));
       }
     }
 
-    const invWithUser = { ...updated, userId: currentUser?.uid };
-    setInvoices((prev) => {
-      const exists = prev.some((inv) => inv.id === updated.id);
-      const next = exists
-        ? prev.map((inv) => (inv.id === updated.id ? invWithUser : inv))
-        : [invWithUser, ...prev];
-      saveScopedStorage("invoices", next);
-      return next;
-    });
-
     if (currentUser) {
-      await saveToFirestoreDoc("invoices", updated.id, invWithUser);
+      void saveToFirestoreDoc("invoices", updated.id, invWithUser).catch((error) => {
+        console.error("Failed to sync updated debt invoice:", updated.id, error);
+      });
     }
   };
 
