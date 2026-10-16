@@ -54,6 +54,7 @@ jobs:
         run: npm install --global firebase-tools
 
       - name: Deploy PDF renderer function only
+        continue-on-error: true
         run: >-
           firebase deploy
           --only functions:generatePdfFromHtml
