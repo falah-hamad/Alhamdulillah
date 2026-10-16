@@ -1112,9 +1112,15 @@ export function useAccountingData() {
       setProducts(updatedProducts);
       saveScopedStorage("products", updatedProducts);
       if (currentUser) {
-        for (const p of updatedProducts) {
-          await saveToFirestoreDoc("products", p.id, p);
-        }
+        // Stock history is secondary to saving the customer's debt row. Do not block the
+        // invoice update on a slow or failed product sync; report sync failures for diagnosis.
+        void Promise.all(
+          updatedProducts.map((p) =>
+            saveToFirestoreDoc("products", p.id, p).catch((error) => {
+              console.error("Failed to sync product stock after invoice update:", p.id, error);
+            })
+          )
+        );
       }
     }
 
