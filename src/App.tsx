@@ -259,41 +259,56 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (currentUser) {
-      let cleanupForeground: (() => void) | null = null;
-      setupForegroundNotificationListener((payload) => {
-        console.log("Push notification received in foreground:", payload);
-      }).then((unsub) => {
-        if (unsub) cleanupForeground = unsub;
-      });
-
-      syncNotificationTokenIfPermitted(currentUser.uid).catch((e) => {
-        console.warn("FCM device token sync notice:", e);
-      });
-
-      // Listen for FCM token refreshes in runtime (reinstall, app update, token rotation)
-      let cleanupTokenRefresh: (() => void) | null = null;
-      setupNativePushTokenRefreshListener((newToken) => {
-        saveFcmTokenToFirestore(currentUser.uid, newToken, "android").catch((err) => {
-          console.warn("Auto-synced refreshed FCM token notice:", err);
-        });
-      }).then((unsub) => {
-        if (unsub) cleanupTokenRefresh = unsub;
-      });
-
-      // Subscribe to real-time synchronized Firestore in-app notifications
-      const unsubscribeNotifications = subscribeAppNotifications(currentUser.uid, (items) => {
-        setNotificationsList(items);
-      });
-
-      return () => {
-        if (cleanupForeground) cleanupForeground();
-        if (cleanupTokenRefresh) cleanupTokenRefresh();
-        unsubscribeNotifications();
-      };
-    } else {
+    if (!currentUser) {
       setNotificationsList([]);
+      return;
     }
+
+    // These listener registrations are asynchronous. React StrictMode can run
+    // setup -> cleanup -> setup before registration resolves; clean up any
+    // listener that resolves after its effect has already been disposed.
+    let disposed = false;
+    let cleanupForeground: (() => void) | null = null;
+    let cleanupTokenRefresh: (() => void) | null = null;
+
+    void setupForegroundNotificationListener((payload) => {
+      console.log("Push notification received in foreground:", payload);
+    }).then((unsub) => {
+      if (!unsub) return;
+      if (disposed) unsub();
+      else cleanupForeground = unsub;
+    }).catch((e) => {
+      console.warn("Foreground notification listener setup notice:", e);
+    });
+
+    syncNotificationTokenIfPermitted(currentUser.uid).catch((e) => {
+      console.warn("FCM device token sync notice:", e);
+    });
+
+    // Listen for FCM token refreshes in runtime (reinstall, app update, token rotation)
+    void setupNativePushTokenRefreshListener((newToken) => {
+      saveFcmTokenToFirestore(currentUser.uid, newToken, "android").catch((err) => {
+        console.warn("Auto-synced refreshed FCM token notice:", err);
+      });
+    }).then((unsub) => {
+      if (!unsub) return;
+      if (disposed) unsub();
+      else cleanupTokenRefresh = unsub;
+    }).catch((e) => {
+      console.warn("Native push token refresh listener setup notice:", e);
+    });
+
+    // Subscribe to real-time synchronized Firestore in-app notifications
+    const unsubscribeNotifications = subscribeAppNotifications(currentUser.uid, (items) => {
+      setNotificationsList(items);
+    });
+
+    return () => {
+      disposed = true;
+      if (cleanupForeground) cleanupForeground();
+      if (cleanupTokenRefresh) cleanupTokenRefresh();
+      unsubscribeNotifications();
+    };
   }, [currentUser]);
 
   // Function to navigate when a notification is clicked (either from Android status bar or Web Service Worker)
