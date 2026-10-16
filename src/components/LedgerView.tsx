@@ -1683,7 +1683,7 @@ ${folderCustomers
         const unitPrice = Number(product.salePrice) || 0;
         return {
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
-          details: product.name + " × " + quantity + " " + (product.unitName || "قطعة"),
+          details: product.name + " (" + quantity + " " + (product.unitName || "قطعة") + ")",
           productId: product.id,
           quantity,
           unitPrice,
