@@ -656,7 +656,9 @@ export async function setupForegroundNotificationListener(
         const body = notification.body || "إشعار جديد";
 
         // Display real Android status bar & heads-up popup banner notification in foreground
-        showNativeLocalNotification(title, body, notification.data);
+        const pushId = notification.data?.notificationId || notification.data?.operationId || notification.data?.id;
+        const isLocalEcho = !!pushId && processedNotificationIds.has(String(pushId));
+        if (!isLocalEcho) showNativeLocalNotification(title, body, notification.data);
 
         const currentUser = auth.currentUser;
         if (currentUser) {
@@ -686,11 +688,11 @@ export async function setupForegroundNotificationListener(
       const title = payload.notification?.title || payload.data?.title || "دفتر الديون المحاسبي";
       const body = payload.notification?.body || payload.data?.body || "إشعار جديد";
 
-      // 1. Show local native notification in browser/device
-      showLocalNotification(title, {
-        body,
-        data: payload.data,
-      });
+      const pushId = payload.data?.notificationId || payload.data?.operationId || payload.data?.id;
+      const isLocalEcho = !!pushId && processedNotificationIds.has(String(pushId));
+      if (!isLocalEcho) {
+        showLocalNotification(title, { body, tag: pushId ? String(pushId) : undefined, data: payload.data });
+      }
 
       // 2. Persist in Firestore Notification Center for the current user
       const currentUser = auth.currentUser;
