@@ -1753,22 +1753,19 @@ ${folderCustomers
         setSelectedInvoiceId(createdInvoice.id);
       }
 
-      // Record each cart addition in the customer's change log without letting a log failure
-      // turn a successfully saved ledger update into a false failure message.
+      // Write audit entries in the background so the cart closes as soon as the ledger is updated.
       if (addChangeLog && savedInvoiceId) {
-        try {
-          await Promise.all(cartItems.map((item) => addChangeLog({
-            customerId: selectedCustomer.id,
-            invoiceId: savedInvoiceId,
-            actionType: "إضافة دين",
-            details: item.details + " — " + item.total.toLocaleString() + " " + settings.currency,
-            rawAmount: item.total,
-            itemName: item.details,
-            targetItemId: item.id,
-          })));
-        } catch (logError) {
+        void Promise.all(cartItems.map((item) => addChangeLog({
+          customerId: selectedCustomer.id,
+          invoiceId: savedInvoiceId,
+          actionType: "إضافة دين",
+          details: item.details + " — " + item.total.toLocaleString() + " " + settings.currency,
+          rawAmount: item.total,
+          itemName: item.details,
+          targetItemId: item.id,
+        }))).catch((logError) => {
           console.warn("Product cart saved, but a change-log entry could not be written:", logError);
-        }
+        });
       }
 
       setSelectedCustomerId(selectedCustomer.id);
