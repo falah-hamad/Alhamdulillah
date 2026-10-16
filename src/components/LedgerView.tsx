@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,
+  ShoppingCart,
+  Minus,
   Search,
   PlusCircle,
   FileText,
@@ -167,6 +169,12 @@ export default function LedgerView({
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  // Product cart used to add existing inventory items directly to a customer ledger.
+  const [isProductCartOpen, setIsProductCartOpen] = useState(false);
+  const [productCartSearch, setProductCartSearch] = useState("");
+  const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
+  const [isAddingCartItems, setIsAddingCartItems] = useState(false);
 
   // New Invoice Form State
   const [newInvDate, setNewInvDate] = useState(new Date().toISOString().split("T")[0]);
@@ -1603,6 +1611,179 @@ ${folderCustomers
   // Specific invoice details view
   const currentInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
 
+  const selectedCartProducts = products.filter(
+    (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
+  );
+  const productCartTotal = selectedCartProducts.reduce(
+    (sum, product) => sum + (Number(product.salePrice) || 0) * (Number(productCartQuantities[product.id]) || 0),
+    0
+  );
+  const productCartCount = selectedCartProducts.reduce(
+    (sum, product) => sum + (Number(productCartQuantities[product.id]) || 0),
+    0
+  );
+  const cartVisibleProducts = products
+    .filter((product) => {
+      if (product.isDeleted) return false;
+      const query = productCartSearch.trim().toLowerCase();
+      if (!query) return true;
+      return [product.name, product.category, product.barcode, product.description]
+        .some((value) => String(value || "").toLowerCase().includes(query));
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+
+  const handleOpenProductCart = () => {
+    if (!selectedCustomer) {
+      alert("يرجى اختيار الزبون أولاً قبل إضافة البضاعة إلى سجل الدين.");
+      return;
+    }
+    setProductCartSearch("");
+    setProductCartQuantities({});
+    setIsProductCartOpen(true);
+  };
+
+  const handleConfirmProductCart = async () => {
+    if (isAddingCartItems) return;
+    if (!selectedCustomer) {
+      alert("يرجى اختيار الزبون أولاً.");
+      return;
+    }
+
+    const selectedProducts = products.filter(
+      (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
+    );
+    if (selectedProducts.length === 0) {
+      alert("حدد صنفاً واحداً على الأقل وأدخل الكمية المطلوبة.");
+      return;
+    }
+
+    for (const product of selectedProducts) {
+      const requestedQty = Number(productCartQuantities[product.id]) || 0;
+      const availableQty = Math.max(0, Number(product.quantity) || 0);
+      if (!Number.isInteger(requestedQty) || requestedQty < 1) {
+        alert("الكمية المطلوبة للصنف " + product.name + " يجب أن تكون عدداً صحيحاً أكبر من صفر.");
+        return;
+      }
+      if (requestedQty > availableQty) {
+        alert("الكمية غير كافية للصنف \"" + product.name + "\". المتاح: " + availableQty + " " + (product.unitName || "قطعة") + "، والمطلوب: " + requestedQty + ".");
+        return;
+      }
+      if (!Number.isFinite(Number(product.salePrice)) || Number(product.salePrice) < 0) {
+        alert("سعر البيع غير صالح للصنف " + product.name + ". عدّل سعره من قسم البضاعة أولاً.");
+        return;
+      }
+    }
+
+    setIsAddingCartItems(true);
+    try {
+      const now = Date.now();
+      const cartItems: InvoiceItem[] = selectedProducts.map((product, index) => {
+        const quantity = Number(productCartQuantities[product.id]) || 0;
+        const unitPrice = Number(product.salePrice) || 0;
+        return {
+          id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
+          details: product.name + (quantity > 1 ? " × " + quantity : ""),
+          productId: product.id,
+          quantity,
+          unitPrice,
+          total: quantity * unitPrice,
+        };
+      });
+
+      const targetInvoice =
+        currentInvoice && currentInvoice.customerId === selectedCustomer.id ? currentInvoice : undefined;
+      let savedInvoiceId = "";
+      let addedGrandTotal = 0;
+
+      if (targetInvoice) {
+        // Keep payment/remaining summary rows at the bottom of the ledger.
+        const oldItems = targetInvoice.items || [];
+        const specialRowsIndex = oldItems.findIndex((item) => item.isPaymentRow || item.isRemainingRow);
+        const mergedItems = specialRowsIndex < 0
+          ? [...oldItems, ...cartItems]
+          : [...oldItems.slice(0, specialRowsIndex), ...cartItems, ...oldItems.slice(specialRowsIndex)];
+        const calculatedItems = calculateCumulativeSeparators(mergedItems) as InvoiceItem[];
+        const grandTotal = calculatedItems
+          .filter((item) => !item.isPaymentRow && !item.isRemainingRow && !item.isSeparator)
+          .reduce((sum, item) => {
+            const declaredTotal = Number(item.total);
+            const rowTotal = Number.isFinite(declaredTotal)
+              ? declaredTotal
+              : (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+            return sum + rowTotal;
+          }, 0);
+        const paidAmount = Math.max(0, Number(targetInvoice.paidAmount) || 0);
+        const updatedInvoice: Invoice = {
+          ...targetInvoice,
+          customerName: selectedCustomer.name,
+          customerPhone: selectedCustomer.phone,
+          customerAddress: selectedCustomer.address || "",
+          items: calculatedItems,
+          grandTotal,
+          paidAmount,
+          remainingAmount: Math.max(0, grandTotal - paidAmount),
+        };
+        await updateInvoice(updatedInvoice);
+        savedInvoiceId = targetInvoice.id;
+        addedGrandTotal = cartItems.reduce((sum, item) => sum + item.total, 0);
+      } else {
+        const grandTotal = cartItems.reduce((sum, item) => sum + item.total, 0);
+        const createdInvoice = addInvoice({
+          invoiceNumber: "INV-" + Date.now().toString().slice(-6),
+          date: new Date().toISOString().split("T")[0],
+          customerId: selectedCustomer.id,
+          customerName: selectedCustomer.name,
+          customerPhone: selectedCustomer.phone,
+          customerAddress: selectedCustomer.address || "",
+          items: cartItems,
+          grandTotal,
+          paidAmount: 0,
+          remainingAmount: grandTotal,
+          notes: "",
+          employeeName: "",
+          signature: "",
+          columns: [
+            { id: "amount", label: "المبلغ", type: "amount", width: "150px" },
+            { id: "details", label: "البيان (التفاصيل)", type: "details" },
+          ],
+        });
+        savedInvoiceId = createdInvoice.id;
+        addedGrandTotal = grandTotal;
+        setSelectedInvoiceId(createdInvoice.id);
+      }
+
+      // Record each cart addition in the customer's change log without letting a log failure
+      // turn a successfully saved ledger update into a false failure message.
+      if (addChangeLog && savedInvoiceId) {
+        try {
+          await Promise.all(cartItems.map((item) => addChangeLog({
+            customerId: selectedCustomer.id,
+            invoiceId: savedInvoiceId,
+            actionType: "إضافة دين",
+            details: item.details + " — " + item.total.toLocaleString() + " " + settings.currency,
+            rawAmount: item.total,
+            itemName: item.details,
+            targetItemId: item.id,
+          })));
+        } catch (logError) {
+          console.warn("Product cart saved, but a change-log entry could not be written:", logError);
+        }
+      }
+
+      setSelectedCustomerId(selectedCustomer.id);
+      setSelectedInvoiceId(savedInvoiceId);
+      setIsProductCartOpen(false);
+      setProductCartQuantities({});
+      setProductCartSearch("");
+      showToast("تمت إضافة " + selectedProducts.length + " صنف إلى سجل " + selectedCustomer.name + " بمبلغ " + addedGrandTotal.toLocaleString() + " " + settings.currency + " بنجاح.");
+    } catch (error) {
+      console.error("Product cart save failed:", error);
+      alert("تعذر إكمال إضافة البضاعة إلى سجل الدين. لم تُغلق العربة حتى تتمكن من المراجعة والمحاولة مجدداً.");
+    } finally {
+      setIsAddingCartItems(false);
+    }
+  };
+
   const getDisplayedItems = (invoice: Invoice | undefined) => {
     if (!invoice) return [];
     let items = [...invoice.items];
@@ -2908,7 +3089,15 @@ ${folderCustomers
                       <PlusCircle className="w-4 h-4" />
                       بدء كشف حساب فارغ للعميل
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={handleOpenProductCart}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      إضافة من البضاعة
+                    </button>
+                                      )}
                 </div>
               ) : (
                 currentInvoice && (
@@ -2964,7 +3153,18 @@ ${folderCustomers
                           }
                           return null;
                         })()}
-
+                        <button
+                          type="button"
+                          onClick={handleOpenProductCart}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                          title="إضافة أصناف المخزون مباشرة إلى سجل هذا الزبون"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                          <span>عربة البضاعة</span>
+                          {selectedCartProducts.length > 0 && (
+                            <span className="min-w-5 h-5 px-1 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px]">{selectedCartProducts.length}</span>
+                          )}
+                        </button>
 
                       </div>
                     </div>
@@ -4391,6 +4591,162 @@ ${folderCustomers
                   <span>مشاركة عبر واتساب</span>
                 </a>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* PRODUCT CART — Add inventory items directly to the selected customer's debt ledger */}
+      {isProductCartOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isAddingCartItems) setIsProductCartOpen(false);
+          }}
+        >
+          <div dir="rtl" role="dialog" aria-modal="true" aria-label="عربة البضاعة" className="bg-white w-full max-w-2xl max-h-[94dvh] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-l from-emerald-50 to-white flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">عربة البضاعة</h3>
+                  <p className="text-xs text-slate-500 mt-1">اختر من مخزون التطبيق، وحدد الكمية، ثم أدرج الأصناف مباشرة في سجل الدين.</p>
+                  <p className="text-xs font-bold text-emerald-800 mt-1.5">الزبون: {selectedCustomer?.name || "غير محدد"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isAddingCartItems}
+                onClick={() => setIsProductCartOpen(false)}
+                className="w-9 h-9 rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 disabled:opacity-40 flex items-center justify-center shrink-0"
+                aria-label="إغلاق العربة"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 sm:p-4 border-b border-slate-100">
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="search"
+                  value={productCartSearch}
+                  onChange={(event) => setProductCartSearch(event.target.value)}
+                  placeholder="ابحث باسم البضاعة أو التصنيف أو الباركود..."
+                  className="w-full pr-9 pl-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:outline-none text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
+              {cartVisibleProducts.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-400">
+                  {products.some((product) => !product.isDeleted)
+                    ? "ما لقينا صنف يطابق البحث."
+                    : "ماكو بضاعة مسجلة حالياً. أضف الأصناف من قسم البضاعة أولاً."}
+                </div>
+              ) : (
+                cartVisibleProducts.map((product) => {
+                  const quantity = Number(productCartQuantities[product.id]) || 0;
+                  const available = Math.max(0, Number(product.quantity) || 0);
+                  const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
+                  return (
+                    <div key={product.id} className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-slate-100 hover:border-emerald-200 bg-white">
+                      {imageSource ? (
+                        <img src={imageSource} alt={product.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover bg-slate-100 shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                          <Package className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {available.toLocaleString()} {product.unitName || "قطعة"}</p>
+                        <p className="text-xs font-black text-emerald-700 mt-1">{(Number(product.salePrice) || 0).toLocaleString()} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
+                        {quantity > 0 && (
+                          <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {(quantity * (Number(product.salePrice) || 0)).toLocaleString()} {settings.currency}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          aria-label={"تقليل كمية " + product.name}
+                          disabled={quantity <= 0 || isAddingCartItems}
+                          onClick={() => setProductCartQuantities((current) => ({ ...current, [product.id]: Math.max(0, (Number(current[product.id]) || 0) - 1) }))}
+                          className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          aria-label={"كمية " + product.name}
+                          type="number"
+                          min="0"
+                          max={available}
+                          step="1"
+                          value={quantity}
+                          disabled={available <= 0 || isAddingCartItems}
+                          onChange={(event) => {
+                            const parsed = Math.floor(Number(event.target.value) || 0);
+                            setProductCartQuantities((current) => ({
+                              ...current,
+                              [product.id]: Math.max(0, Math.min(available, parsed)),
+                            }));
+                          }}
+                          className="w-12 sm:w-14 h-8 text-center text-sm font-bold rounded-lg border border-slate-200 focus:border-emerald-500 focus:outline-none disabled:bg-slate-100"
+                        />
+                        <button
+                          type="button"
+                          aria-label={"زيادة كمية " + product.name}
+                          disabled={quantity >= available || isAddingCartItems}
+                          onClick={() => setProductCartQuantities((current) => ({ ...current, [product.id]: Math.min(available, (Number(current[product.id]) || 0) + 1) }))}
+                          className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center disabled:opacity-30 hover:bg-emerald-700"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-slate-600">
+                  <span className="font-bold text-slate-900">{selectedCartProducts.length}</span> أصناف ·
+                  <span className="font-bold text-slate-900"> {productCartCount.toLocaleString()}</span> وحدة محددة
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] text-slate-500">إجمالي العربة</p>
+                  <p className="text-lg font-black text-emerald-700">{productCartTotal.toLocaleString()} {settings.currency}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={isAddingCartItems || selectedCartProducts.length === 0}
+                  onClick={handleConfirmProductCart}
+                  className="flex-1 min-h-11 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isAddingCartItems ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {isAddingCartItems ? "جاري تسجيل البضاعة..." : "إدراج في سجل الدين"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isAddingCartItems}
+                  onClick={() => {
+                    setProductCartQuantities({});
+                    setIsProductCartOpen(false);
+                  }}
+                  className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold disabled:opacity-40"
+                >
+                  إلغاء
+                </button>
+              </div>
+              <p className="text-[10px] leading-relaxed text-slate-400">يُسجل سعر البيع الحالي لكل صنف، وتُخصم الكمية من المخزون بعد الحفظ. الإدخال اليدوي الحالي يبقى متاحاً.</p>
             </div>
           </div>
         </div>
