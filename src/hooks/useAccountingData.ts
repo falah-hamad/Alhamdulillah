@@ -1059,54 +1059,47 @@ export function useAccountingData() {
     const oldInvoice = invoices.find((inv) => inv.id === updated.id);
     if (!oldInvoice) return;
 
-    // Reverse the previous invoice quantities, then apply the edited invoice and log both changes.
+    // Reconcile only the stock quantity difference. This prevents ordinary invoice edits
+    // (including adding items from the cart) from logging every existing item as a new sale.
     const updatedProducts = [...products];
     let productsChanged = false;
     const movementAt = new Date().toISOString();
+    const previousQuantities = new Map<string, number>();
+    const nextQuantities = new Map<string, number>();
+    const collectQuantities = (items: Invoice["items"], target: Map<string, number>) => {
+      (items || []).forEach((item) => {
+        if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
+        const quantity = Math.max(0, Number(item.quantity) || 0);
+        target.set(item.productId, (target.get(item.productId) || 0) + quantity);
+      });
+    };
+    collectQuantities(oldInvoice.items || [], previousQuantities);
+    collectQuantities(updated.items || [], nextQuantities);
 
-    oldInvoice.items.forEach((item) => {
-      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
-      const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+    const changedProductIds = new Set([...previousQuantities.keys(), ...nextQuantities.keys()]);
+    changedProductIds.forEach((productId) => {
+      const delta = (nextQuantities.get(productId) || 0) - (previousQuantities.get(productId) || 0);
+      if (Math.abs(delta) < 0.000001) return;
+      const prodIndex = updatedProducts.findIndex((product) => product.id === productId);
       if (prodIndex < 0) return;
-      const product = updatedProducts[prodIndex];
-      const restoredQuantity = Math.max(0, Number(item.quantity) || 0);
-      const movement: ProductStockMovement = {
-        id: `edit-return-${updated.id}-${item.id}-${Date.now()}`,
-        type: "adjustment",
-        quantity: restoredQuantity,
-        createdAt: movementAt,
-        note: `عكس كمية البيع السابقة عند تعديل الفاتورة ${oldInvoice.invoiceNumber || ""}`.trim(),
-        referenceId: updated.id,
-        customerName: oldInvoice.customerName,
-        unitCost: Number(product.purchasePrice) || 0,
-      };
-      updatedProducts[prodIndex] = {
-        ...product,
-        quantity: (Number(product.quantity) || 0) + restoredQuantity,
-        stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
-      };
-      productsChanged = true;
-    });
 
-    updated.items.forEach((item) => {
-      if (!item.productId || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
-      const prodIndex = updatedProducts.findIndex((p) => p.id === item.productId);
-      if (prodIndex < 0) return;
       const product = updatedProducts[prodIndex];
-      const soldQuantity = Math.max(0, Number(item.quantity) || 0);
+      const isAdditionalSale = delta > 0;
       const movement: ProductStockMovement = {
-        id: `edit-sale-${updated.id}-${item.id}-${Date.now()}`,
-        type: "sale",
-        quantity: -soldQuantity,
+        id: createUniqueRecordId(isAdditionalSale ? "edit-sale" : "edit-return"),
+        type: isAdditionalSale ? "sale" : "adjustment",
+        quantity: -delta,
         createdAt: movementAt,
-        note: `بيع من الفاتورة المعدلة رقم ${updated.invoiceNumber || ""}`.trim(),
+        note: isAdditionalSale
+          ? "بيع إضافي من القائمة المعدلة رقم " + (updated.invoiceNumber || "")
+          : "عكس كمية البيع عند تعديل القائمة رقم " + (updated.invoiceNumber || ""),
         referenceId: updated.id,
         customerName: updated.customerName,
         unitCost: Number(product.purchasePrice) || 0,
       };
       updatedProducts[prodIndex] = {
         ...product,
-        quantity: Math.max(0, (Number(product.quantity) || 0) - soldQuantity),
+        quantity: Math.max(0, (Number(product.quantity) || 0) - delta),
         stockMovements: [movement, ...(product.stockMovements || [])].slice(0, 250),
       };
       productsChanged = true;
