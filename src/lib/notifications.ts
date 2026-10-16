@@ -369,27 +369,39 @@ export async function dispatchAccountingNotification(
   // 1. Persist in Firestore Notification Center
   await saveInAppNotification(userId, { ...notification, id: notifId });
 
-  // 2. Trigger browser/device local notification if in foreground web context
-  showLocalNotification(notification.title, {
-    body: notification.body,
-    tag: notifId,
-    data: notification.data || {},
-  });
-
-  // 3. Dispatch Cross-Device Push Notification via FCM to sync across all registered devices
-  sendCrossDeviceNotificationServer({
-    operationId: notifId,
-    title: notification.title,
-    body: notification.body,
-    category: notification.category,
-    data: {
-      ...notification.data,
-      notificationId: notifId,
+  // 2. Send one FCM push to registered devices. Foreground listeners display it;
+  // Android/FCM and the web service worker display it when the app is backgrounded.
+  // Do not display a local notification in parallel with FCM: that caused duplicates.
+  try {
+    const result = await sendCrossDeviceNotificationServer({
+      operationId: notifId,
+      title: notification.title,
+      body: notification.body,
       category: notification.category,
-    },
-  }).catch((err) => {
+      data: {
+        ...notification.data,
+        notificationId: notifId,
+        category: notification.category,
+      },
+    });
+
+    // Fallback only if push delivery could not be initiated, never when it was sent
+    // or skipped by server-side deduplication.
+    if (!result.success && !result.skipped) {
+      showLocalNotification(notification.title, {
+        body: notification.body,
+        tag: notifId,
+        data: { ...notification.data, notificationId: notifId, operationId: notifId },
+      });
+    }
+  } catch (err) {
     console.warn("Cross-device notification dispatch notice:", err);
-  });
+    showLocalNotification(notification.title, {
+      body: notification.body,
+      tag: notifId,
+      data: { ...notification.data, notificationId: notifId, operationId: notifId },
+    });
+  }
 }
 
 export interface PaidAmountNotificationParams {
@@ -648,7 +660,9 @@ export async function setupForegroundNotificationListener(
 
         const currentUser = auth.currentUser;
         if (currentUser) {
+          const stableId = notification.data?.notificationId || notification.data?.operationId || notification.data?.id;
           saveInAppNotification(currentUser.uid, {
+            id: stableId ? String(stableId) : undefined,
             title,
             body,
             category: (notification.data?.category as NotificationCategory) || "general",
@@ -681,7 +695,9 @@ export async function setupForegroundNotificationListener(
       // 2. Persist in Firestore Notification Center for the current user
       const currentUser = auth.currentUser;
       if (currentUser) {
+        const stableId = payload.data?.notificationId || payload.data?.operationId || payload.data?.id;
         saveInAppNotification(currentUser.uid, {
+          id: stableId ? String(stableId) : undefined,
           title,
           body,
           category: (payload.data?.category as NotificationCategory) || "general",
