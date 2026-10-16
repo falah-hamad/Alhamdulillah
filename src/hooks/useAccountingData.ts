@@ -1056,8 +1056,11 @@ export function useAccountingData() {
   };
 
   const updateInvoice = async (updated: Invoice) => {
-    const oldInvoice = invoices.find((inv) => inv.id === updated.id);
-    if (!oldInvoice) return;
+    // The selected ledger can briefly be newer than this render's invoices snapshot.
+    // Keep the supplied invoice writable even if it is not present in the captured array.
+    // In that rare case, use the supplied items as the baseline so existing stock is not
+    // deducted a second time; the invoice itself is still persisted below.
+    const oldInvoice = invoices.find((inv) => inv.id === updated.id) || updated;
 
     // Reconcile only the stock quantity difference. This prevents ordinary invoice edits
     // (including adding items from the cart) from logging every existing item as a new sale.
@@ -1163,7 +1166,10 @@ export function useAccountingData() {
 
     const invWithUser = { ...updated, userId: currentUser?.uid };
     setInvoices((prev) => {
-      const next = prev.map((inv) => (inv.id === updated.id ? invWithUser : inv));
+      const exists = prev.some((inv) => inv.id === updated.id);
+      const next = exists
+        ? prev.map((inv) => (inv.id === updated.id ? invWithUser : inv))
+        : [invWithUser, ...prev];
       saveScopedStorage("invoices", next);
       return next;
     });
