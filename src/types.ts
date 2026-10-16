@@ -17,6 +17,9 @@ export interface Customer {
   name: string;
   phone: string;
   address?: string;
+  hasSalary?: boolean; // هل لدى العميل راتب
+  salaryType?: string; // نوع الراتب عند توفره
+  isFavorite?: boolean; // العميل ضمن المفضلة
   createdAt: string;
   folderId?: string; // Optional folder/group reference
   sequence?: number; // التسلسل المستقل للمدين داخل الحافظة
