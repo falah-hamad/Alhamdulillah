@@ -269,6 +269,10 @@ export default function FileManagerView({
   const [newCustName, setNewCustName] = useState("");
   const [newCustPhone, setNewCustPhone] = useState("");
   const [newCustAddress, setNewCustAddress] = useState("");
+  const [newCustHasSalary, setNewCustHasSalary] = useState(false);
+  const [newCustSalaryType, setNewCustSalaryType] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
   const [newCustOpeningDebt, setNewCustOpeningDebt] = useState("");
 
   // Move Modal State
@@ -542,31 +546,45 @@ export default function FileManagerView({
     showToast(`تم إنشاء المجلد "${newFolderData.name}" بنجاح!`);
   };
 
-  // Create Customer handler (Item 6 in Popup Menu)
+  // Create or edit a customer profile.
   const handleCreateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustName.trim()) return;
 
-    const openingDebtNum = parseFloat(newCustOpeningDebt) || 0;
-    const newCustomerData: Customer = {
-      id: `cust-${Date.now()}`,
-      name: newCustName.trim(),
-      phone: newCustPhone.trim(),
-      address: newCustAddress.trim(),
-      createdAt: new Date().toISOString(),
-      folderId: activeFolderId || undefined, // Linked directly to the current folder!
-    };
-
-    if (onAddCustomer) {
-      onAddCustomer(newCustomerData);
+    if (editingCustomer) {
+      const updatedCustomer: Customer = {
+        ...editingCustomer,
+        name: newCustName.trim(),
+        phone: newCustPhone.trim(),
+        address: newCustAddress.trim(),
+        hasSalary: newCustHasSalary,
+        salaryType: newCustHasSalary ? newCustSalaryType.trim() : "",
+      };
+      onUpdateCustomer?.(updatedCustomer);
+      showToast(`تم تحديث بيانات العميل "${updatedCustomer.name}" بنجاح.`);
+    } else {
+      const newCustomerData: Customer = {
+        id: `cust-${Date.now()}`,
+        name: newCustName.trim(),
+        phone: newCustPhone.trim(),
+        address: newCustAddress.trim(),
+        hasSalary: newCustHasSalary,
+        salaryType: newCustHasSalary ? newCustSalaryType.trim() : "",
+        createdAt: new Date().toISOString(),
+        folderId: activeFolderId || undefined,
+      };
+      onAddCustomer?.(newCustomerData);
+      showToast(`تمت إضافة العميل "${newCustomerData.name}" بنجاح!`);
     }
 
     setNewCustName("");
     setNewCustPhone("");
     setNewCustAddress("");
+    setNewCustHasSalary(false);
+    setNewCustSalaryType("");
     setNewCustOpeningDebt("");
+    setEditingCustomer(null);
     setIsCreateCustomerModalOpen(false);
-    showToast(`تمت إضافة العميل "${newCustomerData.name}" بنجاح!`);
   };
 
   // Move items handler
@@ -1268,7 +1286,7 @@ export default function FileManagerView({
           </button>
           <button
             type="button"
-            onClick={() => setIsCreateCustomerModalOpen(true)}
+            onClick={() => { setEditingCustomer(null); setNewCustName(""); setNewCustPhone(""); setNewCustAddress(""); setNewCustHasSalary(false); setNewCustSalaryType(""); setIsCreateCustomerModalOpen(true); }}
             className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded-md text-[11px] font-bold border border-blue-300/70 transition-colors cursor-pointer"
             title="إضافة عميل جديد داخل هذا المجلد"
           >
@@ -1635,7 +1653,8 @@ export default function FileManagerView({
                             {cust.name.slice(0, 1)}
                           </div>
                           <div className="text-right">
-                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 leading-tight">
+                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 leading-tight flex items-center gap-1">
+                              {cust.isFavorite && <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />}
                               {cust.name}
                             </h4>
                             {cust.phone ? (
@@ -1984,7 +2003,7 @@ export default function FileManagerView({
                     <UserPlus className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-slate-800">إضافة عميل جديد</h3>
+                    <h3 className="font-bold text-sm text-slate-800">{editingCustomer ? "تعديل بيانات العميل" : "إضافة عميل جديد"}</h3>
                     <p className="text-[10px] text-blue-800">
                       سيتم ربطه بالمجلد: {currentFolder ? currentFolder.name : rootName}
                     </p>
@@ -2036,10 +2055,22 @@ export default function FileManagerView({
                   />
                 </div>
 
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                    <input type="checkbox" checked={newCustHasSalary} onChange={(e) => setNewCustHasSalary(e.target.checked)} className="h-4 w-4 accent-blue-600" />
+                    لديه راتب
+                  </label>
+                  {newCustHasSalary && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">نوع الراتب</label>
+                      <input type="text" value={newCustSalaryType} onChange={(e) => setNewCustSalaryType(e.target.value)} placeholder="مثال: حكومي، تقاعدي، ضمان..." className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  )}
+                </div>
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsCreateCustomerModalOpen(false)}
+                    onClick={() => { setIsCreateCustomerModalOpen(false); setEditingCustomer(null); }}
                     className="px-3.5 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                   >
                     إلغاء
@@ -2048,7 +2079,7 @@ export default function FileManagerView({
                     type="submit"
                     className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
-                    إضافة العميل
+                    {editingCustomer ? "حفظ التعديلات" : "إضافة العميل"}
                   </button>
                 </div>
               </form>
@@ -2211,6 +2242,27 @@ export default function FileManagerView({
         )}
       </AnimatePresence>
 
+      {/* نافذة تفاصيل العميل */}
+      <AnimatePresence>
+        {detailsCustomer && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-[60]" onClick={() => setDetailsCustomer(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl p-5 w-full max-w-sm border border-slate-200 shadow-2xl text-right">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div><h3 className="font-black text-sm text-slate-800">تفاصيل العميل</h3><p className="text-xs text-slate-500 mt-1">{detailsCustomer.name}</p></div>
+                <button type="button" onClick={() => setDetailsCustomer(null)} className="p-2 rounded-xl hover:bg-slate-100"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-3 text-xs">
+                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">رقم الهاتف</p><p className="font-bold text-slate-800" dir="ltr">{detailsCustomer.phone || "غير مسجل"}</p></div>
+                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">السكن / العنوان</p><p className="font-bold text-slate-800">{detailsCustomer.address || "غير مسجل"}</p></div>
+                <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">هل لديه راتب؟</p><p className="font-bold text-slate-800">{detailsCustomer.hasSalary ? "نعم" : "لا"}</p></div>
+                {detailsCustomer.hasSalary && <div className="rounded-xl bg-slate-50 p-3"><p className="text-slate-500 mb-1">نوع الراتب</p><p className="font-bold text-slate-800">{detailsCustomer.salaryType || "لم يحدد"}</p></div>}
+              </div>
+              <div className="mt-4 flex justify-end"><button type="button" onClick={() => { const c = detailsCustomer; setDetailsCustomer(null); setEditingCustomer(c); setNewCustName(c.name); setNewCustPhone(c.phone || ""); setNewCustAddress(c.address || ""); setNewCustHasSalary(!!c.hasSalary); setNewCustSalaryType(c.salaryType || ""); setIsCreateCustomerModalOpen(true); }} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold">تعديل البيانات</button></div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ========================================================
           قائمة الإجراءات لعنصر مفرد (Single Item Action Menu)
           ======================================================== */}
@@ -2308,45 +2360,50 @@ export default function FileManagerView({
                 </div>
               ) : (
                 <div className="space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onSelectCustomer) onSelectCustomer(itemActionMenu.id);
-                      setItemActionMenu(null);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl"
-                  >
-                    <User className="w-4 h-4" />
-                    <span>فتح كشف الحساب في الدفتر</span>
+                  <button type="button" onClick={() => { if (onSelectCustomer) onSelectCustomer(itemActionMenu.id); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl">
+                    <BookOpen className="w-4 h-4" /><span>عرض السجل</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setItemsToMove({ folderIds: [], customerIds: [itemActionMenu.id] });
-                      setTargetMoveFolderId(null);
-                      setIsMoveModalOpen(true);
-                      setItemActionMenu(null);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
-                  >
-                    <Move className="w-4 h-4 text-blue-500" />
-                    <span>نقل العميل إلى مجلد آخر</span>
+                  <button type="button" onClick={() => {
+                    const c = activeCustomers.find((x) => x.id === itemActionMenu.id);
+                    if (c) {
+                      setEditingCustomer(c); setNewCustName(c.name); setNewCustPhone(c.phone || ""); setNewCustAddress(c.address || "");
+                      setNewCustHasSalary(!!c.hasSalary); setNewCustSalaryType(c.salaryType || ""); setIsCreateCustomerModalOpen(true);
+                    }
+                    setItemActionMenu(null);
+                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Pencil className="w-4 h-4 text-blue-500" /><span>تعديل</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const menuId = itemActionMenu.id;
-                      const menuName = itemActionMenu.name;
-                      setItemActionMenu(null);
-                      const targetC = activeCustomers.find((x) => x.id === menuId) || { id: menuId, name: menuName };
-                      triggerDeleteCustomer(targetC);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>حذف العميل</span>
+                  <button type="button" onClick={() => {
+                    setItemsToMove({ folderIds: [], customerIds: [itemActionMenu.id] }); setTargetMoveFolderId(null); setIsMoveModalOpen(true); setItemActionMenu(null);
+                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Move className="w-4 h-4 text-blue-500" /><span>نقل</span>
+                  </button>
+                  <button type="button" onClick={() => {
+                    const source = activeCustomers.find((x) => x.id === itemActionMenu.id);
+                    setItemActionMenu(null);
+                    if (!source) return;
+                    const duplicate: Customer = { ...source, id: `cust-${Date.now()}`, name: `${source.name} (نسخة)`, createdAt: new Date().toISOString(), isFavorite: false };
+                    onAddCustomer?.(duplicate);
+                    showToast(`تم نسخ بيانات العميل "${source.name}" دون نسخ الديون أو الدفعات.`);
+                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Copy className="w-4 h-4 text-emerald-600" /><span>نسخ</span>
+                  </button>
+                  <button type="button" onClick={() => {
+                    const c = activeCustomers.find((x) => x.id === itemActionMenu.id);
+                    setItemActionMenu(null);
+                    if (c) { onUpdateCustomer?.({ ...c, isFavorite: !c.isFavorite }); showToast(c.isFavorite ? "تمت إزالة العميل من المفضلة." : "تمت إضافة العميل إلى المفضلة ⭐"); }
+                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Star className="w-4 h-4 text-amber-500" /><span>{activeCustomers.find((x) => x.id === itemActionMenu.id)?.isFavorite ? "إزالة من المفضلة" : "إضافة المفضلة"}</span>
+                  </button>
+                  <button type="button" onClick={() => { const c = activeCustomers.find((x) => x.id === itemActionMenu.id); setDetailsCustomer(c || null); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <User className="w-4 h-4 text-indigo-500" /><span>التفاصيل</span>
+                  </button>
+                  <button type="button" onClick={() => {
+                    const menuId = itemActionMenu.id; const menuName = itemActionMenu.name; setItemActionMenu(null);
+                    const targetC = activeCustomers.find((x) => x.id === menuId) || { id: menuId, name: menuName };
+                    triggerDeleteCustomer(targetC);
+                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer">
+                    <Trash2 className="w-4 h-4" /><span>حذف</span>
                   </button>
                 </div>
               )}
