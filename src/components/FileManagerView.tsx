@@ -2276,7 +2276,7 @@ export default function FileManagerView({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl p-3 w-full max-w-xs border border-slate-200 shadow-2xl text-right font-sans"
+              className="bg-white rounded-3xl p-4 sm:p-5 w-full max-w-sm border border-slate-200 shadow-2xl text-right font-sans"
             >
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
                 <span className="text-[10px] text-slate-400 font-bold">
@@ -2286,16 +2286,16 @@ export default function FileManagerView({
               </div>
 
               {itemActionMenu.type === "folder" ? (
-                <div className="space-y-0.5">
+                <div className="space-y-1.5">
                   <button
                     type="button"
                     onClick={() => {
                       navigateTo(itemActionMenu.id);
                       setItemActionMenu(null);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
                   >
-                    <FolderOpen className="w-4 h-4 text-amber-500" />
+                    <FolderOpen className="w-5 h-5 text-amber-500" />
                     <span>فتح المجلد</span>
                   </button>
 
@@ -2309,9 +2309,9 @@ export default function FileManagerView({
                       }
                       setItemActionMenu(null);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
                   >
-                    <Pencil className="w-4 h-4 text-slate-500" />
+                    <Pencil className="w-5 h-5 text-slate-500" />
                     <span>إعادة تسمية</span>
                   </button>
 
@@ -2322,9 +2322,9 @@ export default function FileManagerView({
                       if (f) toggleFolderFavoriteById(f);
                       setItemActionMenu(null);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
                   >
-                    <Star className="w-4 h-4 text-amber-500" />
+                    <Star className="w-5 h-5 text-amber-500" />
                     <span>تبديل المفضلة</span>
                   </button>
 
@@ -2336,9 +2336,9 @@ export default function FileManagerView({
                       setIsMoveModalOpen(true);
                       setItemActionMenu(null);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl"
                   >
-                    <Move className="w-4 h-4 text-blue-500" />
+                    <Move className="w-5 h-5 text-blue-500" />
                     <span>نقل إلى مجلد آخر</span>
                   </button>
 
@@ -2351,16 +2351,16 @@ export default function FileManagerView({
                       const targetF = activeFolders.find((x) => x.id === menuId) || { id: menuId, name: menuName, color: "amber" };
                       triggerDeleteFolder(targetF);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-5 h-5" />
                     <span>حذف المجلد</span>
                   </button>
                 </div>
               ) : (
                 <div className="space-y-0.5">
-                  <button type="button" onClick={() => { if (onSelectCustomer) onSelectCustomer(itemActionMenu.id); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl">
-                    <BookOpen className="w-4 h-4" /><span>عرض السجل</span>
+                  <button type="button" onClick={() => { if (onSelectCustomer) onSelectCustomer(itemActionMenu.id); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-xl">
+                    <BookOpen className="w-5 h-5" /><span>عرض السجل</span>
                   </button>
                   <button type="button" onClick={() => {
                     const c = activeCustomers.find((x) => x.id === itemActionMenu.id);
@@ -2369,13 +2369,13 @@ export default function FileManagerView({
                       setNewCustHasSalary(!!c.hasSalary); setNewCustSalaryType(c.salaryType || ""); setIsCreateCustomerModalOpen(true);
                     }
                     setItemActionMenu(null);
-                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
-                    <Pencil className="w-4 h-4 text-blue-500" /><span>تعديل</span>
+                  }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Pencil className="w-5 h-5 text-blue-500" /><span>تعديل</span>
                   </button>
                   <button type="button" onClick={() => {
                     setItemsToMove({ folderIds: [], customerIds: [itemActionMenu.id] }); setTargetMoveFolderId(null); setIsMoveModalOpen(true); setItemActionMenu(null);
-                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
-                    <Move className="w-4 h-4 text-blue-500" /><span>نقل</span>
+                  }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Move className="w-5 h-5 text-blue-500" /><span>نقل</span>
                   </button>
                   <button type="button" onClick={() => {
                     const source = activeCustomers.find((x) => x.id === itemActionMenu.id);
@@ -2384,25 +2384,25 @@ export default function FileManagerView({
                     const duplicate: Customer = { ...source, id: `cust-${Date.now()}`, name: `${source.name} (نسخة)`, createdAt: new Date().toISOString(), isFavorite: false };
                     onAddCustomer?.(duplicate);
                     showToast(`تم نسخ بيانات العميل "${source.name}" دون نسخ الديون أو الدفعات.`);
-                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
-                    <Copy className="w-4 h-4 text-emerald-600" /><span>نسخ</span>
+                  }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Copy className="w-5 h-5 text-emerald-600" /><span>نسخ</span>
                   </button>
                   <button type="button" onClick={() => {
                     const menuId = itemActionMenu.id; const menuName = itemActionMenu.name; setItemActionMenu(null);
                     const targetC = activeCustomers.find((x) => x.id === menuId) || { id: menuId, name: menuName };
                     triggerDeleteCustomer(targetC);
-                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer">
-                    <Trash2 className="w-4 h-4" /><span>حذف</span>
+                  }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer">
+                    <Trash2 className="w-5 h-5" /><span>حذف</span>
                   </button>
                   <button type="button" onClick={() => {
                     const c = activeCustomers.find((x) => x.id === itemActionMenu.id);
                     setItemActionMenu(null);
                     if (c) { onUpdateCustomer?.({ ...c, isFavorite: !c.isFavorite }); showToast(c.isFavorite ? "تمت إزالة العميل من المفضلة." : "تمت إضافة العميل إلى المفضلة ⭐"); }
-                  }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
-                    <Star className="w-4 h-4 text-amber-500" /><span>{activeCustomers.find((x) => x.id === itemActionMenu.id)?.isFavorite ? "إزالة من المفضلة" : "إضافة المفضلة"}</span>
+                  }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <Star className="w-5 h-5 text-amber-500" /><span>{activeCustomers.find((x) => x.id === itemActionMenu.id)?.isFavorite ? "إزالة من المفضلة" : "إضافة المفضلة"}</span>
                   </button>
-                  <button type="button" onClick={() => { const c = activeCustomers.find((x) => x.id === itemActionMenu.id); setDetailsCustomer(c || null); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
-                    <User className="w-4 h-4 text-indigo-500" /><span>التفاصيل</span>
+                  <button type="button" onClick={() => { const c = activeCustomers.find((x) => x.id === itemActionMenu.id); setDetailsCustomer(c || null); setItemActionMenu(null); }} className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl">
+                    <User className="w-5 h-5 text-indigo-500" /><span>التفاصيل</span>
                   </button>
                 </div>
               )}
