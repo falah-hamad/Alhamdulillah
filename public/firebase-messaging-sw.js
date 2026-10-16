@@ -27,8 +27,9 @@ messaging.onBackgroundMessage((payload) => {
     data: payload.data || {},
     dir: 'rtl',
     lang: 'ar',
-    tag: payload.data?.operationId || payload.data?.tag || 'accounting-alert',
-    renotify: true
+    tag: payload.data?.operationId || payload.data?.notificationId || payload.data?.tag || 'accounting-alert',
+    // Replacing an existing notification for the same operation must not alert again.
+    renotify: false
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions);
