@@ -581,7 +581,6 @@ export default function FileManagerView({
     setNewCustAddress("");
     setNewCustHasSalary(false);
     setNewCustSalaryType("");
-    setNewCustOpeningDebt("");
     setEditingCustomer(null);
     setIsCreateCustomerModalOpen(false);
   };
