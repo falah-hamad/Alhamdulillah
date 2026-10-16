@@ -3,6 +3,7 @@ import {
   BookOpen,
   ShoppingCart,
   Minus,
+  Package,
   Search,
   PlusCircle,
   FileText,
@@ -3065,6 +3066,7 @@ ${folderCustomers
                     <p className="text-slate-400">يرجى اختيار أحد صفحات الدفتر من القائمة، أو بدء دفتر حساب جديد للعميل بنمط الصورة المرفقة.</p>
                   </div>
                   {selectedCustomer && (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                     <button
                       onClick={() => {
                         const newInv = addInvoice({
@@ -3097,7 +3099,8 @@ ${folderCustomers
                       <ShoppingCart className="w-4 h-4" />
                       إضافة من البضاعة
                     </button>
-                                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 currentInvoice && (
