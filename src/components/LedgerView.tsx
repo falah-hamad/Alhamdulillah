@@ -172,6 +172,7 @@ export default function LedgerView({
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+  const [accountingDraftRows, setAccountingDraftRows] = useState<AccountingSheetRow[]>([]);
   const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
 
   // Product cart used to add existing inventory items directly to a customer ledger.
@@ -680,6 +681,10 @@ ${folderCustomers
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId && !c.isDeleted);
+
+  useEffect(() => {
+    setAccountingDraftRows(selectedCustomer?.accountingSheetRows || []);
+  }, [selectedCustomer?.id]);
 
   const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
     if (!selectedCustomer || !updateCustomer) {
@@ -3226,61 +3231,110 @@ ${folderCustomers
                     </div>
 
                     {ledgerDisplayMode === "accounting" && selectedCustomer ? (
-                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4" dir="rtl">
+                      <div className="mx-auto w-full max-w-5xl" dir="rtl">
                         {(() => {
-                          const rows = selectedCustomer?.accountingSheetRows || [];
-                          const sheetPayments = selectedCustomer?.accountingSheetPayments || [];
-                          const debt = rows.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0), 0);
-                          const paid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-                          const remaining = Math.max(0, debt - paid);
+                          const rows = accountingDraftRows;
+                          const invoiceTotal = rows.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0), 0);
+                          const rowCount = Math.max(20, rows.length + 1);
+                          const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
+                          const persistDraftRows = () => {
+                            const validRows = rows.filter((row) => row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim());
+                            persistAccountingRows(validRows.map((row) => ({ ...row, total: (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0) })));
+                          };
+                          const changeCell = (index: number, field: "details" | "quantity" | "unit" | "unitPrice", value: string) => {
+                            setAccountingDraftRows((previous) => {
+                              const next = [...previous];
+                              while (next.length <= index) next.push({ id: `asr-${selectedCustomer.id}-${next.length}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 });
+                              const oldRow = next[index];
+                              next[index] = { ...oldRow, [field]: field === "quantity" || field === "unitPrice" ? (value === "" ? 0 : Math.max(0, Number(value) || 0)) : value, total: (field === "quantity" ? (Number(value) || 0) : Number(oldRow.quantity) || 0) * (field === "unitPrice" ? (Number(value) || 0) : Number(oldRow.unitPrice) || 0) } as AccountingSheetRow;
+                              return next;
+                            });
+                          };
+                          const goNextCell = (event: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, field: "details" | "quantity" | "unit" | "unitPrice") => {
+                            if (event.key !== "Enter") return;
+                            event.preventDefault();
+                            const order = ["details", "quantity", "unit", "unitPrice"];
+                            const fieldIndex = order.indexOf(field);
+                            const nextRow = fieldIndex === 3 ? rowIndex + 1 : rowIndex;
+                            const nextField = fieldIndex === 3 ? "details" : order[fieldIndex + 1];
+                            if (nextRow >= rowCount) setAccountingDraftRows((previous) => [...previous, { id: `asr-${selectedCustomer.id}-${previous.length}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 }]);
+                            window.setTimeout(() => {
+                              const target = document.querySelector<HTMLInputElement>(`[data-accounting-cell="${nextRow}-${nextField}"]`);
+                              target?.focus();
+                            }, 0);
+                          };
+                          const saveCustomerField = (field: "name" | "address", value: string) => {
+                            if (updateCustomer) updateCustomer({ ...selectedCustomer, [field]: value });
+                          };
                           return (
-                            <>
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <h2 className="text-lg font-black text-slate-900">القائمة الحسابية</h2>
-                                  <p className="text-xs text-slate-500 mt-1">قائمة مستقلة عن ورقة الدفتر الأصلية وفواتير المبيعات.</p>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                  <div className="rounded-lg bg-slate-50 p-2"><div className="text-slate-500">الإجمالي</div><b>{debt.toLocaleString()} {settings.currency}</b></div>
-                                  <div className="rounded-lg bg-blue-50 p-2"><div className="text-blue-600">المسدّد</div><b>{paid.toLocaleString()} {settings.currency}</b></div>
-                                  <div className="rounded-lg bg-rose-50 p-2"><div className="text-rose-600">المتبقي</div><b>{remaining.toLocaleString()} {settings.currency}</b></div>
-                                </div>
+                            <section className="accounting-paper relative overflow-hidden border border-[#333333] bg-white text-slate-900 shadow-sm" style={{ fontFamily: "Tahoma, Arial, sans-serif", "--invoice-blue": "#0018A8", "--invoice-pink": "#E91E63", "--invoice-red": "#E60000" } as React.CSSProperties}>
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
+                                <div className="rotate-[-24deg] text-center text-4xl sm:text-6xl font-black text-[#E91E63] opacity-[0.08]">{settings.companyName || "قائمة حسابية"}<div className="mt-2 text-2xl">{settings.logoUrl ? "✦" : "قائمة حسابية"}</div></div>
                               </div>
-                              <form onSubmit={(event) => { event.preventDefault(); saveAccountingRow(); }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 no-print">
-                                <input aria-label="التفاصيل" value={accountingRowDraft.details} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, details: event.target.value }))} placeholder="التفاصيل" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-                                <input aria-label="الكمية" type="number" min="0.001" step="any" value={accountingRowDraft.quantity} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, quantity: event.target.value }))} placeholder="الكمية" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-                                <input aria-label="الوحدة" value={accountingRowDraft.unit} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, unit: event.target.value }))} placeholder="الوحدة" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-                                <input aria-label="السعر" type="number" min="0" step="any" value={accountingRowDraft.unitPrice} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, unitPrice: event.target.value }))} placeholder="السعر" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-                                <div className="flex gap-2">
-                                  <button type="submit" disabled={!updateCustomer} className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{editingAccountingRowId ? "حفظ التعديل" : "إضافة بند"}</button>
-                                  {editingAccountingRowId && <button type="button" onClick={() => { setEditingAccountingRowId(null); setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" }); }} className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-700">إلغاء</button>}
+                              <div className="relative z-[1]">
+                                <header className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_190px] gap-3 border-b-2 border-[#0018A8] p-3 sm:p-5">
+                                  <div className="min-w-0 text-right">
+                                    <h2 className="text-xl sm:text-3xl font-black leading-tight text-[#E60000]">{settings.companyName || "اسم المحل / المكتب"}</h2>
+                                    <p className="mt-1 text-xs sm:text-sm font-bold text-[#C2185B]">{settings.signaturePlaceholder || "تجارة عامة"}</p>
+                                    <p className="mt-1 text-xs sm:text-sm text-[#0018A8]">{settings.companyAddress || "العنوان"}</p>
+                                    <p className="mt-1 text-sm sm:text-base font-black text-[#E60000]" dir="rtl">{settings.companyPhone || "رقم الهاتف"}</p>
+                                  </div>
+                                  <div className="flex flex-col items-center justify-start gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                      {[0, 1, 2].map((circle) => <div key={circle} className="flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center overflow-hidden rounded-full border border-[#C2185B] bg-white text-xs font-black text-[#E91E63]">{settings.logoUrl ? <img src={settings.logoUrl} alt="شعار المحل" className="h-full w-full object-contain" /> : <span>{circle === 0 ? "شعار" : circle === 1 ? "مواد" : "تجارة"}</span>}</div>)}
+                                    </div>
+                                    <p className="text-center text-xs font-bold text-[#C2185B]">بإدارة / {settings.signaturePlaceholder || "................"}</p>
+                                  </div>
+                                </header>
+                                <div className="space-y-2 border-b border-[#C2185B] p-3 sm:p-4 text-sm">
+                                  <div className="flex items-center justify-start gap-2">
+                                    <label className="shrink-0 font-bold text-[#0018A8]" htmlFor="accounting-sheet-date">التاريخ:</label>
+                                    <input id="accounting-sheet-date" type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="max-w-[155px] border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 text-xs text-slate-800 outline-none focus:bg-blue-50" />
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-[auto_minmax(90px,1fr)_auto_minmax(90px,1fr)] items-center gap-x-2 gap-y-1">
+                                    <label className="font-bold text-[#C2185B]">حضرة السيد:</label>
+                                    <input aria-label="اسم الزبون على القائمة الحسابية" value={selectedCustomer.name || ""} onChange={(event) => saveCustomerField("name", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                    <label className="font-bold text-[#C2185B]">المحترم / العنوان:</label>
+                                    <input aria-label="عنوان الزبون على القائمة الحسابية" value={selectedCustomer.address || ""} onChange={(event) => saveCustomerField("address", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                  </div>
                                 </div>
-                              </form>
-                              <div className="overflow-x-auto">
-                                <table className="w-full min-w-[650px] text-sm text-right border-collapse">
-                                  <thead className="bg-slate-50 text-slate-700"><tr><th className="p-3">ت</th><th className="p-3">التفاصيل</th><th className="p-3">الكمية</th><th className="p-3">الوحدة</th><th className="p-3">السعر</th><th className="p-3">المبلغ الكلي</th><th className="p-3 no-print">الإجراءات</th></tr></thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {rows.map((row, index) => (
-                                      <tr key={row.id}>
-                                        <td className="p-3">{index + 1}</td>
-                                        <td className="p-3 font-semibold">{row.details}</td>
-                                        <td className="p-3">{row.quantity}</td>
-                                        <td className="p-3">{row.unit}</td>
-                                        <td className="p-3">{Number(row.unitPrice || 0).toLocaleString()}</td>
-                                        <td className="p-3 font-bold">{((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()} {settings.currency}</td>
-                                        <td className="p-2 no-print"><div className="flex items-center gap-1"><button type="button" onClick={() => startEditAccountingRow(row)} className="rounded-md bg-amber-50 p-2 text-amber-700" aria-label="تعديل البند"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => deleteAccountingRow(row.id)} className="rounded-md bg-rose-50 p-2 text-rose-700" aria-label="حذف البند"><Trash2 className="h-4 w-4" /></button></div></td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                  <tfoot className="bg-slate-50 font-black"><tr><td className="p-3" colSpan={5}>المجموع الكلي</td><td className="p-3">{debt.toLocaleString()} {settings.currency}</td><td className="no-print"></td></tr></tfoot>
-                                </table>
+                                <div className="p-2 sm:p-3">
+                                  <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 36fr 10fr 12fr 16fr 20fr" }}>
+                                    {[
+                                      { key: "sequence", label: "ت", color: "#0018A8" },
+                                      { key: "details", label: "التفاصيل", color: "#E91E63" },
+                                      { key: "quantity", label: "الكمية", color: "#0018A8" },
+                                      { key: "unit", label: "الوحدة", color: "#E91E63" },
+                                      { key: "unitPrice", label: "السعر", color: "#0018A8" },
+                                      { key: "total", label: "المبلغ الكلي", color: "#E91E63" },
+                                    ].map((column) => <div key={column.key} className="rounded-t-md px-0.5 py-2 text-center text-[10px] sm:text-sm font-black text-white" style={{ backgroundColor: column.color }}>{column.label}</div>)}
+                                  </div>
+                                  <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 36fr 10fr 12fr 16fr 20fr" }}>
+                                    {Array.from({ length: rowCount }, (_, index) => {
+                                      const row = rows[index] || { id: `asr-${selectedCustomer.id}-${index}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 };
+                                      const cell = (field: string, content: React.ReactNode, extraClass = "") => <div key={field} className={`flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}`}>{content}</div>;
+                                      return <React.Fragment key={row.id}>
+                                        {cell("sequence", index + 1, "font-bold text-[#0018A8]")}
+                                        {cell("details", <input data-accounting-cell={`${index}-details`} aria-label={`تفاصيل السطر ${index + 1}`} value={row.details || ""} onChange={(event) => changeCell(index, "details", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "details")} className={paperInput + " text-right"} />)}
+                                        {cell("quantity", <input data-accounting-cell={`${index}-quantity`} aria-label={`كمية السطر ${index + 1}`} type="number" min="0" step="any" inputMode="numeric" value={row.quantity || ""} onChange={(event) => changeCell(index, "quantity", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "quantity")} className={paperInput} />)}
+                                        {cell("unit", <input data-accounting-cell={`${index}-unit`} aria-label={`وحدة السطر ${index + 1}`} list="accounting-unit-options" value={row.unit || ""} onChange={(event) => changeCell(index, "unit", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unit")} className={paperInput} />)}
+                                        {cell("unitPrice", <input data-accounting-cell={`${index}-unitPrice`} aria-label={`سعر السطر ${index + 1}`} type="number" min="0" step="any" inputMode="decimal" value={row.unitPrice || ""} onChange={(event) => changeCell(index, "unitPrice", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unitPrice")} className={paperInput} />)}
+                                        {cell("total", ((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString("en-US"), "font-bold text-[#0018A8]")}
+                                      </React.Fragment>;
+                                    })}
+                                  </div>
+                                  <datalist id="accounting-unit-options">{["قطعة", "روله", "باكيت", "علبة", "سيت", "كارتون"].map((unit) => <option key={unit} value={unit} />)}</datalist>
+                                  <div className="mt-2 grid grid-cols-[1fr_20fr] gap-[3px]">
+                                    <div className="flex min-h-12 items-center justify-center rounded border-2 border-[#0018A8] px-2 text-center text-sm sm:text-xl font-black text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")}<span className="mr-1 text-xs">{settings.currency}</span></div>
+                                    <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")} {settings.currency}</span></div>
+                                  </div>
+                                </div>
+                                <footer className="flex flex-wrap items-end justify-between gap-4 p-3 sm:p-5 text-sm font-bold">
+                                  <span className="text-[#C2185B]">الخطأ والسهو مرجوع للطرفين</span>
+                                  <span className="text-[#C2185B]">التوقيع: ........................</span>
+                                </footer>
                               </div>
-                              {rows.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">القائمة الحسابية فارغة. أضف أول بند من الحقول أعلاه.</p>}
-                              <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <span className="text-slate-500">الدفعات المسجلة لهذه القائمة تُدار بشكل مستقل من تبويب «الورقة الحسابية» داخل ملف العميل.</span>
-                                <button type="button" onClick={() => setLedgerDisplayMode("vertical")} className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">العودة إلى ورقة الدفتر</button>
-                              </div>
-                            </>
+                            </section>
                           );
                         })()}
                       </div>
