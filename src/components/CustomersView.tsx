@@ -92,9 +92,14 @@ export default function CustomersView({
     const custInvoices = invoices.filter((inv) => inv.customerId === custId);
     const custPayments = payments.filter((p) => p.customerId === custId);
 
-    const totalDebts = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0);
-    const totalPaid = custPayments.reduce((acc, p) => acc + p.amount, 0);
-    const totalRemaining = custInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0);
+    const customerRecord = customers.find((c) => c.id === custId);
+    const sheetRows = customerRecord?.accountingSheetRows || [];
+    const sheetPayments = customerRecord?.accountingSheetPayments || [];
+    const sheetDebt = sheetRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const sheetPaid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const totalDebts = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0) + sheetDebt;
+    const totalPaid = custPayments.reduce((acc, p) => acc + p.amount, 0) + sheetPaid;
+    const totalRemaining = custInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0) + Math.max(0, sheetDebt - sheetPaid);
 
     // Get all purchases (items list)
     const purchases = custInvoices.flatMap((inv) =>
@@ -713,6 +718,7 @@ export default function CustomersView({
             >
               <DollarSign className="w-4 h-4" /> عمليات التسديد ({getCustomerMetrics(selectedCustomer.id).paymentCount})
             </button>
+            <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> الورقة الحسابية</button>
           </div>
 
           {customerTab === "accounting" && (() => {
@@ -764,7 +770,6 @@ export default function CustomersView({
                 </div>
                 {sheetPayments.map(payment => <div key={payment.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-emerald-50 p-3 text-xs"><span>{payment.date} — {payment.notes || "دفعة للورقة الحسابية"}</span><b>{payment.amount.toLocaleString()} {settings.currency}</b><button onClick={() => { if (confirm("حذف تسجيل هذه الدفعة؟")) persist(rows, sheetPayments.filter(item => item.id !== payment.id)); }} className="text-rose-600 font-bold">حذف</button></div>)}
               </div>
-              <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> إضافة/عرض الورقة الحسابية</button>
           </div>;
           })()}
 
