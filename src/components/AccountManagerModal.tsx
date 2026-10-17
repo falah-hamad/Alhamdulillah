@@ -134,6 +134,7 @@ export default function AccountManagerModal({
   const [companyName, setCompanyName] = useState(storeSettings.companyName || "");
   const [companyPhone, setCompanyPhone] = useState(storeSettings.companyPhone || "");
   const [companyAddress, setCompanyAddress] = useState(storeSettings.companyAddress || "");
+  const [companyDescription, setCompanyDescription] = useState(storeSettings.companyDescription || "");
   const [currency, setCurrency] = useState(storeSettings.currency || "د.ع");
   const [signaturePlaceholder, setSignaturePlaceholder] = useState(storeSettings.signaturePlaceholder || "");
   const [logoUploading, setLogoUploading] = useState(false);
@@ -145,6 +146,7 @@ export default function AccountManagerModal({
     setCompanyName(storeSettings.companyName || "");
     setCompanyPhone(storeSettings.companyPhone || "");
     setCompanyAddress(storeSettings.companyAddress || "");
+    setCompanyDescription(storeSettings.companyDescription || "");
     setCurrency(storeSettings.currency || "د.ع");
     setSignaturePlaceholder(storeSettings.signaturePlaceholder || "");
   }, [storeSettings]);
@@ -342,6 +344,7 @@ export default function AccountManagerModal({
         companyName: companyName.trim(),
         companyPhone: companyPhone.trim(),
         companyAddress: companyAddress.trim(),
+        companyDescription: companyDescription.trim(),
         currency: currency.trim(),
         signaturePlaceholder: signaturePlaceholder.trim(),
       }));
@@ -1314,6 +1317,12 @@ export default function AccountManagerModal({
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">العنوان والمقر الرئيسي</label>
                   <input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">وصف النشاط التجاري (يظهر أعلى الوصل والقائمة الحسابية)</label>
+                  <textarea value={companyDescription} onChange={(e) => setCompanyDescription(e.target.value)} rows={3} maxLength={240} className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg resize-y" placeholder="مثال: لتجارة وتجهيز كافة المواد والشبكات والتأسيسات الكهربائية ومستلزمات الإنارة..." />
+                  <p className="mt-1 text-[10px] text-slate-400">اختياري — سيظهر في ترويسة الوصل والقائمة الحسابية عند الطباعة.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
