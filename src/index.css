@@ -506,17 +506,13 @@ p, label, h1, h2, h3, h4, th, td, li,
 }
 
 button, [role="button"], input, select, textarea {
-  font: inherit;
+  font-family: inherit;
   max-width: 100%;
-}
-
-button, [role="button"] {
-  min-height: var(--app-touch-target);
+  touch-action: manipulation;
 }
 
 input, select, textarea {
   min-width: 0;
-  min-height: var(--app-control-height);
   line-height: 1.4;
 }
 
