@@ -266,6 +266,7 @@ export const defaultSettings: SystemSettings = {
   companyName: "شركة الرواد للتجارة والمحاسبة",
   companyPhone: "920012345",
   companyAddress: "بغداد - شارع الرشيد",
+  companyDescription: "",
   currency: "د.ع",
   logoUrl: "",
   signaturePlaceholder: "المدير المالي / المحاسب المسؤول",
