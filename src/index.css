@@ -449,3 +449,217 @@ textarea {
     overflow: visible !important;
   }
 }
+
+
+/* === Responsive system v2: shared layout, forms, dialogs and native WebView === */
+:root {
+  --app-gutter: clamp(0.625rem, 2.4vw, 1.5rem);
+  --app-gap: clamp(0.5rem, 1.8vw, 1.25rem);
+  --app-control-height: 2.75rem;
+  --app-touch-target: 2.75rem;
+  --app-readable-max: 90rem;
+}
+
+html {
+  font-size: 16px;
+  scroll-padding-block: 1rem;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+#root > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+main, section, article, aside, header, footer,
+.flex, [class*="flex-"], .grid, [class*="grid-cols-"] {
+  min-width: 0;
+}
+
+.flex > *, [class*="flex-"] > *,
+.grid > *, [class*="grid-cols-"] > * {
+  min-width: 0;
+}
+
+p, label, h1, h2, h3, h4, th, td, li,
+[class*="truncate"], [class*="break-"] {
+  overflow-wrap: anywhere;
+}
+
+button, [role="button"], input, select, textarea {
+  font: inherit;
+  max-width: 100%;
+}
+
+button, [role="button"] {
+  min-height: var(--app-touch-target);
+}
+
+input, select, textarea {
+  min-width: 0;
+  min-height: var(--app-control-height);
+  line-height: 1.4;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input[type="checkbox"], input[type="radio"] {
+  min-width: 1rem;
+  min-height: 1rem;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+svg {
+  flex-shrink: 0;
+}
+
+img, video, canvas, iframe {
+  max-width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+[role="dialog"], [aria-modal="true"] {
+  box-sizing: border-box;
+  max-width: min(calc(100vw - 1rem), 48rem);
+  max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 359px) {
+  :root {
+    --app-gutter: 0.625rem;
+    --app-gap: 0.5rem;
+    --app-control-height: 2.625rem;
+  }
+
+  main {
+    padding-inline: var(--app-gutter);
+  }
+
+  h1 { font-size: clamp(1.125rem, 5vw, 1.375rem); }
+  h2 { font-size: clamp(1rem, 4.4vw, 1.25rem); }
+
+  button, [role="button"] {
+    overflow-wrap: anywhere;
+  }
+
+  /* Preserve table readability; allow local scrolling instead of page overflow. */
+  table {
+    min-width: 34rem;
+  }
+
+  [class*="overflow-x-auto"] {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (min-width: 360px) and (max-width: 639px) {
+  :root {
+    --app-gutter: 0.75rem;
+    --app-gap: 0.75rem;
+  }
+
+  [role="dialog"], [aria-modal="true"] {
+    width: calc(100vw - 1rem);
+  }
+
+  [class*="overflow-x-auto"] {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 639px) {
+  /* Keep dialogs and sheets above the Android keyboard and inside the visible area. */
+  [role="dialog"], [aria-modal="true"] {
+    margin-block: 0.5rem;
+    scroll-padding-block: 1rem;
+  }
+
+  /* Controls remain usable, while long forms scroll inside their own container. */
+  form {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  input, select, textarea {
+    font-size: max(1rem, 16px);
+  }
+
+  /* Avoid flex children pushing the viewport wider than the phone. */
+  .flex, [class*="flex-"], .grid, [class*="grid-cols-"] {
+    max-width: 100%;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  [role="dialog"], [aria-modal="true"] {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 0.5rem);
+  }
+}
+
+@media (min-width: 640px) {
+  :root {
+    --app-gutter: clamp(1rem, 2.4vw, 1.75rem);
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-gap: 1rem;
+  }
+
+  #root > div {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-gutter: clamp(1.5rem, 2.4vw, 2rem);
+  }
+}
+
+/* Respect reduced motion and system font scaling preferences. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
