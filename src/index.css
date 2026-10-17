@@ -526,9 +526,9 @@ textarea {
   #root main input,
   #root main select,
   #root main textarea {
-    width: 100%;
     min-width: 0;
     max-width: 100%;
+    box-sizing: border-box;
   }
 }
 
