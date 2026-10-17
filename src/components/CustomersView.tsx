@@ -48,9 +48,16 @@ export default function CustomersView({
   deleteCustomer,
 }: CustomersViewProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments">("statement");
+  const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments" | "accounting">("statement");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPrintingCustomer, setIsPrintingCustomer] = useState(false);
+  const [sheetDetails, setSheetDetails] = useState("");
+  const [sheetQuantity, setSheetQuantity] = useState("1");
+  const [sheetUnit, setSheetUnit] = useState("قطعة");
+  const [sheetUnitPrice, setSheetUnitPrice] = useState("");
+  const [sheetPaymentAmount, setSheetPaymentAmount] = useState("");
+  const [sheetPaymentDate, setSheetPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [sheetPaymentNotes, setSheetPaymentNotes] = useState("");
 
   // Modals for Customer Management
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -707,6 +714,59 @@ export default function CustomersView({
               <DollarSign className="w-4 h-4" /> عمليات التسديد ({getCustomerMetrics(selectedCustomer.id).paymentCount})
             </button>
           </div>
+
+          {customerTab === "accounting" && (() => {
+            const rows = selectedCustomer.accountingSheetRows || [];
+            const sheetPayments = selectedCustomer.accountingSheetPayments || [];
+            const debt = rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+            const paid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+            const remaining = Math.max(0, debt - paid);
+            const persist = (nextRows: typeof rows, nextPayments: typeof sheetPayments) => updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows, accountingSheetPayments: nextPayments });
+            const addRow = () => {
+              const quantity = Number(sheetQuantity), unitPrice = Number(sheetUnitPrice);
+              if (!sheetDetails.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) { alert("أدخل التفاصيل والكمية وسعر الوحدة بشكل صحيح."); return; }
+              persist([...rows, { id: "asr-" + Date.now(), details: sheetDetails.trim(), quantity, unit: sheetUnit.trim() || "قطعة", unitPrice, total: quantity * unitPrice }], sheetPayments);
+              setSheetDetails(""); setSheetQuantity("1"); setSheetUnitPrice("");
+            };
+            const addSheetPayment = () => {
+              const amount = Number(sheetPaymentAmount);
+              if (!Number.isFinite(amount) || amount <= 0 || amount > remaining) { alert("أدخل دفعة صحيحة لا تتجاوز رصيد الورقة الحسابية."); return; }
+              persist(rows, [...sheetPayments, { id: "asp-" + Date.now(), amount, date: sheetPaymentDate, notes: sheetPaymentNotes.trim() || undefined }]);
+              setSheetPaymentAmount(""); setSheetPaymentNotes("");
+            };
+            return <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><h3 className="text-base font-black text-slate-800">الورقة الحسابية الإضافية</h3><p className="text-xs text-slate-500 mt-1">منفصلة عن ورقة الدفتر الحالية، وبيانات الدفتر لا تتغير.</p></div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-slate-50 p-2"><div className="text-slate-500">الدين</div><b>{debt.toLocaleString()} {settings.currency}</b></div>
+                  <div className="rounded-lg bg-blue-50 p-2"><div className="text-blue-600">المسدّد</div><b>{paid.toLocaleString()} {settings.currency}</b></div>
+                  <div className="rounded-lg bg-rose-50 p-2"><div className="text-rose-600">المتبقي</div><b>{remaining.toLocaleString()} {settings.currency}</b></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                <input value={sheetDetails} onChange={e => setSheetDetails(e.target.value)} placeholder="التفاصيل" className="min-w-0 border rounded-lg p-2 text-sm" />
+                <input type="number" min="0.001" step="any" value={sheetQuantity} onChange={e => setSheetQuantity(e.target.value)} placeholder="الكمية" className="min-w-0 border rounded-lg p-2 text-sm" />
+                <input value={sheetUnit} onChange={e => setSheetUnit(e.target.value)} placeholder="الوحدة" className="min-w-0 border rounded-lg p-2 text-sm" />
+                <input type="number" min="0" step="any" value={sheetUnitPrice} onChange={e => setSheetUnitPrice(e.target.value)} placeholder="سعر الوحدة" className="min-w-0 border rounded-lg p-2 text-sm" />
+                <button onClick={addRow} className="rounded-lg bg-blue-600 text-white p-2 text-sm font-bold">إضافة بند</button>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm text-right">
+                <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">التسلسل</th><th className="p-2">التفاصيل</th><th className="p-2">الكمية</th><th className="p-2">الوحدة</th><th className="p-2">سعر الوحدة</th><th className="p-2">المبلغ الكلي</th><th className="p-2">حذف</th></tr></thead>
+                <tbody>{rows.map((row, index) => <tr key={row.id} className="border-b"><td className="p-2">{index + 1}</td><td className="p-2">{row.details}</td><td className="p-2">{row.quantity}</td><td className="p-2">{row.unit}</td><td className="p-2">{row.unitPrice.toLocaleString()}</td><td className="p-2 font-bold">{row.total.toLocaleString()}</td><td className="p-2"><button onClick={() => { if (confirm("حذف هذا البند؟")) persist(rows.filter(item => item.id !== row.id), sheetPayments); }} className="text-rose-600 font-bold">حذف</button></td></tr>)}</tbody>
+                <tfoot><tr className="font-black bg-slate-50"><td className="p-2" colSpan={5}>المجموع</td><td className="p-2">{debt.toLocaleString()} {settings.currency}</td><td /></tr></tfoot>
+              </table></div>
+              <div className="border-t pt-4 space-y-3"><h4 className="font-bold text-sm">دفعة مخصصة لهذه الورقة فقط</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <input type="number" min="0.01" step="any" max={remaining} value={sheetPaymentAmount} onChange={e => setSheetPaymentAmount(e.target.value)} placeholder="مبلغ الدفعة" className="min-w-0 border rounded-lg p-2 text-sm" />
+                  <input type="date" value={sheetPaymentDate} onChange={e => setSheetPaymentDate(e.target.value)} className="min-w-0 border rounded-lg p-2 text-sm" />
+                  <input value={sheetPaymentNotes} onChange={e => setSheetPaymentNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="min-w-0 border rounded-lg p-2 text-sm" />
+                  <button onClick={addSheetPayment} disabled={remaining <= 0} className="rounded-lg bg-emerald-600 text-white p-2 text-sm font-bold disabled:opacity-50">تسجيل الدفعة</button>
+                </div>
+                {sheetPayments.map(payment => <div key={payment.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-emerald-50 p-3 text-xs"><span>{payment.date} — {payment.notes || "دفعة للورقة الحسابية"}</span><b>{payment.amount.toLocaleString()} {settings.currency}</b><button onClick={() => { if (confirm("حذف تسجيل هذه الدفعة؟")) persist(rows, sheetPayments.filter(item => item.id !== payment.id)); }} className="text-rose-600 font-bold">حذف</button></div>)}
+              </div>
+              <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> إضافة/عرض الورقة الحسابية</button>
+          </div>;
+          })()}
 
           {/* Tab Content 1: Unified Statement of Account (كشف حساب مالي تفصيلي) */}
           {customerTab === "statement" && (
