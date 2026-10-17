@@ -57,6 +57,7 @@ import {
   ClipboardList,
   Type,
   Palette,
+  History,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow } from "../types";
@@ -70,6 +71,7 @@ import {
   formatInvoiceAccountingText,
 } from "../utils/separatorUtils";
 import VerticalLedgerSheet from "./VerticalLedgerSheet";
+import CustomerChangeLogTable from "./CustomerChangeLogTable";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import HierarchicalFolderNav from "./HierarchicalFolderNav";
 import FileManagerView from "./FileManagerView";
@@ -182,6 +184,7 @@ export default function LedgerView({
   const [showAccountingColorPicker, setShowAccountingColorPicker] = useState(false);
   const [accountingSelectedRow, setAccountingSelectedRow] = useState(0);
   const [accountingCursorSelected, setAccountingCursorSelected] = useState(false);
+  const [isAccountingChangeLogOpen, setIsAccountingChangeLogOpen] = useState(false);
   const [productCartInsertContext, setProductCartInsertContext] = useState<{ mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string } | null>(null);
   const [isAccountingPrinting, setIsAccountingPrinting] = useState(false);
   const [isAccountingExportingPDF, setIsAccountingExportingPDF] = useState(false);
@@ -1864,6 +1867,17 @@ ${folderCustomers
         setProductCartQuantities({});
         setProductCartSearch("");
         const total = cartRows.reduce((sum, row) => sum + row.total, 0);
+        if (addChangeLog) {
+          void Promise.all(cartRows.map((row) => addChangeLog({
+            customerId: selectedCustomer.id,
+            invoiceId: currentInvoice?.customerId === selectedCustomer.id ? currentInvoice.id : undefined,
+            actionType: "إضافة دين",
+            details: "القائمة الحسابية: " + row.details + " — " + row.quantity + " " + row.unit + " × " + row.unitPrice.toLocaleString() + " = " + row.total.toLocaleString() + " " + settings.currency,
+            rawAmount: row.total,
+            itemName: row.details,
+            targetItemId: row.id,
+          }))).catch((logError) => console.warn("Accounting cart added, but its change-log entry could not be written:", logError));
+        }
         showToast("تمت إضافة البضاعة إلى القائمة الحسابية فقط بمبلغ " + total.toLocaleString() + " " + settings.currency + ".");
         return;
       }
@@ -3355,7 +3369,7 @@ ${folderCustomers
                             </div>
                             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1" title="حجم الخط"><Type className="h-3 w-3 text-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.max(10,size-1))} className="h-5 w-5 rounded border bg-white text-xs font-black">−</button><input type="range" min={10} max={22} value={accountingFontSize} onChange={(event) => setAccountingFontSize(Number(event.target.value))} className="w-14 accent-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.min(22,size+1))} className="h-5 w-5 rounded border bg-white text-xs font-black">+</button><span className="whitespace-nowrap text-[11px] font-black text-blue-700">{accountingFontSize} <span className="text-[9px] text-slate-500">pt</span></span></div>
                             <div className="relative"><button type="button" onClick={() => setShowAccountingColorPicker((open) => !open)} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-bold"><Palette className="h-3 w-3 text-indigo-600"/><span className="h-3.5 w-3.5 rounded-full border" style={{backgroundColor:accountingBgColor}}/>لون الورقة</button>{showAccountingColorPicker && <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-xl border bg-white p-2.5 shadow-xl"><div className="grid grid-cols-4 gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("ledger_sheet_bg_color",color);} catch {} setShowAccountingColorPicker(false);}} className="flex flex-col items-center gap-1 rounded-lg border p-1 text-[10px]" title={label}><span className="h-6 w-6 rounded-md border" style={{backgroundColor:color}}/><span>{label}</span></button>)}</div><div className="mt-2 flex items-center justify-between border-t pt-2 text-[10px]">لون مخصص<input type="color" value={accountingBgColor} onChange={(event) => {setAccountingBgColor(event.target.value); try {localStorage.setItem("ledger_sheet_bg_color",event.target.value);} catch {}}}/></div></div>}</div>
-                            {accountingSheetMode === "edit" && <><button type="button" onClick={() => handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow })} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><ShoppingCart className="h-3 w-3"/>عربة البضاعة</button><button type="button" onClick={() => insertAccountingRow("above")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أعلاه</button><button type="button" onClick={() => insertAccountingRow("below")} className="flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أدناه</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={() => clearAccountingSelectedAmount()} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
+                            <button type="button" onClick={() => setIsAccountingChangeLogOpen(true)} className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800"><History className="h-3 w-3"/>سجل التغييرات ({(changeLogs || []).filter((log) => log.customerId === selectedCustomer.id).length})</button>{accountingSheetMode === "edit" && <><button type="button" onClick={() => handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow })} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><ShoppingCart className="h-3 w-3"/>عربة البضاعة</button><button type="button" onClick={() => insertAccountingRow("above")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أعلاه</button><button type="button" onClick={() => insertAccountingRow("below")} className="flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أدناه</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={() => clearAccountingSelectedAmount()} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5"><button type="button" onClick={handlePrintAccountingSheet} disabled={isAccountingPrinting} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"><Printer className="h-3.5 w-3.5"/>{isAccountingPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}</button><button type="button" onClick={handleExportAccountingSheetPDF} disabled={isAccountingExportingPDF} className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"><Download className="h-3.5 w-3.5"/>{isAccountingExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}</button></div>
                         </div>
@@ -4902,6 +4916,29 @@ ${folderCustomers
 
 
       {/* PRODUCT CART — Add inventory items directly to the selected customer's debt ledger */}
+      {isAccountingChangeLogOpen && selectedCustomer && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4" dir="rtl" onClick={(event) => { if (event.target === event.currentTarget) setIsAccountingChangeLogOpen(false); }}>
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b bg-amber-50 p-3 sm:p-4">
+              <div className="flex items-center gap-2"><History className="h-5 w-5 text-amber-700"/><div><h3 className="font-black text-slate-900">سجل تغييرات القائمة الحسابية</h3><p className="text-xs text-slate-600">حساب الزبون: {selectedCustomer.name}</p></div></div>
+              <button type="button" onClick={() => setIsAccountingChangeLogOpen(false)} className="rounded-lg border bg-white p-2 text-slate-600" aria-label="إغلاق سجل التغييرات"><X className="h-4 w-4"/></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-4">
+              <CustomerChangeLogTable
+                customerId={selectedCustomer.id}
+                customerName={selectedCustomer.name}
+                changeLogs={changeLogs || []}
+                currency={settings.currency}
+                onDeleteLog={deleteChangeLog}
+                onClearCustomerLogs={clearCustomerChangeLogs}
+                onRevertAction={revertChangeLogAction}
+                isCloudSyncing={isCloudSyncing}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {isProductCartOpen && (
         <div
           className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
