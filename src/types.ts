@@ -172,6 +172,7 @@ export interface SystemSettings {
   companyName: string;
   companyPhone: string;
   companyAddress: string;
+  companyDescription?: string;
   currency: string;
   logoUrl?: string;
   stampUrl?: string;
