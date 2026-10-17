@@ -3173,7 +3173,7 @@ ${folderCustomers
                           سجل الحساب العمودي (نمط الصورة)
                         </button>
 <button
-                            onClick={() => setLedgerDisplayMode("accounting")
+                            onClick={() => setLedgerDisplayMode("accounting")}
                             className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                               ledgerDisplayMode === "accounting"
                                 ? "bg-slate-800 text-white shadow-sm"
