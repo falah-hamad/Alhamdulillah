@@ -176,7 +176,7 @@ export default function LedgerView({
   const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
   const [accountingDraftRows, setAccountingDraftRows] = useState<AccountingSheetRow[]>([]);
   const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
-  const [accountingSheetMode, setAccountingSheetMode] = useState<"view" | "edit">("edit");
+  const [accountingSheetMode, setAccountingSheetMode] = useState<"view" | "edit">("view");
   const [accountingFontSize, setAccountingFontSize] = useState(13);
   const [accountingBgColor, setAccountingBgColor] = useState(() => { try { return localStorage.getItem("ledger_sheet_bg_color") || "#faf6ef"; } catch { return "#faf6ef"; } });
   const [showAccountingColorPicker, setShowAccountingColorPicker] = useState(false);
@@ -3360,13 +3360,13 @@ ${folderCustomers
                                 <div className="space-y-2 border-b border-[#C2185B] p-3 sm:p-4 text-sm">
                                   <div className="flex items-center justify-start gap-2">
                                     <label className="shrink-0 font-bold text-[#0018A8]" htmlFor="accounting-sheet-date">التاريخ:</label>
-                                    <input id="accounting-sheet-date" type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="max-w-[155px] border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 text-xs text-slate-800 outline-none focus:bg-blue-50" />
+                                    <input id="accounting-sheet-date" disabled={accountingSheetMode === "view"} type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="max-w-[155px] border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 text-xs text-slate-800 outline-none focus:bg-blue-50" />
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-[auto_minmax(90px,1fr)_auto_minmax(90px,1fr)] items-center gap-x-2 gap-y-1">
                                     <label className="font-bold text-[#C2185B]">حضرة السيد:</label>
-                                    <input key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                    <input disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
                                     <label className="font-bold text-[#C2185B]">المحترم / العنوان:</label>
-                                    <input key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                    <input disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
                                   </div>
                                 </div>
                                 <div className="p-2 sm:p-3">
