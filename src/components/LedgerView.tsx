@@ -57,7 +57,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem } from "../types";
+import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import {
   calculateCumulativeSeparators,
@@ -171,6 +171,8 @@ export default function LedgerView({
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+  const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
 
   // Product cart used to add existing inventory items directly to a customer ledger.
   const [isProductCartOpen, setIsProductCartOpen] = useState(false);
@@ -679,12 +681,57 @@ ${folderCustomers
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId && !c.isDeleted);
 
-  // Return to the original ledger view if the selected customer has no accounting list.
-  useEffect(() => {
-    if (ledgerDisplayMode === "accounting" && !selectedCustomer?.accountingSheetRows?.length) {
-      setLedgerDisplayMode("vertical");
+  const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
+    if (!selectedCustomer || !updateCustomer) {
+      showToast("تعذر حفظ القائمة الحسابية: تحديث بيانات الزبون غير متاح.");
+      return;
     }
-  }, [ledgerDisplayMode, selectedCustomer?.id, selectedCustomer?.accountingSheetRows?.length]);
+    updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows });
+  };
+
+  const saveAccountingRow = () => {
+    if (!selectedCustomer) return;
+    const details = accountingRowDraft.details.trim();
+    const quantity = Number(accountingRowDraft.quantity);
+    const unitPrice = Number(accountingRowDraft.unitPrice);
+    if (!details || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+      showToast("أدخل التفاصيل والكمية والسعر بشكل صحيح.");
+      return;
+    }
+    const currentRows = selectedCustomer.accountingSheetRows || [];
+    const row: AccountingSheetRow = {
+      id: editingAccountingRowId || `asr-${Date.now()}`,
+      details,
+      quantity,
+      unit: accountingRowDraft.unit.trim() || "قطعة",
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+    persistAccountingRows(editingAccountingRowId
+      ? currentRows.map((item) => item.id === editingAccountingRowId ? row : item)
+      : [...currentRows, row]);
+    setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+    setEditingAccountingRowId(null);
+    showToast(editingAccountingRowId ? "تم تعديل البند الحسابي." : "تمت إضافة البند إلى القائمة الحسابية.");
+  };
+
+  const startEditAccountingRow = (row: AccountingSheetRow) => {
+    setEditingAccountingRowId(row.id);
+    setAccountingRowDraft({ details: row.details || "", quantity: String(row.quantity ?? 1), unit: row.unit || "قطعة", unitPrice: String(row.unitPrice ?? 0) });
+  };
+
+  const deleteAccountingRow = (rowId: string) => {
+    if (!selectedCustomer) return;
+    if (!window.confirm("هل تريد حذف هذا البند من القائمة الحسابية؟")) return;
+    persistAccountingRows((selectedCustomer.accountingSheetRows || []).filter((row) => row.id !== rowId));
+    if (editingAccountingRowId === rowId) {
+      setEditingAccountingRowId(null);
+      setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+    }
+    showToast("تم حذف البند من القائمة الحسابية.");
+  };
+
+  // The accounting list is an independent customer-owned ledger and remains available even when empty.
 
 
   // Auto-select first invoice when customer is opened if none is selected
@@ -3125,9 +3172,8 @@ ${folderCustomers
                           <BookOpen className="w-3.5 h-3.5" />
                           سجل الحساب العمودي (نمط الصورة)
                         </button>
-{selectedCustomer?.accountingSheetRows?.length ? (
-                          <button
-                            onClick={() => setLedgerDisplayMode("accounting")}
+<button
+                            onClick={() => setLedgerDisplayMode("accounting")
                             className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                               ledgerDisplayMode === "accounting"
                                 ? "bg-slate-800 text-white shadow-sm"
@@ -3137,7 +3183,6 @@ ${folderCustomers
                             <ClipboardList className="w-3.5 h-3.5" />
                             القائمة الحسابية
                           </button>
-                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -3180,7 +3225,7 @@ ${folderCustomers
                       </div>
                     </div>
 
-                    {ledgerDisplayMode === "accounting" && selectedCustomer?.accountingSheetRows?.length ? (
+                    {ledgerDisplayMode === "accounting" && selectedCustomer ? (
                       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4" dir="rtl">
                         {(() => {
                           const rows = selectedCustomer?.accountingSheetRows || [];
@@ -3201,9 +3246,19 @@ ${folderCustomers
                                   <div className="rounded-lg bg-rose-50 p-2"><div className="text-rose-600">المتبقي</div><b>{remaining.toLocaleString()} {settings.currency}</b></div>
                                 </div>
                               </div>
+                              <form onSubmit={(event) => { event.preventDefault(); saveAccountingRow(); }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 no-print">
+                                <input aria-label="التفاصيل" value={accountingRowDraft.details} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, details: event.target.value }))} placeholder="التفاصيل" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+                                <input aria-label="الكمية" type="number" min="0.001" step="any" value={accountingRowDraft.quantity} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, quantity: event.target.value }))} placeholder="الكمية" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+                                <input aria-label="الوحدة" value={accountingRowDraft.unit} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, unit: event.target.value }))} placeholder="الوحدة" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+                                <input aria-label="السعر" type="number" min="0" step="any" value={accountingRowDraft.unitPrice} onChange={(event) => setAccountingRowDraft((draft) => ({ ...draft, unitPrice: event.target.value }))} placeholder="السعر" className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
+                                <div className="flex gap-2">
+                                  <button type="submit" disabled={!updateCustomer} className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{editingAccountingRowId ? "حفظ التعديل" : "إضافة بند"}</button>
+                                  {editingAccountingRowId && <button type="button" onClick={() => { setEditingAccountingRowId(null); setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" }); }} className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-700">إلغاء</button>}
+                                </div>
+                              </form>
                               <div className="overflow-x-auto">
-                                <table className="w-full min-w-[560px] text-sm text-right border-collapse">
-                                  <thead className="bg-slate-50 text-slate-700"><tr><th className="p-3">التسلسل</th><th className="p-3">التفاصيل</th><th className="p-3">الكمية</th><th className="p-3">الوحدة</th><th className="p-3">سعر الوحدة</th><th className="p-3">المبلغ الكلي</th></tr></thead>
+                                <table className="w-full min-w-[650px] text-sm text-right border-collapse">
+                                  <thead className="bg-slate-50 text-slate-700"><tr><th className="p-3">ت</th><th className="p-3">التفاصيل</th><th className="p-3">الكمية</th><th className="p-3">الوحدة</th><th className="p-3">السعر</th><th className="p-3">المبلغ الكلي</th><th className="p-3 no-print">الإجراءات</th></tr></thead>
                                   <tbody className="divide-y divide-slate-100">
                                     {rows.map((row, index) => (
                                       <tr key={row.id}>
@@ -3213,12 +3268,14 @@ ${folderCustomers
                                         <td className="p-3">{row.unit}</td>
                                         <td className="p-3">{Number(row.unitPrice || 0).toLocaleString()}</td>
                                         <td className="p-3 font-bold">{((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()} {settings.currency}</td>
+                                        <td className="p-2 no-print"><div className="flex items-center gap-1"><button type="button" onClick={() => startEditAccountingRow(row)} className="rounded-md bg-amber-50 p-2 text-amber-700" aria-label="تعديل البند"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => deleteAccountingRow(row.id)} className="rounded-md bg-rose-50 p-2 text-rose-700" aria-label="حذف البند"><Trash2 className="h-4 w-4" /></button></div></td>
                                       </tr>
                                     ))}
                                   </tbody>
-                                  <tfoot className="bg-slate-50 font-black"><tr><td className="p-3" colSpan={5}>المجموع الكلي</td><td className="p-3">{debt.toLocaleString()} {settings.currency}</td></tr></tfoot>
+                                  <tfoot className="bg-slate-50 font-black"><tr><td className="p-3" colSpan={5}>المجموع الكلي</td><td className="p-3">{debt.toLocaleString()} {settings.currency}</td><td className="no-print"></td></tr></tfoot>
                                 </table>
                               </div>
+                              {rows.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">القائمة الحسابية فارغة. أضف أول بند من الحقول أعلاه.</p>}
                               <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                                 <span className="text-slate-500">الدفعات المسجلة لهذه القائمة تُدار بشكل مستقل من تبويب «الورقة الحسابية» داخل ملف العميل.</span>
                                 <button type="button" onClick={() => setLedgerDisplayMode("vertical")} className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">العودة إلى ورقة الدفتر</button>
@@ -3226,10 +3283,6 @@ ${folderCustomers
                             </>
                           );
                         })()}
-                      </div>
-                    ) : ledgerDisplayMode === "accounting" ? (
-                      <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500" dir="rtl">
-                        لا توجد قائمة حسابية مضافة لهذا الزبون بعد. أضف البنود من تفاصيل الزبون أولاً.
                       </div>
                     ) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
