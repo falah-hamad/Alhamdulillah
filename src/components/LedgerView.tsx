@@ -3432,7 +3432,7 @@ ${folderCustomers
                                     })}
                                   </div>
                                   <datalist id="accounting-unit-options">{["قطعة", "روله", "باكيت", "علبة", "سيت", "كارتون"].map((unit) => <option key={unit} value={unit} />)}</datalist>
-                                  <div className="mt-2 grid grid-cols-[20fr_1fr] gap-[3px]">
+                                  <div className="mt-2 grid grid-cols-1 gap-[3px]">
                                     <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")} {settings.currency}</span></div>
                                     
                                   </div>
