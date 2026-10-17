@@ -307,7 +307,7 @@ export default function DashboardView({
       {/* Quick Action Hub */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">إجراءات سريعة واختصارات</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-3">
           <button
             id="dashboard-quick-add-invoice"
             onClick={onOpenNewInvoiceModal}
