@@ -18,6 +18,7 @@ export interface AccountingSheetRow {
   unit: string;
   unitPrice: number;
   total: number;
+  isSeparator?: boolean;
 }
 
 export interface AccountingSheetPayment {
