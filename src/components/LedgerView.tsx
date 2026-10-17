@@ -3238,7 +3238,8 @@ ${folderCustomers
                           const rowCount = Math.max(20, rows.length + 1);
                           const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
                           const persistDraftRows = () => {
-                            const validRows = rows.filter((row) => row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim());
+                            const lastUsedIndex = rows.reduce((last, row, index) => row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
+                            const validRows = rows.slice(0, lastUsedIndex + 1);
                             persistAccountingRows(validRows.map((row) => ({ ...row, total: (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0) })));
                           };
                           const changeCell = (index: number, field: "details" | "quantity" | "unit" | "unitPrice", value: string) => {
@@ -3293,9 +3294,9 @@ ${folderCustomers
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-[auto_minmax(90px,1fr)_auto_minmax(90px,1fr)] items-center gap-x-2 gap-y-1">
                                     <label className="font-bold text-[#C2185B]">حضرة السيد:</label>
-                                    <input aria-label="اسم الزبون على القائمة الحسابية" value={selectedCustomer.name || ""} onChange={(event) => saveCustomerField("name", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                    <input key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
                                     <label className="font-bold text-[#C2185B]">المحترم / العنوان:</label>
-                                    <input aria-label="عنوان الزبون على القائمة الحسابية" value={selectedCustomer.address || ""} onChange={(event) => saveCustomerField("address", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
+                                    <input key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="min-w-0 border-0 border-b border-dotted border-[#C2185B] bg-transparent px-1 py-1 outline-none focus:bg-blue-50" />
                                   </div>
                                 </div>
                                 <div className="p-2 sm:p-3">
