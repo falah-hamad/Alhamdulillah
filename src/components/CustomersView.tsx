@@ -362,7 +362,7 @@ export default function CustomersView({
                           </div>
 
                           {/* Quick Balance Grid */}
-                          <div className="grid grid-cols-3 gap-2 bg-slate-50/80 p-2.5 rounded-xl text-center font-mono border border-slate-100">
+                          <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-2 bg-slate-50/80 p-2.5 rounded-xl text-center font-mono border border-slate-100">
                             <div>
                               <p className="text-[9px] text-slate-400 font-sans font-medium">الديون</p>
                               <p className="text-xs font-bold text-slate-800 mt-0.5">
