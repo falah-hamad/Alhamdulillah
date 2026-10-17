@@ -1834,9 +1834,9 @@ ${folderCustomers
         };
       });
 
-      // In accounting-sheet view, add selected products as editable table rows.
-      // Keep the invoice update below so the existing ledger/inventory workflow remains intact.
-      if (ledgerDisplayMode === "accounting") {
+      // Keep the accounting table cart completely independent from the vertical/image ledger.
+      // Accounting mode writes only editable accounting-sheet rows and must not create/update an invoice.
+      if (productCartInsertContext?.mode === "accounting") {
         const existingRows = [...accountingDraftRows];
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
@@ -1851,15 +1851,27 @@ ${folderCustomers
             isManual: true,
           };
         });
-        const insertAt = productCartInsertContext?.mode === "accounting"
-          ? Math.min(Math.max(productCartInsertContext.rowIndex, 0), existingRows.length)
-          : existingRows.length;
+        const insertAt = Math.min(
+          Math.max(productCartInsertContext.rowIndex, 0),
+          existingRows.length
+        );
         existingRows.splice(insertAt, 0, ...cartRows);
-        const mergedRows = existingRows;
-        setAccountingDraftRows(mergedRows);
-        persistAccountingRows(mergedRows);
+        setAccountingDraftRows(existingRows);
+        persistAccountingRows(existingRows);
         setAccountingSelectedRow(insertAt);
         setAccountingCursorSelected(true);
+        setIsProductCartOpen(false);
+        setProductCartQuantities({});
+        setProductCartSearch("");
+        const total = cartRows.reduce((sum, row) => sum + row.total, 0);
+        showToast("تمت إضافة البضاعة إلى القائمة الحسابية فقط بمبلغ " + total.toLocaleString() + " " + settings.currency + ".");
+        return;
+      }
+
+      // Vertical/image mode reaches the invoice workflow below only; it never writes accountingDraftRows.
+      if (productCartInsertContext?.mode !== "vertical") {
+        alert("تعذر تحديد القائمة المطلوب الإضافة إليها. افتح عربة البضاعة من القائمة الصحيحة ثم أعد المحاولة.");
+        return;
       }
 
       const targetInvoice =
