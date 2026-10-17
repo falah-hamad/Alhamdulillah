@@ -771,7 +771,7 @@ export default function App() {
         ) : null}
 
         {/* Dynamic Main Workspace Panels */}
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main className="app-content flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
           {currentTab === "home" && (
             <DashboardView
               customers={activeCustomers}
