@@ -19,6 +19,8 @@ export interface AccountingSheetRow {
   unitPrice: number;
   total: number;
   isSeparator?: boolean;
+  /** Keep intentionally inserted blank rows when saving the accounting sheet. */
+  isManual?: boolean;
 }
 
 export interface AccountingSheetPayment {
