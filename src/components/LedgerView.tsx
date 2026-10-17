@@ -181,6 +181,8 @@ export default function LedgerView({
   const [accountingBgColor, setAccountingBgColor] = useState(() => { try { return localStorage.getItem("ledger_sheet_bg_color") || "#faf6ef"; } catch { return "#faf6ef"; } });
   const [showAccountingColorPicker, setShowAccountingColorPicker] = useState(false);
   const [accountingSelectedRow, setAccountingSelectedRow] = useState(0);
+  const [accountingCursorSelected, setAccountingCursorSelected] = useState(false);
+  const [productCartInsertContext, setProductCartInsertContext] = useState<{ mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string } | null>(null);
   const [isAccountingPrinting, setIsAccountingPrinting] = useState(false);
   const [isAccountingExportingPDF, setIsAccountingExportingPDF] = useState(false);
 
@@ -1761,11 +1763,24 @@ ${folderCustomers
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
-  const handleOpenProductCart = () => {
+  const handleOpenProductCart = (context?: { mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string }) => {
     if (!selectedCustomer) {
       alert("يرجى اختيار الزبون أولاً قبل إضافة البضاعة إلى سجل الدين.");
       return;
     }
+    if (ledgerDisplayMode === "accounting") {
+      if (accountingSheetMode !== "edit") return;
+      if (!accountingCursorSelected || !context || context.mode !== "accounting") {
+        alert("يرجى وضع المؤشر في الصف المطلوب أولاً، ثم فتح عربة البضاعة للإضافة.");
+        return;
+      }
+    } else if (ledgerDisplayMode === "vertical") {
+      if (!context || context.mode !== "vertical" || !context.rowId) {
+        alert("يرجى وضع المؤشر على الصف المطلوب في وضع التعديل أولاً، ثم فتح عربة البضاعة للإضافة.");
+        return;
+      }
+    } else return;
+    setProductCartInsertContext(context);
     setProductCartSearch("");
     setProductCartQuantities({});
     setIsProductCartOpen(true);
@@ -1822,7 +1837,7 @@ ${folderCustomers
       // In accounting-sheet view, add selected products as editable table rows.
       // Keep the invoice update below so the existing ledger/inventory workflow remains intact.
       if (ledgerDisplayMode === "accounting") {
-        const existingRows = accountingDraftRows;
+        const existingRows = [...accountingDraftRows];
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
           const unitPrice = Number(product.salePrice) || 0;
@@ -1836,10 +1851,15 @@ ${folderCustomers
             isManual: true,
           };
         });
-        const mergedRows = [...existingRows, ...cartRows];
+        const insertAt = productCartInsertContext?.mode === "accounting"
+          ? Math.min(Math.max(productCartInsertContext.rowIndex, 0), existingRows.length)
+          : existingRows.length;
+        existingRows.splice(insertAt, 0, ...cartRows);
+        const mergedRows = existingRows;
         setAccountingDraftRows(mergedRows);
         persistAccountingRows(mergedRows);
-        setAccountingSelectedRow(mergedRows.length - 1);
+        setAccountingSelectedRow(insertAt);
+        setAccountingCursorSelected(true);
       }
 
       const targetInvoice =
@@ -1850,10 +1870,23 @@ ${folderCustomers
       if (targetInvoice) {
         // Keep payment/remaining summary rows at the bottom of the ledger.
         const oldItems = targetInvoice.items || [];
-        const specialRowsIndex = oldItems.findIndex((item) => item.isPaymentRow || item.isRemainingRow);
-        const mergedItems = specialRowsIndex < 0
-          ? [...oldItems, ...cartItems]
-          : [...oldItems.slice(0, specialRowsIndex), ...cartItems, ...oldItems.slice(specialRowsIndex)];
+        let mergedItems: InvoiceItem[];
+        if (productCartInsertContext?.mode === "vertical") {
+          const cursorIndex = oldItems.findIndex((item) => item.id === productCartInsertContext.rowId);
+          if (cursorIndex < 0) {
+            alert("تعذر تحديد موضع المؤشر الحالي. حدّد الصف من جديد ثم أعد الإضافة.");
+            return;
+          }
+          const targetPage = oldItems[cursorIndex].pageNumber || 1;
+          const positionedCartItems = cartItems.map((item) => ({ ...item, pageNumber: targetPage }));
+          mergedItems = [...oldItems];
+          mergedItems.splice(cursorIndex, 0, ...positionedCartItems);
+        } else {
+          const specialRowsIndex = oldItems.findIndex((item) => item.isPaymentRow || item.isRemainingRow);
+          mergedItems = specialRowsIndex < 0
+            ? [...oldItems, ...cartItems]
+            : [...oldItems.slice(0, specialRowsIndex), ...cartItems, ...oldItems.slice(specialRowsIndex)];
+        }
         const calculatedItems = calculateCumulativeSeparators(mergedItems) as InvoiceItem[];
         const grandTotal = calculatedItems
           .filter((item) => !item.isPaymentRow && !item.isRemainingRow && !item.isSeparator)
@@ -3239,14 +3272,6 @@ ${folderCustomers
                       <PlusCircle className="w-4 h-4" />
                       بدء كشف حساب فارغ للعميل
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenProductCart}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      إضافة من البضاعة
-                    </button>
                     </div>
                   )}
                 </div>
@@ -3304,18 +3329,6 @@ ${folderCustomers
                           }
                           return null;
                         })()}
-                        <button
-                          type="button"
-                          onClick={handleOpenProductCart}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-                          title="إضافة أصناف المخزون مباشرة إلى سجل هذا الزبون"
-                        >
-                          <ShoppingCart className="w-4 h-4" />
-                          <span>عربة البضاعة</span>
-                          {selectedCartProducts.length > 0 && (
-                            <span className="min-w-5 h-5 px-1 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px]">{selectedCartProducts.length}</span>
-                          )}
-                        </button>
 
                       </div>
                     </div>
@@ -3330,7 +3343,7 @@ ${folderCustomers
                             </div>
                             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1" title="حجم الخط"><Type className="h-3 w-3 text-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.max(10,size-1))} className="h-5 w-5 rounded border bg-white text-xs font-black">−</button><input type="range" min={10} max={22} value={accountingFontSize} onChange={(event) => setAccountingFontSize(Number(event.target.value))} className="w-14 accent-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.min(22,size+1))} className="h-5 w-5 rounded border bg-white text-xs font-black">+</button><span className="whitespace-nowrap text-[11px] font-black text-blue-700">{accountingFontSize} <span className="text-[9px] text-slate-500">pt</span></span></div>
                             <div className="relative"><button type="button" onClick={() => setShowAccountingColorPicker((open) => !open)} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-bold"><Palette className="h-3 w-3 text-indigo-600"/><span className="h-3.5 w-3.5 rounded-full border" style={{backgroundColor:accountingBgColor}}/>لون الورقة</button>{showAccountingColorPicker && <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-xl border bg-white p-2.5 shadow-xl"><div className="grid grid-cols-4 gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("ledger_sheet_bg_color",color);} catch {} setShowAccountingColorPicker(false);}} className="flex flex-col items-center gap-1 rounded-lg border p-1 text-[10px]" title={label}><span className="h-6 w-6 rounded-md border" style={{backgroundColor:color}}/><span>{label}</span></button>)}</div><div className="mt-2 flex items-center justify-between border-t pt-2 text-[10px]">لون مخصص<input type="color" value={accountingBgColor} onChange={(event) => {setAccountingBgColor(event.target.value); try {localStorage.setItem("ledger_sheet_bg_color",event.target.value);} catch {}}}/></div></div>}</div>
-                            {accountingSheetMode === "edit" && <><button type="button" onClick={() => insertAccountingRow("above")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أعلاه</button><button type="button" onClick={() => insertAccountingRow("below")} className="flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أدناه</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={() => clearAccountingSelectedAmount()} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
+                            {accountingSheetMode === "edit" && <><button type="button" onClick={() => handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow })} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><ShoppingCart className="h-3 w-3"/>عربة البضاعة</button><button type="button" onClick={() => insertAccountingRow("above")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أعلاه</button><button type="button" onClick={() => insertAccountingRow("below")} className="flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أدناه</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={() => clearAccountingSelectedAmount()} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5"><button type="button" onClick={handlePrintAccountingSheet} disabled={isAccountingPrinting} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"><Printer className="h-3.5 w-3.5"/>{isAccountingPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}</button><button type="button" onClick={handleExportAccountingSheetPDF} disabled={isAccountingExportingPDF} className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"><Download className="h-3.5 w-3.5"/>{isAccountingExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}</button></div>
                         </div>
@@ -3423,10 +3436,10 @@ ${folderCustomers
                                       const cell = (field: string, content: React.ReactNode, extraClass = "") => { const borderColor = field === "sequence" || field === "quantity" || field === "unitPrice" ? "#0018A8" : "#E91E63"; return <div key={field} style={{ borderRight: `1px solid ${borderColor}`, borderLeft: `1px solid ${borderColor}` }} className={`accounting-cell flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}`}>{content}</div>; };
                                       return <React.Fragment key={row.id}>
                                         {cell("sequence", index + 1, "font-bold text-[#0018A8]")}
-                                        {cell("details", row.isSeparator ? <span className="font-black text-[#0018A8]">— فاصلة حسابية —</span> : <input disabled={accountingSheetMode === "view"} onFocus={() => setAccountingSelectedRow(index)} data-accounting-cell={`${index}-details`} aria-label={`تفاصيل السطر ${index + 1}`} value={row.details || ""} onChange={(event) => changeCell(index, "details", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "details")} className={paperInput + " iraqi-ledger-input text-right disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
-                                        {cell("quantity", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => setAccountingSelectedRow(index)} data-accounting-cell={`${index}-quantity`} aria-label={`كمية السطر ${index + 1}`} type="number" min="0" step="any" inputMode="numeric" value={row.quantity || ""} onChange={(event) => changeCell(index, "quantity", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "quantity")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
-                                        {cell("unit", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => setAccountingSelectedRow(index)} data-accounting-cell={`${index}-unit`} aria-label={`وحدة السطر ${index + 1}`} list="accounting-unit-options" value={row.unit || ""} onChange={(event) => changeCell(index, "unit", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unit")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
-                                        {cell("unitPrice", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => setAccountingSelectedRow(index)} data-accounting-cell={`${index}-unitPrice`} aria-label={`سعر السطر ${index + 1}`} type="number" min="0" step="any" inputMode="decimal" value={row.unitPrice || ""} onChange={(event) => changeCell(index, "unitPrice", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unitPrice")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
+                                        {cell("details", row.isSeparator ? <span className="font-black text-[#0018A8]">— فاصلة حسابية —</span> : <input disabled={accountingSheetMode === "view"} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-details`} aria-label={`تفاصيل السطر ${index + 1}`} value={row.details || ""} onChange={(event) => changeCell(index, "details", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "details")} className={paperInput + " iraqi-ledger-input text-right disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
+                                        {cell("quantity", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-quantity`} aria-label={`كمية السطر ${index + 1}`} type="number" min="0" step="any" inputMode="numeric" value={row.quantity || ""} onChange={(event) => changeCell(index, "quantity", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "quantity")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
+                                        {cell("unit", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-unit`} aria-label={`وحدة السطر ${index + 1}`} list="accounting-unit-options" value={row.unit || ""} onChange={(event) => changeCell(index, "unit", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unit")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
+                                        {cell("unitPrice", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-unitPrice`} aria-label={`سعر السطر ${index + 1}`} type="number" min="0" step="any" inputMode="decimal" value={row.unitPrice || ""} onChange={(event) => changeCell(index, "unitPrice", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unitPrice")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} />, row.isSeparator ? "bg-blue-50" : "")}
                                         {cell("total", row.isSeparator ? "—" : ((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString("en-US"), "font-bold text-[#0018A8] " + (row.isSeparator ? "bg-blue-50" : ""))}
                                       </React.Fragment>;
                                     })}
@@ -3454,6 +3467,7 @@ ${folderCustomers
                         customer={selectedCustomer}
                         settings={settings}
                         onUpdateInvoice={updateInvoice}
+                        onOpenProductCart={(rowId) => handleOpenProductCart({ mode: "vertical", rowId })}
                         changeLogs={changeLogs}
                         isCloudSyncing={isCloudSyncing}
                         onAddChangeLog={addChangeLog}
