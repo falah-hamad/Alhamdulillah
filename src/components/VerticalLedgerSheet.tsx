@@ -30,6 +30,7 @@ import {
   ChevronRight,
   ChevronLeft,
   History,
+  ShoppingCart,
 } from "lucide-react";
 import { Invoice, InvoiceItem, Customer, SystemSettings, CustomerChangeLogItem } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
