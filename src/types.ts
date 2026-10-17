@@ -42,6 +42,8 @@ export interface Customer {
   isDeleted?: boolean; // هل تم نقل الزبون لسلة المهملات
   deletedAt?: string; // تاريخ ووقت النقل للمهملات
   originalFolderId?: string | null; // المجلد الأصلي للزبون للاستعادة الدقيقة
+  accountingSheetRows?: AccountingSheetRow[];
+  accountingSheetPayments?: AccountingSheetPayment[];
 }
 
 export type ProductStockMovementType = "opening" | "restock" | "sale" | "return" | "damaged" | "adjustment";
