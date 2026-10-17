@@ -464,30 +464,7 @@ export default function ReportsView({
           {/* REPORT DATA 1: DEBTS */}
           {reportType === "debts" && (
             <div className="space-y-6">
-              {/* Mobile-first cards prevent the seven-column RTL report from being clipped. */}
-              <div className="grid grid-cols-1 gap-3 md:hidden print:hidden">
-                {debtsReportData.length === 0 ? (
-                  <div className="col-span-full p-6 text-center text-slate-400 font-sans text-xs">لا توجد مديونيات أو عملاء في هذا المجلد.</div>
-                ) : debtsReportData.map((c) => (
-                  <article key={c.id} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm space-y-3">
-                    <div className="min-w-0 flex flex-wrap items-start justify-between gap-2">
-                      <h4 className="min-w-0 flex-1 break-words text-sm font-bold leading-relaxed text-slate-900">{c.name}</h4>
-                      <span className="max-w-full break-words rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700"><Folder className="inline h-3 w-3 ml-1" />{c.folderName}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 pb-2 text-[11px] text-slate-500">
-                      <span dir="ltr" className="max-w-full break-all font-mono">{c.phone || "—"}</span>
-                      <span className="break-words">آخر حركة: {c.lastActive}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5 text-center">
-                      <div className="min-w-0 rounded-lg bg-slate-50 p-1.5"><p className="text-[9px] leading-relaxed text-slate-500">إجمالي المبيعات</p><p className="whitespace-nowrap tabular-nums text-[10px] font-bold text-slate-800">{c.totalInvoiced.toLocaleString()}</p><p className="text-[9px] text-slate-400">{settings.currency}</p></div>
-                      <div className="min-w-0 rounded-lg bg-blue-50 p-1.5"><p className="text-[9px] leading-relaxed text-blue-700">إجمالي المسدد</p><p className="whitespace-nowrap tabular-nums text-[10px] font-bold text-blue-700">{c.totalPaid.toLocaleString()}</p><p className="text-[9px] text-blue-500">{settings.currency}</p></div>
-                      <div className="min-w-0 rounded-lg bg-rose-50 p-1.5"><p className="text-[9px] leading-relaxed text-rose-700">الذمة المتبقية</p><p className="whitespace-nowrap tabular-nums text-[10px] font-extrabold text-rose-700">{c.totalRemaining.toLocaleString()}</p><p className="text-[9px] text-rose-500">{settings.currency}</p></div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <div className="hidden md:block print:block">
-                <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
+              <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
                 <table className="w-full text-right text-xs">
                   <thead>
                     <tr className="bg-slate-100/80 border-b-2 border-slate-300 text-slate-700 font-bold">
@@ -527,7 +504,6 @@ export default function ReportsView({
                     )}
                   </tbody>
                 </table>
-                </div>
               </div>
 
               {/* Debts Summary Block */}
