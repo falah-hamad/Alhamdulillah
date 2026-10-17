@@ -3226,6 +3226,10 @@ ${folderCustomers
                           );
                         })()}
                       </div>
+                    ) : ledgerDisplayMode === "accounting" ? (
+                      <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500" dir="rtl">
+                        لا توجد قائمة حسابية مضافة لهذا الزبون بعد. أضف البنود من تفاصيل الزبون أولاً.
+                      </div>
                     ) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
                         key={currentInvoice.id}
