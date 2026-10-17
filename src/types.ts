@@ -42,6 +42,7 @@ export interface Customer {
   isDeleted?: boolean; // هل تم نقل الزبون لسلة المهملات
   deletedAt?: string; // تاريخ ووقت النقل للمهملات
   originalFolderId?: string | null; // المجلد الأصلي للزبون للاستعادة الدقيقة
+  accountingSheetDate?: string;
   accountingSheetRows?: AccountingSheetRow[];
   accountingSheetPayments?: AccountingSheetPayment[];
 }
