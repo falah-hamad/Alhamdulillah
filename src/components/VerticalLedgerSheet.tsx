@@ -54,6 +54,7 @@ interface VerticalLedgerSheetProps {
   customer: Customer;
   settings: SystemSettings;
   onUpdateInvoice: (updatedInvoice: Invoice) => void;
+  onOpenProductCart?: (selectedRowId: string) => void;
   onClose?: () => void;
   changeLogs?: CustomerChangeLogItem[];
   isCloudSyncing?: boolean;
@@ -68,6 +69,7 @@ export default function VerticalLedgerSheet({
   customer,
   settings,
   onUpdateInvoice,
+  onOpenProductCart,
   changeLogs = [],
   isCloudSyncing = false,
   onAddChangeLog,
@@ -195,6 +197,7 @@ export default function VerticalLedgerSheet({
     if (!invoice.items || invoice.items.length === 0) {
       setItems([]);
       setSelectedRowId(null);
+      setHasExplicitRowSelection(false);
     } else {
       setItems(
         invoice.items.map((it) => ({
@@ -203,6 +206,7 @@ export default function VerticalLedgerSheet({
         }))
       );
       setSelectedRowId(invoice.items[0]?.id || null);
+      setHasExplicitRowSelection(false);
     }
     const maxItemPage = (invoice.items || []).reduce(
       (max, it) => Math.max(max, it.pageNumber || 1),
@@ -227,6 +231,7 @@ export default function VerticalLedgerSheet({
     }
     return null;
   });
+  const [hasExplicitRowSelection, setHasExplicitRowSelection] = useState(false);
 
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
@@ -1165,7 +1170,7 @@ export default function VerticalLedgerSheet({
                       <div
                         key={item.id}
                         id={`row-${item.id}`}
-                        onClick={() => setSelectedRowId(item.id)}
+                        onClick={() => { setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}
                         onBlur={(e) => {
                           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                             handleCommitRowDebtLog(item.id);
@@ -1830,6 +1835,23 @@ export default function VerticalLedgerSheet({
 
             {sheetMode === "edit" && (
               <>
+                {/* Cart is available only in edit mode and requires an explicitly selected cursor row. */}
+                <button
+                  type="button"
+                  id="btn-toolbar-product-cart"
+                  onClick={() => {
+                    if (!hasExplicitRowSelection || !selectedRowId) {
+                      alert("يرجى وضع المؤشر على الصف المطلوب أولاً، ثم اضغط عربة البضاعة للإضافة.");
+                      return;
+                    }
+                    onOpenProductCart?.(selectedRowId);
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
+                  title="إدراج البضاعة عند الصف المحدد"
+                >
+                  <ShoppingCart className="w-3 h-3 text-white shrink-0" />
+                  <span>عربة البضاعة</span>
+                </button>
                 {/* Add new row button */}
                 <button
                   type="button"
