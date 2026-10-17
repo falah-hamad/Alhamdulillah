@@ -1822,7 +1822,7 @@ ${folderCustomers
       // In accounting-sheet view, add selected products as editable table rows.
       // Keep the invoice update below so the existing ledger/inventory workflow remains intact.
       if (ledgerDisplayMode === "accounting") {
-        const existingRows = selectedCustomer.accountingSheetRows || accountingDraftRows;
+        const existingRows = accountingDraftRows;
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
           const unitPrice = Number(product.salePrice) || 0;
