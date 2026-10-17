@@ -1218,6 +1218,7 @@ export default function VerticalLedgerSheet({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedRowId(item.id);
+                                setHasExplicitRowSelection(true);
                               }}
                               onChange={(e) => handleUpdateAmount(item.id, e.target.value)}
                               onBlur={() => handleRowAmountBlur(item.id)}
@@ -1251,6 +1252,7 @@ export default function VerticalLedgerSheet({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedRowId(item.id);
+                                  setHasExplicitRowSelection(true);
                                 }}
                                 onChange={(e) => handleUpdateDetails(item.id, e.target.value)}
                                 onKeyDown={(e) => {
