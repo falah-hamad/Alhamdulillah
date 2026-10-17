@@ -518,7 +518,7 @@ function ProductsViewContent({
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 xl:grid-cols-5 gap-3">
         {[
           { label: "الكمية الموجودة", value: totalItemsCount, icon: Package },
           { label: "رأس المال بالمخزون", value: totalCostValue, icon: Layers },
