@@ -3337,6 +3337,7 @@ ${folderCustomers
                             if (updateCustomer) updateCustomer({ ...selectedCustomer, [field]: value });
                           };
                           return (
+                            <>
                             <style>{".accounting-paper[data-accounting-font] h2,.accounting-paper[data-accounting-font] p,.accounting-paper[data-accounting-font] label,.accounting-paper[data-accounting-font] .accounting-cell{font-size:" + accountingFontSize + "px !important}"}</style>
                             <section id="accounting-report-document" data-accounting-font className="accounting-paper relative overflow-hidden border border-[#333333] text-slate-900 shadow-sm" style={{ fontFamily: "Tahoma, Arial, sans-serif", backgroundColor: accountingBgColor, "--invoice-blue": "#0018A8", "--invoice-pink": "#E91E63", "--invoice-red": "#E60000" } as React.CSSProperties}>
                               <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
@@ -3406,6 +3407,7 @@ ${folderCustomers
                                 </footer>
                               </div>
                             </section>
+                            </>
                           );
                         })()}
                       </div>
