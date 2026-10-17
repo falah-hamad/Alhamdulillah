@@ -116,6 +116,7 @@
         "companyName": { "type": "string" },
         "companyPhone": { "type": "string" },
         "companyAddress": { "type": "string" },
+        "companyDescription": { "type": "string" },
         "currency": { "type": "string" },
         "logoUrl": { "type": "string" },
         "signaturePlaceholder": { "type": "string" }
