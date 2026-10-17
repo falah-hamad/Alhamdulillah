@@ -745,19 +745,24 @@ ${folderCustomers
     showToast("تم حذف البند من القائمة الحسابية.");
   };
 
-  const addAccountingRowAtSelection = () => {
+  const insertAccountingRow = (position: "above" | "below") => {
     if (!selectedCustomer) return;
     const rows = [...accountingDraftRows];
-    const index = Math.min(Math.max(0, accountingSelectedRow), rows.length);
-    rows.splice(index, 0, { id: "asr-" + selectedCustomer.id + "-" + Date.now(), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0, isManual: true });
-    setAccountingDraftRows(rows); persistAccountingRows(rows); setAccountingSelectedRow(index);
-    window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-accounting-cell="' + index + '-details"]')?.focus(), 0);
-  };
-  const addAccountingSeparator = () => {
-    if (!selectedCustomer) return;
-    const rows = [...accountingDraftRows]; const index = Math.min(Math.max(0, accountingSelectedRow), rows.length);
-    rows.splice(index, 0, { id: "asr-separator-" + selectedCustomer.id + "-" + Date.now(), details: "فاصلة حسابية", quantity: 0, unit: "", unitPrice: 0, total: 0, isSeparator: true });
-    setAccountingDraftRows(rows); persistAccountingRows(rows); setAccountingSelectedRow(index); showToast("تمت إضافة فاصلة حسابية.");
+    if (rows.length === 0) {
+      rows.push({ id: "asr-" + selectedCustomer.id + "-" + Date.now(), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0, isManual: true });
+      setAccountingDraftRows(rows);
+      persistAccountingRows(rows);
+      setAccountingSelectedRow(0);
+      window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-accounting-cell="0-details"]')?.focus(), 0);
+      return;
+    }
+    const selectedIndex = Math.min(Math.max(0, accountingSelectedRow), rows.length - 1);
+    const insertIndex = position === "above" ? selectedIndex : selectedIndex + 1;
+    rows.splice(insertIndex, 0, { id: "asr-" + selectedCustomer.id + "-" + Date.now(), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0, isManual: true });
+    setAccountingDraftRows(rows);
+    persistAccountingRows(rows);
+    setAccountingSelectedRow(insertIndex);
+    window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-accounting-cell="' + insertIndex + '-details"]')?.focus(), 0);
   };
   const moveAccountingSelectedRow = (direction: -1 | 1) => {
     const rows = [...accountingDraftRows]; const from = accountingSelectedRow; const to = from + direction;
@@ -766,10 +771,15 @@ ${folderCustomers
     setAccountingDraftRows(rows); persistAccountingRows(rows); setAccountingSelectedRow(to);
   };
   const deleteAccountingSelectedRow = () => {
-    if (!selectedCustomer || !accountingDraftRows[accountingSelectedRow]) { showToast("حدد صفاً أولاً."); return; }
-    if (!window.confirm("هل تريد حذف الصف المحدد من القائمة الحسابية؟")) return;
-    const rows = accountingDraftRows.filter((_, index) => index !== accountingSelectedRow);
-    setAccountingDraftRows(rows); persistAccountingRows(rows); setAccountingSelectedRow(Math.max(0, accountingSelectedRow - 1)); showToast("تم حذف الصف المحدد.");
+    if (!selectedCustomer || accountingSelectedRow < 0 || accountingSelectedRow >= accountingDraftRows.length) { showToast("حدد صفاً فعلياً لحذفه أولاً."); return; }
+    if (!window.confirm("هل تريد حذف الصف المحدد بالكامل من الجدول؟")) return;
+    const rows = [...accountingDraftRows];
+    rows.splice(accountingSelectedRow, 1);
+    setAccountingDraftRows(rows);
+    persistAccountingRows(rows);
+    setAccountingSelectedRow(Math.min(Math.max(0, accountingSelectedRow - 1), Math.max(0, rows.length - 1)));
+    if (editingAccountingRowId && !rows.some((row) => row.id === editingAccountingRowId)) setEditingAccountingRowId(null);
+    showToast("تم حذف الصف بالكامل من الجدول.");
   };
   const clearAccountingSelectedAmount = () => {
     const selected = accountingDraftRows[accountingSelectedRow]; if (!selected || selected.isSeparator) return;
@@ -3297,14 +3307,14 @@ ${folderCustomers
                             </div>
                             <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1" title="حجم الخط"><Type className="h-3 w-3 text-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.max(10,size-1))} className="h-5 w-5 rounded border bg-white text-xs font-black">−</button><input type="range" min={10} max={22} value={accountingFontSize} onChange={(event) => setAccountingFontSize(Number(event.target.value))} className="w-14 accent-blue-600"/><button type="button" onClick={() => setAccountingFontSize((size) => Math.min(22,size+1))} className="h-5 w-5 rounded border bg-white text-xs font-black">+</button><span className="whitespace-nowrap text-[11px] font-black text-blue-700">{accountingFontSize} <span className="text-[9px] text-slate-500">pt</span></span></div>
                             <div className="relative"><button type="button" onClick={() => setShowAccountingColorPicker((open) => !open)} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-bold"><Palette className="h-3 w-3 text-indigo-600"/><span className="h-3.5 w-3.5 rounded-full border" style={{backgroundColor:accountingBgColor}}/>لون الورقة</button>{showAccountingColorPicker && <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-xl border bg-white p-2.5 shadow-xl"><div className="grid grid-cols-4 gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("ledger_sheet_bg_color",color);} catch {} setShowAccountingColorPicker(false);}} className="flex flex-col items-center gap-1 rounded-lg border p-1 text-[10px]" title={label}><span className="h-6 w-6 rounded-md border" style={{backgroundColor:color}}/><span>{label}</span></button>)}</div><div className="mt-2 flex items-center justify-between border-t pt-2 text-[10px]">لون مخصص<input type="color" value={accountingBgColor} onChange={(event) => {setAccountingBgColor(event.target.value); try {localStorage.setItem("ledger_sheet_bg_color",event.target.value);} catch {}}}/></div></div>}</div>
-                            {accountingSheetMode === "edit" && <><button type="button" onClick={addAccountingRowAtSelection} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف</button><button type="button" onClick={addAccountingSeparator} className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white"><Calculator className="h-3 w-3"/>فاصلة حسابية</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={clearAccountingSelectedAmount} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
+                            {accountingSheetMode === "edit" && <><button type="button" onClick={() => insertAccountingRow("above")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أعلاه</button><button type="button" onClick={() => insertAccountingRow("below")} className="flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white"><Plus className="h-3 w-3"/>إضافة صف أدناه</button><button type="button" onClick={() => moveAccountingSelectedRow(-1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأعلى">↑ للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} className="rounded-lg border bg-white px-2 py-1 text-[11px] font-bold" title="نقل الصف المحدد للأسفل">↓ للأسفل</button><button type="button" onClick={() => clearAccountingSelectedAmount()} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" title="تفريغ مبلغ الصف المحدد">تفريغ المبلغ</button><button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700" title="حذف الصف المحدد">حذف صف</button>{accountingDraftRows.length > 0 && <button type="button" onClick={clearAccountingSheet} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700"><Eraser className="h-3 w-3"/>تفريغ السجل</button>}</>}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5"><button type="button" onClick={handlePrintAccountingSheet} disabled={isAccountingPrinting} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"><Printer className="h-3.5 w-3.5"/>{isAccountingPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}</button><button type="button" onClick={handleExportAccountingSheetPDF} disabled={isAccountingExportingPDF} className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"><Download className="h-3.5 w-3.5"/>{isAccountingExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}</button></div>
                         </div>
                         {(() => {
                           const rows = accountingDraftRows;
                           const invoiceTotal = rows.reduce((sum, row) => sum + (row.isSeparator ? 0 : (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)), 0);
-                          const rowCount = Math.max(20, rows.length + 1);
+                          const rowCount = rows.length;
                           const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
                           const persistDraftRows = () => {
                             const lastUsedIndex = rows.reduce((last, row, index) => row.isManual || row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
