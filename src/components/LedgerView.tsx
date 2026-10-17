@@ -3313,7 +3313,7 @@ ${folderCustomers
                                   <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 36fr 10fr 12fr 16fr 20fr" }}>
                                     {Array.from({ length: rowCount }, (_, index) => {
                                       const row = rows[index] || { id: `asr-${selectedCustomer.id}-${index}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 };
-                                      const cell = (field: string, content: React.ReactNode, extraClass = "") => <div key={field} className={`flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}`}>{content}</div>;
+                                      const cell = (field: string, content: React.ReactNode, extraClass = "") => { const borderColor = field === "sequence" || field === "quantity" || field === "unitPrice" ? "#0018A8" : "#E91E63"; return <div key={field} style={{ borderRight: `1px solid ${borderColor}`, borderLeft: `1px solid ${borderColor}` }} className={`flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}`}>{content}</div>; };
                                       return <React.Fragment key={row.id}>
                                         {cell("sequence", index + 1, "font-bold text-[#0018A8]")}
                                         {cell("details", <input data-accounting-cell={`${index}-details`} aria-label={`تفاصيل السطر ${index + 1}`} value={row.details || ""} onChange={(event) => changeCell(index, "details", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "details")} className={paperInput + " text-right"} />)}
@@ -3325,9 +3325,9 @@ ${folderCustomers
                                     })}
                                   </div>
                                   <datalist id="accounting-unit-options">{["قطعة", "روله", "باكيت", "علبة", "سيت", "كارتون"].map((unit) => <option key={unit} value={unit} />)}</datalist>
-                                  <div className="mt-2 grid grid-cols-[1fr_20fr] gap-[3px]">
-                                    <div className="flex min-h-12 items-center justify-center rounded border-2 border-[#0018A8] px-2 text-center text-sm sm:text-xl font-black text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")}<span className="mr-1 text-xs">{settings.currency}</span></div>
+                                  <div className="mt-2 grid grid-cols-[20fr_1fr] gap-[3px]">
                                     <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")} {settings.currency}</span></div>
+                                    <div className="flex min-h-12 items-center justify-center rounded border-2 border-[#0018A8] px-2 text-center text-sm sm:text-xl font-black text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")}<span className="mr-1 text-xs">{settings.currency}</span></div>
                                   </div>
                                 </div>
                                 <footer className="flex flex-wrap items-end justify-between gap-4 p-3 sm:p-5 text-sm font-bold">
