@@ -718,7 +718,7 @@ export default function CustomersView({
             >
               <DollarSign className="w-4 h-4" /> عمليات التسديد ({getCustomerMetrics(selectedCustomer.id).paymentCount})
             </button>
-            <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> الورقة الحسابية</button>
+            <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> {selectedCustomer.accountingSheetRows?.length ? "الورقة الحسابية" : "إضافة ورقة حسابية"}</button>
           </div>
 
           {customerTab === "accounting" && (() => {
