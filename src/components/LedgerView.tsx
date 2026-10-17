@@ -3394,7 +3394,7 @@ ${folderCustomers
                                   <div className="iraqi-invoice-ornament" aria-hidden="true"><div className="absolute inset-y-0 right-0 w-[42%] bg-[#C84B31]/20" /><div className="absolute bottom-0 left-0 h-1/2 w-1/2 rotate-[-24deg] bg-[#F9A826]/70" /></div>
                                   <div className="iraqi-invoice-company flex min-w-0 flex-col items-center justify-center px-1 py-3 text-center sm:px-4">
                                     <h2 className="iraqi-invoice-name m-0 text-[clamp(17px,3.2vw,34px)] font-black leading-tight text-[#0A367E]">{settings.companyName || "اسم المحل / المكتب"}</h2>
-                                    <p className="iraqi-invoice-specialty mt-1 text-xs font-extrabold text-[#1A1A1A] sm:text-base">{settings.signaturePlaceholder || "تجارة عامة"}</p>
+                                    {settings.companyDescription?.trim() && <p className="iraqi-invoice-specialty mt-1 max-w-full whitespace-normal break-words text-[10px] font-extrabold leading-relaxed text-[#1A1A1A] sm:text-xs">{settings.companyDescription}</p>}
                                     <div className="iraqi-invoice-contact mt-3 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#C84B31]/35 pt-2 text-[10px] font-bold text-[#9E2A2B] sm:text-xs" dir="rtl">
                                       <span className="flex min-w-0 items-center gap-1"><MapPin size={13} className="shrink-0" /><span className="truncate">{settings.companyAddress || "عنوان المحل"}</span></span>
                                       <span className="flex shrink-0 items-center gap-1" dir="ltr"><Phone size={13} />{settings.companyPhone || "رقم الهاتف"}</span>
