@@ -54,6 +54,7 @@ import {
   MoveDown,
   FolderTree,
   Eraser,
+  ClipboardList,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem } from "../types";
@@ -196,7 +197,7 @@ export default function LedgerView({
   const [payNotes, setPayNotes] = useState("");
 
   // Mode: "vertical" (traditional ledger sheet matching user photo) or "formal" (classic A4 invoice)
-  const [ledgerDisplayMode, setLedgerDisplayMode] = useState<"vertical" | "formal">("vertical");
+  const [ledgerDisplayMode, setLedgerDisplayMode] = useState<"vertical" | "formal" | "accounting">("vertical");
 
   // Debt Customer Names View Mode: "grid" | "list" | "large_icons" | "small_icons"
   const [customerViewMode, setCustomerViewMode] = useState<"grid" | "list" | "large_icons" | "small_icons">(() => {
@@ -3116,17 +3117,19 @@ ${folderCustomers
                           <BookOpen className="w-3.5 h-3.5" />
                           سجل الحساب العمودي (نمط الصورة)
                         </button>
-                        <button
-                          onClick={() => setLedgerDisplayMode("formal")}
-                          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            ledgerDisplayMode === "formal"
-                              ? "bg-slate-800 text-white shadow-sm"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          فاتورة مبيعات رسمية (A4)
-                        </button>
+{selectedCustomer?.accountingSheetRows?.length ? (
+                          <button
+                            onClick={() => setLedgerDisplayMode("accounting")}
+                            className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              ledgerDisplayMode === "accounting"
+                                ? "bg-slate-800 text-white shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            القائمة الحسابية
+                          </button>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -3169,7 +3172,54 @@ ${folderCustomers
                       </div>
                     </div>
 
-                    {ledgerDisplayMode === "vertical" ? (
+                    {ledgerDisplayMode === "accounting" ? (
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4" dir="rtl">
+                        {(() => {
+                          const rows = selectedCustomer?.accountingSheetRows || [];
+                          const sheetPayments = selectedCustomer?.accountingSheetPayments || [];
+                          const debt = rows.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0), 0);
+                          const paid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+                          const remaining = Math.max(0, debt - paid);
+                          return (
+                            <>
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <h2 className="text-lg font-black text-slate-900">القائمة الحسابية</h2>
+                                  <p className="text-xs text-slate-500 mt-1">قائمة مستقلة عن ورقة الدفتر الأصلية وفواتير المبيعات.</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                  <div className="rounded-lg bg-slate-50 p-2"><div className="text-slate-500">الإجمالي</div><b>{debt.toLocaleString()} {settings.currency}</b></div>
+                                  <div className="rounded-lg bg-blue-50 p-2"><div className="text-blue-600">المسدّد</div><b>{paid.toLocaleString()} {settings.currency}</b></div>
+                                  <div className="rounded-lg bg-rose-50 p-2"><div className="text-rose-600">المتبقي</div><b>{remaining.toLocaleString()} {settings.currency}</b></div>
+                                </div>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[560px] text-sm text-right border-collapse">
+                                  <thead className="bg-slate-50 text-slate-700"><tr><th className="p-3">التسلسل</th><th className="p-3">التفاصيل</th><th className="p-3">الكمية</th><th className="p-3">الوحدة</th><th className="p-3">سعر الوحدة</th><th className="p-3">المبلغ الكلي</th></tr></thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {rows.map((row, index) => (
+                                      <tr key={row.id}>
+                                        <td className="p-3">{index + 1}</td>
+                                        <td className="p-3 font-semibold">{row.details}</td>
+                                        <td className="p-3">{row.quantity}</td>
+                                        <td className="p-3">{row.unit}</td>
+                                        <td className="p-3">{Number(row.unitPrice || 0).toLocaleString()}</td>
+                                        <td className="p-3 font-bold">{((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()} {settings.currency}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot className="bg-slate-50 font-black"><tr><td className="p-3" colSpan={5}>المجموع الكلي</td><td className="p-3">{debt.toLocaleString()} {settings.currency}</td></tr></tfoot>
+                                </table>
+                              </div>
+                              <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-500">الدفعات المسجلة لهذه القائمة تُدار بشكل مستقل من تبويب «الورقة الحسابية» داخل ملف العميل.</span>
+                                <button type="button" onClick={() => setLedgerDisplayMode("vertical")} className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold">العودة إلى ورقة الدفتر</button>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
                         key={currentInvoice.id}
                         invoice={currentInvoice}
