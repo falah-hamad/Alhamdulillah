@@ -11,6 +11,22 @@ export interface CustomerFolder {
   originalParentId?: string | null; // المسار الأصلي قبل الحذف للاستعادة الدقيقة
 }
 
+export interface AccountingSheetRow {
+  id: string;
+  details: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+}
+
+export interface AccountingSheetPayment {
+  id: string;
+  amount: number;
+  date: string;
+  notes?: string;
+}
+
 export interface Customer {
   id: string;
   userId?: string;
