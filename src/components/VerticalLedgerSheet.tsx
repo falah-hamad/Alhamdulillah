@@ -1034,15 +1034,10 @@ export default function VerticalLedgerSheet({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-950 font-sans leading-tight">
-                      محلات العاشق للكهربائيات
+                      {settings.companyName || "اسم المتجر"}
                     </h1>
-                    <span className="text-[10px] font-bold bg-amber-100/90 text-amber-950 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs">
-                      تأسيسات وإنارة حديثة
-                    </span>
                   </div>
-                  <p className="text-[11px] sm:text-xs font-semibold text-slate-700 mt-0.5 leading-snug">
-                    لتجارة وتجهيز كافة المواد والشبكات والتأسيسات الكهربائية ومستلزمات الإنارة
-                  </p>
+                  {settings.companyDescription?.trim() && <p className="text-[10px] sm:text-xs font-semibold text-slate-700 mt-1 leading-relaxed whitespace-normal break-words max-w-2xl">{settings.companyDescription}</p>}
                 </div>
               </div>
 
