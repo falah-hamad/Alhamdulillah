@@ -749,7 +749,7 @@ ${folderCustomers
     if (!selectedCustomer) return;
     const rows = [...accountingDraftRows];
     const index = Math.min(Math.max(0, accountingSelectedRow), rows.length);
-    rows.splice(index, 0, { id: "asr-" + selectedCustomer.id + "-" + Date.now(), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 });
+    rows.splice(index, 0, { id: "asr-" + selectedCustomer.id + "-" + Date.now(), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0, isManual: true });
     setAccountingDraftRows(rows); persistAccountingRows(rows); setAccountingSelectedRow(index);
     window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-accounting-cell="' + index + '-details"]')?.focus(), 0);
   };
@@ -3307,7 +3307,7 @@ ${folderCustomers
                           const rowCount = Math.max(20, rows.length + 1);
                           const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
                           const persistDraftRows = () => {
-                            const lastUsedIndex = rows.reduce((last, row, index) => row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
+                            const lastUsedIndex = rows.reduce((last, row, index) => row.isManual || row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
                             const validRows = rows.slice(0, lastUsedIndex + 1);
                             persistAccountingRows(validRows.map((row) => ({ ...row, total: (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0) })));
                           };
@@ -3316,7 +3316,7 @@ ${folderCustomers
                               const next = [...previous];
                               while (next.length <= index) next.push({ id: `asr-${selectedCustomer.id}-${next.length}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 });
                               const oldRow = next[index];
-                              next[index] = { ...oldRow, [field]: field === "quantity" || field === "unitPrice" ? (value === "" ? 0 : Math.max(0, Number(value) || 0)) : value, total: (field === "quantity" ? (Number(value) || 0) : Number(oldRow.quantity) || 0) * (field === "unitPrice" ? (Number(value) || 0) : Number(oldRow.unitPrice) || 0) } as AccountingSheetRow;
+                              next[index] = { ...oldRow, isManual: true, [field]: field === "quantity" || field === "unitPrice" ? (value === "" ? 0 : Math.max(0, Number(value) || 0)) : value, total: (field === "quantity" ? (Number(value) || 0) : Number(oldRow.quantity) || 0) * (field === "unitPrice" ? (Number(value) || 0) : Number(oldRow.unitPrice) || 0) } as AccountingSheetRow;
                               return next;
                             });
                           };
