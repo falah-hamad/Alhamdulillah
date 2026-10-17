@@ -465,7 +465,7 @@ export default function ReportsView({
           {reportType === "debts" && (
             <div className="space-y-6">
               {/* Mobile-first cards prevent the seven-column RTL report from being clipped. */}
-              <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 md:hidden print:hidden">
+              <div className="grid grid-cols-1 gap-3 md:hidden print:hidden">
                 {debtsReportData.length === 0 ? (
                   <div className="col-span-full p-6 text-center text-slate-400 font-sans text-xs">لا توجد مديونيات أو عملاء في هذا المجلد.</div>
                 ) : debtsReportData.map((c) => (
