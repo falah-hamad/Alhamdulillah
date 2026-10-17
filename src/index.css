@@ -484,3 +484,119 @@ textarea {
     overflow-y: auto;
   }
 }
+
+
+/* Responsive layout repair v2: reflow controls and forms, not just clip overflow. */
+@media screen and (max-width: 430px) {
+  /* Prevent fixed Tailwind widths/min-widths from forcing controls outside the phone. */
+  .app-content [class*="w-["],
+  .app-content [class*="min-w-["],
+  [role="dialog"] [class*="w-["],
+  [role="dialog"] [class*="min-w-["],
+  [aria-modal="true"] [class*="w-["],
+  [aria-modal="true"] [class*="min-w-["] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Forms are the common source of overlapping labels and inputs:
+     use one field per row on narrow screens while preserving the field itself. */
+  .app-content form [class*="grid-cols-"],
+  [role="dialog"] form [class*="grid-cols-"],
+  [aria-modal="true"] form [class*="grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    column-gap: 0.75rem !important;
+    row-gap: 0.75rem !important;
+  }
+
+  .app-content form [class*="col-span-"],
+  [role="dialog"] form [class*="col-span-"],
+  [aria-modal="true"] form [class*="col-span-"] {
+    grid-column: 1 / -1 !important;
+    min-width: 0 !important;
+  }
+
+  .app-content form label,
+  [role="dialog"] form label,
+  [aria-modal="true"] form label {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .app-content form input,
+  .app-content form select,
+  .app-content form textarea,
+  [role="dialog"] form input,
+  [role="dialog"] form select,
+  [role="dialog"] form textarea,
+  [aria-modal="true"] form input,
+  [aria-modal="true"] form select,
+  [aria-modal="true"] form textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Action bars can wrap instead of squeezing buttons into each other. */
+  .app-content form [class*="flex"],
+  [role="dialog"] form [class*="flex"],
+  [aria-modal="true"] form [class*="flex"] {
+    min-width: 0;
+  }
+
+  .app-content form [class*="flex-row"],
+  [role="dialog"] form [class*="flex-row"],
+  [aria-modal="true"] form [class*="flex-row"] {
+    flex-wrap: wrap;
+  }
+
+  /* Keep popovers, dialogs and drawers inside the actual visible phone width. */
+  [role="dialog"],
+  [aria-modal="true"],
+  dialog {
+    box-sizing: border-box;
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem) !important;
+    min-width: 0 !important;
+  }
+
+  /* Long Arabic labels and button captions may wrap instead of overlapping. */
+  .app-content button,
+  .app-content [role="button"],
+  [role="dialog"] button,
+  [aria-modal="true"] button {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Utility layouts that use explicit columns must allow each track to shrink. */
+  .app-content [class*="grid-cols-"],
+  [role="dialog"] [class*="grid-cols-"],
+  [aria-modal="true"] [class*="grid-cols-"] {
+    min-width: 0;
+  }
+}
+
+@media screen and (max-width: 360px) {
+  /* At very narrow widths, multi-field form rows become stacked fields. */
+  .app-content form .flex,
+  [role="dialog"] form .flex,
+  [aria-modal="true"] form .flex {
+    flex-wrap: wrap;
+  }
+
+  .app-content form .flex > *,
+  [role="dialog"] form .flex > *,
+  [aria-modal="true"] form .flex > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app-content .text-xs,
+  [role="dialog"] .text-xs,
+  [aria-modal="true"] .text-xs {
+    overflow-wrap: anywhere;
+  }
+}
