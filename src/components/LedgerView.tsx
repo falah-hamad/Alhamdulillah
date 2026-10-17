@@ -199,13 +199,6 @@ export default function LedgerView({
   // Mode: "vertical" (traditional ledger sheet matching user photo) or "formal" (classic A4 invoice)
   const [ledgerDisplayMode, setLedgerDisplayMode] = useState<"vertical" | "formal" | "accounting">("vertical");
 
-  // Return to the original ledger view if the selected customer has no accounting list.
-  useEffect(() => {
-    if (ledgerDisplayMode === "accounting" && !selectedCustomer?.accountingSheetRows?.length) {
-      setLedgerDisplayMode("vertical");
-    }
-  }, [ledgerDisplayMode, selectedCustomer?.id, selectedCustomer?.accountingSheetRows?.length]);
-
   // Debt Customer Names View Mode: "grid" | "list" | "large_icons" | "small_icons"
   const [customerViewMode, setCustomerViewMode] = useState<"grid" | "list" | "large_icons" | "small_icons">(() => {
     try {
@@ -685,6 +678,14 @@ ${folderCustomers
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId && !c.isDeleted);
+
+  // Return to the original ledger view if the selected customer has no accounting list.
+  useEffect(() => {
+    if (ledgerDisplayMode === "accounting" && !selectedCustomer?.accountingSheetRows?.length) {
+      setLedgerDisplayMode("vertical");
+    }
+  }, [ledgerDisplayMode, selectedCustomer?.id, selectedCustomer?.accountingSheetRows?.length]);
+
 
   // Auto-select first invoice when customer is opened if none is selected
   React.useEffect(() => {
