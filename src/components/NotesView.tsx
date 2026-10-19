@@ -183,14 +183,23 @@ export default function NotesView({ customers, products, invoices, payments, onN
   };
 
   const toggleFlag = (note: Note, value: Partial<Note>) => {
-    const next = { ...note, ...value }; void save(next); if (draft?.id === note.id) setDraft(next);
+    const base = draft?.id === note.id ? draft : note;
+    const next = { ...base, ...value };
+    void save(next);
   };
   const moveToTrash = (note: Note) => {
     if (!window.confirm("نقل الملاحظة إلى المحذوفات؟ يمكنك استعادتها لاحقاً.")) return;
-    const next = { ...note, isDeleted: true, deletedAt: new Date().toISOString() }; void save(next);
-    if (draft?.id === note.id) setDraft(next); setFilter("trash");
+    const base = draft?.id === note.id ? draft : note;
+    const next = { ...base, isDeleted: true, deletedAt: new Date().toISOString() };
+    void save(next);
+    setFilter("trash");
   };
-  const restore = (note: Note) => { const next = { ...note, isDeleted: false, deletedAt: undefined }; void save(next); setDraft(next); setFilter("all"); };
+  const restore = (note: Note) => {
+    const base = draft?.id === note.id ? draft : note;
+    const next = { ...base, isDeleted: false, deletedAt: undefined };
+    void save(next);
+    setFilter("all");
+  };
   const permanentDelete = async (note: Note) => {
     if (!window.confirm("هذا حذف نهائي لا يمكن التراجع عنه. هل تريد المتابعة؟")) return;
     setError("");
@@ -203,7 +212,12 @@ export default function NotesView({ customers, products, invoices, payments, onN
       setMessage("تم حذف الملاحظة نهائياً.");
     } catch (e) { console.error("Permanent delete failed:", e); setError("تعذر إكمال الحذف النهائي. تحقق من الاتصال وصلاحيات المرفقات."); }
   };
-  const duplicate = (note: Note) => setDraft({ ...note, id: createNote().id, title: "نسخة من " + (note.title || "ملاحظة"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorite: false, pinned: false, completed: false, isDeleted: false, deletedAt: undefined, attachments: [] });
+  const duplicate = (note: Note) => {
+    const base = draft?.id === note.id ? draft : note;
+    setDraft({ ...base, id: createNote().id, title: "نسخة من " + (base.title || "ملاحظة"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), favorite: false, pinned: false, completed: false, isDeleted: false, deletedAt: undefined, attachments: [] });
+    setFilter("all");
+    setMessage("أُنشئت نسخة نصية؛ أعد اختيار المرفقات يدوياً لتجنب مشاركة الملف نفسه بين ملاحظتين.");
+  };
 
   const copy = async (note: Note) => {
     const text = (note.title ? note.title + "\n\n" : "") + plain(note.content);
@@ -315,7 +329,7 @@ export default function NotesView({ customers, products, invoices, payments, onN
           <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
               <div className="flex items-center gap-2"><button onClick={() => { if (askDiscard()) setDraft(null); }} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-slate-100 px-2.5 text-xs font-bold lg:hidden"><ChevronRight className="h-4 w-4" /> القائمة</button><span className={"text-[11px] font-bold " + (saveState === "saved" ? "text-emerald-700" : saveState === "error" ? "text-rose-700" : "text-amber-700")}>{saveState === "saved" ? "محفوظ" : saveState === "saving" ? "جارٍ الحفظ" : saveState === "pending" ? "بانتظار المزامنة" : saveState === "error" ? "تعذر الحفظ" : "تغييرات غير محفوظة"}</span></div>
-              <div className="flex flex-wrap items-center gap-1"><button onClick={() => void save(draft)} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-black text-white"><Check className="h-4 w-4" /> حفظ</button><button onClick={() => void copy(draft)} title="نسخ النص" className="rounded-lg p-2 text-slate-500"><Copy className="h-4 w-4" /></button><button onClick={() => void share(draft)} title="مشاركة" className="rounded-lg p-2 text-slate-500"><Share2 className="h-4 w-4" /></button><button onClick={() => print(draft)} title="طباعة أو حفظ PDF" className="rounded-lg p-2 text-slate-500"><Printer className="h-4 w-4" /></button><button onClick={() => duplicate(draft)} title="نسخ الملاحظة" className="rounded-lg p-2 text-slate-500"><Copy className="h-4 w-4" /></button>{draft.isDeleted ? <button onClick={() => void permanentDelete(draft)} title="حذف نهائي" className="rounded-lg p-2 text-rose-600"><Trash2 className="h-4 w-4" /></button> : <button onClick={() => moveToTrash(draft)} title="نقل للمحذوفات" className="rounded-lg p-2 text-rose-600"><Trash2 className="h-4 w-4" /></button>}</div>
+              <div className="flex flex-wrap items-center gap-1"><button onClick={() => void save(draft)} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-black text-white"><Check className="h-4 w-4" /> حفظ</button>{isDirty && savedDraft && <button onClick={() => { setDraft(savedDraft); setError(""); setMessage("تم التراجع إلى آخر نسخة محفوظة."); }} title="التراجع إلى آخر نسخة محفوظة" className="rounded-lg p-2 text-amber-700"><RotateCcw className="h-4 w-4" /></button>}<button onClick={() => void copy(draft)} title="نسخ النص" className="rounded-lg p-2 text-slate-500"><Copy className="h-4 w-4" /></button><button onClick={() => void share(draft)} title="مشاركة" className="rounded-lg p-2 text-slate-500"><Share2 className="h-4 w-4" /></button><button onClick={() => print(draft)} title="طباعة أو حفظ PDF" className="rounded-lg p-2 text-slate-500"><Printer className="h-4 w-4" /></button><button onClick={() => duplicate(draft)} title="نسخ الملاحظة" className="rounded-lg p-2 text-slate-500"><Copy className="h-4 w-4" /></button>{draft.isDeleted ? <button onClick={() => void permanentDelete(draft)} title="حذف نهائي" className="rounded-lg p-2 text-rose-600"><Trash2 className="h-4 w-4" /></button> : <button onClick={() => moveToTrash(draft)} title="نقل للمحذوفات" className="rounded-lg p-2 text-rose-600"><Trash2 className="h-4 w-4" /></button>}</div>
             </div>
             {draft.isDeleted && <div className="flex items-center justify-between bg-amber-50 px-3 py-2 text-xs text-amber-800">هذه الملاحظة في المحذوفات.<button onClick={() => restore(draft)} className="rounded-lg bg-white px-3 py-2 font-bold">استعادة</button></div>}
             <div className="space-y-4 p-3 sm:p-4">
