@@ -34,6 +34,14 @@ service cloud.firestore {
         allow write: if isOwner(userId) && isValidId(folderId);
       }
 
+      // Notes are stored beneath the authenticated owner's user document.
+      match /notes/{noteId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(noteId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(noteId) && resource.data.userId == userId && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId) && isValidId(noteId) && resource.data.userId == userId;
+      }
+
       // Customers
       match /customers/{customerId} {
         allow read: if isOwner(userId);
