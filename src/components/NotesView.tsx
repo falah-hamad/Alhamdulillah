@@ -3,7 +3,7 @@ import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firesto
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { getDownloadURL, ref as storageRef, uploadBytes, deleteObject } from "firebase/storage";
-import { AlignLeft, BellRing, Bold, Check, CheckSquare, ChevronRight, Clock3, Copy, Download, FileText, Heart, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Pin, Plus, Printer, RotateCcw, Search, Share2, StickyNote, Trash2, Underline, X, LayoutGrid, Rows3, ListCollapse } from "lucide-react";
+import { AlignLeft, BellRing, Bold, Check, CheckSquare, ChevronRight, Clock3, Copy, Download, FileText, Folder, FolderPlus, Heart, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Pin, Plus, Printer, RotateCcw, Search, Share2, StickyNote, Trash2, Underline, X, LayoutGrid, Rows3, ListCollapse } from "lucide-react";
 import { db, storage } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -98,7 +98,8 @@ export default function NotesView(_props: Props) {
       setLoading(false);
       return;
     }
-    return onSnapshot(collection(db, "users", uid, "notes"), { includeMetadataChanges: true }, (snap) => {
+    const stopFolders=onSnapshot(collection(db,"users",uid,"folders"),snap=>setFolders(snap.docs.map(d=>({id:d.id,name:String(d.data().name||"مجلد"),parentId:typeof d.data().parentId==="string"?d.data().parentId:null}))),err=>console.error("Folders listener:",err));
+    const stopNotes=onSnapshot(collection(db, "users", uid, "notes"), { includeMetadataChanges: true }, (snap) => {
       setNotes(snap.docs.map((d) => ({ ...d.data(), id: d.id, tags: Array.isArray(d.data().tags) ? d.data().tags : [], attachments: Array.isArray(d.data().attachments) ? d.data().attachments : [] } as Note)));
       setLoading(false);
       if (snap.metadata.hasPendingWrites) setSaveState("pending");
@@ -108,12 +109,13 @@ export default function NotesView(_props: Props) {
       console.error("Notes listener error:", err); setLoading(false); setSaveState("error");
       setError("تعذر تحميل الملاحظات من Firestore. تحقق من الحساب وقواعد الوصول.");
     });
+    return ()=>{stopNotes();stopFolders();};
   }, [uid]);
 
   const categories = useMemo(() => Array.from(new Set(notes.filter((n) => !n.isDeleted && n.category.trim()).map((n) => n.category.trim())).values()).sort((a, b) => a.localeCompare(b, "ar")), [notes]);
   const visible = useMemo(() => {
     const q = search.trim().toLocaleLowerCase("ar");
-    return notes.filter((n) => filter === "trash" ? n.isDeleted : !n.isDeleted).filter((n) => {
+    return notes.filter((n) => filter === "trash" ? n.isDeleted : !n.isDeleted).filter(n=>currentFolderId?n.folderId===currentFolderId:!n.folderId).filter((n) => {
       if (filter === "pinned" && !n.pinned) return false;
       if (filter === "favorites" && !n.favorite) return false;
       if (filter === "tasks" && (n.completed || (!n.reminderAt && !n.content.includes("- [ ] ")))) return false;
@@ -132,6 +134,8 @@ export default function NotesView(_props: Props) {
   const isDirty = Boolean(draft && changed(draft, savedDraft));
   const askDiscard = () => !isDirty || window.confirm("توجد تغييرات غير محفوظة. هل تريد تركها دون حفظ؟");
   const [editMode, setEditMode] = useState(false);
+  const [folders,setFolders]=useState<Array<{id:string;name:string;parentId:string|null}>>(()=>{try{return JSON.parse(localStorage.getItem("alhamdulillah.notes.folders")||"[]");}catch{return [];}});
+  const [currentFolderId,setCurrentFolderId]=useState<string|null>(null); const [folderName,setFolderName]=useState(""); const [showFolderCreate,setShowFolderCreate]=useState(false);
   const [viewMode, setViewMode] = useState<"grid"|"list"|"compact">(()=>{try{return (localStorage.getItem("alhamdulillah.notes.view") as "grid"|"list"|"compact")||"grid";}catch{return "grid";}});
   const [sortAsc,setSortAsc]=useState(false);
   const openNote = (note: Note) => { if (draft?.id !== note.id && !askDiscard()) return; setDraft(note); setEditMode(false); setError(""); setMessage(""); };
@@ -274,6 +278,8 @@ export default function NotesView(_props: Props) {
   };
   const print = (note: Note) => { setDraft(note); window.setTimeout(() => window.print(), 80); setMessage("من نافذة الطباعة اختر «حفظ بتنسيق PDF» لتصدير PDF."); };
 
+  const folderPath=(()=>{const path:Array<{id:string;name:string}>=[];let id=currentFolderId;const seen=new Set<string>();while(id&&!seen.has(id)){seen.add(id);const f=folders.find(x=>x.id===id);if(!f)break;path.unshift(f);id=f.parentId;}return path;})(); const childFolders=folders.filter(f=>f.parentId===currentFolderId);
+  const makeFolder=async()=>{const name=folderName.trim();if(!name)return;const id="folder_"+(typeof crypto!=="undefined"&&"randomUUID"in crypto?crypto.randomUUID().replace(/-/g,""):Date.now().toString(36));try{if(uid)await setDoc(doc(db,"users",uid,"folders",id),{name,parentId:currentFolderId,userId:uid});else{const next=[...folders,{id,name,parentId:currentFolderId}];setFolders(next);localStorage.setItem("alhamdulillah.notes.folders",JSON.stringify(next));}setFolderName("");setShowFolderCreate(false);setCurrentFolderId(id);setMessage("تم إنشاء المجلد.");}catch(e){console.error(e);setError("تعذر حفظ المجلد.");}};
   const filterItems: Array<{ id: Filter; label: string }> = [
     { id: "all", label: "الكل" }, { id: "pinned", label: "المثبتة" }, { id: "favorites", label: "المفضلة" },
     { id: "tasks", label: "المهام" }, { id: "overdue", label: "المتأخرة" }, { id: "trash", label: "المحذوفات" },
@@ -289,7 +295,8 @@ export default function NotesView(_props: Props) {
     {error && <div role="alert" className="flex items-start justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-6 text-rose-800"><span>{error}</span><button onClick={() => setError("")}><X className="h-4 w-4" /></button></div>}
     {message && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-6 text-emerald-800">{message}</div>}
 
-    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(250px,0.85fr)_minmax(0,1.35fr)]">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-center gap-2 text-xs"><button onClick={()=>setCurrentFolderId(null)} className="font-bold text-blue-700">الملاحظات</button>{folderPath.map(f=><React.Fragment key={f.id}><ChevronRight className="h-3 w-3"/><button onClick={()=>setCurrentFolderId(f.id)} className="font-bold text-blue-700">{f.name}</button></React.Fragment>)}</div><div className="mt-3 flex flex-wrap gap-2">{childFolders.map(f=><button key={f.id} onClick={()=>setCurrentFolderId(f.id)} className="inline-flex min-h-9 items-center gap-1 rounded-xl border bg-slate-50 px-3 text-xs font-bold"><Folder className="h-4 w-4"/>{f.name}</button>)}<button onClick={()=>setShowFolderCreate(v=>!v)} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-dashed px-3 text-xs font-bold text-blue-700"><FolderPlus className="h-4 w-4"/>مجلد فرعي</button></div>{showFolderCreate&&<div className="mt-2 flex gap-2"><input value={folderName} onChange={e=>setFolderName(e.target.value)} placeholder="اسم المجلد" className="min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm"/><button onClick={()=>void makeFolder()} className="rounded-lg bg-blue-600 px-3 text-xs font-bold text-white">إنشاء</button></div>}</div>
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(250px,0.85fr)_minmax(0,1.35fr)]>
       <div className={(draft ? "hidden lg:block" : "block") + " min-w-0 space-y-3"}>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="relative"><Search className="absolute right-3 top-3 h-4 w-4 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث في العنوان والمحتوى..." className="min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pe-9 ps-3 text-sm outline-none focus:border-blue-400" /></div>
