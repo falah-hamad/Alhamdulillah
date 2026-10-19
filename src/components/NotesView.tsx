@@ -89,6 +89,11 @@ export default function NotesView({ customers, products, invoices, payments, onN
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Clear the previous account's editor/data immediately when authentication changes.
+    setDraft(null);
+    setNotes([]);
+    setError("");
+    setMessage("");
     setLoading(true);
     if (!uid) {
       try { setNotes(JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]") as Note[]); }
