@@ -106,7 +106,7 @@ export default function NotesView(_props: Props) {
       setLoading(false);
       return;
     }
-    const stopFolders=onSnapshot(collection(db,"users",uid,"folders"),snap=>setFolders(snap.docs.map(d=>({id:d.id,name:String(d.data().name||"مجلد"),parentId:typeof d.data().parentId==="string"?d.data().parentId:null}))),err=>console.error("Folders listener:",err));
+    const stopFolders=onSnapshot(collection(db,"users",uid,"noteFolders"),snap=>setFolders(snap.docs.map(d=>({id:d.id,name:String(d.data().name||"مجلد"),parentId:typeof d.data().parentId==="string"?d.data().parentId:null}))),err=>console.error("Folders listener:",err));
     const stopNotes=onSnapshot(collection(db, "users", uid, "notes"), { includeMetadataChanges: true }, (snap) => {
       setNotes(snap.docs.map((d) => ({ ...d.data(), id: d.id, tags: Array.isArray(d.data().tags) ? d.data().tags : [], attachments: Array.isArray(d.data().attachments) ? d.data().attachments : [] } as Note)));
       setLoading(false);
