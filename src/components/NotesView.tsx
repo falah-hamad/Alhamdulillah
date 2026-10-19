@@ -139,7 +139,7 @@ export default function NotesView(_props: Props) {
   const [viewMode, setViewMode] = useState<"grid"|"list"|"compact">(()=>{try{return (localStorage.getItem("alhamdulillah.notes.view") as "grid"|"list"|"compact")||"grid";}catch{return "grid";}});
   const [sortAsc,setSortAsc]=useState(false);
   const openNote = (note: Note) => { if (draft?.id !== note.id && !askDiscard()) return; setDraft(note); setEditMode(false); setError(""); setMessage(""); };
-  const newNote = () => { if (!askDiscard()) return; setDraft(createNote()); setEditMode(true); setFilter("all"); setSaveState("idle"); setError(""); setMessage(""); };
+  const newNote = () => { if (!askDiscard()) return; setDraft({ ...createNote(), folderId: currentFolderId || "" }); setEditMode(true); setFilter("all"); setSaveState("idle"); setError(""); setMessage(""); };
   const patch = (value: Partial<Note>) => setDraft((old) => old ? { ...old, ...value } : old);
 
   const scheduleReminder = async (note: Note) => {
