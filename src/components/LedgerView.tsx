@@ -2274,7 +2274,7 @@ ${folderCustomers
     <>
       <div className="space-y-6">
       {/* 1. File Manager Folder System for Debt Register (سجل الديون) */}
-      {!selectedCustomerId && (
+      {(!selectedCustomerId || !selectedCustomer) && (
         <FileManagerView
           rootName="سجل الديون"
           folders={folders}
