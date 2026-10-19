@@ -14,7 +14,7 @@ type Filter = "all" | "pinned" | "favorites" | "tasks" | "overdue" | "trash";
 interface Note {
   id: string; userId?: string; title: string; content: string; color: string; textColor: string; fontSize: number;
   favorite: boolean; pinned: boolean; completed: boolean; createdAt: string; updatedAt: string; category: string;
-  tags: string[]; priority: Priority; relatedType: string; relatedId: string; relatedLabel: string;
+  tags: string[]; priority: Priority; folderId?: string; relatedType: string; relatedId: string; relatedLabel: string;
   reminderAt: string; isDeleted: boolean; deletedAt?: string; attachments: Attachment[];
 }
 interface Props { customers?: RecordItem[]; products?: RecordItem[]; invoices?: RecordItem[]; payments?: RecordItem[]; onNavigateToRecord?: (type: string, id: string) => void; }
