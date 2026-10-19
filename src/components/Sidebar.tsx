@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Sparkles,
   Download,
-  StickyNote,
 } from "lucide-react";
 import { SystemSettings } from "../types";
 import { useAuth } from "../contexts/AuthContext";
@@ -64,7 +63,6 @@ export default function Sidebar({
   const menuItems = [
     { id: "home", label: "الرئيسية", icon: Home },
     { id: "ai", label: "المساعد الذكي (AI)", icon: Sparkles, badge: "جديد" },
-    { id: "notes", label: "الملاحظات", icon: StickyNote },
     { id: "ledger", label: "سجل الديون", icon: BookOpen },
     { id: "overdue", label: "المتأخرين", icon: AlertTriangle },
     { id: "customers", label: "العملاء", icon: Users },
