@@ -34,6 +34,7 @@ import AccountManagerModal from "./components/AccountManagerModal";
 import NotificationCenterModal from "./components/NotificationCenterModal";
 import { AppNotification } from "./types";
 import DownloadsView from "./components/DownloadsView";
+import NotesView from "./components/NotesView";
 import { saveDownloadAnchorToDevice, trackDownloadAnchor } from "./lib/downloads";
 
 
@@ -943,6 +944,35 @@ export default function App() {
           )}
 
           {currentTab === "downloads" && <DownloadsView />}
+
+          {currentTab === "notes" && (
+            <NotesView
+              customers={activeCustomers}
+              products={products}
+              invoices={activeInvoices}
+              payments={activePayments}
+              onNavigateToRecord={(type, id) => {
+                if (type === "customer") {
+                  setCurrentTab("ledger");
+                  setLedgerTargetCustomerId(id);
+                  setLedgerTargetInvoiceId(null);
+                  return;
+                }
+                if (type === "invoice") {
+                  const invoice = activeInvoices.find((item) => item.id === id);
+                  setCurrentTab("ledger");
+                  setLedgerTargetCustomerId(invoice?.customerId || null);
+                  setLedgerTargetInvoiceId(id);
+                  return;
+                }
+                if (type === "product") {
+                  setCurrentTab("products");
+                  return;
+                }
+                if (type === "payment") setCurrentTab("payments");
+              }}
+            />
+          )}
 
           {currentTab === "settings" && (
             <SettingsView
