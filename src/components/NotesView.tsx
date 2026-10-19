@@ -71,6 +71,11 @@ export default function NotesView(_props: Props) {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid || null;
   const [notes, setNotes] = useState<Note[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [folders,setFolders]=useState<Array<{id:string;name:string;parentId:string|null}>>(()=>{try{return JSON.parse(localStorage.getItem("alhamdulillah.notes.folders")||"[]");}catch{return [];}});
+  const [currentFolderId,setCurrentFolderId]=useState<string|null>(null); const [folderName,setFolderName]=useState(""); const [showFolderCreate,setShowFolderCreate]=useState(false);
+  const [viewMode, setViewMode] = useState<"grid"|"list"|"compact">(()=>{try{return (localStorage.getItem("alhamdulillah.notes.view") as "grid"|"list"|"compact")||"grid";}catch{return "grid";}});
+  const [sortAsc,setSortAsc]=useState(false);
   const [draft, setDraft] = useState<Note | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -133,11 +138,6 @@ export default function NotesView(_props: Props) {
   const savedDraft = draft ? notes.find((n) => n.id === draft.id) : undefined;
   const isDirty = Boolean(draft && changed(draft, savedDraft));
   const askDiscard = () => !isDirty || window.confirm("توجد تغييرات غير محفوظة. هل تريد تركها دون حفظ؟");
-  const [editMode, setEditMode] = useState(false);
-  const [folders,setFolders]=useState<Array<{id:string;name:string;parentId:string|null}>>(()=>{try{return JSON.parse(localStorage.getItem("alhamdulillah.notes.folders")||"[]");}catch{return [];}});
-  const [currentFolderId,setCurrentFolderId]=useState<string|null>(null); const [folderName,setFolderName]=useState(""); const [showFolderCreate,setShowFolderCreate]=useState(false);
-  const [viewMode, setViewMode] = useState<"grid"|"list"|"compact">(()=>{try{return (localStorage.getItem("alhamdulillah.notes.view") as "grid"|"list"|"compact")||"grid";}catch{return "grid";}});
-  const [sortAsc,setSortAsc]=useState(false);
   const openNote = (note: Note) => { if (draft?.id !== note.id && !askDiscard()) return; setDraft(note); setEditMode(false); setError(""); setMessage(""); };
   const newNote = () => { if (!askDiscard()) return; setDraft({ ...createNote(), folderId: currentFolderId || "" }); setEditMode(true); setFilter("all"); setSaveState("idle"); setError(""); setMessage(""); };
   const patch = (value: Partial<Note>) => setDraft((old) => old ? { ...old, ...value } : old);
