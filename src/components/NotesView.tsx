@@ -123,7 +123,7 @@ export default function NotesView(_props: Props) {
     return ()=>{stopNotes();stopFolders();};
   }, [uid, refreshToken]);
 
-  const categories = useMemo(() => Array.from(new Set(notes.filter((n) => !n.isDeleted && n.category.trim()).map((n) => n.category.trim())).values()).sort((a, b) => a.localeCompare(b, "ar")), [notes]);
+  const categories = useMemo(() => Array.from(new Set<string>(notes.filter((n) => !n.isDeleted && n.category.trim()).map((n) => n.category.trim()))).sort((a, b) => a.localeCompare(b, "ar")), [notes]);
   const visible = useMemo(() => {
     const q = search.trim().toLocaleLowerCase("ar");
     return notes.filter((n) => filter === "trash" ? n.isDeleted : !n.isDeleted).filter(n=>currentFolderId?n.folderId===currentFolderId:!n.folderId).filter((n) => {
@@ -241,7 +241,7 @@ export default function NotesView(_props: Props) {
   const handleEditorKeyDown=(e:React.KeyboardEvent<HTMLTextAreaElement>)=>{if(e.key!=="Enter"||e.shiftKey||!draft)return;const el=e.currentTarget,start=el.selectionStart,end=el.selectionEnd,before=draft.content.slice(0,start),line=before.slice(before.lastIndexOf("\n")+1),m=line.match(/^(\s*)([-*+]\s+|\d+[.)]\s+)(.*)$/);if(!m)return;e.preventDefault();if(!m[3].trim()){const updated=draft.content.slice(0,start-line.length)+m[1]+draft.content.slice(end);patch({content:updated});requestAnimationFrame(()=>{el.focus();const p=start-line.length+m[1].length;el.setSelectionRange(p,p);});return;}const prefix=/^\d+[.)]/.test(m[2])?m[1]+(Number.parseInt(m[2],10)+1)+". ":m[1]+m[2];const inserted="\n"+prefix;patch({content:draft.content.slice(0,start)+inserted+draft.content.slice(end)});requestAnimationFrame(()=>{el.focus();const p=start+inserted.length;el.setSelectionRange(p,p);});};
 
   const addFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.currentTarget.files || []); event.currentTarget.value = "";
+    const files = Array.from(event.currentTarget.files || []) as File[]; event.currentTarget.value = "";
     if (!files.length || !draft) return;
     if (!uid) { setError("سجّل الدخول أولاً لرفع المرفقات ومزامنتها؛ النصوص فقط متاحة محلياً."); return; }
     if (!navigator.onLine) { setError("رفع الملفات يحتاج اتصالاً بالإنترنت. لم يتم رفع أي ملف."); return; }
