@@ -94,6 +94,9 @@ export default function NotesView(_props: Props) {
     // Clear the previous account's editor/data immediately when authentication changes.
     setDraft(null);
     setNotes([]);
+    setCurrentFolderId(null);
+    if (uid) setFolders([]);
+    else { try { setFolders(JSON.parse(localStorage.getItem("alhamdulillah.notes.folders") || "[]")); } catch { setFolders([]); } }
     setError("");
     setMessage("");
     setLoading(true);
