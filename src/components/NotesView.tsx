@@ -36,7 +36,7 @@ function createNote(): Note {
 const RICH_MARKER = "<!--alhamdulillah-rich-note-->";
 function sanitizeRichHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const allowed = new Set(["P","DIV","BR","STRONG","B","EM","I","U","S","STRIKE","UL","OL","LI","BLOCKQUOTE","SPAN","FONT","H1","H2","H3","IMG","A","SVG","LINE","CIRCLE","RECT","POLYGON","PATH"]);
+  const allowed = new Set(["P","DIV","BR","STRONG","B","EM","I","U","S","STRIKE","UL","OL","LI","BLOCKQUOTE","SPAN","FONT","H1","H2","H3","IMG","A","SVG","LINE","CIRCLE","RECT","POLYGON","POLYLINE","PATH"]);
   const svgAttrs = new Set(["xmlns","viewBox","width","height","x","y","x1","y1","x2","y2","cx","cy","r","rx","ry","points","d","fill","stroke","stroke-width","preserveAspectRatio"]);
   const clean = (node: ParentNode) => { Array.from(node.childNodes).forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) return;
