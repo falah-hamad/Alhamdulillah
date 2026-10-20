@@ -400,12 +400,12 @@ export default function NotesView(_props: Props) {
     for(const rootId of rootIds){removeFolderIds.add(rootId);let changed=true;while(changed){changed=false;for(const child of folders)if(child.parentId&&removeFolderIds.has(child.parentId)&&!removeFolderIds.has(child.id)){removeFolderIds.add(child.id);changed=true;}}}
     const inTrash=(n:Note)=>n.isDeleted||Boolean(n.folderId&&folders.some(f=>f.id===n.folderId&&f.isDeleted));
     const notesToDelete=notes.filter(n=>(selectedNoteIds.includes(n.id)&&inTrash(n))||Boolean(n.folderId&&removeFolderIds.has(n.folderId)));
-    const removeNoteIds=new Set(notesToDelete.map(n=>n.id));
+    const removeNoteIds=new Set<string>(notesToDelete.map(n=>n.id));
     if(!removeNoteIds.size&&!removeFolderIds.size){setMessage("حدّد عنصراً واحداً على الأقل من المهملات.");return;}
     if(!window.confirm("حذف "+(removeNoteIds.size+removeFolderIds.size)+" عنصراً من المهملات نهائياً؟ لا يمكن التراجع عن هذا الإجراء."))return;
     try{
       if(uid){
-        const ops:Array<{kind:"note"|"folder";id:string}>=[...removeNoteIds].map(id=>({kind:"note" as const,id})).concat([...removeFolderIds].map(id=>({kind:"folder" as const,id})));
+        const ops:Array<{kind:"note"|"folder";id:string}>=[...Array.from(removeNoteIds,id=>({kind:"note" as const,id})),...Array.from(removeFolderIds,id=>({kind:"folder" as const,id}))];
         for(let i=0;i<ops.length;i+=450){const batch=writeBatch(db);for(const op of ops.slice(i,i+450))batch.delete(doc(db,"users",uid,op.kind==="note"?"notes":"noteFolders",op.id));await batch.commit();}
       }else{
         localStorage.setItem(LOCAL_KEY,JSON.stringify(notes.filter(n=>!removeNoteIds.has(n.id))));
@@ -414,7 +414,7 @@ export default function NotesView(_props: Props) {
       if(removeFolderIds.size){const remaining=folders.filter(f=>!removeFolderIds.has(f.id));if(uid)setFolders(remaining);else await persistFolders(remaining);}
       if(draft&&(removeNoteIds.has(draft.id)||(draft.folderId&&removeFolderIds.has(draft.folderId)))){setDraft(null);setEditMode(false);}
       if(uid){
-        const attachmentPaths=[...new Set(notesToDelete.flatMap(n=>(n.attachments||[]).map(a=>a.path).filter(Boolean)))];
+        const attachmentPaths:string[]=Array.from(new Set<string>(notesToDelete.flatMap(n=>(n.attachments||[]).map(a=>a.path).filter((path):path is string=>typeof path==="string"&&path.length>0))));
         for(const path of attachmentPaths){if(notes.some(other=>!removeNoteIds.has(other.id)&&(other.attachments||[]).some(a=>a.path===path)))continue;try{await deleteObject(storageRef(storage,path));}catch(e){console.warn("Attachment cleanup after permanent trash deletion failed:",e);}}
       }
       setFilter("trash");setCurrentFolderId(null);setSelectedNoteIds([]);setSelectionMode(false);setOpenItemMenu(null);setMessage("تم حذف العناصر المحددة نهائياً.");
