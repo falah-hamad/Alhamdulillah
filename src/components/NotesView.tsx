@@ -333,7 +333,7 @@ export default function NotesView(_props: Props) {
   const folderDetails=(folder:{id:string;name:string;parentId:string|null})=>{
     const directNotes=notes.filter(n=>!n.isDeleted&&n.folderId===folder.id).length;
     const childCount=folders.filter(f=>f.parentId===folder.id).length;
-    window.alert("تفاصيل المجلد\\nالاسم: "+folder.name+"\\nالمسار: "+folderLabel(folder.id)+"\\nالمجلدات الفرعية: "+childCount+"\\nالملاحظات المباشرة: "+directNotes+"\\nتاريخ آخر تعديل: "+(folder.updatedAt?dateText(folder.updatedAt):"—"));
+    window.alert("تفاصيل المجلد\nالاسم: "+folder.name+"\nالمسار: "+folderLabel(folder.id)+"\nالمجلدات الفرعية: "+childCount+"\nالملاحظات المباشرة: "+directNotes+"\nتاريخ آخر تعديل: "+(folder.updatedAt?dateText(folder.updatedAt):"—"));
   };
   const moveNote=async(note:Note)=>{const options=[{id:"",name:"المجلد الرئيسي"},...folders];const choices=options.map((f,i)=>i+". "+(f.id?folderLabel(f.id):f.name)).join("\n");const picked=window.prompt("اكتب رقم المجلد المطلوب:\n"+choices,""+Math.max(0,options.findIndex(f=>f.id===(note.folderId||""))));if(picked===null)return;const index=Number(picked.trim());if(!Number.isInteger(index)||index<0||index>=options.length){setError("رقم المجلد غير صحيح؛ لم يتم نقل الملاحظة.");return;}const folderId=options[index].id;if(!uid){const next={...note,folderId,updatedAt:new Date().toISOString()};const all=notes.map(n=>n.id===note.id?next:n);setNotes(all);localStorage.setItem(LOCAL_KEY,JSON.stringify(all));setMessage("تم نقل الملاحظة.");return;}if(await save({...note,folderId}))setMessage("تم نقل الملاحظة إلى المجلد المحدد.");};
 
