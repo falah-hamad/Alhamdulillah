@@ -43,12 +43,12 @@ function escaped(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function preview(text: string): string {
-  return text.split("\\n").map((raw) => {
-    const imageMatch = raw.match(/^!\\[([^\\]]*)\\]\\((https:\\/\\/[^\\s)]+)\\)$/);
-    if (imageMatch) return `<img src="${escaped(imageMatch[2])}" alt="${escaped(imageMatch[1])}" style="display:block;max-width:100%;max-height:420px;object-fit:contain;margin:10px auto;border-radius:10px" loading="lazy" />`;
-    let line = escaped(raw).replace(/^- \\[x\\] (.*)$/i, "☑ $1").replace(/^- \\[ \\] (.*)$/, "☐ $1")
-      .replace(/^- (.*)$/, "• $1").replace(/^\\d+[.)] (.*)$/, "• $1");
-    line = line.replace(/\\*\\*(.+?)\\*\\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<u>$1</u>").replace(/\\*([^*]+)\\*/g, "<em>$1</em>")
+  return text.split("\n").map((raw) => {
+    const imageMatch = raw.match(/^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/);
+    if (imageMatch) return \`<img src="\${escaped(imageMatch[2])}" alt="\${escaped(imageMatch[1])}" style="display:block;max-width:100%;max-height:420px;object-fit:contain;margin:10px auto;border-radius:10px" loading="lazy" />\`;
+    let line = escaped(raw).replace(/^- \[x\] (.*)$/i, "☑ $1").replace(/^- \[ \] (.*)$/, "☐ $1")
+      .replace(/^- (.*)$/, "• $1").replace(/^\d+[.)] (.*)$/, "• $1");
+    line = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<u>$1</u>").replace(/\*([^*]+)\*/g, "<em>$1</em>")
       .replace(/~~(.+?)~~/g, "<del>$1</del>").replace(/==(.+?)==/g, '<mark style="background:#fef08a;border-radius:3px;padding:0 2px">$1</mark>');
     return line || "&nbsp;";
   }).join("<br/>");
@@ -266,8 +266,8 @@ export default function NotesView(_props: Props) {
         uploaded.push({ id: "att_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), name: file.name, contentType: file.type || "application/octet-stream", size: file.size, url: await getDownloadURL(result.ref), path });
       }
       const inlineImages = uploaded.filter((a) => a.contentType.startsWith("image/"));
-      const inlineMarkdown = inlineImages.map((a) => `![${a.name.replace(/\\]/g, "")}](${a.url})`).join("\\n");
-      const next = { ...draft, content: inlineMarkdown ? draft.content + (draft.content.trim() ? "\\n\\n" : "") + inlineMarkdown : draft.content, attachments: [...draft.attachments, ...uploaded] }; setDraft(next);
+      const inlineMarkdown = inlineImages.map((a) => \`![\${a.name.replace(/\]/g, "")}](\${a.url})\`).join("\n");
+      const next = { ...draft, content: inlineMarkdown ? draft.content + (draft.content.trim() ? "\n\n" : "") + inlineMarkdown : draft.content, attachments: [...draft.attachments, ...uploaded] }; setDraft(next);
       if (!await save(next)) setError("رُفعت الملفات، لكن تعذر تأكيد حفظ ارتباطها بالملاحظة. أعد الحفظ بعد إصلاح الاتصال.");
       else setMessage(inlineImages.length ? "تم رفع الصورة وإدراجها داخل نص الملاحظة، وحُفظت المرفقات." : "تم رفع المرفق وحفظ ارتباطه بالملاحظة.");
     } catch (e) {
