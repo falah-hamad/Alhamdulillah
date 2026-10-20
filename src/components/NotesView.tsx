@@ -148,7 +148,7 @@ export default function NotesView(_props: Props) {
   const visible = useMemo(() => {
     if(contentFilter==="folders") return [];
     const q = search.trim().toLocaleLowerCase("ar");
-    return notes.filter((n) => filter === "trash" ? n.isDeleted : !n.isDeleted).filter(n=>currentFolderId?n.folderId===currentFolderId:(filter==="trash"||filter==="favorites"?true:!n.folderId)).filter((n) => {
+    return notes.filter((n) => filter === "trash" ? (n.isDeleted || Boolean(currentFolderId && folders.some(f=>f.id===currentFolderId&&f.isDeleted&&n.folderId===currentFolderId))) : !n.isDeleted).filter(n=>currentFolderId?n.folderId===currentFolderId:(filter==="trash"||filter==="favorites"?true:!n.folderId)).filter((n) => {
       if (filter === "pinned" && !n.pinned) return false;
       if (filter === "favorites" && !n.favorite) return false;
       if (filter === "tasks" && (n.completed || (!n.reminderAt && !n.content.includes("- [ ] ")))) return false;
@@ -161,7 +161,7 @@ export default function NotesView(_props: Props) {
       if (filter !== "trash" && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       const result = sortBy === "title" ? a.title.localeCompare(b.title, "ar") : new Date(a[sortBy] || 0).getTime() - new Date(b[sortBy] || 0).getTime(); return sortAsc ? result : -result;
     });
-  }, [notes, filter, search, categoryFilter, colorFilter, sortBy, sortAsc, currentFolderId]);
+  }, [notes, folders, filter, search, categoryFilter, colorFilter, sortBy, sortAsc, currentFolderId, contentFilter]);
 
   const savedDraft = draft ? notes.find((n) => n.id === draft.id) : undefined;
   const isDirty = Boolean(draft && changed(draft, savedDraft));
@@ -359,7 +359,7 @@ export default function NotesView(_props: Props) {
   const beginRenameNote=(note:Note)=>{setRenameNoteTarget(note);setRenameNoteValue(note.title||"");setOpenItemMenu(null);};
   const commitRenameNote=async()=>{if(!renameNoteTarget)return;const title=renameNoteValue.trim();if(!title){setError("اكتب عنوان الملاحظة.");return;}if(await save({...renameNoteTarget,title,updatedAt:new Date().toISOString()})){setRenameNoteTarget(null);setMessage("تم تغيير عنوان الملاحظة.");}else setError("تعذر حفظ العنوان الجديد.");};
   const folderCountForHeader=folders.filter(f=>filter==="trash"?f.isDeleted&&(currentFolderId?f.parentId===currentFolderId:!folders.some(p=>p.id===f.parentId&&p.isDeleted)):!f.isDeleted&&(f.parentId||null)===currentFolderId).length;
-  const noteCountForHeader=notes.filter(n=>(filter==="trash"?n.isDeleted:!n.isDeleted)&&(n.folderId||null)===currentFolderId).length;
+  const noteCountForHeader=notes.filter(n=>(filter==="trash"?(n.isDeleted||Boolean(currentFolderId&&folders.some(f=>f.id===currentFolderId&&f.isDeleted&&n.folderId===currentFolderId))):!n.isDeleted)&&(n.folderId||null)===currentFolderId).length;
   return <section ref={notesSectionRef} dir="rtl" onClick={()=>{setMenuOpen(false);setOpenItemMenu(null);}} className="min-w-0 space-y-4">
     <style>{printCss}</style>
     <header className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
