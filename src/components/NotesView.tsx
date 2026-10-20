@@ -216,12 +216,16 @@ export default function NotesView() {
     const next = { ...base, ...value };
     void save(next);
   };
-  const moveToTrash = (note: Note) => {
-    if (!window.confirm("نقل الملاحظة إلى المحذوفات؟ يمكنك استعادتها لاحقاً.")) return;
-    const base = draft?.id === note.id ? draft : note;
+  const moveToTrash = async (note: Note) => {
+    if (!window.confirm("نقل الملاحظة إلى سلة المهملات؟ يمكنك استعادتها لاحقاً.")) return;
+    const wasOpenInEditor = draft?.id === note.id;
+    const base = wasOpenInEditor ? draft : note;
     const next = { ...base, isDeleted: true, deletedAt: new Date().toISOString() };
-    void save(next);
-    setFilter("trash");
+    const saved = await save(next);
+    if (!saved) return;
+    // Keep the user in the current folder/list. Opening the trash is an explicit action.
+    if (wasOpenInEditor) setDraft(null);
+    setMessage("نُقلت الملاحظة إلى سلة المهملات. يمكنك فتحها من زر سلة المهملات عند الحاجة.");
   };
   const restore = (note: Note) => {
     const base = draft?.id === note.id ? draft : note;
