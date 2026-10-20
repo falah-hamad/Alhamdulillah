@@ -945,7 +945,7 @@ export default function App() {
 
           {currentTab === "downloads" && <DownloadsView />}
 
-          {currentTab === "notes" && <NotesView customers={activeCustomers} products={products} invoices={activeInvoices} payments={activePayments} />}
+          {currentTab === "notes" && <NotesView />}
 
           {currentTab === "settings" && (
             <SettingsView
