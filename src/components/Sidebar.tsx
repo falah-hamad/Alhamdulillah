@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Sparkles,
   Download,
+  StickyNote,
 } from "lucide-react";
 import { SystemSettings } from "../types";
 import { useAuth } from "../contexts/AuthContext";
@@ -72,6 +73,7 @@ export default function Sidebar({
     { id: "stats", label: "الحسابات", icon: BarChart3 },
     { id: "reports", label: "التقارير", icon: TrendingUp },
     { id: "downloads", label: "التنزيلات", icon: Download },
+    { id: "notes", label: "سجل الملاحظات", icon: StickyNote },
     { id: "settings", label: "الإعدادات", icon: Settings },
   ];
 
