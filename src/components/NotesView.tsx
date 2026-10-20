@@ -44,6 +44,15 @@ function sanitizeRichHtml(html: string): string {
     if (!(child instanceof HTMLElement) && !isSvg) { child.parentNode?.removeChild(child); return; }
     const tag = (child as Element).tagName.toUpperCase();
     if (!allowed.has(tag)) { const parent=child.parentNode; if(parent){while(child.firstChild) parent.insertBefore(child.firstChild,child); parent.removeChild(child);} return; }
+    // Keep shape dimensions stable in both edit mode and saved-note preview.
+    if (tag==="SPAN" && (child as Element).getAttribute("class")==="note-resizable-shape") {
+      const shape=(child as HTMLElement), width=shape.style.width, height=shape.style.height;
+      const validSize=(v:string,fallback:string)=>/^\d+(?:\.\d+)?(?:px|%)$/.test(v.trim())?v.trim():fallback;
+      shape.style.width=validSize(width,"120px"); shape.style.height=validSize(height,"80px");
+      shape.style.display="inline-block"; shape.style.verticalAlign="middle"; shape.style.boxSizing="border-box";
+      const svg=shape.querySelector("svg");
+      if(svg){svg.setAttribute("width",String(Math.max(36,parseFloat(shape.style.width)||120)));svg.setAttribute("height",String(Math.max(24,parseFloat(shape.style.height)||80)));svg.setAttribute("preserveAspectRatio","none");}
+    }
     Array.from((child as Element).attributes).forEach((attr) => {
       const name=attr.name.toLowerCase(), value=attr.value;
       if (isSvg) { if (name==="style" && tag==="SVG") { const safeSvgStyle=value.split(";").map(x=>x.trim()).filter(x=>/^(display:\s*block|width:\s*100%|height:\s*100%)$/i.test(x)).join(";"); if(safeSvgStyle)(child as Element).setAttribute("style",safeSvgStyle);else (child as Element).removeAttribute(attr.name); } else if (!svgAttrs.has(name) || /javascript:|url\s*\(/i.test(value)) (child as Element).removeAttribute(attr.name); }
