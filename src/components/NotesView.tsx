@@ -330,7 +330,7 @@ export default function NotesView(_props: Props) {
     const now=new Date().toISOString();
     const stamped=next.map(f=>({...f,parentId:f.parentId&&f.parentId.trim()?f.parentId:null,updatedAt:f.updatedAt||now}));
     if(!uid){try{localStorage.setItem("alhamdulillah.notes.folders",JSON.stringify(stamped));setFolders(stamped);return;}catch(e){throw new Error("تعذر حفظ المجلدات محلياً.");}}
-    const previousById=new Map(folders.map(f=>[f.id,f]));
+    const previousById=new Map<string,(typeof folders)[number]>();for(const folder of folders)previousById.set(folder.id,folder);
     const signature=(f:{id:string;name:string;parentId:string|null;favorite?:boolean;color?:string;updatedAt?:string;createdAt?:string;description?:string;isDeleted?:boolean;deletedAt?:string})=>JSON.stringify([f.id,f.name,f.parentId||null,Boolean(f.favorite),f.color||"#f59e0b",f.description||"",f.createdAt||f.updatedAt||"",f.updatedAt||"",Boolean(f.isDeleted),f.deletedAt||""]);
     const nextIds=new Set(stamped.map(f=>f.id));
     const ops:Array<{kind:"set";folder:typeof stamped[number]}|{kind:"delete";id:string}>=[];
