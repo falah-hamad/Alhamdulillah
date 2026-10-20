@@ -330,9 +330,10 @@ export default function NotesView(_props: Props) {
     const stamped=next.map(f=>({...f,parentId:f.parentId&&f.parentId.trim()?f.parentId:null,updatedAt:f.updatedAt||now}));
     if(!uid){try{localStorage.setItem("alhamdulillah.notes.folders",JSON.stringify(stamped));setFolders(stamped);return;}catch(e){throw new Error("تعذر حفظ المجلدات محلياً.");}}
     const previousById=new Map(folders.map(f=>[f.id,f]));
+    const signature=(f:{id:string;name:string;parentId:string|null;favorite?:boolean;color?:string;updatedAt?:string;createdAt?:string;description?:string;isDeleted?:boolean;deletedAt?:string})=>JSON.stringify([f.id,f.name,f.parentId||null,Boolean(f.favorite),f.color||"#f59e0b",f.description||"",f.createdAt||f.updatedAt||"",f.updatedAt||"",Boolean(f.isDeleted),f.deletedAt||""]);
     const nextIds=new Set(stamped.map(f=>f.id));
     const ops:Array<{kind:"set";folder:typeof stamped[number]}|{kind:"delete";id:string}>=[];
-    for(const folder of stamped){const previous=previousById.get(folder.id);if(!previous||JSON.stringify(previous)!==JSON.stringify(folder))ops.push({kind:"set",folder});}
+    for(const folder of stamped){const previous=previousById.get(folder.id);if(!previous||signature(previous)!==signature(folder))ops.push({kind:"set",folder});}
     for(const previous of folders)if(!nextIds.has(previous.id))ops.push({kind:"delete",id:previous.id});
     for(let i=0;i<ops.length;i+=450){const batch=writeBatch(db);for(const op of ops.slice(i,i+450)){if(op.kind==="set")batch.set(doc(db,"users",uid,"noteFolders",op.folder.id),{...op.folder,userId:uid},{merge:true});else batch.delete(doc(db,"users",uid,"noteFolders",op.id));}await batch.commit();}
     setFolders(stamped);
