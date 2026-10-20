@@ -276,7 +276,7 @@ export default function NotesView() {
     catch (e) { if (!(e instanceof Error && e.name === "AbortError")) { console.error(e); setError("تعذرت مشاركة الملاحظة."); } }
   };
   const syncRichEditor = () => { const el=editorRef.current; if(!el)return; patch({content:RICH_MARKER+sanitizeRichHtml(el.innerHTML)}); };
-  const richCommand = (command:string,value?:string) => { const el=editorRef.current;if(!el)return;el.focus();document.execCommand(command,false,value);syncRichEditor(); };
+  const richCommand = (command:string,value?:string) => { const el=editorRef.current;if(!el)return;el.focus();const saved=editorSelectionRef.current;if(saved&&el.contains(saved.commonAncestorContainer)){const selection=window.getSelection();selection?.removeAllRanges();selection?.addRange(saved);}document.execCommand(command,false,value);syncRichEditor();rememberEditorSelection(); };
   const rememberEditorSelection = () => { const sel=window.getSelection();if(sel&&sel.rangeCount&&editorRef.current?.contains(sel.anchorNode))editorSelectionRef.current=sel.getRangeAt(0).cloneRange(); };
   const handleEditorKeyDown=(e:React.KeyboardEvent<HTMLDivElement>)=>{
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="s") { e.preventDefault(); if(draft)void save({...draft,content:RICH_MARKER+sanitizeRichHtml(editorRef.current?.innerHTML||"")}).then(ok=>{if(ok)setEditMode(false);}); }
