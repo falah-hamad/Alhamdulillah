@@ -51,7 +51,7 @@ function sanitizeRichHtml(html: string): string {
       shape.style.width=validSize(width,"120px"); shape.style.height=validSize(height,"80px");
       shape.style.display="inline-block"; shape.style.verticalAlign="middle"; shape.style.boxSizing="border-box";
       const svg=shape.querySelector("svg");
-      if(svg){svg.setAttribute("width",String(Math.max(36,parseFloat(shape.style.width)||120)));svg.setAttribute("height",String(Math.max(24,parseFloat(shape.style.height)||80)));svg.setAttribute("preserveAspectRatio","none");}
+      if(svg){svg.setAttribute("width","100%");svg.setAttribute("height","100%");svg.setAttribute("viewBox","0 0 120 80");svg.setAttribute("preserveAspectRatio","none");svg.style.cssText="display:block;width:100%;height:100%";}
     }
     Array.from((child as Element).attributes).forEach((attr) => {
       const name=attr.name.toLowerCase(), value=attr.value;
@@ -335,10 +335,39 @@ export default function NotesView() {
     const label=document.createElementNS("http://www.w3.org/2000/svg","text");label.setAttribute("x","60");label.setAttribute("y","43");label.setAttribute("text-anchor","middle");label.setAttribute("dominant-baseline","middle");label.setAttribute("font-size","12");label.setAttribute("fill",stroke);svg.appendChild(label);wrapper.appendChild(svg);range.insertNode(wrapper);const spacer=document.createTextNode("\u00a0");wrapper.after(spacer);range.setStartAfter(spacer);range.collapse(true);selection?.removeAllRanges();selection?.addRange(range);editorSelectionRef.current=range.cloneRange();setSelectedShape(wrapper);setShapeStroke("#334155");setShapeFill("#ffffff");setShapeWidth("3");setShapeDash("solid");setShapeText("");syncRichEditor();setToolbarPanel("shapeFormat");
   };
   const updateSelectedShape=(key:"stroke"|"fill"|"width"|"dash"|"text",value:string)=>{const wrapper=selectedShape;if(!wrapper)return;const svg=wrapper.querySelector("svg");if(!svg)return;const primitives=Array.from(svg.querySelectorAll("line,circle,rect,polygon,polyline,path"));if(key==="stroke")primitives.forEach(n=>n.setAttribute("stroke",value));if(key==="fill")primitives.forEach(n=>{if(n.tagName.toLowerCase()!=="line"&&n.tagName.toLowerCase()!=="polyline")n.setAttribute("fill",value==="none"?"none":value)});if(key==="width")primitives.forEach(n=>n.setAttribute("stroke-width",value));if(key==="dash")primitives.forEach(n=>{if(value==="solid")n.removeAttribute("stroke-dasharray");else n.setAttribute("stroke-dasharray",value==="dashed"?"7 4":"2 4")});if(key==="text"){let t=svg.querySelector("text");if(!t){t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x","60");t.setAttribute("y","43");t.setAttribute("text-anchor","middle");t.setAttribute("dominant-baseline","middle");t.setAttribute("font-size","12");svg.appendChild(t)}t.textContent=value;t.setAttribute("fill",shapeStroke)}syncRichEditor()};
-  const richCommand = (command:string,value?:string) => { const el=editorRef.current;if(!el)return;const selection=window.getSelection();const saved=editorSelectionRef.current;if(saved&&el.contains(saved.commonAncestorContainer)){el.focus();selection?.removeAllRanges();selection?.addRange(saved);}else{el.focus();}const before=selection&&selection.rangeCount?selection.getRangeAt(0).cloneRange():null;document.execCommand(command,false,value);const after=window.getSelection();if(after&&after.rangeCount&&el.contains(after.anchorNode)){editorSelectionRef.current=after.getRangeAt(0).cloneRange();}else if(before&&el.contains(before.commonAncestorContainer)){editorSelectionRef.current=before;}syncRichEditor();requestAnimationFrame(()=>{const range=editorSelectionRef.current;const currentEditor=editorRef.current;if(range&&currentEditor&&currentEditor.contains(range.commonAncestorContainer)){currentEditor.focus();const currentSelection=window.getSelection();currentSelection?.removeAllRanges();currentSelection?.addRange(range);}}); };
+  const richCommand = (command:string,value?:string) => {
+    const el=editorRef.current;if(!el)return;const selection=window.getSelection();const saved=editorSelectionRef.current;
+    if(saved&&el.contains(saved.commonAncestorContainer)){el.focus();selection?.removeAllRanges();selection?.addRange(saved);}else el.focus();
+    const range=selection&&selection.rangeCount?selection.getRangeAt(0).cloneRange():null;
+    if((command==="insertUnorderedList"||command==="insertOrderedList")&&range&&el.contains(range.commonAncestorContainer)){
+      const current=range.startContainer.nodeType===Node.ELEMENT_NODE?range.startContainer as Element:range.startContainer.parentElement;
+      const existingLi=current?.closest("li");
+      if(existingLi){document.execCommand(command,false,value);}
+      else{
+        const list=document.createElement(command==="insertOrderedList"?"ol":"ul");
+        const li=document.createElement("li");
+        const block=current?.closest("p,div,h1,h2,h3");
+        if(block&&el.contains(block)){while(block.firstChild)li.appendChild(block.firstChild);block.replaceWith(list);list.appendChild(li);}
+        else{const fragment=range.extractContents();if(fragment.childNodes.length)li.appendChild(fragment);else li.appendChild(document.createElement("br"));range.insertNode(list);list.appendChild(li);}
+        const next=document.createRange();next.selectNodeContents(li);next.collapse(false);selection?.removeAllRanges();selection?.addRange(next);
+      }
+    }else document.execCommand(command,false,value);
+    const after=window.getSelection();if(after&&after.rangeCount&&el.contains(after.anchorNode))editorSelectionRef.current=after.getRangeAt(0).cloneRange();
+    syncRichEditor();requestAnimationFrame(()=>{const savedRange=editorSelectionRef.current;const currentEditor=editorRef.current;if(savedRange&&currentEditor&&currentEditor.contains(savedRange.commonAncestorContainer)){currentEditor.focus();const currentSelection=window.getSelection();currentSelection?.removeAllRanges();currentSelection?.addRange(savedRange);}});
+  };
   const rememberEditorSelection = () => { const sel=window.getSelection();if(sel&&sel.rangeCount&&editorRef.current?.contains(sel.anchorNode))editorSelectionRef.current=sel.getRangeAt(0).cloneRange(); };
   const handleEditorKeyDown=(e:React.KeyboardEvent<HTMLDivElement>)=>{
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="s") { e.preventDefault(); if(draft)void save({...draft,content:RICH_MARKER+sanitizeRichHtml(editorRef.current?.innerHTML||"")}).then(ok=>{if(ok)setEditMode(false);}); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="s") { e.preventDefault(); if(draft)void save({...draft,content:RICH_MARKER+sanitizeRichHtml(editorRef.current?.innerHTML||"")}).then(ok=>{if(ok)setEditMode(false);});return; }
+    if(e.key==="Enter"&&!e.shiftKey){
+      const sel=window.getSelection();const node=sel?.anchorNode;const li=(node?.nodeType===Node.ELEMENT_NODE?node as Element:node?.parentElement)?.closest("li");
+      if(li&&editorRef.current?.contains(li)){
+        e.preventDefault();
+        const text=li.textContent?.replace(/\u00a0/g," ").trim()||"";
+        if(!text){const list=li.parentElement;const p=document.createElement("p");p.appendChild(document.createElement("br"));list?.after(p);li.remove();if(list&&!list.querySelector("li"))list.remove();const range=document.createRange();range.selectNodeContents(p);range.collapse(true);sel?.removeAllRanges();sel?.addRange(range);}
+        else{const next=document.createElement("li");li.after(next);const range=document.createRange();range.selectNodeContents(next);range.collapse(true);sel?.removeAllRanges();sel?.addRange(range);}
+        rememberEditorSelection();syncRichEditor();
+      }
+    }
   };
 
   const addFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -569,8 +598,8 @@ export default function NotesView() {
             </div>
             {draft.isDeleted && <div className="flex items-center justify-between bg-amber-50 px-2 py-1 text-[11px] text-amber-800">هذه الملاحظة في المحذوفات.<button onClick={() => restore(draft)} className="rounded-lg bg-white px-2 py-1 font-bold">استعادة</button></div>}
             <div className="space-y-2 p-2 sm:p-2.5">
-              {editMode && <div className="relative z-50">
-<div className="sticky top-0 z-10 flex w-full items-center justify-between gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" role="toolbar" aria-label="أدوات تنسيق الملاحظة">
+              {editMode && <div className="relative z-auto">
+<div className="relative flex w-full items-center justify-between gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm" role="toolbar" aria-label="أدوات تنسيق الملاحظة">
 <div className="flex min-w-0 items-center gap-0.5">
 <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{rememberEditorSelection();setToolbarPanel(v=>v==="text"?null:"text");}} title="تنسيق النص" aria-label="تنسيق النص" className={"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg "+(toolbarPanel==="text"?"bg-blue-100 text-blue-700":"text-slate-700 hover:bg-slate-100")}><Bold className="h-4 w-4"/></button>
 <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{rememberEditorSelection();setToolbarPanel(v=>v==="lists"?null:"lists");}} title="القوائم" aria-label="القوائم" className={"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg "+(toolbarPanel==="lists"?"bg-blue-100 text-blue-700":"text-slate-700 hover:bg-slate-100")}><List className="h-4 w-4"/></button>
@@ -585,7 +614,7 @@ export default function NotesView() {
 <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{editorRef.current?.focus();document.execCommand("redo");syncRichEditor();}} title="إعادة" aria-label="إعادة" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"><Redo2 className="h-4 w-4"/></button>
 <button type="button" onMouseDown={e=>{e.preventDefault();rememberEditorSelection();}} onClick={()=>fileRef.current?.click()} title="إدراج صورة" aria-label="إدراج صورة" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"><ImagePlus className="h-4 w-4"/></button>
 </div></div>
-{toolbarPanel && <div className={"absolute bottom-full z-[100] mb-1 rounded-xl border border-slate-200 bg-white shadow-2xl "+((toolbarPanel==="textColor"||toolbarPanel==="highlight"||toolbarPanel==="pageColor")?"right-0 w-44 p-2":"left-0 right-0 p-2")} role="dialog" aria-label="خيارات تنسيق النص">
+{toolbarPanel && <div className={"relative z-20 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg "+((toolbarPanel==="textColor"||toolbarPanel==="highlight"||toolbarPanel==="pageColor")?"w-44 p-2":"w-full p-2")} role="dialog" aria-label="خيارات تنسيق النص">
 <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black text-slate-700">{toolbarPanel==="text"?"تنسيق النص":toolbarPanel==="lists"?"القوائم":toolbarPanel==="align"?"محاذاة النص":toolbarPanel==="shapes"?"إدراج شكل":toolbarPanel==="shapeFormat"?"أدوات الشكل":toolbarPanel==="textColor"?"لون الخط":toolbarPanel==="highlight"?"خلفية النص / التمييز":"لون خلفية الصفحة"}</span><button type="button" onClick={()=>setToolbarPanel(null)} aria-label="إغلاق" className="rounded-md p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4"/></button></div>
 {toolbarPanel==="text" && <div className="flex flex-wrap items-center gap-1.5">
 <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>richCommand("bold")} title="غامق" className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 hover:bg-blue-50"><Bold className="h-4 w-4"/></button>
