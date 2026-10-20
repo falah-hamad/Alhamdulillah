@@ -301,12 +301,27 @@ export default function NotesView() {
         uploaded.push({ id: "att_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), name: file.name, contentType: file.type || "application/octet-stream", size: file.size, url: await getDownloadURL(result.ref), path });
       }
       const inlineImages = uploaded.filter((a) => a.contentType.startsWith("image/"));
-      const inlineMarkdown = inlineImages.map((a) => `![${a.name.replace(/\]/g, "")}](${a.url})`).join("\n");
-      const insertionPoint = imageInsertPositionRef.current ?? editorRef.current?.selectionStart ?? draft.content.length;
-      const safePoint = Math.max(0, Math.min(insertionPoint, draft.content.length));
-      const prefix = draft.content.slice(0, safePoint); const suffix = draft.content.slice(safePoint);
-      const inlineContent = inlineMarkdown ? prefix + (prefix && !prefix.endsWith("\n") ? "\n\n" : "") + inlineMarkdown + (suffix && !suffix.startsWith("\n") ? "\n\n" : "") + suffix : draft.content;
-      const next = { ...draft, content: inlineContent, attachments: [...draft.attachments, ...uploaded] }; imageInsertPositionRef.current=null; setDraft(next);
+      let content = draft.content;
+      if (inlineImages.length) {
+        const editor = editorRef.current;
+        if (editor && editMode) {
+          let range = editorSelectionRef.current;
+          if (!range || !editor.contains(range.commonAncestorContainer)) {
+            range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+          }
+          range.deleteContents();
+          inlineImages.forEach((image) => {
+            const img=document.createElement("img"); img.src=image.url; img.alt=image.name; img.style.maxWidth="100%"; img.style.height="auto"; img.style.borderRadius="10px"; img.style.display="block"; img.style.margin="10px auto";
+            const br=document.createElement("br"); range!.insertNode(img); img.parentNode?.insertBefore(br,img); img.parentNode?.insertBefore(document.createElement("br"),img.nextSibling);
+            range=document.createRange(); range.setStartAfter(img); range.collapse(true);
+          });
+          editorSelectionRef.current=range.cloneRange(); content=RICH_MARKER+sanitizeRichHtml(editor.innerHTML);
+        } else {
+          const base=draft.content.startsWith(RICH_MARKER)?draft.content.slice(RICH_MARKER.length):preview(draft.content);
+          content=RICH_MARKER+sanitizeRichHtml(base+inlineImages.map(image=>'<p><img src="'+escaped(image.url)+'" alt="'+escaped(image.name)+'" /></p>').join(""));
+        }
+      }
+      const next = { ...draft, content, attachments: [...draft.attachments, ...uploaded] }; imageInsertPositionRef.current=null; setDraft(next);
       if (!await save(next)) setError("رُفعت الملفات، لكن تعذر تأكيد حفظ ارتباطها بالملاحظة. أعد الحفظ بعد إصلاح الاتصال.");
       else setMessage(inlineImages.length ? "تم رفع الصورة وإدراجها داخل نص الملاحظة، وحُفظت المرفقات." : "تم رفع المرفق وحفظ ارتباطه بالملاحظة.");
     } catch (e) {
