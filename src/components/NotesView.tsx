@@ -372,7 +372,7 @@ export default function NotesView(_props: Props) {
       <div className="px-3 pb-1 pt-1 text-[10px] font-black tracking-wide text-slate-400">المفضلة والمهملات</div>
       {menuEntry("عرض المفضلة","الوصول السريع للعناصر المهمة",Star,()=>{setMenuOpen(false);setFilter("favorites");setCurrentFolderId(null);setSearch("");})}
       {menuEntry("سلة المهملات","استعادة العناصر أو حذفها نهائياً",Trash2,()=>{setMenuOpen(false);setFilter("trash");setCurrentFolderId(null);setSearch("");})}
-    </div>}
+    </div>}</div>
       <button onClick={newNote} className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white"><Plus className="h-4 w-4"/>ملاحظة</button></div></div>{showSearch&&<div className="mt-3"><input ref={searchInputRef} autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث في الملاحظات..." className="min-h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-400"/></div>}</header>
     {!uid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-900">وضع محلي: النصوص تُحفظ على هذا الجهاز فقط. سجّل الدخول لتفعيل المزامنة السحابية وإرفاق الملفات.</div>}
     {error && <div role="alert" className="flex items-start justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-6 text-rose-800"><span>{error}</span><button onClick={() => setError("")}><X className="h-4 w-4" /></button></div>}
