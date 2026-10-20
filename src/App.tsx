@@ -34,6 +34,7 @@ import AccountManagerModal from "./components/AccountManagerModal";
 import NotificationCenterModal from "./components/NotificationCenterModal";
 import { AppNotification } from "./types";
 import DownloadsView from "./components/DownloadsView";
+import NotesView from "./components/NotesView";
 import { saveDownloadAnchorToDevice, trackDownloadAnchor } from "./lib/downloads";
 
 
@@ -943,6 +944,8 @@ export default function App() {
           )}
 
           {currentTab === "downloads" && <DownloadsView />}
+
+          {currentTab === "notes" && <NotesView customers={activeCustomers} products={products} invoices={activeInvoices} payments={activePayments} />}
 
           {currentTab === "settings" && (
             <SettingsView
