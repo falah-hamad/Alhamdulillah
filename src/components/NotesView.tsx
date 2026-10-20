@@ -368,7 +368,7 @@ export default function NotesView(_props: Props) {
     }catch(e){
       console.error("Folder copy failed:",e);let rollbackFailed=false;
       if(uid){
-        const cleanupOps:Array<{kind:"note"|"folder";id:string}>=[...copiedNoteIds].map(id=>({kind:"note" as const,id})).concat(copiedFolderIds.map(id=>({kind:"folder" as const,id})));
+        const cleanupOps:Array<{kind:"note"|"folder";id:string}>=[...copiedNoteIds.map(id=>({kind:"note" as const,id})),...copiedFolderIds.map(id=>({kind:"folder" as const,id}))];
         try{for(let i=0;i<cleanupOps.length;i+=450){const batch=writeBatch(db);for(const op of cleanupOps.slice(i,i+450))batch.delete(doc(db,"users",uid,op.kind==="note"?"notes":"noteFolders",op.id));await batch.commit();}}catch(rollbackError){rollbackFailed=true;console.error("Folder copy rollback failed:",rollbackError);}
         setNotes(old=>old.filter(n=>!copiedNoteIds.includes(n.id)));setFolders(old=>old.filter(f=>!copiedFolderIds.includes(f.id)));
       }else{
