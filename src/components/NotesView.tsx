@@ -172,7 +172,9 @@ export default function NotesView() {
     });
   }, [notes, folders, filter, search, categoryFilter, colorFilter, sortBy, sortAsc, currentFolderId, "all"]);
 
-  useEffect(() => { if (editMode && draft && editorRef.current) { editorRef.current.innerHTML = draft.content.startsWith(RICH_MARKER) ? sanitizeRichHtml(draft.content.slice(RICH_MARKER.length)) : preview(draft.content); } }, [draft?.id, editMode]);\n\n  const savedDraft = draft ? notes.find((n) => n.id === draft.id) : undefined;
+  useEffect(() => { if (editMode && draft && editorRef.current) { editorRef.current.innerHTML = draft.content.startsWith(RICH_MARKER) ? sanitizeRichHtml(draft.content.slice(RICH_MARKER.length)) : preview(draft.content); } }, [draft?.id, editMode]);
+
+  const savedDraft = draft ? notes.find((n) => n.id === draft.id) : undefined;
   const isDirty = Boolean(draft && (changed(draft, savedDraft) || saveState === "error" || saveState === "saving" || saveState === "pending"));
   const askDiscard = () => !isDirty || window.confirm("توجد تغييرات غير محفوظة. هل تريد تركها دون حفظ؟");
   const openNote = (note: Note) => { if (draft?.id !== note.id && !askDiscard()) return; setDraft(note); setEditMode(false); setUndoStack([]); setRedoStack([]); imageInsertPositionRef.current=null; setError(""); setMessage(""); };
