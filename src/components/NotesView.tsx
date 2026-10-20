@@ -7,7 +7,6 @@ import { AlignLeft, BellRing, Bold, Check, CheckSquare, ChevronRight, Clock3, Co
 import { db, storage } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 
-interface RecordItem { id: string; name?: string; title?: string; number?: string; invoiceNumber?: string; customerId?: string; amount?: number; total?: number; }
 interface Attachment { id: string; name: string; contentType: string; size: number; url: string; path: string; }
 type Priority = "normal" | "important" | "urgent";
 type Filter = "all" | "pinned" | "favorites" | "tasks" | "overdue" | "trash";
@@ -17,7 +16,6 @@ interface Note {
   tags: string[]; priority: Priority; folderId?: string; relatedType: string; relatedId: string; relatedLabel: string;
   reminderAt: string; isDeleted: boolean; deletedAt?: string; attachments: Attachment[];
 }
-interface Props { customers?: RecordItem[]; products?: RecordItem[]; invoices?: RecordItem[]; payments?: RecordItem[]; onNavigateToRecord?: (type: string, id: string) => void; }
 const LOCAL_KEY = "alhamdulillah.notes.guest.v1";
 const COLORS = [
   ["أبيض", "#ffffff"], ["عاجي", "#fffaf0"], ["أزرق", "#eff6ff"], ["أخضر", "#f0fdf4"],
@@ -70,7 +68,7 @@ function changed(a: Note, b?: Note): boolean {
     || JSON.stringify(a.tags) !== JSON.stringify(b.tags) || JSON.stringify(a.attachments) !== JSON.stringify(b.attachments);
 }
 
-export default function NotesView(_props: Props) {
+export default function NotesView() {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid || null;
   const [notes, setNotes] = useState<Note[]>([]);
