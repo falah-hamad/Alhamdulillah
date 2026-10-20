@@ -247,7 +247,15 @@ export default function NotesView(_props: Props) {
     catch (e) { if (!(e instanceof Error && e.name === "AbortError")) { console.error(e); setError("تعذرت مشاركة الملاحظة."); } }
   };
   const markup = (before: string, after = before) => { const input=editorRef.current;if(!input||!draft)return;const start=input.selectionStart,end=input.selectionEnd,selected=draft.content.slice(start,end),chosen=selected||"النص";patch({content:draft.content.slice(0,start)+before+chosen+after+draft.content.slice(end)});requestAnimationFrame(()=>{input.focus();const p=start+before.length;input.setSelectionRange(p,p+chosen.length);}); };
-  const handleEditorKeyDown=(e:React.KeyboardEvent<HTMLTextAreaElement>)=>{if(e.key!=="Enter"||e.shiftKey||!draft)return;const el=e.currentTarget,start=el.selectionStart,end=el.selectionEnd,before=draft.content.slice(0,start),line=before.slice(before.lastIndexOf("\n")+1),m=line.match(/^(\s*)([-*+]\s+|\d+[.)]\s+)(.*)$/);if(!m)return;e.preventDefault();if(!m[3].trim()){const updated=draft.content.slice(0,start-line.length)+m[1]+draft.content.slice(end);patch({content:updated});requestAnimationFrame(()=>{el.focus();const p=start-line.length+m[1].length;el.setSelectionRange(p,p);});return;}const prefix=/^\d+[.)]/.test(m[2])?m[1]+(Number.parseInt(m[2],10)+1)+". ":m[1]+m[2];const inserted="\n"+prefix;patch({content:draft.content.slice(0,start)+inserted+draft.content.slice(end)});requestAnimationFrame(()=>{el.focus();const p=start+inserted.length;el.setSelectionRange(p,p);});};
+  const handleEditorKeyDown=(e:React.KeyboardEvent<HTMLTextAreaElement>)=>{
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="z") { e.preventDefault(); if (e.shiftKey) redoEdit(); else undoEdit(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="y") { e.preventDefault(); redoEdit(); return; }
+    if(e.key!=="Enter"||e.shiftKey||!draft)return;
+    const el=e.currentTarget,start=el.selectionStart,end=el.selectionEnd,before=draft.content.slice(0,start),line=before.slice(before.lastIndexOf("\n")+1),m=line.match(/^(\s*)([-*+]\s+|\d+[.)]\s+)(.*)$/);
+    if(!m)return;e.preventDefault();
+    if(!m[3].trim()){const updated=draft.content.slice(0,start-line.length)+m[1]+draft.content.slice(end);patch({content:updated});requestAnimationFrame(()=>{el.focus();const p=start-line.length+m[1].length;el.setSelectionRange(p,p);});return;}
+    const prefix=/^\d+[.)]/.test(m[2])?m[1]+(Number.parseInt(m[2],10)+1)+". ":m[1]+m[2];const inserted="\n"+prefix;patch({content:draft.content.slice(0,start)+inserted+draft.content.slice(end)});requestAnimationFrame(()=>{el.focus();const p=start+inserted.length;el.setSelectionRange(p,p);});
+  };
 
   const addFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files || []) as File[]; event.currentTarget.value = "";
