@@ -37,24 +37,24 @@ const RICH_MARKER = "<!--alhamdulillah-rich-note-->";
 function sanitizeRichHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const allowed = new Set(["P","DIV","BR","STRONG","B","EM","I","U","S","STRIKE","UL","OL","LI","BLOCKQUOTE","SPAN","FONT","H1","H2","H3","IMG","A"]);
-  const clean = (node: ParentNode) => { Array.from(node.childNodes).forEach((child) => { if (child.nodeType === Node.TEXT_NODE) return; if (!(child instanceof HTMLElement)) { child.remove(); return; } if (!allowed.has(child.tagName)) { child.replaceWith(...Array.from(child.childNodes)); return; } Array.from(child.attributes).forEach((attr) => { const name=attr.name.toLowerCase(); if (name==="style") { const safe=attr.value.split(";").map(x=>x.trim()).filter(x=>/^(color|background-color|font-size|font-family|text-align):\\s*[#(),.%\\w -]+$/i.test(x)).join(";"); if(safe)child.setAttribute("style",safe);else child.removeAttribute("style"); } else if (child.tagName==="IMG" && ["src","alt","width","height"].includes(name)) { if(name==="src"&&!/^https:\\/\\//i.test(attr.value)) child.removeAttribute(attr.name); } else if (child.tagName==="A" && ["href","target","rel"].includes(name)) { if(name==="href"&&!/^https:\\/\\//i.test(attr.value)) child.removeAttribute(attr.name); } else child.removeAttribute(attr.name); }); if(child.tagName==="IMG") child.setAttribute("style","max-width:100%;height:auto;border-radius:10px;"); else clean(child); }); };
+  const clean = (node: ParentNode) => { Array.from(node.childNodes).forEach((child) => { if (child.nodeType === Node.TEXT_NODE) return; if (!(child instanceof HTMLElement)) { child.remove(); return; } if (!allowed.has(child.tagName)) { child.replaceWith(...Array.from(child.childNodes)); return; } Array.from(child.attributes).forEach((attr) => { const name=attr.name.toLowerCase(); if (name==="style") { const safe=attr.value.split(";").map(x=>x.trim()).filter(x=>/^(color|background-color|font-size|font-family|text-align):\s*[#(),.%\w -]+$/i.test(x)).join(";"); if(safe)child.setAttribute("style",safe);else child.removeAttribute("style"); } else if (child.tagName==="IMG" && ["src","alt","width","height"].includes(name)) { if(name==="src"&&!/^https:\/\//i.test(attr.value)) child.removeAttribute(attr.name); } else if (child.tagName==="A" && ["href","target","rel"].includes(name)) { if(name==="href"&&!/^https:\/\//i.test(attr.value)) child.removeAttribute(attr.name); } else child.removeAttribute(attr.name); }); if(child.tagName==="IMG") child.setAttribute("style","max-width:100%;height:auto;border-radius:10px;"); else clean(child); }); };
   clean(doc.body); return doc.body.innerHTML;
 }
 function plain(text: string): string {
   const value=text.startsWith(RICH_MARKER)?text.slice(RICH_MARKER.length):text;
-  if (text.startsWith(RICH_MARKER)) return value.replace(/<br\\s*\\/?>(?=.)/gi,"\\n").replace(/<\\/(p|div|li|h[1-3])>/gi,"\\n").replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/\\n{3,}/g,"\\n\\n").trim();
-  return value.replace(/\\*\\*(.+?)\\*\\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/\\*([^*]+)\\*/g, "$1").replace(/^- \\[x\\] /gim, "☑ ").replace(/^- \\[ \\] /gim, "☐ ").replace(/^- /gm, "• ").trim();
+  if (text.startsWith(RICH_MARKER)) return value.replace(/<br\s*\/?>/gi,"\n").replace(/<\/(p|div|li|h[1-3])>/gi,"\n").replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/\n{3,}/g,"\n\n").trim();
+  return value.replace(/\*\*(.+?)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/^- \[x\] /gim, "☑ ").replace(/^- \[ \] /gm, "☐ ").replace(/^- /gm, "• ").trim();
 }
 function escaped(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function preview(text: string): string {
   if (text.startsWith(RICH_MARKER)) return sanitizeRichHtml(text.slice(RICH_MARKER.length));
-  return text.split("\\n").map((raw) => {
-    const imageMatch = raw.match(/^!\\[([^\\]]*)\\]\\((https:\\/\\/[^\\s)]+)\\)$/);
-    if (imageMatch) return `<img src="${escaped(imageMatch[2])}" alt="${escaped(imageMatch[1])}" style="display:block;max-width:100%;max-height:420px;object-fit:contain;margin:10px auto;border-radius:10px" loading="lazy" />`;
-    let line = escaped(raw).replace(/^- \\[x\\] (.*)$/i, "☑ $1").replace(/^- \\[ \\] (.*)$/, "☐ $1").replace(/^- (.*)$/, "• $1").replace(/^\\d+[.)] (.*)$/, "• $1");
-    line = line.replace(/\\*\\*(.+?)\\*\\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<u>$1</u>").replace(/\\*([^*]+)\\*/g, "<em>$1</em>").replace(/~~(.+?)~~/g, "<del>$1</del>").replace(/==(.+?)==/g, '<mark style="background:#fef08a;border-radius:3px;padding:0 2px">$1</mark>');
+  return text.split("\n").map((raw) => {
+    const imageMatch = raw.match(/^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/);
+    if (imageMatch) return '<img src="' + escaped(imageMatch[2]) + '" alt="' + escaped(imageMatch[1]) + '" style="display:block;max-width:100%;max-height:420px;object-fit:contain;margin:10px auto;border-radius:10px" loading="lazy" />';
+    let line = escaped(raw).replace(/^- \[x\] (.*)$/i, "☑ $1").replace(/^- \[ \] (.*)$/, "☐ $1").replace(/^- (.*)$/, "• $1").replace(/^\d+[.)] (.*)$/, "• $1");
+    line = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/__([^_]+)__/g, "<u>$1</u>").replace(/\*([^*]+)\*/g, "<em>$1</em>").replace(/~~(.+?)~~/g, "<del>$1</del>").replace(/==(.+?)==/g, '<mark style="background:#fef08a;border-radius:3px;padding:0 2px">$1</mark>');
     return line || "&nbsp;";
   }).join("<br/>");
 }
