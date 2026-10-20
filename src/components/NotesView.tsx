@@ -46,7 +46,7 @@ function sanitizeRichHtml(html: string): string {
     if (!allowed.has(tag)) { const parent=child.parentNode; if(parent){while(child.firstChild) parent.insertBefore(child.firstChild,child); parent.removeChild(child);} return; }
     Array.from((child as Element).attributes).forEach((attr) => {
       const name=attr.name.toLowerCase(), value=attr.value;
-      if (isSvg) { if (!svgAttrs.has(name) || /javascript:|url\s*\(/i.test(value)) (child as Element).removeAttribute(attr.name); }
+      if (isSvg) { if (name==="style" && tag==="SVG") { const safeSvgStyle=value.split(";").map(x=>x.trim()).filter(x=>/^(display:\s*block|width:\s*100%|height:\s*100%)$/i.test(x)).join(";"); if(safeSvgStyle)(child as Element).setAttribute("style",safeSvgStyle);else (child as Element).removeAttribute(attr.name); } else if (!svgAttrs.has(name) || /javascript:|url\s*\(/i.test(value)) (child as Element).removeAttribute(attr.name); }
       else if (tag==="SPAN" && name==="class" && value==="note-resizable-shape") { child.setAttribute("class","note-resizable-shape"); }
       else if (tag==="SPAN" && name==="contenteditable" && value==="false") { child.setAttribute("contenteditable","false"); }
       else if (tag==="FONT" && ["face","size","color"].includes(name)) { if(name==="face"&&!/^[\w ,.-]{1,40}$/.test(value)) child.removeAttribute(attr.name); }
