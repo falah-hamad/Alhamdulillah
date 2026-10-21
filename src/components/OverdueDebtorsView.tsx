@@ -196,10 +196,10 @@ ${settings.companyName || "محلات العاشق"}`;
         </div>
 
         {/* Aggregated KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-5">
-          <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3.5 mt-4 sm:mt-5 min-w-0">
+          <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-rose-700">إجمالي المبالغ المتبقية المطلوبة</p>
-            <p className="text-xl font-bold text-rose-900 mt-1 font-mono">
+            <p className="text-base sm:text-xl font-bold text-rose-900 mt-1 font-mono break-words">
               {totalRemainingSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-rose-600 mt-1">
@@ -207,9 +207,9 @@ ${settings.companyName || "محلات العاشق"}`;
             </p>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-slate-600">إجمالي ديون المتأخرين</p>
-            <p className="text-xl font-bold text-slate-800 mt-1 font-mono">
+            <p className="text-base sm:text-xl font-bold text-slate-800 mt-1 font-mono break-words">
               {totalDebtsSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-slate-500 mt-1">
@@ -217,9 +217,9 @@ ${settings.companyName || "محلات العاشق"}`;
             </p>
           </div>
 
-          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-4">
+          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-emerald-700">إجمالي المسدد (الواصل)</p>
-            <p className="text-xl font-bold text-emerald-900 mt-1 font-mono">
+            <p className="text-base sm:text-xl font-bold text-emerald-900 mt-1 font-mono break-words">
               {totalPaidSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-emerald-600 mt-1">
