@@ -391,7 +391,7 @@ export default function DashboardView({
           </div>
 
           {/* Quick Ledger Balance widget */}
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-5 rounded-xl shadow-sm flex flex-col justify-between h-[180px]">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-3 sm:p-5 rounded-xl shadow-sm flex flex-col justify-between min-h-[136px] sm:min-h-[180px] h-auto">
             <div>
               <p className="text-blue-100 text-xs font-semibold">معدل التحصيل المالي</p>
               <h3 className="text-3xl font-bold font-mono mt-1">
