@@ -311,7 +311,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-invoice"
             onClick={onOpenNewInvoiceModal}
-            className="flex flex-col items-center justify-center bg-blue-50/60 hover:bg-blue-50 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
+            className="flex flex-col items-center justify-center bg-blue-50/60 hover:bg-blue-50 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4"
           >
             <PlusCircle className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">فتح قائمة حساب (فاتورة دين)</span>
@@ -320,7 +320,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-payment"
             onClick={onOpenNewPaymentModal}
-            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
+            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4"
           >
             <DollarSign className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">تسجيل تسديد جديد (دفعة)</span>
@@ -329,7 +329,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-customer"
             onClick={onOpenNewCustomerModal}
-            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
+            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4"
           >
             <Users className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">إضافة ملف عميل جديد</span>
@@ -338,7 +338,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-product"
             onClick={onOpenNewProductModal}
-            className="flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
+            className="flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4"
           >
             <PackageCheck className="w-5 h-5 mb-2 text-slate-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">إضافة بضاعة للمستودع</span>
