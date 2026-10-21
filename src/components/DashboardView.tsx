@@ -124,18 +124,18 @@ export default function DashboardView({
         </div>
 
         {/* The 3 Core Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 min-w-0">
           {/* 1. إجمالي الديون المستحقة */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-w-0">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0">
               <span className="text-xs font-bold text-slate-600">إجمالي الديون المستحقة</span>
               <span className="w-7 h-7 rounded-lg bg-slate-200/60 text-slate-700 flex items-center justify-center">
                 <FileSpreadsheet className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-3">
-              <div className="flex items-baseline gap-1.5 font-mono">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
+                <span className="text-base sm:text-3xl font-black text-slate-900 break-words min-w-0">
                   {totalSales.toLocaleString()}
                 </span>
                 <span className="text-xs font-bold text-slate-500">{settings.currency}</span>
@@ -147,16 +147,16 @@ export default function DashboardView({
           </div>
 
           {/* 2. مجموع المبالغ المحصلة */}
-          <div className="bg-blue-50/50 border border-blue-200/70 rounded-2xl p-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
+          <div className="bg-blue-50/50 border border-blue-200/70 rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-w-0">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0">
               <span className="text-xs font-bold text-blue-900">مجموع المبالغ المحصلة</span>
               <span className="text-[11px] font-mono font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
                 {collectionRate}% محصل
               </span>
             </div>
             <div className="mt-3">
-              <div className="flex items-baseline gap-1.5 font-mono">
-                <span className="text-2xl sm:text-3xl font-black text-blue-700">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
+                <span className="text-base sm:text-3xl font-black text-blue-700 break-words min-w-0">
                   {totalPaid.toLocaleString()}
                 </span>
                 <span className="text-xs font-bold text-blue-600">{settings.currency}</span>
@@ -168,16 +168,16 @@ export default function DashboardView({
           </div>
 
           {/* 3. صافي الرصيد الحالي للديون */}
-          <div className="bg-rose-50/50 border border-rose-200/70 rounded-2xl p-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
+          <div className="bg-rose-50/50 border border-rose-200/70 rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-w-0">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0">
               <span className="text-xs font-bold text-rose-900">صافي الرصيد الحالي للديون</span>
               <span className="text-[11px] font-mono font-bold bg-rose-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
                 {remainingRate}% متبقي
               </span>
             </div>
             <div className="mt-3">
-              <div className="flex items-baseline gap-1.5 font-mono">
-                <span className="text-2xl sm:text-3xl font-black text-rose-700">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
+                <span className="text-base sm:text-3xl font-black text-rose-700 break-words min-w-0">
                   {totalRemaining.toLocaleString()}
                 </span>
                 <span className="text-xs font-bold text-rose-600">{settings.currency}</span>
