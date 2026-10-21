@@ -939,3 +939,76 @@ textarea {
   .app-content :is(.p-3,.p-4,.p-5,.p-6) { padding: 7px !important; }
   .app-content :is(.w-10,.h-10,.w-12,.h-12,.w-14,.h-14,.w-16,.h-16) { width: 1.875rem !important; height: 1.875rem !important; }
 }
+
+
+/* True small-phone density v7 — shrink the whole app's rem-based dimensions and text, including the header and navigation. */
+@media screen and (max-width: 430px) {
+  /* Tailwind spacing, widths, heights and typography use rem; reduce their actual rendered size. */
+  html { font-size: 14px !important; }
+  body { font-size: 14px !important; }
+  #root { font-size: 14px; }
+  #root :is(.text-xs, [class~="text-[11px]"], [class~="text-[10px]"]) {
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+  #root :is(.text-sm) { font-size: 12px !important; line-height: 1.35 !important; }
+  #root :is(.text-base) { font-size: 14px !important; line-height: 1.4 !important; }
+  #root :is(.text-lg) { font-size: 15px !important; line-height: 1.35 !important; }
+  #root :is(.text-xl) { font-size: 16px !important; line-height: 1.3 !important; }
+  #root :is(.text-2xl) { font-size: 18px !important; line-height: 1.25 !important; }
+  #root :is(.text-3xl) { font-size: 21px !important; line-height: 1.2 !important; }
+  #root :is(.text-4xl) { font-size: 24px !important; line-height: 1.15 !important; }
+
+  /* Compact repeated card spacing and prevent content from forcing a wider layout. */
+  #root :is(.p-3,.p-4,.p-5,.p-6) { padding: 8px !important; }
+  #root :is(.px-3,.px-4,.px-5,.px-6) { padding-inline: 8px !important; }
+  #root :is(.py-3,.py-4,.py-5,.py-6) { padding-block: 7px !important; }
+  #root :is(.gap-3,.gap-4,.gap-5,.gap-6) { gap: 7px !important; }
+  #root :is(.w-8,.h-8) { width: 1.75rem !important; height: 1.75rem !important; }
+  #root :is(.w-10,.h-10) { width: 2rem !important; height: 2rem !important; }
+  #root :is(.w-12,.h-12) { width: 2.25rem !important; height: 2.25rem !important; }
+  #root :is(.w-14,.h-14,.w-16,.h-16) { width: 2.5rem !important; height: 2.5rem !important; }
+
+  /* Compact controls across the page, top header, navigation and in-app panels. */
+  #root :is(button,[role="button"]) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 32px !important;
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+  #root :is(input,select,textarea) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 34px;
+    padding: 6px 8px !important;
+    font-size: 14px !important;
+  }
+  #root :is(header, main, aside, section, article, [role="dialog"]) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #root header { gap: 6px; }
+  #root main.app-content { padding: 8px !important; }
+  #root :is(.rounded-xl,.rounded-2xl,.rounded-3xl) { border-radius: 9px !important; }
+}
+@media screen and (max-width: 360px) {
+  html { font-size: 13px !important; }
+  body, #root { font-size: 13px !important; }
+  #root :is(.text-sm) { font-size: 11px !important; }
+  #root :is(.text-base) { font-size: 13px !important; }
+  #root :is(.text-lg) { font-size: 14px !important; }
+  #root :is(.text-xl) { font-size: 15px !important; }
+  #root :is(.text-2xl) { font-size: 17px !important; }
+  #root :is(button,[role="button"]) {
+    min-height: 30px !important;
+    padding: 4px 6px !important;
+    font-size: 11px !important;
+  }
+  #root :is(input,select,textarea) { min-height: 32px; padding: 5px 6px !important; }
+  #root main.app-content { padding: 6px !important; }
+  #root :is(.p-3,.p-4,.p-5,.p-6) { padding: 6px !important; }
+}
