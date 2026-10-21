@@ -226,11 +226,11 @@ export default function CustomersView({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="customers-view space-y-6 min-w-0">
       {/* Search & Actions Top Header */}
       {!selectedCustomerId && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+          <div className="customers-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
             <div className="space-y-1">
               <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
@@ -248,7 +248,7 @@ export default function CustomersView({
                 setAddress("");
                 setIsAddModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              className="customers-add-button flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow-sm transition-colors cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               إضافة عميل جديد
@@ -256,7 +256,7 @@ export default function CustomersView({
           </div>
 
           {/* Search & View Mode Switcher Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="customers-toolbar flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search bar */}
             <div className="relative flex-1">
               <Search className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
@@ -272,7 +272,7 @@ export default function CustomersView({
 
             {/* View Mode Switcher Buttons */}
             <div
-              className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs shrink-0 select-none overflow-x-auto"
+              className="customers-view-switcher flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs shrink-0 select-none overflow-x-auto"
             >
               <button
                 type="button"
@@ -341,7 +341,7 @@ export default function CustomersView({
             <>
               {/* 1. GRID VIEW — عرض شبكي، المجلدات تظهر كمربعات/بطاقات */}
               {customerViewMode === "grid" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="customers-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredCustomers.map((c) => {
                     const metrics = getCustomerMetrics(c.id);
                     return (
@@ -425,9 +425,9 @@ export default function CustomersView({
 
               {/* 2. LIST VIEW — عرض قائمة: الاسم، الموقع، وفتح الدفتر فقط */}
               {customerViewMode === "list" && (
-                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <div className="customers-list-panel bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-right text-xs">
+                    <table className="customers-list-table w-full text-right text-xs">
                       <thead>
                         <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold select-none">
                           <th className="p-3.5 pr-5">الاسم</th>
@@ -444,7 +444,7 @@ export default function CustomersView({
                               className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
                             >
                               {/* الاسم فقط مع أيقونة الزبون / الشخص */}
-                              <td className="p-3.5 pr-5">
+                              <td data-label="الاسم" className="p-3.5 pr-5">
                                 <div className="flex items-center gap-2.5">
                                   <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-200/80 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-2xs">
                                     <User className="w-4 h-4" />
@@ -456,7 +456,7 @@ export default function CustomersView({
                               </td>
 
                               {/* الموقع فقط */}
-                              <td className="p-3.5">
+                              <td data-label="الموقع" className="p-3.5">
                                 <div className="flex items-center gap-1.5 text-slate-700">
                                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                   <span className="font-medium text-xs">
@@ -466,7 +466,7 @@ export default function CustomersView({
                               </td>
 
                               {/* فتح الدفتر فقط */}
-                              <td className="p-3.5 text-center">
+                              <td data-label="فتح الدفتر" className="p-3.5 text-center">
                                 <button
                                   type="button"
                                   onClick={(e) => {
