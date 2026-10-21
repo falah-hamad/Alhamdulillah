@@ -518,7 +518,7 @@ function ProductsViewContent({
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
-      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-2 sm:gap-3 min-w-0">
         {[
           { label: "الكمية الموجودة", value: totalItemsCount, icon: Package },
           { label: "رأس المال بالمخزون", value: totalCostValue, icon: Layers },
@@ -530,7 +530,7 @@ function ProductsViewContent({
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0"><metric.icon className="w-5 h-5" /></div>
             <div className="min-w-0">
               <div className="text-[11px] text-slate-500">{metric.label}</div>
-              <div className="text-sm sm:text-base font-bold text-slate-800 break-words">{money(metric.value)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></div>
+              <div className="text-xs sm:text-base font-bold text-slate-800 break-words">{money(metric.value)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></div>
             </div>
           </div>
         ))}
