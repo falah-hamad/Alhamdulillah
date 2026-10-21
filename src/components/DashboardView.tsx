@@ -74,7 +74,7 @@ export default function DashboardView({
     .slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-view space-y-6 min-w-0">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-l from-blue-950 to-slate-900 text-white rounded-xl p-4 sm:p-6 shadow-sm border border-blue-900/50 min-w-0">
         <div className="max-w-3xl">
