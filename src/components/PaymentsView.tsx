@@ -92,9 +92,9 @@ export default function PaymentsView({
   const selectedReceipt = payments.find((p) => p.id === selectedReceiptId);
 
   return (
-    <div className="space-y-6">
+    <div className="payments-view space-y-6 min-w-0">
       {/* Search and Action Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm no-print">
+      <div className="payments-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm no-print">
         <div className="space-y-1">
           <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-blue-600" />
