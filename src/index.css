@@ -486,592 +486,297 @@ textarea {
 }
 
 
-/* Responsive layout repair v2: reflow controls and forms, not just clip overflow. */
-@media screen and (max-width: 430px) {
-  /* Prevent fixed Tailwind widths/min-widths from forcing controls outside the phone. */
+/* Consolidated responsive rules.
+   Keep one source of truth for handheld/tablet layout. Do not globally scale the app
+   or force every grid into two columns: forms and data tables have different needs. */
+
+:root {
+  --app-inline-gutter: clamp(8px, 2.6vw, 24px);
+  --app-card-gap: clamp(8px, 2vw, 16px);
+  --app-control-radius: 10px;
+}
+
+@media screen {
+  html, body, #root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body {
+    overflow-x: hidden;
+    font-size: 15px;
+  }
+
+  #root {
+    overflow-x: clip;
+  }
+
+  #root > div,
+  main,
+  .app-content,
+  .app-content > *,
+  .app-content :is(section, article, aside, form, [class*="rounded-"]) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app-content {
+    width: 100%;
+    padding: 16px var(--app-inline-gutter) !important;
+    overflow-x: clip;
+  }
+
+  /* Avoid fixed Tailwind/arbitrary widths from forcing cards and controls off-screen. */
   .app-content [class*="w-["],
   .app-content [class*="min-w-["],
   [role="dialog"] [class*="w-["],
   [role="dialog"] [class*="min-w-["],
   [aria-modal="true"] [class*="w-["],
   [aria-modal="true"] [class*="min-w-["] {
+    box-sizing: border-box;
     min-width: 0 !important;
     max-width: 100% !important;
   }
 
-  /* Forms are the common source of overlapping labels and inputs:
-     use one field per row on narrow screens while preserving the field itself. */
-  .app-content form [class*="grid-cols-"],
-  [role="dialog"] form [class*="grid-cols-"],
-  [aria-modal="true"] form [class*="grid-cols-"] {
-    grid-template-columns: minmax(0, 1fr) !important;
-    column-gap: 0.75rem !important;
-    row-gap: 0.75rem !important;
+  .app-content :is(.grid, .flex) > * {
+    min-width: 0;
   }
 
-  .app-content form [class*="col-span-"],
-  [role="dialog"] form [class*="col-span-"],
-  [aria-modal="true"] form [class*="col-span-"] {
-    grid-column: 1 / -1 !important;
-    min-width: 0 !important;
-  }
-
-  .app-content form label,
-  [role="dialog"] form label,
-  [aria-modal="true"] form label {
-    max-width: 100%;
+  .app-content :is(h1, h2, h3, h4, p, span, label, small, th, td, button, [role="button"]) {
     overflow-wrap: anywhere;
   }
 
-  .app-content form input,
-  .app-content form select,
-  .app-content form textarea,
-  [role="dialog"] form input,
-  [role="dialog"] form select,
-  [role="dialog"] form textarea,
-  [aria-modal="true"] form input,
-  [aria-modal="true"] form select,
-  [aria-modal="true"] form textarea {
-    display: block;
-    width: 100%;
+  .app-content :is(input, select, textarea) {
+    box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
   }
 
-  /* Action bars can wrap instead of squeezing buttons into each other. */
-  .app-content form [class*="flex"],
-  [role="dialog"] form [class*="flex"],
-  [aria-modal="true"] form [class*="flex"] {
+  /* Wide tables scroll in their own wrapper instead of widening the page. */
+  .app-content [class*="overflow-x-auto"] {
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .app-content form [class*="flex-row"],
-  [role="dialog"] form [class*="flex-row"],
-  [aria-modal="true"] form [class*="flex-row"] {
-    flex-wrap: wrap;
+  .app-content [class*="overflow-x-auto"] table {
+    width: max-content;
+    min-width: 100%;
   }
 
-  /* Keep popovers, dialogs and drawers inside the actual visible phone width. */
+  .app-content img,
+  .app-content video,
+  .app-content canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
   [role="dialog"],
   [aria-modal="true"],
   dialog {
     box-sizing: border-box;
-    width: calc(100vw - 1rem);
-    max-width: calc(100vw - 1rem) !important;
-    min-width: 0 !important;
-  }
-
-  /* Long Arabic labels and button captions may wrap instead of overlapping. */
-  .app-content button,
-  .app-content [role="button"],
-  [role="dialog"] button,
-  [aria-modal="true"] button {
-    min-width: 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  /* Utility layouts that use explicit columns must allow each track to shrink. */
-  .app-content [class*="grid-cols-"],
-  [role="dialog"] [class*="grid-cols-"],
-  [aria-modal="true"] [class*="grid-cols-"] {
-    min-width: 0;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
-@media screen and (max-width: 360px) {
-  /* At very narrow widths, multi-field form rows become stacked fields. */
-  .app-content form .flex,
-  [role="dialog"] form .flex,
-  [aria-modal="true"] form .flex {
-    flex-wrap: wrap;
-  }
+/* Tablet: denser than the previous desktop-sized controls, without phone-style stacking. */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  html { font-size: 15px; }
 
-  .app-content form .flex > *,
-  [role="dialog"] form .flex > *,
-  [aria-modal="true"] form .flex > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .app-content .text-xs,
-  [role="dialog"] .text-xs,
-  [aria-modal="true"] .text-xs {
-    overflow-wrap: anywhere;
-  }
-}
-
-
-/* Responsive repair v3 — content reflow and proportional controls (mobile-first).
-   Keep this block after legacy safeguards so it wins without changing print layouts. */
-:root {
-  --app-inline-gutter: clamp(10px, 3.2vw, 24px);
-  --app-card-gap: clamp(8px, 2.2vw, 16px);
-  --app-control-height: 40px;
-}
-@media screen {
-  html { overflow-x: clip; }
-  body { font-size: 14px; }
-  #root { min-width: 0; overflow-x: clip; }
   .app-content {
-    padding-inline: var(--app-inline-gutter) !important;
-    padding-block: clamp(10px, 2.5vw, 24px) !important;
-    min-width: 0;
-    overflow-x: clip;
+    padding: 14px !important;
   }
-  .app-content :is(h1,h2,h3,h4) {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    line-height: 1.35;
-  }
-  .app-content :is(p,span,label,small,th,td) {
-    overflow-wrap: anywhere;
-  }
-  .app-content :is(.rounded-xl,.rounded-2xl,.rounded-3xl) {
-    min-width: 0;
-  }
-  .app-content :is(input,select,textarea) {
-    min-width: 0;
-    width: 100%;
-    max-width: 100%;
-    font-size: 16px;
-  }
-  .app-content :is(button,[role="button"]) {
-    min-width: 0;
-    max-width: 100%;
+
+  .app-content :is(button, [role="button"]) {
     min-height: 36px;
-    line-height: 1.35;
+    padding: 7px 10px;
   }
-  .app-content :is(.grid,.flex) > * { min-width: 0; }
-  .app-content [class*="overflow-x-auto"] {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-  .app-content table {
-    width: max-content;
-    min-width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-  }
-  .app-content :is(img,svg,video,canvas) { max-width: 100%; }
-}
-@media screen and (max-width: 430px) {
-  :root { --app-control-height: 38px; }
-  /* Scale common card padding too; p-4 is otherwise fixed at 16px on every phone. */
-  .app-content .p-4 { padding: clamp(10px, 3vw, 13px) !important; }
-  .app-content .px-4 { padding-inline: clamp(10px, 3vw, 13px) !important; }
-  .app-content .py-4 { padding-block: clamp(10px, 3vw, 13px) !important; }
-  .app-content { gap: var(--app-card-gap); }
-  .app-content .text-2xl { font-size: clamp(1.2rem, 5vw, 1.5rem); line-height: 1.35; }
-  .app-content .text-3xl { font-size: clamp(1.35rem, 5.5vw, 1.75rem); line-height: 1.3; }
-  .app-content .text-4xl { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.25; }
-  .app-content .p-6 { padding: clamp(10px, 3vw, 16px) !important; }
-  .app-content .p-5 { padding: clamp(10px, 2.8vw, 14px) !important; }
-  .app-content .gap-6 { gap: var(--app-card-gap) !important; }
-  .app-content .gap-5 { gap: var(--app-card-gap) !important; }
-  .app-content .gap-4 { gap: clamp(8px, 2vw, 12px) !important; }
-  .app-content .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
-  .app-content .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 10px; }
-  .app-content :is(.grid-cols-3,.grid-cols-4,.grid-cols-5,.grid-cols-6) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-  .app-content :is(.grid-cols-2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .app-content :is(.flex-row) { min-width: 0; }
-  .app-content :is(.flex-row) > button,
-  .app-content :is(.flex-row) > [role="button"] { flex-shrink: 1; }
-}
-@media screen and (max-width: 360px) {
-  :root { --app-inline-gutter: 8px; --app-card-gap: 8px; }
-  body { font-size: 13px; }
-  .app-content { padding-inline: 8px !important; }
-  .app-content .text-xl { font-size: 1.05rem; }
-  .app-content .text-lg { font-size: 0.95rem; }
-  .app-content .text-sm { font-size: 0.8125rem; }
-  /* Keep compact dashboard/stat grids in two columns even on 320px phones. */
-  .app-content :is(.px-6,.px-5) { padding-inline: 10px !important; }
-  .app-content :is(.gap-3) { gap: 8px !important; }
-  .app-content :is(.w-10,.h-10) { max-width: 2.25rem; }
-  .app-content :is(.w-12,.h-12) { max-width: 2.5rem; }
-  .app-content :is(.flex-row) { flex-wrap: wrap; }
-}
-/* Avoid accidental width growth from long IDs, currency values, and Arabic labels. */
-.app-content :is(code,[class*="font-mono"]) { overflow-wrap: anywhere; }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
 
-
-/* Mobile layout repair v4 — reflow components instead of shrinking or clipping the whole app. */
-@media screen and (max-width: 767px) {
-  /* Keep the app in portrait and let each component use the real available width. */
-  html, body, #root { width: 100%; min-width: 0; }
-  body { overflow-x: hidden; }
-  #root > div { min-width: 0; max-width: 100%; }
-  .app-content {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    padding: 12px !important;
-    overflow-x: visible !important;
-  }
-  .app-content > *,
-  .app-content section,
-  .app-content article,
-  .app-content [class*="rounded-"] {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-  }
-  /* Grid children must be allowed to shrink; retain two columns only for compact cards. */
-  .app-content .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-width: 0;
-  }
-  .app-content .grid > * { min-width: 0; }
-  .app-content .grid.grid-cols-1 { grid-template-columns: minmax(0, 1fr); }
-  .app-content .grid.grid-cols-3,
-  .app-content .grid.grid-cols-4,
-  .app-content .grid.grid-cols-5,
-  .app-content .grid.grid-cols-6,
-  .app-content .grid.grid-cols-7,
-  .app-content .grid.grid-cols-8,
-  .app-content .grid.grid-cols-9,
-  .app-content .grid.grid-cols-10,
-  .app-content .grid.grid-cols-11,
-  .app-content .grid.grid-cols-12 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  /* Let toolbars wrap to a second line instead of colliding or shrinking controls. */
-  .app-content .flex.flex-row,
-  header .flex.flex-row {
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-  .app-content button,
-  .app-content [role="button"],
-  header button {
-    max-width: 100%;
-    min-width: 0;
-    flex-shrink: 1;
-    overflow-wrap: anywhere;
-  }
   .app-content :is(input, select, textarea) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
+    min-height: 38px;
+    padding: 7px 9px;
   }
-  /* Wide accounting tables may scroll inside their own wrapper; the whole page must not. */
-  .app-content [class*="overflow-x-auto"] {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto !important;
-    overscroll-behavior-x: contain;
+
+  .app-content :is(.gap-5, .gap-6) {
+    gap: 12px !important;
   }
-  .app-content [class*="overflow-x-auto"] table {
-    width: max-content;
-    min-width: 100%;
+
+  .app-content :is(.p-5, .p-6) {
+    padding: 14px !important;
   }
-  /* The financial overview cards must not stretch past the phone width. */
-  #visual-debt-overview-card,
-  #visual-debt-overview-card > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-  #visual-debt-overview-card { padding: 12px !important; gap: 12px !important; }
-}
-@media screen and (max-width: 380px) {
-  .app-content { padding: 8px !important; }
-  .app-content .grid { gap: 8px !important; }
-  .app-content :is(.p-4, .p-5, .p-6) { padding: 10px !important; }
-  .app-content .grid.grid-cols-2 > * { min-width: 0; }
-  #visual-debt-overview-card .grid { grid-template-columns: minmax(0, 1fr); }
-  header { column-gap: 6px; }
 }
 
-
-/* Handheld-first responsive layout v5 — designed for one-hand phones, without scaling the whole page or forcing landscape. */
+/* Phones: reduce actual component dimensions while retaining readable text and touch targets. */
 @media screen and (max-width: 767px) {
-  html, body, #root {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-  body { overflow-x: hidden; }
-  #root { overflow-x: clip; }
+  html { font-size: 14px; }
+
+  body { font-size: 14px; }
+
   .app-content {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
     padding: 10px !important;
-    overflow-x: clip !important;
-  }
-  .app-content > * { min-width: 0; max-width: 100%; }
-  .app-content :is(section, article, [class*="rounded-"]) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
+    --app-card-gap: 9px;
   }
 
-  /* Reflow grids according to available width, not desktop column counts. */
-  .app-content .grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 138px), 1fr)) !important;
-    min-width: 0;
+  .app-content :is(.p-3, .p-4, .p-5, .p-6) {
+    padding: 10px !important;
   }
-  .app-content .grid[class*="grid-cols-1"] {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-  .app-content .grid:is(.grid-cols-3,.grid-cols-4,.grid-cols-5,.grid-cols-6,
-    .grid-cols-7,.grid-cols-8,.grid-cols-9,.grid-cols-10,.grid-cols-11,.grid-cols-12) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-  .app-content .grid > * { min-width: 0; }
 
-  /* Toolbars and action rows move onto another line instead of overlapping. */
-  .app-content .flex.flex-row,
-  .app-content [class*="flex-row"] {
-    min-width: 0;
-    flex-wrap: wrap;
+  .app-content :is(.px-3, .px-4, .px-5, .px-6) {
+    padding-inline: 10px !important;
   }
+
+  .app-content :is(.py-3, .py-4, .py-5, .py-6) {
+    padding-block: 8px !important;
+  }
+
+  .app-content :is(.gap-3, .gap-4, .gap-5, .gap-6) {
+    gap: var(--app-card-gap) !important;
+  }
+
+  .app-content :is(.space-y-4, .space-y-5, .space-y-6) > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 10px !important;
+  }
+
+  .app-content .text-xs { font-size: 11px !important; line-height: 1.35; }
+  .app-content .text-sm { font-size: 12px !important; line-height: 1.4; }
+  .app-content .text-base { font-size: 14px !important; line-height: 1.4; }
+  .app-content .text-lg { font-size: 15px !important; line-height: 1.35; }
+  .app-content .text-xl { font-size: 17px !important; line-height: 1.3; }
+  .app-content .text-2xl { font-size: 19px !important; line-height: 1.25; }
+  .app-content .text-3xl { font-size: 22px !important; line-height: 1.2; }
+  .app-content .text-4xl { font-size: 25px !important; line-height: 1.15; }
+
   .app-content :is(button, [role="button"]) {
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
-    min-height: 38px;
-    flex-shrink: 1;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .app-content :is(input, select, textarea) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-    font-size: 16px;
-  }
-  .app-content :is(h1,h2,h3,h4) {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    line-height: 1.35;
-  }
-  .app-content :is(p,span,label,small,th,td) { overflow-wrap: anywhere; }
-
-  /* Tables scroll within their own wrapper; they do not widen the whole app. */
-  .app-content [class*="overflow-x-auto"] {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto !important;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-  .app-content [class*="overflow-x-auto"] table {
-    width: max-content;
-    min-width: 100%;
-  }
-  .app-content img, .app-content video, .app-content canvas { max-width: 100%; }
-}
-@media screen and (max-width: 380px) {
-  :root { --app-inline-gutter: 8px; --app-card-gap: 8px; }
-  body { font-size: 13px; }
-  .app-content { padding: 8px !important; }
-  .app-content .grid { gap: 8px !important; }
-  .app-content :is(.p-4,.p-5,.p-6) { padding: 10px !important; }
-  .app-content :is(.px-4,.px-5,.px-6) { padding-inline: 9px !important; }
-  .app-content :is(.gap-4,.gap-5,.gap-6) { gap: 8px !important; }
-  .app-content .grid[class*="grid-cols-"]:not(.grid-cols-1) > * { min-width: 0; }
-  .app-content .text-3xl { font-size: 1.35rem; line-height: 1.3; }
-  .app-content .text-2xl { font-size: 1.15rem; line-height: 1.35; }
-  .app-content :is(.w-10,.h-10) { max-width: 2.25rem; }
-  .app-content :is(.w-12,.h-12) { max-width: 2.5rem; }
-}
-
-
-/* Compact handheld sizing v6 — reduce the actual UI dimensions on small phones. */
-@media screen and (max-width: 430px) {
-  .app-content { font-size: 14px !important; }
-  .app-content .text-xs { font-size: 10px !important; line-height: 1.35 !important; }
-  .app-content .text-sm { font-size: 12px !important; line-height: 1.4 !important; }
-  .app-content .text-base { font-size: 14px !important; line-height: 1.45 !important; }
-  .app-content .text-lg { font-size: 15px !important; line-height: 1.4 !important; }
-  .app-content .text-xl { font-size: 17px !important; line-height: 1.35 !important; }
-  .app-content .text-2xl { font-size: 19px !important; line-height: 1.3 !important; }
-  .app-content .text-3xl { font-size: 22px !important; line-height: 1.25 !important; }
-  .app-content .text-4xl { font-size: 25px !important; line-height: 1.2 !important; }
-
-  .app-content :is(.p-3,.p-4,.p-5,.p-6) { padding: 9px !important; }
-  .app-content :is(.px-3,.px-4,.px-5,.px-6) { padding-inline: 9px !important; }
-  .app-content :is(.py-3,.py-4,.py-5,.py-6) { padding-block: 8px !important; }
-  .app-content :is(.gap-3,.gap-4,.gap-5,.gap-6) { gap: 8px !important; }
-  .app-content :is(.space-y-4,.space-y-5,.space-y-6) > :not([hidden]) ~ :not([hidden]) { margin-top: 9px !important; }
-
-  .app-content :is(button,[role="button"]) {
-    min-height: 32px !important;
-    padding: 6px 9px !important;
-    font-size: 12px !important;
-    line-height: 1.25 !important;
-    border-radius: 8px;
-  }
-  .app-content :is(input,select,textarea) {
     min-height: 34px;
-    padding: 6px 8px !important;
-    font-size: 14px !important;
-    line-height: 1.35 !important;
+    padding: 6px 9px;
+    line-height: 1.3;
+    white-space: normal;
   }
-  .app-content :is(.w-8,.h-8) { width: 1.75rem !important; height: 1.75rem !important; }
-  .app-content :is(.w-10,.h-10) { width: 2rem !important; height: 2rem !important; }
-  .app-content :is(.w-12,.h-12) { width: 2.25rem !important; height: 2.25rem !important; }
-  .app-content :is(.w-14,.h-14,.w-16,.h-16) { width: 2.5rem !important; height: 2.5rem !important; }
-  .app-content :is(.rounded-xl,.rounded-2xl,.rounded-3xl) { border-radius: 10px !important; }
-  .app-content :is(.shadow-lg,.shadow-xl,.shadow-2xl) { box-shadow: 0 2px 8px rgb(15 23 42 / 0.08) !important; }
+
+  .app-content :is(input, select, textarea) {
+    min-height: 36px;
+    padding: 7px 9px !important;
+    font-size: 14px !important;
+  }
+
+  /* Only wide grids are reduced to two columns; explicit single-column forms stay single-column. */
+  .app-content .grid[class*="grid-cols-"]:not(.grid-cols-1):not(.grid-cols-2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .app-content form [class*="grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-content form [class*="col-span-"] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .app-content :is(.flex-row, [class*="flex-row"]) {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .app-content :is(.w-8, .h-8) {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+
+  .app-content :is(.w-10, .h-10) {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .app-content :is(.w-12, .h-12) {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+  }
+
+  .app-content :is(.w-14, .h-14, .w-16, .h-16) {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
+  .app-content :is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
+    border-radius: 10px !important;
+  }
+
+  .app-content :is(.shadow-lg, .shadow-xl, .shadow-2xl) {
+    box-shadow: 0 2px 8px rgb(15 23 42 / 0.08) !important;
+  }
 }
+
+/* Extra-small phones: tighten spacing and let action bars wrap, never shrink the entire viewport. */
 @media screen and (max-width: 360px) {
-  .app-content { font-size: 13px !important; padding: 7px !important; }
+  html { font-size: 13px; }
+
+  body { font-size: 13px; }
+
+  .app-content { padding: 7px !important; }
+
+  .app-content :is(.p-3, .p-4, .p-5, .p-6) {
+    padding: 7px !important;
+  }
+
+  .app-content :is(.px-3, .px-4, .px-5, .px-6) {
+    padding-inline: 7px !important;
+  }
+
+  .app-content :is(.gap-3, .gap-4, .gap-5, .gap-6) {
+    gap: 7px !important;
+  }
+
+  .app-content .text-xs { font-size: 10px !important; }
   .app-content .text-sm { font-size: 11px !important; }
   .app-content .text-base { font-size: 13px !important; }
   .app-content .text-lg { font-size: 14px !important; }
-  .app-content .text-xl { font-size: 16px !important; }
-  .app-content .text-2xl { font-size: 18px !important; }
-  .app-content :is(button,[role="button"]) { min-height: 30px !important; padding: 5px 7px !important; font-size: 11px !important; }
-  .app-content :is(.p-3,.p-4,.p-5,.p-6) { padding: 7px !important; }
-  .app-content :is(.w-10,.h-10,.w-12,.h-12,.w-14,.h-14,.w-16,.h-16) { width: 1.875rem !important; height: 1.875rem !important; }
-}
+  .app-content .text-xl { font-size: 15px !important; }
+  .app-content .text-2xl { font-size: 17px !important; }
 
-
-/* True small-phone density v7 — shrink the whole app's rem-based dimensions and text, including the header and navigation. */
-@media screen and (max-width: 430px) {
-  /* Tailwind spacing, widths, heights and typography use rem; reduce their actual rendered size. */
-  html { font-size: 14px !important; }
-  body { font-size: 14px !important; }
-  #root { font-size: 14px; }
-  #root :is(.text-xs, [class~="text-[11px]"], [class~="text-[10px]"]) {
-    font-size: 10px !important;
-    line-height: 1.3 !important;
+  .app-content :is(button, [role="button"]) {
+    min-height: 32px;
+    padding: 5px 7px;
+    font-size: 12px;
   }
-  #root :is(.text-sm) { font-size: 12px !important; line-height: 1.35 !important; }
-  #root :is(.text-base) { font-size: 14px !important; line-height: 1.4 !important; }
-  #root :is(.text-lg) { font-size: 15px !important; line-height: 1.35 !important; }
-  #root :is(.text-xl) { font-size: 16px !important; line-height: 1.3 !important; }
-  #root :is(.text-2xl) { font-size: 18px !important; line-height: 1.25 !important; }
-  #root :is(.text-3xl) { font-size: 21px !important; line-height: 1.2 !important; }
-  #root :is(.text-4xl) { font-size: 24px !important; line-height: 1.15 !important; }
 
-  /* Compact repeated card spacing and prevent content from forcing a wider layout. */
-  #root :is(.p-3,.p-4,.p-5,.p-6) { padding: 8px !important; }
-  #root :is(.px-3,.px-4,.px-5,.px-6) { padding-inline: 8px !important; }
-  #root :is(.py-3,.py-4,.py-5,.py-6) { padding-block: 7px !important; }
-  #root :is(.gap-3,.gap-4,.gap-5,.gap-6) { gap: 7px !important; }
-  #root :is(.w-8,.h-8) { width: 1.75rem !important; height: 1.75rem !important; }
-  #root :is(.w-10,.h-10) { width: 2rem !important; height: 2rem !important; }
-  #root :is(.w-12,.h-12) { width: 2.25rem !important; height: 2.25rem !important; }
-  #root :is(.w-14,.h-14,.w-16,.h-16) { width: 2.5rem !important; height: 2.5rem !important; }
-
-  /* Compact controls across the page, top header, navigation and in-app panels. */
-  #root :is(button,[role="button"]) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-    min-height: 32px !important;
-    padding: 5px 8px !important;
-    font-size: 12px !important;
-    line-height: 1.25 !important;
-  }
-  #root :is(input,select,textarea) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
+  .app-content :is(input, select, textarea) {
     min-height: 34px;
-    padding: 6px 8px !important;
-    font-size: 14px !important;
+    padding: 6px 7px !important;
   }
-  #root :is(header, main, aside, section, article, [role="dialog"]) {
-    min-width: 0;
-    max-width: 100%;
+
+  .app-content .grid[class*="grid-cols-"]:not(.grid-cols-1):not(.grid-cols-2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
-  #root header { gap: 6px; }
-  #root main.app-content { padding: 8px !important; }
-  #root :is(.rounded-xl,.rounded-2xl,.rounded-3xl) { border-radius: 9px !important; }
-}
-@media screen and (max-width: 360px) {
-  html { font-size: 13px !important; }
-  body, #root { font-size: 13px !important; }
-  #root :is(.text-sm) { font-size: 11px !important; }
-  #root :is(.text-base) { font-size: 13px !important; }
-  #root :is(.text-lg) { font-size: 14px !important; }
-  #root :is(.text-xl) { font-size: 15px !important; }
-  #root :is(.text-2xl) { font-size: 17px !important; }
-  #root :is(button,[role="button"]) {
-    min-height: 30px !important;
-    padding: 4px 6px !important;
-    font-size: 11px !important;
-  }
-  #root :is(input,select,textarea) { min-height: 32px; padding: 5px 6px !important; }
-  #root main.app-content { padding: 6px !important; }
-  #root :is(.p-3,.p-4,.p-5,.p-6) { padding: 6px !important; }
 }
 
+/* Short landscape screens need vertical scrolling inside dialogs, not page scaling. */
+@media screen and (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .app-content { padding-block: 6px !important; }
 
-/* Adaptive density v8 — use rem-based sizing so tablet and phone layouts actually shrink, not just reflow. */
-/* Tablets and compact iPads: slightly denser controls while preserving the wide layout. */
-@media screen and (min-width: 431px) and (max-width: 1024px) {
-  html { font-size: 14px !important; }
-  #root { font-size: 14px; }
-  #root main.app-content { padding: 1rem !important; }
-  #root :is(button,[role="button"]) {
-    min-height: 2.25rem !important;
-    padding: .45rem .65rem !important;
-    font-size: .875rem !important;
-  }
-  #root :is(input,select,textarea) {
-    min-height: 2.4rem;
-    padding: .45rem .6rem !important;
-    font-size: .9rem !important;
+  [role="dialog"],
+  [aria-modal="true"] {
+    max-height: calc(100dvh - 12px);
+    overflow-y: auto;
   }
 }
-/* Phones: compact the actual text, controls and spacing using rem, tied to the smaller root size. */
-@media screen and (max-width: 430px) {
-  html { font-size: 13px !important; }
-  body, #root { font-size: 1rem !important; }
-  #root :is(.text-xs,[class~="text-[11px]"],[class~="text-[10px]"]) {
-    font-size: .75rem !important; line-height: 1.3 !important;
-  }
-  #root .text-sm { font-size: .875rem !important; line-height: 1.35 !important; }
-  #root .text-base { font-size: 1rem !important; line-height: 1.4 !important; }
-  #root .text-lg { font-size: 1.1rem !important; line-height: 1.35 !important; }
-  #root .text-xl { font-size: 1.2rem !important; line-height: 1.3 !important; }
-  #root .text-2xl { font-size: 1.35rem !important; line-height: 1.25 !important; }
-  #root .text-3xl { font-size: 1.6rem !important; line-height: 1.2 !important; }
-  #root .text-4xl { font-size: 1.85rem !important; line-height: 1.15 !important; }
 
-  #root :is(.p-3,.p-4,.p-5,.p-6) { padding: .55rem !important; }
-  #root :is(.px-3,.px-4,.px-5,.px-6) { padding-inline: .55rem !important; }
-  #root :is(.py-3,.py-4,.py-5,.py-6) { padding-block: .45rem !important; }
-  #root :is(.gap-3,.gap-4,.gap-5,.gap-6) { gap: .5rem !important; }
-  #root :is(button,[role="button"]) {
-    min-height: 2rem !important;
-    padding: .35rem .5rem !important;
-    font-size: .82rem !important;
-    line-height: 1.25 !important;
-    border-radius: .55rem !important;
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
-  #root :is(input,select,textarea) {
-    min-height: 2.15rem;
-    padding: .4rem .5rem !important;
-    font-size: .9rem !important;
-    line-height: 1.3 !important;
-  }
-  #root main.app-content { padding: .5rem !important; }
-  #root :is(.w-8,.h-8) { width: 1.6rem !important; height: 1.6rem !important; }
-  #root :is(.w-10,.h-10) { width: 1.85rem !important; height: 1.85rem !important; }
-  #root :is(.w-12,.h-12) { width: 2.1rem !important; height: 2.1rem !important; }
-  #root :is(.w-14,.h-14,.w-16,.h-16) { width: 2.3rem !important; height: 2.3rem !important; }
-}
-@media screen and (max-width: 360px) {
-  html { font-size: 12px !important; }
-  #root :is(button,[role="button"]) { min-height: 1.9rem !important; padding: .3rem .4rem !important; font-size: .8rem !important; }
-  #root :is(input,select,textarea) { min-height: 2rem; padding: .35rem .4rem !important; font-size: .9rem !important; }
-  #root main.app-content { padding: .4rem !important; }
 }
