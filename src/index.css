@@ -686,7 +686,7 @@ textarea {
   .app-content .text-xl { font-size: 1.05rem; }
   .app-content .text-lg { font-size: 0.95rem; }
   .app-content .text-sm { font-size: 0.8125rem; }
-  .app-content :is(.grid-cols-2) { grid-template-columns: minmax(0, 1fr) !important; }
+  /* Keep compact dashboard/stat grids in two columns even on 320px phones. */
   .app-content :is(.px-6,.px-5) { padding-inline: 10px !important; }
   .app-content :is(.gap-3) { gap: 8px !important; }
   .app-content :is(.w-10,.h-10) { max-width: 2.25rem; }
