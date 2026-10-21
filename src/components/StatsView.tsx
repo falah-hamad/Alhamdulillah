@@ -76,40 +76,40 @@ export default function StatsView({
   const collectionRate = getPercentage(totalPaid, totalSales);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 min-w-0">
       {/* Overview Grid */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+      <div className="bg-white p-3 sm:p-6 rounded-2xl border border-slate-100 shadow-sm min-w-0">
         <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-blue-600" />
           الإحصائيات المحاسبية والمؤشرات العامة
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 min-w-0">
+          <div className="p-2 sm:p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1 min-w-0">
             <Users className="w-5 h-5 mx-auto text-blue-500" />
             <span className="block text-[10px] text-slate-400 font-medium font-sans">عدد العملاء</span>
             <span className="block text-lg font-bold font-mono text-slate-800">{totalCustomers}</span>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1">
+          <div className="p-2 sm:p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1 min-w-0">
             <FileText className="w-5 h-5 mx-auto text-blue-500" />
             <span className="block text-[10px] text-slate-400 font-medium font-sans">عدد الفواتير</span>
             <span className="block text-lg font-bold font-mono text-slate-800">{totalInvoicesCount}</span>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1">
+          <div className="p-2 sm:p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1 min-w-0">
             <DollarSign className="w-5 h-5 mx-auto text-blue-500" />
             <span className="block text-[10px] text-slate-400 font-medium font-sans">إجمالي الديون المسجلة</span>
             <span className="block text-sm font-extrabold font-mono text-slate-800">{totalSales.toLocaleString()}</span>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1">
+          <div className="p-2 sm:p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1 min-w-0">
             <DollarSign className="w-5 h-5 mx-auto text-teal-500" />
             <span className="block text-[10px] text-slate-400 font-medium font-sans">إجمالي التحصيلات</span>
             <span className="block text-sm font-extrabold font-mono text-blue-600">{totalPaid.toLocaleString()}</span>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1">
+          <div className="p-2 sm:p-4 bg-slate-50 rounded-xl border border-slate-100/60 text-center space-y-1 min-w-0">
             <AlertCircle className="w-5 h-5 mx-auto text-rose-500" />
             <span className="block text-[10px] text-slate-400 font-medium font-sans">الديون المتبقية للتحصيل</span>
             <span className="block text-sm font-extrabold font-mono text-rose-600">{totalRemaining.toLocaleString()}</span>
