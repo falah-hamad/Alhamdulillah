@@ -780,3 +780,105 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Targeted responsive repairs for real application views */
+@media screen and (max-width: 600px) {
+  .app-content :is(h1, h2, h3, h4, p, label, th, td, button, [role="button"]) {
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: manual;
+  }
+
+  .customers-view, .dashboard-view, .payments-view {
+    width: 100%; min-width: 0; max-width: 100%; gap: 12px !important;
+  }
+
+  .customers-header, .payments-header {
+    width: 100%; padding: 12px !important; gap: 10px !important; align-items: stretch !important;
+  }
+
+  .customers-header h1, .payments-header h1 {
+    font-size: 1rem !important; line-height: 1.4 !important; flex-wrap: wrap;
+  }
+
+  .customers-add-button {
+    width: 100%; justify-content: center; min-height: 40px !important;
+  }
+
+  .customers-toolbar {
+    width: 100%; align-items: stretch !important; gap: 8px !important;
+  }
+
+  .customers-toolbar > .relative { width: 100%; flex: none; }
+
+  .customers-view-switcher {
+    width: 100%; display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible !important; gap: 5px !important;
+  }
+
+  .customers-view-switcher button {
+    width: 100%; min-width: 0; justify-content: center;
+    padding: 8px 5px !important; white-space: normal !important;
+    font-size: 11px !important;
+  }
+
+  .customers-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; }
+  .customers-grid > * { padding: 12px !important; }
+  .customers-grid h3 { overflow-wrap: anywhere !important; }
+
+  /* The customer list is rendered as stacked cards on phones. */
+  .customers-list-panel {
+    overflow: visible !important; border: 0 !important;
+    background: transparent !important; box-shadow: none !important;
+  }
+  .customers-list-panel > .overflow-x-auto { overflow: visible !important; }
+  .customers-list-table, .customers-list-table tbody {
+    display: block !important; width: 100% !important;
+  }
+  .customers-list-table thead { display: none !important; }
+  .customers-list-table tbody { display: grid !important; gap: 10px; }
+  .customers-list-table tr {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) !important;
+    padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: #fff; box-shadow: 0 1px 3px rgb(15 23 42 / 0.05);
+  }
+  .customers-list-table td {
+    display: flex !important; align-items: flex-start; justify-content: space-between;
+    gap: 12px; width: 100% !important; padding: 8px 2px !important;
+    text-align: right !important; white-space: normal !important; border: 0 !important;
+  }
+  .customers-list-table td::before {
+    content: attr(data-label); flex: 0 0 78px; color: #64748b;
+    font-size: 11px; font-weight: 700;
+  }
+  .customers-list-table td > * { min-width: 0; max-width: 100%; }
+  .customers-list-table td[data-label="الاسم"] > div,
+  .customers-list-table td[data-label="الموقع"] > div {
+    justify-content: flex-start; min-width: 0;
+  }
+  .customers-list-table td[data-label="فتح الدفتر"] button {
+    width: auto; min-width: 0; margin-inline-start: auto; min-height: 36px !important;
+  }
+
+  .dashboard-view > *, .payments-view > * { min-width: 0; max-width: 100%; }
+  .dashboard-view [id="visual-debt-overview-card"] { padding: 12px !important; gap: 12px !important; }
+  .dashboard-view [id="visual-debt-overview-card"] > .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important;
+  }
+  .dashboard-view [id="visual-debt-overview-card"] > .grid > * { padding: 9px !important; }
+  .payments-view .max-h-\\[500px\\] { max-height: 42dvh; }
+}
+
+@media screen and (min-width: 601px) and (max-width: 1024px) {
+  .customers-view, .dashboard-view, .payments-view { min-width: 0; max-width: 100%; }
+  .customers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customers-header, .payments-header { padding: 14px !important; }
+}
+
+@media screen and (max-width: 360px) {
+  .customers-list-table td::before { flex-basis: 68px; }
+  .customers-view .customers-grid > * { padding: 9px !important; }
+  .customers-view .customers-view-switcher button { font-size: 10px !important; }
+}
