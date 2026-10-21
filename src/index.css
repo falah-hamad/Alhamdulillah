@@ -182,196 +182,6 @@ body {
 }
 
 
-/* Responsive viewport and overflow safeguards for phones and tablets */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: clip;
-  -webkit-text-size-adjust: 100%;
-}
-
-body,
-#root {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-body {
-  margin: 0;
-  overflow-x: hidden;
-}
-
-#root,
-#root > div {
-  min-width: 0;
-  max-width: 100%;
-}
-
-button,
-input,
-textarea,
-select {
-  min-width: 0;
-  max-width: 100%;
-}
-
-img,
-video,
-canvas {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Keep wide accounting tables inside the viewport on small screens */
-@media (max-width: 640px) {
-  table {
-    max-width: 100%;
-  }
-
-  [class*="overflow-x-auto"] {
-    max-width: 100%;
-    overscroll-behavior-x: contain;
-  }
-
-  input,
-  textarea,
-  select {
-    font-size: max(16px, 1em);
-  }
-}
-
-
-/* Adaptive layout foundation: small phones, large phones and tablets */
-:root {
-  --app-page-gutter: clamp(0.75rem, 2.5vw, 1.5rem);
-  --app-section-gap: clamp(0.75rem, 2vw, 1.25rem);
-  --app-control-radius: clamp(0.5rem, 1.5vw, 0.875rem);
-  color-scheme: light;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
-  min-height: 100dvh;
-}
-
-body {
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-x: none;
-}
-
-#root {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Flex/grid children must be allowed to shrink instead of pushing the page off-screen. */
-#root > *,
-main,
-header,
-section,
-article,
-aside,
-[class*="flex-1"],
-[class*="grid-cols-"] {
-  min-width: 0;
-}
-
-button,
-[role="button"],
-input,
-select,
-textarea {
-  touch-action: manipulation;
-}
-
-input,
-select,
-textarea {
-  max-width: 100%;
-}
-
-/* Dialogs and drawers stay within the visible phone viewport, including browser UI. */
-[role="dialog"],
-[aria-modal="true"] {
-  max-width: calc(100vw - 1rem);
-  max-height: calc(100vh - 1rem);
-  max-height: calc(100dvh - 1rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Compact phones: tighten page spacing without shrinking text into unreadable sizes. */
-@media (max-width: 360px) {
-  :root {
-    --app-page-gutter: 0.625rem;
-    --app-section-gap: 0.625rem;
-  }
-
-  header {
-    gap: 0.5rem;
-  }
-
-  button {
-    overflow-wrap: anywhere;
-  }
-}
-
-/* Tablets: keep content readable and prevent full-width layouts from becoming stretched. */
-@media (min-width: 768px) {
-  #root > div {
-    max-width: 100%;
-  }
-}
-
-/* Respect Android/iOS system bars and display cutouts. Native Android also
-   fits the app window between the system bars; these env values are a fallback
-   for WebViews that expose non-zero safe-area insets. */
-@supports (padding: max(0px)) {
-  body {
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-  }
-}
-
-/* The app shell must not force a second full viewport below the header. */
-#root,
-#root > div {
-  min-height: 100dvh;
-}
-
-
-
-/* Let content-heavy cards and Arabic labels wrap instead of colliding. */
-.grid > *,
-[class*="grid-cols-"] > *,
-.flex > * {
-  min-width: 0;
-}
-
-button,
-[role="button"] {
-  line-height: 1.35;
-}
-
-input,
-select,
-textarea {
-  min-width: 0;
-}
-
-
 /* Accounting reports: keep the on-screen document proportions and colors when printed. */
 .report-document {
   direction: rtl;
@@ -427,225 +237,105 @@ textarea {
   }
 }
 
-/* Narrow-screen safeguards are scoped to the app page shell.
-   Individual views choose their own column count so unrelated layouts (especially chat)
-   are not forcibly rewritten by a global grid rule. */
-@media screen and (max-width: 430px) {
-  .app-content {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    padding: 0.625rem !important;
-  }
 
-  .app-content .overflow-x-auto,
-  .app-content [class*="overflow-x-auto"] {
-    max-width: 100%;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .app-content input,
-  .app-content select,
-  .app-content textarea {
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  .app-content [role="dialog"],
-  .app-content [aria-modal="true"] {
-    max-width: calc(100vw - 1rem);
-    max-height: calc(100dvh - 1rem);
-    overflow-y: auto;
-  }
-
-  .app-content button,
-  .app-content [role="button"] {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  .app-content table {
-    max-width: none;
-  }
-}
-
-/* Landscape phones have limited height: keep dialogs scrollable and page spacing compact. */
-@media screen and (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
-  .app-content {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-  }
-
-  [role="dialog"],
-  [aria-modal="true"] {
-    max-height: calc(100dvh - 0.75rem);
-    overflow-y: auto;
-  }
-}
-
-
-/* Consolidated responsive rules.
-   Keep one source of truth for handheld/tablet layout. Do not globally scale the app
-   or force every grid into two columns: forms and data tables have different needs. */
-
+/* Single source of truth for responsive layout: compact phone portrait without zooming the whole app. */
 :root {
-  --app-inline-gutter: clamp(8px, 2.6vw, 24px);
+  --app-inline-gutter: clamp(7px, 2.4vw, 24px);
   --app-card-gap: clamp(8px, 2vw, 16px);
-  --app-control-radius: 10px;
 }
 
-@media screen {
-  html, body, #root {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
+*, *::before, *::after { box-sizing: border-box; }
 
-  body {
-    overflow-x: hidden;
-    font-size: 15px;
-  }
-
-  #root {
-    overflow-x: clip;
-  }
-
-  #root > div,
-  main,
-  .app-content,
-  .app-content > *,
-  .app-content :is(section, article, aside, form, [class*="rounded-"]) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .app-content {
-    width: 100%;
-    padding: 16px var(--app-inline-gutter) !important;
-    overflow-x: clip;
-  }
-
-  /* Avoid fixed Tailwind/arbitrary widths from forcing cards and controls off-screen. */
-  .app-content [class*="w-["],
-  .app-content [class*="min-w-["],
-  [role="dialog"] [class*="w-["],
-  [role="dialog"] [class*="min-w-["],
-  [aria-modal="true"] [class*="w-["],
-  [aria-modal="true"] [class*="min-w-["] {
-    box-sizing: border-box;
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-
-  .app-content :is(.grid, .flex) > * {
-    min-width: 0;
-  }
-
-  .app-content :is(h1, h2, h3, h4, p, span, label, small, th, td, button, [role="button"]) {
-    overflow-wrap: anywhere;
-  }
-
-  .app-content :is(input, select, textarea) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  /* Wide tables scroll in their own wrapper instead of widening the page. */
-  .app-content [class*="overflow-x-auto"] {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .app-content [class*="overflow-x-auto"] table {
-    width: max-content;
-    min-width: 100%;
-  }
-
-  .app-content img,
-  .app-content video,
-  .app-content canvas {
-    max-width: 100%;
-    height: auto;
-  }
-
-  [role="dialog"],
-  [aria-modal="true"],
-  dialog {
-    box-sizing: border-box;
-    max-width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  min-height: 100dvh;
 }
 
-/* Tablet: denser than the previous desktop-sized controls, without phone-style stacking. */
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
+body {
+  margin: 0;
+  direction: rtl;
+  text-align: right;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-x: none;
+}
+#root { display: flex; flex-direction: column; overflow-x: clip; }
+#root > *, #root > div, main, header, section, article, aside,
+[class*="flex-1"], [class*="grid-cols-"] { min-width: 0; }
+button, [role="button"], input, select, textarea { min-width: 0; max-width: 100%; touch-action: manipulation; }
+img, video, canvas, svg { max-width: 100%; }
+.app-shell { width: 100%; max-width: 100%; min-width: 0; overflow-x: clip; }
+.app-shell > .flex-1 { min-width: 0; max-width: 100%; }
+.app-content {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: var(--app-inline-gutter);
+}
+.app-content > *, .app-content .grid > *, .app-content [class*="grid-cols-"] > *,
+.app-content .flex > *, .app-content form, .app-content section, .app-content article {
+  min-width: 0;
+  max-width: 100%;
+}
+.app-content :is(input, select, textarea) { box-sizing: border-box; min-width: 0; max-width: 100%; }
+.app-content img, .app-content video, .app-content canvas { max-width: 100%; height: auto; }
+.app-content :is(.overflow-x-auto, .overflow-x-scroll) {
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.app-content :is(.overflow-x-auto, .overflow-x-scroll) table { min-width: 100%; }
+[role="dialog"], [aria-modal="true"], dialog {
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+button, [role="button"] { line-height: 1.35; }
+
 @media screen and (min-width: 768px) and (max-width: 1024px) {
-  html { font-size: 15px; }
-
-  .app-content {
-    padding: 14px !important;
-  }
-
-  .app-content :is(button, [role="button"]) {
-    min-height: 36px;
-    padding: 7px 10px;
-  }
-
-  .app-content :is(input, select, textarea) {
-    min-height: 38px;
-    padding: 7px 9px;
-  }
-
-  .app-content :is(.gap-5, .gap-6) {
-    gap: 12px !important;
-  }
-
-  .app-content :is(.p-5, .p-6) {
-    padding: 14px !important;
-  }
+  .app-content { padding: 14px !important; }
+  .app-content :is(.p-5, .p-6) { padding: 14px !important; }
+  .app-content :is(.gap-5, .gap-6) { gap: 12px !important; }
+  .app-content :is(button, [role="button"]) { min-height: 36px; }
+  .app-content :is(input, select, textarea) { min-height: 38px; }
 }
 
-/* Phones: reduce actual component dimensions while retaining readable text and touch targets. */
-@media screen and (max-width: 767px) {
-  html { font-size: 14px; }
-
-  body { font-size: 14px; }
-
+@media screen and (max-width: 600px) {
+  html, body { font-size: 14px; }
+  .app-shell > .flex-1.flex.flex-col { flex: 1 1 0%; width: 0; min-width: 0; }
+  .app-topbar {
+    min-height: 48px !important;
+    padding: 7px 8px !important;
+    gap: 7px !important;
+    flex-wrap: wrap;
+  }
+  .app-topbar > div { min-width: 0; gap: 6px !important; }
+  .app-topbar button { min-height: 34px; padding: 6px 8px !important; }
+  .app-topbar svg { max-width: 20px; max-height: 20px; }
   .app-content {
-    padding: 10px !important;
-    --app-card-gap: 9px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 9px !important;
+    margin-inline: 0 !important;
+    overflow-x: clip;
   }
 
-  .app-content :is(.p-3, .p-4, .p-5, .p-6) {
-    padding: 10px !important;
-  }
-
-  .app-content :is(.px-3, .px-4, .px-5, .px-6) {
-    padding-inline: 10px !important;
-  }
-
-  .app-content :is(.py-3, .py-4, .py-5, .py-6) {
-    padding-block: 8px !important;
-  }
-
-  .app-content :is(.gap-3, .gap-4, .gap-5, .gap-6) {
-    gap: var(--app-card-gap) !important;
-  }
-
-  .app-content :is(.space-y-4, .space-y-5, .space-y-6) > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 10px !important;
-  }
-
+  /* Reduce oversized Tailwind spacing and type by one sensible step. */
+  .app-content :is(.p-3, .p-4, .p-5, .p-6) { padding: 10px !important; }
+  .app-content :is(.px-3, .px-4, .px-5, .px-6) { padding-inline: 9px !important; }
+  .app-content :is(.py-3, .py-4, .py-5, .py-6) { padding-block: 7px !important; }
+  .app-content :is(.gap-3, .gap-4, .gap-5, .gap-6) { gap: 9px !important; }
+  .app-content :is(.space-y-4, .space-y-5, .space-y-6) > :not([hidden]) ~ :not([hidden]) { margin-top: 9px !important; }
   .app-content .text-xs { font-size: 11px !important; line-height: 1.35; }
   .app-content .text-sm { font-size: 12px !important; line-height: 1.4; }
   .app-content .text-base { font-size: 14px !important; line-height: 1.4; }
@@ -655,490 +345,121 @@ textarea {
   .app-content .text-3xl { font-size: 22px !important; line-height: 1.2; }
   .app-content .text-4xl { font-size: 25px !important; line-height: 1.15; }
 
-  .app-content :is(button, [role="button"]) {
-    box-sizing: border-box;
-    min-width: 0;
+  .app-content :is(h1, h2, h3, h4, p, label, th, td) {
     max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+  .app-content :is(button, [role="button"]) {
     min-height: 34px;
-    padding: 6px 9px;
+    max-width: 100%;
+    padding: 6px 8px;
     line-height: 1.3;
     white-space: normal;
+    flex-shrink: 1;
   }
-
   .app-content :is(input, select, textarea) {
     min-height: 36px;
-    padding: 7px 9px !important;
+    padding: 7px 8px !important;
     font-size: 14px !important;
   }
 
-  /* Only wide grids are reduced to two columns; explicit single-column forms stay single-column. */
-  .app-content .grid[class*="grid-cols-"]:not(.grid-cols-1):not(.grid-cols-2) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  /* Toolbars wrap instead of colliding. Do not globally force every row into a column. */
+  .app-content .flex-row { flex-wrap: wrap !important; }
+  .app-content [class*="w-["], .app-content [class*="min-w-["] {
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 
-  .app-content form [class*="grid-cols-"] {
+  /* Three-or-more-column card grids become two columns; forms remain one column. */
+  .app-content .grid-cols-3, .app-content .grid-cols-4,
+  .app-content .grid-cols-5, .app-content .grid-cols-6,
+  .app-content .grid-cols-7, .app-content .grid-cols-8,
+  .app-content .grid-cols-9, .app-content .grid-cols-10,
+  .app-content .grid-cols-11, .app-content .grid-cols-12 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .app-content form [class*="grid-cols-"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .app-content form [class*="col-span-"] { grid-column: 1 / -1 !important; }
+
+  /* Keep wide accounting tables horizontally scrollable within their own area. */
+  .app-content :is(.overflow-x-auto, .overflow-x-scroll) {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+  }
+
+  /* Customer-specific controls are stacked for small portrait screens. */
+  .customers-view, .dashboard-view, .payments-view { width: 100%; min-width: 0; max-width: 100%; }
+  .customers-header, .payments-header { width: 100%; min-width: 0; gap: 9px !important; padding: 10px !important; }
+  .customers-add-button { width: 100%; justify-content: center; }
+  .customers-toolbar { width: 100%; display: flex; flex-wrap: wrap !important; gap: 8px !important; }
+  .customers-toolbar > * { min-width: 0; max-width: 100%; }
+  .customers-toolbar .relative { flex: 1 1 100%; }
+  .customers-view-switcher { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; min-width: 0; }
+  .customers-view-switcher button { min-width: 0; white-space: normal; padding: 7px 5px !important; }
+  .customers-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .customers-list-panel { width: 100%; min-width: 0; max-width: 100%; overflow: visible !important; }
+  .customers-list-panel > .overflow-x-auto { overflow: visible !important; }
+  .customers-list-table, .customers-list-table tbody { display: block !important; width: 100% !important; }
+  .customers-list-table thead { display: none !important; }
+  .customers-list-table tbody { display: grid !important; gap: 8px; }
+  .customers-list-table tr {
+    display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
+    padding: 7px 9px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
   }
-
-  .app-content form [class*="col-span-"] {
-    grid-column: 1 / -1 !important;
+  .customers-list-table td {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100% !important;
+    padding: 7px 2px !important;
+    text-align: right !important;
+    white-space: normal !important;
+    border: 0 !important;
   }
-
-  .app-content :is(.flex-row, [class*="flex-row"]) {
-    min-width: 0;
-    flex-wrap: wrap;
+  .customers-list-table td::before {
+    content: attr(data-label);
+    flex: 0 0 68px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
   }
-
-  .app-content :is(.w-8, .h-8) {
-    width: 1.75rem !important;
-    height: 1.75rem !important;
-  }
-
-  .app-content :is(.w-10, .h-10) {
-    width: 2rem !important;
-    height: 2rem !important;
-  }
-
-  .app-content :is(.w-12, .h-12) {
-    width: 2.25rem !important;
-    height: 2.25rem !important;
-  }
-
-  .app-content :is(.w-14, .h-14, .w-16, .h-16) {
-    width: 2.5rem !important;
-    height: 2.5rem !important;
-  }
-
-  .app-content :is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
-    border-radius: 10px !important;
-  }
-
-  .app-content :is(.shadow-lg, .shadow-xl, .shadow-2xl) {
-    box-shadow: 0 2px 8px rgb(15 23 42 / 0.08) !important;
-  }
+  .customers-list-table td > * { min-width: 0; max-width: 100%; }
 }
 
-/* Extra-small phones: tighten spacing and let action bars wrap, never shrink the entire viewport. */
-@media screen and (max-width: 360px) {
-  html { font-size: 13px; }
-
-  body { font-size: 13px; }
-
+@media screen and (max-width: 380px) {
   .app-content { padding: 7px !important; }
-
-  .app-content :is(.p-3, .p-4, .p-5, .p-6) {
-    padding: 7px !important;
-  }
-
-  .app-content :is(.px-3, .px-4, .px-5, .px-6) {
-    padding-inline: 7px !important;
-  }
-
-  .app-content :is(.gap-3, .gap-4, .gap-5, .gap-6) {
-    gap: 7px !important;
-  }
-
-  .app-content .text-xs { font-size: 10px !important; }
-  .app-content .text-sm { font-size: 11px !important; }
-  .app-content .text-base { font-size: 13px !important; }
-  .app-content .text-lg { font-size: 14px !important; }
-  .app-content .text-xl { font-size: 15px !important; }
-  .app-content .text-2xl { font-size: 17px !important; }
-
-  .app-content :is(button, [role="button"]) {
-    min-height: 32px;
-    padding: 5px 7px;
-    font-size: 12px;
-  }
-
-  .app-content :is(input, select, textarea) {
-    min-height: 34px;
-    padding: 6px 7px !important;
-  }
-
-  .app-content .grid[class*="grid-cols-"]:not(.grid-cols-1):not(.grid-cols-2) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
+  .app-content :is(.p-3, .p-4, .p-5, .p-6) { padding: 8px !important; }
+  .app-content .text-sm { font-size: 11.5px !important; }
+  .app-content :is(button, [role="button"]) { padding-inline: 7px; }
+  .app-topbar { padding-inline: 5px !important; gap: 5px !important; }
+  .app-topbar > div { gap: 5px !important; }
 }
 
-/* Short landscape screens need vertical scrolling inside dialogs, not page scaling. */
 @media screen and (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
   .app-content { padding-block: 6px !important; }
+  [role="dialog"], [aria-modal="true"] { max-height: calc(100dvh - 12px); overflow-y: auto; }
+}
 
-  [role="dialog"],
-  [aria-modal="true"] {
-    max-height: calc(100dvh - 12px);
-    overflow-y: auto;
+@supports (padding: max(0px)) {
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
   }
 }
 
-/* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-
-/* Targeted responsive repairs for real application views */
-@media screen and (max-width: 600px) {
-  .app-content :is(h1, h2, h3, h4, p, label, th, td, button, [role="button"]) {
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    hyphens: manual;
-  }
-
-  .customers-view, .dashboard-view, .payments-view {
-    width: 100%; min-width: 0; max-width: 100%; gap: 12px !important;
-  }
-
-  .customers-header, .payments-header {
-    width: 100%; padding: 12px !important; gap: 10px !important; align-items: stretch !important;
-  }
-
-  .customers-header h1, .payments-header h1 {
-    font-size: 1rem !important; line-height: 1.4 !important; flex-wrap: wrap;
-  }
-
-  .customers-add-button {
-    width: 100%; justify-content: center; min-height: 40px !important;
-  }
-
-  .customers-toolbar {
-    width: 100%; align-items: stretch !important; gap: 8px !important;
-  }
-
-  .customers-toolbar > .relative { width: 100%; flex: none; }
-
-  .customers-view-switcher {
-    width: 100%; display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible !important; gap: 5px !important;
-  }
-
-  .customers-view-switcher button {
-    width: 100%; min-width: 0; justify-content: center;
-    padding: 8px 5px !important; white-space: normal !important;
-    font-size: 11px !important;
-  }
-
-  .customers-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; }
-  .customers-grid > * { padding: 12px !important; }
-  .customers-grid h3 { overflow-wrap: anywhere !important; }
-
-  /* The customer list is rendered as stacked cards on phones. */
-  .customers-list-panel {
-    overflow: visible !important; border: 0 !important;
-    background: transparent !important; box-shadow: none !important;
-  }
-  .customers-list-panel > .overflow-x-auto { overflow: visible !important; }
-  .customers-list-table, .customers-list-table tbody {
-    display: block !important; width: 100% !important;
-  }
-  .customers-list-table thead { display: none !important; }
-  .customers-list-table tbody { display: grid !important; gap: 10px; }
-  .customers-list-table tr {
-    display: grid !important; grid-template-columns: minmax(0, 1fr) !important;
-    padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 12px;
-    background: #fff; box-shadow: 0 1px 3px rgb(15 23 42 / 0.05);
-  }
-  .customers-list-table td {
-    display: flex !important; align-items: flex-start; justify-content: space-between;
-    gap: 12px; width: 100% !important; padding: 8px 2px !important;
-    text-align: right !important; white-space: normal !important; border: 0 !important;
-  }
-  .customers-list-table td::before {
-    content: attr(data-label); flex: 0 0 78px; color: #64748b;
-    font-size: 11px; font-weight: 700;
-  }
-  .customers-list-table td > * { min-width: 0; max-width: 100%; }
-  .customers-list-table td[data-label="الاسم"] > div,
-  .customers-list-table td[data-label="الموقع"] > div {
-    justify-content: flex-start; min-width: 0;
-  }
-  .customers-list-table td[data-label="فتح الدفتر"] button {
-    width: auto; min-width: 0; margin-inline-start: auto; min-height: 36px !important;
-  }
-
-  .dashboard-view > *, .payments-view > * { min-width: 0; max-width: 100%; }
-  .dashboard-view [id="visual-debt-overview-card"] { padding: 12px !important; gap: 12px !important; }
-  .dashboard-view [id="visual-debt-overview-card"] > .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important;
-  }
-  .dashboard-view [id="visual-debt-overview-card"] > .grid > * { padding: 9px !important; }
-  .payments-view .max-h-\\[500px\\] { max-height: 42dvh; }
-}
-
-@media screen and (min-width: 601px) and (max-width: 1024px) {
-  .customers-view, .dashboard-view, .payments-view { min-width: 0; max-width: 100%; }
-  .customers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .customers-header, .payments-header { padding: 14px !important; }
-}
-
-@media screen and (max-width: 360px) {
-  .customers-list-table td::before { flex-basis: 68px; }
-  .customers-view .customers-grid > * { padding: 9px !important; }
-  .customers-view .customers-view-switcher button { font-size: 10px !important; }
-}
-
-
-/* Balanced small-phone sizing: compact, but never desktop-scale tiny. */
-@media screen and (max-width: 600px) {
-  .app-shell { width: 100%; max-width: 100vw; overflow-x: clip; }
-  .app-shell > .flex-1.flex.flex-col { width: 100%; max-width: 100%; min-width: 0; }
-
-  /* Keep the top bar compact without shrinking icons and actions excessively. */
-  .app-topbar {
-    min-height: 48px !important;
-    padding: 7px 9px !important;
-    gap: 8px !important;
-    align-items: center !important;
-  }
-  .app-topbar > div { min-width: 0; gap: 7px !important; }
-  .app-topbar button { min-height: 36px !important; padding: 6px 9px !important; }
-  .app-topbar svg { max-width: 20px; max-height: 20px; }
-
-  /* Use most of the viewport; reduce empty padding rather than scaling the page. */
-  .app-content {
-    padding: 10px !important;
-    margin-inline: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  .app-content > * { min-width: 0; }
-
-  /* Gentle reduction only: keep labels and figures readable on a phone. */
-  .app-content :is(.p-4, .p-5, .p-6) { padding: 12px !important; }
-  .app-content :is(.px-4, .px-5, .px-6) { padding-inline: 11px !important; }
-  .app-content :is(.gap-4, .gap-5, .gap-6) { gap: 10px !important; }
-  .app-content :is(.space-y-4, .space-y-5, .space-y-6) > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 10px !important;
-  }
-
-  .app-content .text-xs { font-size: 11px !important; line-height: 1.4; }
-  .app-content .text-sm { font-size: 12.5px !important; line-height: 1.4; }
-  .app-content .text-base { font-size: 14px !important; line-height: 1.45; }
-  .app-content .text-lg { font-size: 16px !important; line-height: 1.35; }
-  .app-content .text-xl { font-size: 18px !important; line-height: 1.3; }
-  .app-content .text-2xl { font-size: 21px !important; line-height: 1.25; }
-  .app-content .text-3xl { font-size: 24px !important; line-height: 1.2; }
-  .app-content .text-4xl { font-size: 28px !important; line-height: 1.15; }
-
-  .app-content :is(h1, h2, h3, h4, p, span, label, th, td) {
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    hyphens: manual;
-  }
-  .app-content :is(button, [role="button"]) {
-    min-height: 36px;
-    padding: 7px 10px;
-    max-width: 100%;
-    line-height: 1.35;
-    white-space: normal;
-  }
-  .app-content :is(input, select, textarea) {
-    min-height: 38px;
-    padding: 8px 10px !important;
-    font-size: 14px !important;
-    max-width: 100%;
-  }
-
-  /* Stack only the customer toolbar controls; do not turn every app row into a column. */
-  .customers-header, .payments-header {
-    gap: 10px !important;
-    padding: 12px !important;
-  }
-  .customers-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 9px !important; }
-  .customers-toolbar > * { width: 100%; min-width: 0; }
-  .customers-add-button { width: 100%; min-height: 40px !important; justify-content: center; }
-  .customers-view-switcher {
-    width: 100%;
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px !important;
-  }
-  .customers-view-switcher button { width: 100%; min-width: 0; padding: 8px !important; }
-
-  /* Wide data tables scroll inside their own container, not across the page. */
-  .app-content [class*="overflow-x-auto"] {
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-@media screen and (max-width: 360px) {
-  .app-content { padding: 8px !important; }
-  .app-content :is(.p-4, .p-5, .p-6) { padding: 10px !important; }
-  .app-content .text-sm { font-size: 12px !important; }
-  .app-content :is(button, [role="button"]) { padding-inline: 8px; }
-}
-
-
-/* Final phone-portrait layout repair: constrain the real content area, not the whole page scale. */
-.app-shell,
-.app-shell > .flex-1,
-.app-content {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.app-content {
-  box-sizing: border-box;
-}
-
-.app-content *,
-.app-content *::before,
-.app-content *::after {
-  box-sizing: border-box;
-}
-
-@media screen and (max-width: 600px) {
-  .app-shell {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .app-shell > .flex-1.flex.flex-col {
-    flex: 1 1 0%;
-    width: 0;
-    min-width: 0;
-  }
-
-  .app-content {
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-    padding: 9px !important;
-    margin: 0 !important;
-  }
-
-  /* Let control groups use a second row instead of overlapping or pushing the page wide. */
-  .app-content :is(.flex, [class*="flex-row"]) {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .app-content :is(.flex-row, [class*="flex-row"]) {
-    flex-wrap: wrap !important;
-  }
-
-  .app-content :is(h1, h2, h3, h4) {
-    max-width: 100%;
-    font-size: clamp(14px, 4vw, 19px);
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-  }
-
-  .app-content :is(button, [role="button"]) {
-    min-width: 0;
-    max-width: 100%;
-    flex-shrink: 1;
-    line-height: 1.3;
-  }
-
-  .app-content :is(input, select, textarea) {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  /* Tables remain inside their own scrolling region; no page-wide horizontal overflow. */
-  .app-content table {
-    max-width: 100%;
-  }
-
-  .app-content :is(.overflow-x-auto, .overflow-x-scroll) {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: auto !important;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Customer list uses readable stacked records instead of forcing three columns into a phone. */
-  .customers-list-panel,
-  .customers-list-panel > .overflow-x-auto {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .customers-toolbar {
-    display: flex;
-    flex-wrap: wrap !important;
-    align-items: stretch;
-    gap: 8px !important;
-  }
-
-  .customers-toolbar > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .customers-toolbar .relative {
-    flex: 1 1 100%;
-  }
-
-  .customers-add-button {
-    width: 100%;
-    min-height: 38px !important;
-  }
-
-  .customers-view-switcher {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    min-width: 0;
-    overflow: visible !important;
-  }
-
-  .customers-view-switcher button {
-    min-width: 0;
-    padding-inline: 6px !important;
-    white-space: normal;
-  }
-
-  .customers-list-table {
-    table-layout: auto;
-  }
-
-  .customers-list-table td::before {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  /* Avoid fixed-width cards and grid tracks forcing the workspace wider than the screen. */
-  .app-content :is(.grid, [class*="grid-cols-"]) {
-    min-width: 0;
-  }
-
-  .app-content .grid > *,
-  .app-content [class*="grid-cols-"] > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-}
-
-@media screen and (max-width: 380px) {
-  .app-content {
-    padding: 7px !important;
-  }
-
-  .app-topbar {
-    padding-inline: 6px !important;
-    gap: 5px !important;
-  }
-
-  .app-topbar > div {
-    gap: 5px !important;
-  }
-
-  .app-content .customers-view-switcher button {
-    font-size: 11px !important;
   }
 }
