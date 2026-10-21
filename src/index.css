@@ -600,3 +600,101 @@ textarea {
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Responsive repair v3 — content reflow and proportional controls (mobile-first).
+   Keep this block after legacy safeguards so it wins without changing print layouts. */
+:root {
+  --app-inline-gutter: clamp(10px, 3.2vw, 24px);
+  --app-card-gap: clamp(8px, 2.2vw, 16px);
+  --app-control-height: 40px;
+}
+@media screen {
+  html { overflow-x: clip; }
+  body { font-size: 14px; }
+  #root { min-width: 0; overflow-x: clip; }
+  .app-content {
+    padding-inline: var(--app-inline-gutter) !important;
+    padding-block: clamp(10px, 2.5vw, 24px) !important;
+    min-width: 0;
+    overflow-x: clip;
+  }
+  .app-content :is(h1,h2,h3,h4) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+  .app-content :is(p,span,label,small,th,td) {
+    overflow-wrap: anywhere;
+  }
+  .app-content :is(.rounded-xl,.rounded-2xl,.rounded-3xl) {
+    min-width: 0;
+  }
+  .app-content :is(input,select,textarea) {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    font-size: 16px;
+  }
+  .app-content :is(button,[role="button"]) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 36px;
+    line-height: 1.35;
+  }
+  .app-content :is(.grid,.flex) > * { min-width: 0; }
+  .app-content [class*="overflow-x-auto"] {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app-content table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .app-content :is(img,svg,video,canvas) { max-width: 100%; }
+}
+@media screen and (max-width: 430px) {
+  :root { --app-control-height: 38px; }
+  .app-content { gap: var(--app-card-gap); }
+  .app-content .text-2xl { font-size: clamp(1.2rem, 5vw, 1.5rem); line-height: 1.35; }
+  .app-content .text-3xl { font-size: clamp(1.35rem, 5.5vw, 1.75rem); line-height: 1.3; }
+  .app-content .text-4xl { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.25; }
+  .app-content .p-6 { padding: clamp(10px, 3vw, 16px) !important; }
+  .app-content .p-5 { padding: clamp(10px, 2.8vw, 14px) !important; }
+  .app-content .gap-6 { gap: var(--app-card-gap) !important; }
+  .app-content .gap-5 { gap: var(--app-card-gap) !important; }
+  .app-content .gap-4 { gap: clamp(8px, 2vw, 12px) !important; }
+  .app-content .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+  .app-content .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 10px; }
+  .app-content :is(.grid-cols-3,.grid-cols-4,.grid-cols-5,.grid-cols-6) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .app-content :is(.grid-cols-2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-content :is(.flex-row) { min-width: 0; }
+  .app-content :is(.flex-row) > button,
+  .app-content :is(.flex-row) > [role="button"] { flex-shrink: 1; }
+}
+@media screen and (max-width: 360px) {
+  :root { --app-inline-gutter: 8px; --app-card-gap: 8px; }
+  body { font-size: 13px; }
+  .app-content { padding-inline: 8px !important; }
+  .app-content .text-xl { font-size: 1.05rem; }
+  .app-content .text-lg { font-size: 0.95rem; }
+  .app-content .text-sm { font-size: 0.8125rem; }
+  .app-content :is(.grid-cols-2) { grid-template-columns: minmax(0, 1fr) !important; }
+  .app-content :is(.px-6,.px-5) { padding-inline: 10px !important; }
+  .app-content :is(.gap-3) { gap: 8px !important; }
+  .app-content :is(.w-10,.h-10) { max-width: 2.25rem; }
+  .app-content :is(.w-12,.h-12) { max-width: 2.5rem; }
+  .app-content :is(.flex-row) { flex-wrap: wrap; }
+}
+/* Avoid accidental width growth from long IDs, currency values, and Arabic labels. */
+.app-content :is(code,[class*="font-mono"]) { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
