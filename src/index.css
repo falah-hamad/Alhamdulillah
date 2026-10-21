@@ -702,3 +702,92 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+
+/* Mobile layout repair v4 — reflow components instead of shrinking or clipping the whole app. */
+@media screen and (max-width: 767px) {
+  /* Keep the app in portrait and let each component use the real available width. */
+  html, body, #root { width: 100%; min-width: 0; }
+  body { overflow-x: hidden; }
+  #root > div { min-width: 0; max-width: 100%; }
+  .app-content {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px !important;
+    overflow-x: visible !important;
+  }
+  .app-content > *,
+  .app-content section,
+  .app-content article,
+  .app-content [class*="rounded-"] {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* Grid children must be allowed to shrink; retain two columns only for compact cards. */
+  .app-content .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+  .app-content .grid > * { min-width: 0; }
+  .app-content .grid.grid-cols-1 { grid-template-columns: minmax(0, 1fr); }
+  .app-content .grid.grid-cols-3,
+  .app-content .grid.grid-cols-4,
+  .app-content .grid.grid-cols-5,
+  .app-content .grid.grid-cols-6,
+  .app-content .grid.grid-cols-7,
+  .app-content .grid.grid-cols-8,
+  .app-content .grid.grid-cols-9,
+  .app-content .grid.grid-cols-10,
+  .app-content .grid.grid-cols-11,
+  .app-content .grid.grid-cols-12 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Let toolbars wrap to a second line instead of colliding or shrinking controls. */
+  .app-content .flex.flex-row,
+  header .flex.flex-row {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .app-content button,
+  .app-content [role="button"],
+  header button {
+    max-width: 100%;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow-wrap: anywhere;
+  }
+  .app-content :is(input, select, textarea) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* Wide accounting tables may scroll inside their own wrapper; the whole page must not. */
+  .app-content [class*="overflow-x-auto"] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+  }
+  .app-content [class*="overflow-x-auto"] table {
+    width: max-content;
+    min-width: 100%;
+  }
+  /* The financial overview cards must not stretch past the phone width. */
+  #visual-debt-overview-card,
+  #visual-debt-overview-card > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #visual-debt-overview-card { padding: 12px !important; gap: 12px !important; }
+}
+@media screen and (max-width: 380px) {
+  .app-content { padding: 8px !important; }
+  .app-content .grid { gap: 8px !important; }
+  .app-content :is(.p-4, .p-5, .p-6) { padding: 10px !important; }
+  .app-content .grid.grid-cols-2 > * { min-width: 0; }
+  #visual-debt-overview-card .grid { grid-template-columns: minmax(0, 1fr); }
+  header { column-gap: 6px; }
+}
