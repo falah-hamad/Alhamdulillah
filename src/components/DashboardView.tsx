@@ -76,7 +76,7 @@ export default function DashboardView({
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-l from-blue-950 to-slate-900 text-white rounded-xl p-6 shadow-sm border border-blue-900/50">
+      <div className="bg-gradient-to-l from-blue-950 to-slate-900 text-white rounded-xl p-4 sm:p-6 shadow-sm border border-blue-900/50 min-w-0">
         <div className="max-w-3xl">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">
             مرحباً بك في نظام {settings.companyName || "دفتر الديون المحاسبي"}
