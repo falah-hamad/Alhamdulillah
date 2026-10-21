@@ -660,6 +660,10 @@ textarea {
 }
 @media screen and (max-width: 430px) {
   :root { --app-control-height: 38px; }
+  /* Scale common card padding too; p-4 is otherwise fixed at 16px on every phone. */
+  .app-content .p-4 { padding: clamp(10px, 3vw, 13px) !important; }
+  .app-content .px-4 { padding-inline: clamp(10px, 3vw, 13px) !important; }
+  .app-content .py-4 { padding-block: clamp(10px, 3vw, 13px) !important; }
   .app-content { gap: var(--app-card-gap); }
   .app-content .text-2xl { font-size: clamp(1.2rem, 5vw, 1.5rem); line-height: 1.35; }
   .app-content .text-3xl { font-size: clamp(1.35rem, 5.5vw, 1.75rem); line-height: 1.3; }
