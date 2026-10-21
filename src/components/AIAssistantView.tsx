@@ -941,7 +941,7 @@ export default function AIAssistantView({
           className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-4"
         >
           {/* Financial Fast-Facts Banner */}
-          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 min-w-0">
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
               <div className="text-[10px] text-slate-500 font-bold">إجمالي الديون المسجلة</div>
               <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white mt-0.5">
