@@ -226,41 +226,41 @@ export default function DashboardView({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 min-w-0">
         {/* Total Sales (Debit Volume) */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 sm:p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-2 min-w-0">
           <div className="space-y-1">
             <span className="text-xs text-slate-500 font-medium">إجمالي حجم المبيعات / الديون</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-slate-800 font-mono">
+              <span className="text-lg sm:text-2xl font-bold text-slate-800 font-mono break-words min-w-0">
                 {totalSales.toLocaleString()}
               </span>
               <span className="text-xs text-slate-400 font-medium">{settings.currency}</span>
             </div>
           </div>
-          <div className="p-3 bg-blue-50/50 text-blue-600 rounded">
+          <div className="p-2 sm:p-3 bg-blue-50/50 text-blue-600 rounded shrink-0">
             <FileSpreadsheet className="w-5 h-5" />
           </div>
         </div>
 
         {/* Total Collected (Paid) */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 sm:p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-2 min-w-0">
           <div className="space-y-1">
             <span className="text-xs text-slate-500 font-medium">إجمالي المبالغ المحصلة</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-blue-600 font-mono">
+              <span className="text-lg sm:text-2xl font-bold text-blue-600 font-mono break-words min-w-0">
                 {totalPaid.toLocaleString()}
               </span>
               <span className="text-xs text-blue-500 font-medium">{settings.currency}</span>
             </div>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded">
+          <div className="p-2 sm:p-3 bg-blue-50 text-blue-600 rounded shrink-0">
             <DollarSign className="w-5 h-5" />
           </div>
         </div>
 
         {/* Total Remaining Debt */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 sm:p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-2 min-w-0">
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1">
               <span className="text-xs text-slate-500 font-medium">الديون المتبقية بذمة العملاء</span>
@@ -271,7 +271,7 @@ export default function DashboardView({
               )}
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-rose-600 font-mono">
+              <span className="text-lg sm:text-2xl font-bold text-rose-600 font-mono break-words min-w-0">
                 {totalRemaining.toLocaleString()}
               </span>
               <span className="text-xs text-rose-500 font-medium">{settings.currency}</span>
@@ -282,36 +282,36 @@ export default function DashboardView({
               </p>
             )}
           </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded">
+          <div className="p-2 sm:p-3 bg-rose-50 text-rose-600 rounded shrink-0">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
 
         {/* Total Customers */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 sm:p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-2 min-w-0">
           <div className="space-y-1">
             <span className="text-xs text-slate-500 font-medium">عدد العملاء المسجلين</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-slate-800 font-mono">
+              <span className="text-lg sm:text-2xl font-bold text-slate-800 font-mono break-words min-w-0">
                 {activeCustomers}
               </span>
               <span className="text-xs text-slate-400 font-medium">عميل</span>
             </div>
           </div>
-          <div className="p-3 bg-slate-50 text-slate-600 rounded">
+          <div className="p-2 sm:p-3 bg-slate-50 text-slate-600 rounded shrink-0">
             <Users className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Quick Action Hub */}
-      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+      <div className="bg-white p-3 sm:p-6 rounded-xl border border-slate-100 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">إجراءات سريعة واختصارات</h2>
-        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 min-[380px]:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 min-w-0">
           <button
             id="dashboard-quick-add-invoice"
             onClick={onOpenNewInvoiceModal}
-            className="flex flex-col items-center justify-center p-4 bg-blue-50/60 hover:bg-blue-50 text-blue-800 border border-blue-100 rounded-xl transition-all group"
+            className="flex flex-col items-center justify-center bg-blue-50/60 hover:bg-blue-50 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
           >
             <PlusCircle className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">فتح قائمة حساب (فاتورة دين)</span>
@@ -320,7 +320,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-payment"
             onClick={onOpenNewPaymentModal}
-            className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group"
+            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
           >
             <DollarSign className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">تسجيل تسديد جديد (دفعة)</span>
@@ -329,7 +329,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-customer"
             onClick={onOpenNewCustomerModal}
-            className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group"
+            className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100/80 text-blue-800 border border-blue-100 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
           >
             <Users className="w-5 h-5 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">إضافة ملف عميل جديد</span>
@@ -338,7 +338,7 @@ export default function DashboardView({
           <button
             id="dashboard-quick-add-product"
             onClick={onOpenNewProductModal}
-            className="flex flex-col items-center justify-center p-4 bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl transition-all group"
+            className="flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl transition-all group min-w-0 p-2.5 sm:p-4
           >
             <PackageCheck className="w-5 h-5 mb-2 text-slate-600 group-hover:scale-110 transition-transform" />
             <span className="text-xs font-semibold">إضافة بضاعة للمستودع</span>
