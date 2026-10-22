@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <script>
+      (function () {
+        var viewport = document.querySelector('meta[name="viewport"]');
+        var screenWidth = Math.min(window.screen.width || window.innerWidth, window.screen.height || window.innerHeight);
+        if (viewport && screenWidth <= 600) {
+          var scale = Math.max(0.28, Math.min(0.58, screenWidth / 1024));
+          viewport.setAttribute('content', 'width=1024, initial-scale=' + scale.toFixed(3) + ', minimum-scale=0.25, maximum-scale=3, user-scalable=yes, viewport-fit=cover');
+          document.documentElement.classList.add('desktop-viewport-on-phone');
+        }
+      })();
+    </script>
     <title>دفتر الديون المحاسبي</title>
     <meta name="description" content="نظام محاسبي متكامل لإدارة سجل الديون، العملاء، البضائع، الدفعات، الفواتير، والتقارير المالية بدقة واحترافية عالية مع دعم كامل للطباعة والبحث والنسخ الاحتياطي." />
     <meta property="og:title" content="دفتر الديون المحاسبي" />
