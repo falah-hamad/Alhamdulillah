@@ -29,7 +29,16 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
         return;
       }
       try {
-        detector = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"] });
+        const requestedFormats = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"];
+        const supportedFormats = typeof Detector.getSupportedFormats === "function"
+          ? await Detector.getSupportedFormats()
+          : requestedFormats;
+        const formats = requestedFormats.filter(format => supportedFormats.includes(format));
+        if (!formats.length) {
+          setError("هذا المتصفح لا يدعم صيغ الباركود المطلوبة. جرّب Chrome المحدّث أو أدخل الرقم يدوياً.");
+          return;
+        }
+        detector = new Detector({ formats });
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
