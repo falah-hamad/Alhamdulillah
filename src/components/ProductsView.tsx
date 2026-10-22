@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import PriceLabelsModal from "./PriceLabelsModal";
 import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
@@ -128,6 +129,7 @@ function ProductsViewContent({
     rawProducts.filter(product => product && !product.isDeleted).map(product => product.category?.trim() || "بدون تصنيف")
   ));
   const [showAiImport, setShowAiImport] = useState(false);
+  const [showPriceLabels, setShowPriceLabels] = useState(false);
   const [aiImportText, setAiImportText] = useState("");
   const [aiImportItems, setAiImportItems] = useState<AIParsedProduct[]>([]);
   const [isParsingAi, setIsParsingAi] = useState(false);
@@ -543,6 +545,7 @@ function ProductsViewContent({
             <p className="text-xs text-slate-500 mt-1">بطاقات بالصور والأسعار والمجهّزين وسجل حركة المخزون.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setShowPriceLabels(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-semibold"><ScanBarcode className="w-4 h-4" /> طباعة ملصقات الأسعار</button>
             <button type="button" onClick={() => { setShowAiImport(true); setAiImportError(""); setAiImportItems([]); }} className="inline-flex items-center gap-2 px-3 py-2.5 border border-violet-200 bg-violet-50 text-violet-700 rounded-lg text-sm font-semibold"><Sparkles className="w-4 h-4" /> إدخال بالذكاء الاصطناعي</button>
             <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Layers className="w-4 h-4" /> إدارة التصنيفات</button>
             <button type="button" onClick={() => { setShowTrash(v => !v); setShowCategoryManager(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> المهملات ({trashedProducts.length})</button>
@@ -883,6 +886,7 @@ function ProductsViewContent({
           </div>
         </div>
       )}
+      {showPriceLabels && <PriceLabelsModal products={activeProducts} currency={settings.currency} onClose={() => setShowPriceLabels(false)} onUpdateProduct={updateProduct} />}
     </div>
   );
 }
