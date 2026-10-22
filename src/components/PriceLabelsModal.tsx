@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, ScanBarcode } from "lucide-react";
-import { Product } from "../types";
+import type { Product } from "../types";
 
 type Props = { products: Product[]; currency: string; onClose: () => void; onUpdateProduct: (p: Product) => void };
 const patterns: Record<string,string> = {"0":"nnnwwnwnn","1":"wnnwnnnnw","2":"nnwwnnnnw","3":"wnwwnnnnn","4":"nnnwwnnnw","5":"wnnwwnnnn","6":"nnwwwnnnn","7":"nnnwnnwnw","8":"wnnwnnwnn","9":"nnwwnnwnn","*":"nwnnwnwnn"};
