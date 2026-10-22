@@ -58,6 +58,7 @@ import {
   Type,
   Palette,
   History,
+  ScanBarcode,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow } from "../types";
@@ -75,6 +76,7 @@ import CustomerChangeLogTable from "./CustomerChangeLogTable";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import HierarchicalFolderNav from "./HierarchicalFolderNav";
 import FileManagerView from "./FileManagerView";
+import BarcodeScannerModal from "./BarcodeScannerModal";
 import { auth } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
 
@@ -191,6 +193,7 @@ export default function LedgerView({
 
   // Product cart used to add existing inventory items directly to a customer ledger.
   const [isProductCartOpen, setIsProductCartOpen] = useState(false);
+  const [showProductCartScanner, setShowProductCartScanner] = useState(false);
   const [productCartSearch, setProductCartSearch] = useState("");
   const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
   const [isAddingCartItems, setIsAddingCartItems] = useState(false);
@@ -1787,6 +1790,36 @@ ${folderCustomers
     setProductCartSearch("");
     setProductCartQuantities({});
     setIsProductCartOpen(true);
+  };
+
+  const handleProductCartBarcodeDetected = (rawCode: string) => {
+    const code = String(rawCode || "").trim().toLocaleLowerCase();
+    if (!code) return;
+    const product = products.find((item) =>
+      !item.isDeleted && String(item.barcode || "").trim().toLocaleLowerCase() === code
+    );
+    setShowProductCartScanner(false);
+    if (!product) {
+      setProductCartSearch(rawCode.trim());
+      showToast("ما لكينا منتج بهذا الباركود. تأكد أن الباركود مسجل ببيانات البضاعة.");
+      return;
+    }
+    const available = Math.max(0, Number(product.quantity) || 0);
+    const current = Number(productCartQuantities[product.id]) || 0;
+    if (available <= 0) {
+      showToast("المنتج "" + product.name + "" غير متوفر بالمخزون.");
+      return;
+    }
+    if (current >= available) {
+      showToast("وصلت للكمية المتوفرة من "" + product.name + "".");
+      return;
+    }
+    setProductCartQuantities((items) => ({
+      ...items,
+      [product.id]: Math.min(available, (Number(items[product.id]) || 0) + 1),
+    }));
+    setProductCartSearch("");
+    showToast("انضاف "" + product.name + "" للعربة مباشرة.");
   };
 
   const handleConfirmProductCart = async () => {
@@ -4939,6 +4972,13 @@ ${folderCustomers
         </div>
       )}
 
+      {showProductCartScanner && isProductCartOpen && (
+        <BarcodeScannerModal
+          onDetected={handleProductCartBarcodeDetected}
+          onClose={() => setShowProductCartScanner(false)}
+        />
+      )}
+
       {isProductCartOpen && (
         <div
           className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
@@ -4969,8 +5009,8 @@ ${folderCustomers
               </button>
             </div>
 
-            <div className="p-3 sm:p-4 border-b border-slate-100">
-              <div className="relative">
+            <div className="p-3 sm:p-4 border-b border-slate-100 flex gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="search"
@@ -4980,6 +5020,16 @@ ${folderCustomers
                   className="w-full pr-9 pl-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:outline-none text-sm"
                 />
               </div>
+              <button
+                type="button"
+                disabled={isAddingCartItems}
+                onClick={() => setShowProductCartScanner(true)}
+                className="shrink-0 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2"
+                aria-label="مسح باركود وإضافة المنتج للعربة"
+              >
+                <ScanBarcode className="w-5 h-5" />
+                <span>مسح وإضافة</span>
+              </button>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
