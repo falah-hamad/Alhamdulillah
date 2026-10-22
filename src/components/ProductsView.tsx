@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import PriceLabelsModal from "./PriceLabelsModal";
+import BarcodeScannerModal from "./BarcodeScannerModal";
 import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
@@ -130,6 +131,7 @@ function ProductsViewContent({
   ));
   const [showAiImport, setShowAiImport] = useState(false);
   const [showPriceLabels, setShowPriceLabels] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [aiImportText, setAiImportText] = useState("");
   const [aiImportItems, setAiImportItems] = useState<AIParsedProduct[]>([]);
   const [isParsingAi, setIsParsingAi] = useState(false);
@@ -513,6 +515,17 @@ function ProductsViewContent({
       }))
   );
 
+  const handleBarcodeDetected = (code: string) => {
+    const normalizedCode = code.trim().toLocaleLowerCase();
+    setShowBarcodeScanner(false);
+    setSearchQuery(code.trim());
+    setSelectedCategory("all");
+    setQuickFilter("all");
+    const found = activeProducts.find(product => String(product.barcode || "").trim().toLocaleLowerCase() === normalizedCode);
+    if (found) openDetails(found);
+    else alert(`لم أجد منتجاً برقم الباركود: ${code}. تأكد أن الباركود مسجل في بطاقة المنتج.`);
+  };
+
   const historyForProduct = (product: Product) => [
     ...(product.stockMovements || []).map(m => ({ ...m, label: movementLabels[m.type] || "حركة مخزون" })),
     ...salesForProduct(product).map(m => ({ ...m, label: movementLabels.sale })),
@@ -556,7 +569,8 @@ function ProductsViewContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
-            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المجهّز أو الملاحظات..." className="w-full min-w-0 pr-9 pl-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المجهّز أو الملاحظات..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
             <option value="all">كل التصنيفات</option>
@@ -887,6 +901,7 @@ function ProductsViewContent({
         </div>
       )}
       {showPriceLabels && <PriceLabelsModal products={activeProducts} currency={settings.currency} onClose={() => setShowPriceLabels(false)} onUpdateProduct={updateProduct} />}
+      {showBarcodeScanner && <BarcodeScannerModal onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />}
     </div>
   );
 }
