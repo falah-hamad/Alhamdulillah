@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { X, ScanBarcode } from "lucide-react";
+import { Product } from "../types";
 
-type Product = { id: string; name: string; salePrice?: number; category?: string; barcode?: string };
 type Props = { products: Product[]; currency: string; onClose: () => void; onUpdateProduct: (p: Product) => void };
 const patterns: Record<string,string> = {"0":"nnnwwnwnn","1":"wnnwnnnnw","2":"nnwwnnnnw","3":"wnwwnnnnn","4":"nnnwwnnnw","5":"wnnwwnnnn","6":"nnwwwnnnn","7":"nnnwnnwnw","8":"wnnwnnwnn","9":"nnwwnnwnn","*":"nwnnwnwnn"};
 function Barcode({value}:{value:string}) { const bars:{bar:boolean;width:number}[]=[]; for(const c of "*"+value+"*"){const p=patterns[c];if(!p)continue;for(let i=0;i<p.length;i++)bars.push({bar:i%2===0,width:p[i]==="w"?3:1});bars.push({bar:false,width:1});} const total=bars.reduce((a,b)=>a+b.width,0);let x=0;return <svg viewBox={`0 0 ${total} 36`} className="w-full h-9" preserveAspectRatio="none">{bars.map((b,i)=>{const left=x;x+=b.width;return b.bar?<rect key={i} x={left} y="0" width={b.width} height="36" fill="#111"/>:null;})}</svg>; }
