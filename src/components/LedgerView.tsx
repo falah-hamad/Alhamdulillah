@@ -1807,11 +1807,11 @@ ${folderCustomers
     const available = Math.max(0, Number(product.quantity) || 0);
     const current = Number(productCartQuantities[product.id]) || 0;
     if (available <= 0) {
-      showToast("المنتج "" + product.name + "" غير متوفر بالمخزون.");
+      showToast('المنتج \"' + product.name + '\" غير متوفر بالمخزون.');
       return;
     }
     if (current >= available) {
-      showToast("وصلت للكمية المتوفرة من "" + product.name + "".");
+      showToast('وصلت للكمية المتوفرة من \"' + product.name + '\".');
       return;
     }
     setProductCartQuantities((items) => ({
@@ -1819,7 +1819,7 @@ ${folderCustomers
       [product.id]: Math.min(available, (Number(items[product.id]) || 0) + 1),
     }));
     setProductCartSearch("");
-    showToast("انضاف "" + product.name + "" للعربة مباشرة.");
+    showToast('انضاف \"' + product.name + '\" للعربة مباشرة.');
   };
 
   const handleConfirmProductCart = async () => {
