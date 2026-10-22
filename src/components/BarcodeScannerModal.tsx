@@ -7,8 +7,11 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lockedRef = useRef(false);
+  const onDetectedRef = useRef(onDetected);
   const [error, setError] = useState("");
   const [manualCode, setManualCode] = useState("");
+
+  useEffect(() => { onDetectedRef.current = onDetected; }, [onDetected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +50,7 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
             const value = codes.find((code: any) => typeof code.rawValue === "string" && code.rawValue.trim())?.rawValue?.trim();
             if (value && !lockedRef.current) {
               lockedRef.current = true;
-              onDetected(value);
+              onDetectedRef.current(value);
             }
           } catch {
             // Keep scanning; a single blurry frame is normal.
@@ -67,12 +70,12 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
       streamRef.current?.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     };
-  }, [onDetected]);
+  }, []);
 
   const submitManual = (event: React.FormEvent) => {
     event.preventDefault();
     const code = manualCode.trim();
-    if (code) onDetected(code);
+    if (code) onDetectedRef.current(code);
   };
 
   return (
