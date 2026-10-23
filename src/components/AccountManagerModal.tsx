@@ -124,28 +124,45 @@ export default function AccountManagerModal({
   const [activeTab, setActiveTab] = useState<TabType>("profile");
 
   // Device-only display mode; never written to Firebase or account settings.
+  const [viewportMode, setViewportMode] = useState<"fixed" | "auto" | "flexible">(() => {
+    try {
+      const mode = window.localStorage.getItem("alhamdulillah_viewport_mode");
+      if (mode === "fixed" || mode === "auto" || mode === "flexible") return mode;
+    } catch {}
+    return "flexible";
+  });
   const [viewportWidth, setViewportWidth] = useState(() => {
     try {
       const saved = Number(window.localStorage.getItem("alhamdulillah_viewport_width"));
-      return Number.isFinite(saved) && saved >= 500 && saved <= 1000 ? Math.round(saved) : 501;
+      return Number.isFinite(saved) && saved >= 300 && saved <= 1100 ? Math.round(saved) : 390;
     } catch {
-      return 501;
+      return 390;
     }
   });
-  const applyViewportWidth = (width: number) => {
-    const safeWidth = Math.max(500, Math.min(1000, Math.round(width)));
-    setViewportWidth(safeWidth);
+  const applyViewportMode = (mode: "fixed" | "auto" | "flexible", width = viewportWidth) => {
+    const safeWidth = Math.max(300, Math.min(1100, Math.round(width)));
+    const autoWidth = Math.max(300, Math.min(1100, Math.round(window.screen?.width || window.innerWidth || 390)));
+    const selectedWidth = mode === "auto" ? autoWidth : safeWidth;
+    setViewportMode(mode);
+    setViewportWidth(selectedWidth);
     try {
-      window.localStorage.setItem("alhamdulillah_viewport_width", String(safeWidth));
-    } catch {
-      // Apply for this session even if local storage is unavailable.
-    }
+      window.localStorage.setItem("alhamdulillah_viewport_mode", mode);
+      if (mode !== "flexible") window.localStorage.setItem("alhamdulillah_viewport_width", String(selectedWidth));
+      else window.localStorage.removeItem("alhamdulillah_viewport_width");
+    } catch {}
     const viewport = document.querySelector('meta[name="viewport"]');
-    viewport?.setAttribute("content", `width=${safeWidth}, viewport-fit=cover, interactive-widget=resizes-content`);
-    showToast(`تم حفظ عرض الواجهة: ${safeWidth}px. جارٍ تطبيقه...`);
-    // Some Android WebViews do not recalculate the layout viewport until reload.
+    const content = mode === "flexible"
+      ? "width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+      : `width=${selectedWidth}, viewport-fit=cover, interactive-widget=resizes-content`;
+    viewport?.setAttribute("content", content);
+    showToast(mode === "flexible"
+      ? "تم تفعيل الوضع المرن؛ الواجهة تتبع عرض شاشة الجهاز."
+      : mode === "auto"
+        ? `تم اختيار العرض تلقائياً: ${selectedWidth}px`
+        : `تم حفظ عرض الواجهة: ${selectedWidth}px`);
     window.setTimeout(() => window.location.reload(), 250);
   };
+  const applyViewportWidth = (width: number) => applyViewportMode("fixed", width);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [cloudBackupName, setCloudBackupName] = useState("");
@@ -2346,52 +2363,64 @@ export default function AccountManagerModal({
                   <div className="flex items-center gap-2">
                     <Smartphone className="w-5 h-5 text-blue-600" />
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">وضع الهاتف والآيباد</h4>
-                      <p className="text-xs text-slate-500 mt-1">هذا الاختيار محلي على هذا الجهاز ولا يتزامن مع حسابك.</p>
+                      <h4 className="text-sm font-bold text-slate-800">طريقة ملاءمة الشاشة</h4>
+                      <p className="text-xs text-slate-500 mt-1">الإعداد محلي على هذا الجهاز فقط، ولا يغيّر بيانات حسابك.</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
-                      { width: 500, label: "هاتف صغير" },
-                      { width: 600, label: "وضع الهاتف" },
-                      { width: 800, label: "جهاز كبير" },
-                      { width: 1000, label: "وضع الآيباد" },
+                      { mode: "auto" as const, label: "الوضع التلقائي", description: "يختار عرضاً حسب شاشة الجهاز" },
+                      { mode: "flexible" as const, label: "الوضع المرن", description: "يتبع عرض الشاشة دون رقم ثابت" },
+                      { mode: "fixed" as const, label: "تحديد يدوي", description: "تختار العرض بنفسك" },
                     ].map((option) => (
                       <button
-                        key={option.width}
+                        key={option.mode}
                         type="button"
-                        onClick={() => applyViewportWidth(option.width)}
-                        className={`rounded-lg border px-2 py-3 text-xs font-bold transition-colors ${
-                          viewportWidth === option.width
+                        onClick={() => applyViewportMode(option.mode)}
+                        className={`rounded-lg border p-3 text-right transition-colors ${
+                          viewportMode === option.mode
                             ? "border-blue-600 bg-blue-50 text-blue-800 ring-1 ring-blue-200"
                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <span className="block text-sm font-extrabold">{option.width}</span>
-                        <span className="block mt-1">{option.label}</span>
+                        <span className="block text-xs font-extrabold">{option.label}</span>
+                        <span className="block mt-1 text-[10px] leading-relaxed">{option.description}</span>
                       </button>
                     ))}
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <label htmlFor="account-viewport-width" className="font-bold text-slate-700">ضبط يدوي</label>
-                      <span className="font-extrabold text-blue-700 tabular-nums">{viewportWidth}px</span>
+                  {viewportMode === "fixed" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <label htmlFor="account-viewport-width" className="font-bold text-slate-700">العرض اليدوي</label>
+                        <span className="font-extrabold text-blue-700 tabular-nums">{viewportWidth}px</span>
+                      </div>
+                      <input
+                        id="account-viewport-width"
+                        type="range"
+                        min={300}
+                        max={1100}
+                        step={1}
+                        value={viewportWidth}
+                        onChange={(event) => setViewportWidth(Number(event.target.value))}
+                        onPointerUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
+                        onKeyUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
+                        className="w-full accent-blue-600 cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400"><span>300px</span><span>1100px</span></div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[300, 390, 600, 800, 1100].map((width) => (
+                          <button key={width} type="button" onClick={() => applyViewportWidth(width)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-100">{width}px</button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-amber-700">ملاحظة: العرض اليدوي قد يجعل المحتوى أصغر إذا اخترت رقماً أكبر من عرض شاشة جهازك. إذا أردت أن تبقى الكتابة والأزرار بحجمها الطبيعي، اختر الوضع المرن أولاً.</p>
                     </div>
-                    <input
-                      id="account-viewport-width"
-                      type="range"
-                      min={500}
-                      max={1000}
-                      step={1}
-                      value={viewportWidth}
-                      onChange={(event) => setViewportWidth(Number(event.target.value))}
-                      onPointerUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
-                      onKeyUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-slate-400"><span>500</span><span>1000</span></div>
-                    <p className="text-[11px] text-slate-500">بعد الاختيار، أغلق التطبيق وافتحه مجدداً إذا لم يتغير العرض مباشرة.</p>
-                  </div>
+                  )}
+                  {viewportMode === "auto" && (
+                    <p className="text-xs text-slate-600">العرض المختار حالياً: <strong>{viewportWidth}px</strong>. يعاد حسابه عند اختيار الوضع التلقائي من هذا الجهاز.</p>
+                  )}
+                  {viewportMode === "flexible" && (
+                    <p className="text-xs text-emerald-700">مفعّل: يستخدم عرض الشاشة الحقيقي (device-width) بدلاً من فرض رقم px.</p>
+                  )}
                 </div>
               </div>
             )}
