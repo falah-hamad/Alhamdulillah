@@ -1126,100 +1126,162 @@ export default function AIAssistantView({
                       </span>
                     )}
                   </div>
-                  <div role="toolbar" aria-label="إجراءات الرسالة" className={`flex flex-wrap items-center justify-center gap-1 px-2 py-1 -mt-px border border-t-0 rounded-b-xl ${isUser ? "bg-blue-50/70 dark:bg-slate-800/90 border-blue-100 dark:border-slate-700" : "bg-white/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700"}`}>
-
+                  {!isUser ? (
+                    <div
+                      role="toolbar"
+                      aria-label="إجراءات إجابة المساعد"
+                      dir="rtl"
+                      className="flex flex-wrap items-center justify-start gap-2 px-2 py-1 -mt-px rounded-b-xl bg-transparent"
+                    >
                       <button
                         type="button"
-                        onClick={() => handleCopy(msg.id, msg.text)}
-                        title="نسخ الرسالة"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        onClick={() => handleRateMessage(msg.id, "dislike")}
+                        title="لم يعجبني"
+                        aria-label="لم يعجبني"
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "dislike" ? "text-red-600 bg-red-50 dark:bg-red-900/20" : ""}`}
                       >
-                        {copiedMsgId === msg.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
+                        <ThumbsDown className="h-4 w-4" />
                       </button>
-
-                      <button type="button" onClick={() => void handleExportSingleMessagePDF(msg)} title="تنزيل هذه الرسالة PDF" aria-label="تنزيل الرسالة PDF" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><FileDown className="w-3 h-3" /></button>
-                      <button type="button" onClick={() => handlePrintSingleMessage(msg)} title="طباعة هذه الرسالة" aria-label="طباعة الرسالة" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Printer className="w-3 h-3" /></button>
                       <button
                         type="button"
-                        onClick={() => handleShareMessage(msg.text)}
-                        title="مشاركة الرسالة"
-                        aria-label="مشاركة الرسالة"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        onClick={() => handleRateMessage(msg.id, "like")}
+                        title="أعجبني"
+                        aria-label="أعجبني"
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "like" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" : ""}`}
                       >
-                        <Share2 className="w-3.5 h-3.5" />
+                        <ThumbsUp className="h-4 w-4" />
                       </button>
-
+                      {isLastMessage && (
+                        <button
+                          type="button"
+                          onClick={handleRegenerate}
+                          title="إعادة التوليد"
+                          aria-label="إعادة التوليد"
+                          disabled={isLoading}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSetReplyContext(msg, "quote")}
                         title="اقتباس النص المحدد أو الرسالة"
                         aria-label="اقتباس الرسالة"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
-                        <Quote className="w-3.5 h-3.5" />
+                        <Quote className="h-4 w-4" />
                       </button>
-
+                      <button
+                        type="button"
+                        onClick={() => handleShareMessage(msg.text)}
+                        title="مشاركة الرسالة"
+                        aria-label="مشاركة الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintSingleMessage(msg)}
+                        title="طباعة الرسالة"
+                        aria-label="طباعة الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleExportSingleMessagePDF(msg)}
+                        title="تنزيل الرسالة PDF"
+                        aria-label="تنزيل الرسالة PDF"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <FileDown className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(msg.id, msg.text)}
+                        title={copiedMsgId === msg.id ? "تم النسخ" : "نسخ النص"}
+                        aria-label="نسخ النص"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      role="toolbar"
+                      aria-label="إجراءات رسالتك"
+                      dir="rtl"
+                      className="flex flex-wrap items-center gap-2 px-2 py-1 -mt-px rounded-b-xl bg-blue-50/70 dark:bg-slate-800/90"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditMessage(msg)}
+                        title="تعديل السؤال"
+                        aria-label="تعديل السؤال"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleSetReplyContext(msg, "reply")}
                         title="الرد على هذه الرسالة"
                         aria-label="الرد على الرسالة"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
-                        <Reply className="w-3.5 h-3.5" />
+                        <Reply className="h-4 w-4" />
                       </button>
-
-                      {!isUser && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleRateMessage(msg.id, "like")}
-                            title="إعجاب بالإجابة"
-                            aria-label="إعجاب"
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "like" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" : "text-slate-500"}`}
-                          >
-                            <ThumbsUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRateMessage(msg.id, "dislike")}
-                            title="عدم الإعجاب بالإجابة"
-                            aria-label="عدم الإعجاب"
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "dislike" ? "text-red-600 bg-red-50 dark:bg-red-900/20" : "text-slate-500"}`}
-                          >
-                            <ThumbsDown className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-
-                      {isUser && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditMessage(msg)}
-                          title="تعديل السؤال"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-
-                      {!isUser && isLastMessage && (
-                        <button
-                          type="button"
-                          onClick={handleRegenerate}
-                          title="إعادة التوليد"
-                          disabled={isLoading}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          <RotateCw className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSetReplyContext(msg, "quote")}
+                        title="اقتباس الرسالة"
+                        aria-label="اقتباس الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Quote className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareMessage(msg.text)}
+                        title="مشاركة الرسالة"
+                        aria-label="مشاركة الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintSingleMessage(msg)}
+                        title="طباعة الرسالة"
+                        aria-label="طباعة الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleExportSingleMessagePDF(msg)}
+                        title="تنزيل الرسالة PDF"
+                        aria-label="تنزيل الرسالة PDF"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <FileDown className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(msg.id, msg.text)}
+                        title="نسخ الرسالة"
+                        aria-label="نسخ الرسالة"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
                   {msg.isError && (
                       <button
                         type="button"
