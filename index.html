@@ -4,19 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <script>
-      // Keep the layout-width choice on this device only (localStorage is not account-synced).
+      // Device-only screen mode: fixed width, auto-selected width, or native flexible viewport.
       (function () {
         var viewport = document.querySelector('meta[name="viewport"]');
         if (!viewport) return;
-        var savedWidth = null;
+        var mode = "flexible";
+        var storedWidth = null;
         try {
+          mode = window.localStorage.getItem("alhamdulillah_viewport_mode") || "flexible";
           var stored = Number(window.localStorage.getItem("alhamdulillah_viewport_width"));
-          if (Number.isFinite(stored) && stored >= 500 && stored <= 1000) savedWidth = Math.round(stored);
+          if (Number.isFinite(stored) && stored >= 300 && stored <= 1100) storedWidth = Math.round(stored);
         } catch (_) {}
-        var isNarrowPhone = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
-        var width = savedWidth !== null ? savedWidth : (isNarrowPhone ? 501 : null);
-        if (width !== null) {
-          viewport.setAttribute("content", "width=" + width + ", viewport-fit=cover, interactive-widget=resizes-content");
+        if (mode === "fixed" && storedWidth !== null) {
+          viewport.setAttribute("content", "width=" + storedWidth + ", viewport-fit=cover, interactive-widget=resizes-content");
+        } else if (mode === "auto") {
+          var autoWidth = Math.max(300, Math.min(1100, Math.round(window.screen && window.screen.width || window.innerWidth || 390)));
+          viewport.setAttribute("content", "width=" + autoWidth + ", viewport-fit=cover, interactive-widget=resizes-content");
+        } else {
+          viewport.setAttribute("content", "width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content");
         }
       })();
     </script>
