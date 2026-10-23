@@ -39,13 +39,10 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Prepare Android SDK packages
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          SDKMANAGER="$(find \"${ANDROID_HOME:-/usr/local/lib/android/sdk}\" -type f -name sdkmanager 2>/dev/null | head -n 1)"
-          test -n "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-30;google_apis;x86_64"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0 emulator system-images;android-30;google_apis;x86_64"
 
       - name: Install dependencies
         run: npm install
