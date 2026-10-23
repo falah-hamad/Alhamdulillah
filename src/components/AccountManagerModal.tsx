@@ -757,7 +757,7 @@ export default function AccountManagerModal({
         <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
           
           {/* Navigation Sidebar */}
-          <aside className="w-52 sm:w-60 lg:w-72 shrink-0 border-l border-slate-200 bg-slate-50/80 p-2 sm:p-3 flex flex-col gap-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <aside className="w-40 sm:w-56 lg:w-72 shrink-0 border-l border-slate-200 bg-slate-50/80 p-2 sm:p-3 flex flex-col gap-1 overflow-y-auto overflow-x-hidden overscroll-contain">
             
             {/* Quick User Summary in Tab Sidebar */}
             <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 mb-2 rounded-xl bg-white border border-slate-200 shadow-sm">
