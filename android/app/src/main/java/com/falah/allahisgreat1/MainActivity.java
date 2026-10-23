@@ -21,6 +21,15 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         super.onCreate(savedInstanceState);
 
+        // Respect the fixed desktop-width viewport configured by index.html on
+        // compact phones, then scale the wide layout down to the WebView.
+        android.webkit.WebSettings webSettings = getBridge().getWebView().getSettings();
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setSupportZoom(true);
+        webSettings.setBuiltInZoomControls(true);
+        webSettings.setDisplayZoomControls(false);
+
         Window window = getWindow();
         window.setStatusBarColor(Color.rgb(248, 250, 252));
         window.setNavigationBarColor(Color.rgb(248, 250, 252));
