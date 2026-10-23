@@ -9,7 +9,7 @@
         var viewportWidth = document.documentElement.clientWidth || window.innerWidth || window.screen.width;
         var screenWidth = Math.min(viewportWidth, window.screen.width || viewportWidth);
         if (viewport && viewportWidth <= 600) {
-          var scale = Math.max(0.28, Math.min(0.58, screenWidth / 1024));
+          var scale = Math.max(0.31, Math.min(0.64, (screenWidth / 1024) * 1.10));
           viewport.setAttribute('content', 'width=1024, initial-scale=' + scale.toFixed(3) + ', minimum-scale=0.25, maximum-scale=3, user-scalable=yes, viewport-fit=cover');
           document.documentElement.classList.add('desktop-viewport-on-phone');
         }
