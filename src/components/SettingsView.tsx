@@ -88,6 +88,34 @@ export default function SettingsView({
   }, [extendedProfile]);
 
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Layout width is stored only in this device/browser, never in Firebase or user settings.
+  const [viewportWidth, setViewportWidth] = useState(() => {
+    try {
+      const saved = Number(window.localStorage.getItem("alhamdulillah_viewport_width"));
+      return Number.isFinite(saved) && saved >= 500 && saved <= 1000 ? saved : 501;
+    } catch {
+      return 501;
+    }
+  });
+
+  const applyViewportWidth = (nextWidth: number) => {
+    const safeWidth = Math.max(500, Math.min(1000, Math.round(nextWidth)));
+    setViewportWidth(safeWidth);
+    try {
+      window.localStorage.setItem("alhamdulillah_viewport_width", String(safeWidth));
+    } catch {
+      // The selection still applies for this session if storage is unavailable.
+    }
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      viewport.setAttribute(
+        "content",
+        `width=${safeWidth}, viewport-fit=cover, interactive-widget=resizes-content`
+      );
+    }
+    showMsg("success", `تم حفظ عرض الواجهة على هذا الجهاز: ${safeWidth}px.`);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [savingSecurity, setSavingSecurity] = useState(false);
   const [localBiometricLock, setLocalBiometricLock] = useState(extendedProfile.twoFactorEnabled ?? false);
@@ -346,6 +374,53 @@ export default function SettingsView({
           إدارة إعدادات التطبيق والأمان والبيانات المحلية.
         </p>
       </div>
+
+      {/* Device-local viewport sizing */}
+      <section className="bg-white rounded-xl border border-blue-100 shadow-sm p-4 sm:p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-blue-50 text-blue-700 shrink-0"><Phone className="w-5 h-5" /></div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-slate-800">حجم الواجهة لهذا الجهاز</h2>
+            <p className="text-xs text-slate-500 mt-1">اختَر العرض المناسب لشاشتك. يُحفظ على هذا الهاتف فقط ولا يتزامن مع حسابك أو أجهزتك الأخرى.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { width: 500, label: "هاتف صغير" },
+            { width: 600, label: "هاتف وسط" },
+            { width: 800, label: "هاتف كبير / تابلت صغير" },
+            { width: 1000, label: "آيباد / تابلت" },
+          ].map((option) => (
+            <button
+              key={option.width}
+              type="button"
+              onClick={() => applyViewportWidth(option.width)}
+              className={`rounded-lg border px-2 py-3 text-xs font-bold transition-colors ${viewportWidth === option.width ? "border-blue-600 bg-blue-50 text-blue-800 ring-1 ring-blue-200" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              <span className="block text-sm font-extrabold">{option.width}</span>
+              <span className="block mt-1">{option.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <label htmlFor="local-viewport-width" className="font-bold text-slate-700">ضبط يدوي للشريط</label>
+            <span className="font-extrabold text-blue-700 tabular-nums">{viewportWidth}px</span>
+          </div>
+          <input
+            id="local-viewport-width"
+            type="range"
+            min={500}
+            max={1000}
+            step={1}
+            value={viewportWidth}
+            onChange={(event) => applyViewportWidth(Number(event.target.value))}
+            className="w-full accent-blue-600 cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] text-slate-400"><span>500 — أصغر</span><span>1000 — أوسع</span></div>
+          <p className="text-[11px] text-slate-500">إذا صارت العناصر صغيرة جداً، قلّل الرقم. وإذا تريدها أكبر، زِد الرقم. قد تحتاج إعادة فتح الشاشة حتى تتكيّف بعض العناصر.</p>
+        </div>
+      </section>
 
       {/* Action Messages alerts */}
       {message && (
