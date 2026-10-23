@@ -707,7 +707,7 @@ export default function AccountManagerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs font-sans text-slate-800" dir="rtl">
-      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-6xl h-[92vh] max-h-[92vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80">
@@ -754,13 +754,13 @@ export default function AccountManagerModal({
         )}
 
         {/* Main Body */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
           
           {/* Navigation Sidebar */}
-          <div className="w-full md:w-64 border-b md:border-b-0 md:border-l border-slate-200 bg-slate-50/50 p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-y-auto shrink-0">
+          <aside className="w-52 sm:w-60 lg:w-72 shrink-0 border-l border-slate-200 bg-slate-50/80 p-2 sm:p-3 flex flex-col gap-1 overflow-y-auto overflow-x-hidden overscroll-contain">
             
             {/* Quick User Summary in Tab Sidebar */}
-            <div className="hidden md:flex items-center gap-3 p-3 mb-2 rounded-xl bg-white border border-slate-200 shadow-xs">
+            <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 mb-2 rounded-xl bg-white border border-slate-200 shadow-sm">
               <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 overflow-hidden shadow-xs">
                 {currentUser?.photoURL || extendedProfile.photoURL ? (
                   <img
@@ -778,8 +778,9 @@ export default function AccountManagerModal({
                   {currentUser?.displayName || extendedProfile.displayName || "المحاسب المعتمد"}
                 </p>
                 <p className="text-[10px] text-slate-400 font-mono truncate" dir="ltr">
-                  {currentUser?.phoneNumber || currentUser?.email || "مستخدم برقم الهاتف"}
+                  {currentUser?.email || "لا يوجد بريد إلكتروني"}
                 </p>
+                {currentUser?.phoneNumber && <p className="text-[10px] text-slate-400 font-mono truncate" dir="ltr">{currentUser.phoneNumber}</p>}
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded mt-1">
                   <Cloud className="w-2.5 h-2.5 text-emerald-500" />
                   <span>متصل سحابياً</span>
@@ -787,11 +788,11 @@ export default function AccountManagerModal({
               </div>
             </div>
 
-            <div className="text-[10px] font-bold text-slate-400 px-3 py-1 hidden md:block">👤 الحساب</div>
+            <div className="text-[10px] font-bold text-slate-400 px-3 py-1">👤 الحساب</div>
 
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-right shrink-0 ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-right ${
                 activeTab === "profile"
                   ? "bg-blue-600 text-white font-bold shadow-xs"
                   : "text-slate-600 hover:bg-slate-200/50"
@@ -849,7 +850,7 @@ export default function AccountManagerModal({
               <span>4. الحسابات المرتبطة</span>
             </button>
 
-            <div className="text-[10px] font-bold text-slate-400 px-3 py-1 hidden md:block mt-2">⚙️ إعدادات الحساب والتطبيق</div>
+            <div className="text-[10px] font-bold text-slate-400 px-3 py-1 mt-2">⚙️ إعدادات الحساب والتطبيق</div>
 
             <button
               onClick={() => setActiveTab("notifications")}
@@ -944,7 +945,7 @@ export default function AccountManagerModal({
             <button
               onClick={() => setShowLogoutConfirm(true)}
               id="account-btn-logout"
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-amber-700 hover:bg-amber-50 text-right transition-colors shrink-0"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-amber-700 hover:bg-amber-50 text-right transition-colors"
             >
               <LogOut className="w-4 h-4 shrink-0 text-amber-600" />
               <span>12. تسجيل الخروج</span>
@@ -953,7 +954,7 @@ export default function AccountManagerModal({
             <button
               onClick={() => setActiveTab("danger_zone")}
               id="account-btn-danger"
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all text-right shrink-0 ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all text-right ${
                 activeTab === "danger_zone"
                   ? "bg-rose-600 text-white shadow-xs"
                   : "text-rose-600 hover:bg-rose-50"
@@ -962,10 +963,10 @@ export default function AccountManagerModal({
               <Trash2 className="w-4 h-4 shrink-0" />
               <span>13. حذف الحساب</span>
             </button>
-          </div>
+          </aside>
 
-          {/* Content Pane */}
-          <div className="flex-1 p-5 sm:p-7 overflow-y-auto bg-white">
+          {/* Content Pane: scrolls independently from the vertical sidebar */}
+          <main className="flex-1 min-w-0 min-h-0 p-3 sm:p-5 lg:p-7 overflow-y-auto overscroll-contain bg-white">
             
             {/* 1. الملف الشخصي (Profile) */}
             {activeTab === "profile" && (
@@ -2593,7 +2594,7 @@ export default function AccountManagerModal({
               </div>
             )}
 
-          </div>
+          </main>
         </div>
       </div>
 
