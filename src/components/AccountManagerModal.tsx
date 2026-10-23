@@ -1125,44 +1125,41 @@ export default function AccountManagerModal({
                   </div>
                 </div>
 
-                {/* Compact Account Action Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 px-2.5 py-2">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                    <SettingsIcon className="h-3.5 w-3.5" />
-                    <span>إجراءات الحساب</span>
+                {/* Account Quick Actions Bar */}
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <SettingsIcon className="w-4 h-4 text-slate-500" />
+                    <span>إجراءات الحساب السريعة:</span>
                   </div>
 
-                  <div className="flex items-center justify-center gap-1.5" role="toolbar" aria-label="إجراءات الحساب السريعة">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isEmailPassword && (
                       <button
                         type="button"
                         onClick={() => setActiveTab("security")}
-                        title="تغيير كلمة المرور"
-                        aria-label="تغيير كلمة المرور"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-blue-600 transition-colors hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700 active:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100/70 hover:bg-blue-200 rounded-lg transition-colors cursor-pointer"
                       >
-                        <KeyRound className="h-4 w-4" />
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>تغيير كلمة المرور</span>
                       </button>
                     )}
 
                     <button
                       type="button"
                       onClick={() => setShowLogoutConfirm(true)}
-                      title="تسجيل الخروج"
-                      aria-label="تسجيل الخروج"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-800 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="w-3.5 h-3.5 text-slate-600" />
+                      <span>تسجيل الخروج</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      title="حذف الحساب"
-                      aria-label="حذف الحساب"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-rose-500 transition-colors hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700 active:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>حذف الحساب</span>
                     </button>
                   </div>
                 </div>
