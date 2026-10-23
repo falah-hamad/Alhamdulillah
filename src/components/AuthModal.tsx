@@ -480,10 +480,10 @@ export default function AuthModal({ onSuccess, onClose, initialMode = 'login' }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div className="auth-modal-overlay fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 bg-white sm:bg-slate-900/70 sm:backdrop-blur-sm overflow-y-auto">
       <div 
         id="auth-card" 
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8 text-right font-sans"
+        className="auth-modal-card w-full max-w-none sm:max-w-md bg-white rounded-none sm:rounded-2xl shadow-none sm:shadow-2xl border-0 sm:border sm:border-slate-100 overflow-hidden my-0 sm:my-8 text-right font-sans min-h-dvh sm:min-h-0"
         dir="rtl"
       >
         {/* Header Branding */}
