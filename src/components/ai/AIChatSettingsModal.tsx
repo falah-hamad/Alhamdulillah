@@ -26,7 +26,6 @@ import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_QUICK_QUESTIONS,
   FontFamilyType,
-  FontSizeOption,
   ThemeModeOption,
   BubbleShapeOption,
   ThemeColorOption,
@@ -259,34 +258,6 @@ export default function AIChatSettingsModal({
                     >
                       <div className="text-sm font-bold">{font}</div>
                       <div className="text-xs opacity-75 mt-1">دفتر الديون الذكي</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Font Size */}
-              <div>
-                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">
-                  حجم خط الرسائل
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { id: "sm", label: "صغير (13px)" },
-                    { id: "md", label: "متوسط (15px)" },
-                    { id: "lg", label: "كبير (17px)" },
-                    { id: "xl", label: "كبير جداً (19px)" },
-                  ].map((sz) => (
-                    <button
-                      key={sz.id}
-                      type="button"
-                      onClick={() => setTempSettings((prev) => ({ ...prev, fontSize: sz.id as FontSizeOption }))}
-                      className={`py-2 px-3 rounded-xl border text-xs sm:text-sm font-semibold transition-all ${
-                        tempSettings.fontSize === sz.id
-                          ? "border-blue-600 bg-blue-600 text-white shadow-xs"
-                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      {sz.label}
                     </button>
                   ))}
                 </div>
