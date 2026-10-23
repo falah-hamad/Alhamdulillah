@@ -1126,31 +1126,31 @@ export default function AIAssistantView({
                       </span>
                     )}
                   </div>
-                  <div className={`flex flex-wrap items-center gap-1 px-2 py-1.5 -mt-px border border-t-0 rounded-b-xl shadow-xs ${isUser ? "bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`}>
+                  <div role="toolbar" aria-label="إجراءات الرسالة" className={`flex flex-wrap items-center justify-center gap-1 px-2 py-1 -mt-px border border-t-0 rounded-b-xl ${isUser ? "bg-blue-50/70 dark:bg-slate-800/90 border-blue-100 dark:border-slate-700" : "bg-white/90 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700"}`}>
 
                       <button
                         type="button"
                         onClick={() => handleCopy(msg.id, msg.text)}
                         title="نسخ الرسالة"
-                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         {copiedMsgId === msg.id ? (
-                          <Check className="w-3 h-3 text-emerald-600" />
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
                         ) : (
-                          <Copy className="w-3 h-3" />
+                          <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
 
-                      <button type="button" onClick={() => void handleExportSingleMessagePDF(msg)} title="تنزيل هذه الرسالة PDF" aria-label="تنزيل الرسالة PDF" className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"><FileDown className="w-3 h-3" /></button>
-                      <button type="button" onClick={() => handlePrintSingleMessage(msg)} title="طباعة هذه الرسالة" aria-label="طباعة الرسالة" className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"><Printer className="w-3 h-3" /></button>
+                      <button type="button" onClick={() => void handleExportSingleMessagePDF(msg)} title="تنزيل هذه الرسالة PDF" aria-label="تنزيل الرسالة PDF" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><FileDown className="w-3 h-3" /></button>
+                      <button type="button" onClick={() => handlePrintSingleMessage(msg)} title="طباعة هذه الرسالة" aria-label="طباعة الرسالة" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Printer className="w-3 h-3" /></button>
                       <button
                         type="button"
                         onClick={() => handleShareMessage(msg.text)}
                         title="مشاركة الرسالة"
                         aria-label="مشاركة الرسالة"
-                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
-                        <Share2 className="w-3 h-3" />
+                        <Share2 className="w-3.5 h-3.5" />
                       </button>
 
                       <button
@@ -1159,9 +1159,9 @@ export default function AIAssistantView({
                         onClick={() => handleSetReplyContext(msg, "quote")}
                         title="اقتباس النص المحدد أو الرسالة"
                         aria-label="اقتباس الرسالة"
-                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
-                        <Quote className="w-3 h-3" />
+                        <Quote className="w-3.5 h-3.5" />
                       </button>
 
                       <button
@@ -1169,9 +1169,9 @@ export default function AIAssistantView({
                         onClick={() => handleSetReplyContext(msg, "reply")}
                         title="الرد على هذه الرسالة"
                         aria-label="الرد على الرسالة"
-                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
-                        <Reply className="w-3 h-3" />
+                        <Reply className="w-3.5 h-3.5" />
                       </button>
 
                       {!isUser && (
@@ -1181,18 +1181,18 @@ export default function AIAssistantView({
                             onClick={() => handleRateMessage(msg.id, "like")}
                             title="إعجاب بالإجابة"
                             aria-label="إعجاب"
-                            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 ${msg.rating === "like" ? "text-emerald-600" : "text-slate-500"}`}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "like" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" : "text-slate-500"}`}
                           >
-                            <ThumbsUp className="w-3 h-3" />
+                            <ThumbsUp className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleRateMessage(msg.id, "dislike")}
                             title="عدم الإعجاب بالإجابة"
                             aria-label="عدم الإعجاب"
-                            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 ${msg.rating === "dislike" ? "text-red-600" : "text-slate-500"}`}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "dislike" ? "text-red-600 bg-red-50 dark:bg-red-900/20" : "text-slate-500"}`}
                           >
-                            <ThumbsDown className="w-3 h-3" />
+                            <ThumbsDown className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
@@ -1202,9 +1202,9 @@ export default function AIAssistantView({
                           type="button"
                           onClick={() => handleStartEditMessage(msg)}
                           title="تعديل السؤال"
-                          className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         >
-                          <Edit3 className="w-3 h-3" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       )}
 
@@ -1214,9 +1214,9 @@ export default function AIAssistantView({
                           onClick={handleRegenerate}
                           title="إعادة التوليد"
                           disabled={isLoading}
-                          className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         >
-                          <RotateCw className="w-3 h-3" />
+                          <RotateCw className="w-3.5 h-3.5" />
                         </button>
                       )}
                   </div>
@@ -1319,7 +1319,7 @@ export default function AIAssistantView({
             <div className="mb-2 flex items-start gap-2 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/80 dark:bg-blue-950/30 p-2.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300">
-                  {replyContext.mode === "quote" ? <Quote className="w-3 h-3" /> : <Reply className="w-3 h-3" />}
+                  {replyContext.mode === "quote" ? <Quote className="w-3.5 h-3.5" /> : <Reply className="w-3.5 h-3.5" />}
                   <span>{replyContext.mode === "quote" ? "اقتباس من رسالة" : "الرد على رسالة"}</span>
                   <span>· {replyContext.sender === "ai" ? "المساعد" : "أنت"}</span>
                 </div>
