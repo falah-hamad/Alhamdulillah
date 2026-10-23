@@ -1115,30 +1115,19 @@ export default function AIAssistantView({
                     )}
                   </div>
 
-                  {/* Message metadata above a toolbar visually attached to the card */}
-                  <div className="flex flex-wrap items-center gap-2 mt-1 px-1 text-[11px] text-slate-400">
-                    <span>{msg.timestamp}</span>
-                    {!isUser && msg.modelUsed && (
-                      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        <Cpu className="w-2.5 h-2.5" />
-                        <span>{msg.modelUsed}</span>
-                        {msg.latencyMs && <span>({(msg.latencyMs / 1000).toFixed(1)}s)</span>}
-                      </span>
-                    )}
-                  </div>
                   {!isUser ? (
                     <div
                       role="toolbar"
                       aria-label="إجراءات إجابة المساعد"
                       dir="rtl"
-                      className="flex flex-wrap items-center justify-start gap-2 px-2 py-1 -mt-px rounded-b-xl bg-transparent"
+                      className="flex flex-wrap items-center justify-start gap-1 px-0 py-0 mt-1 bg-transparent"
                     >
                       <button
                         type="button"
                         onClick={() => handleRateMessage(msg.id, "dislike")}
                         title="لم يعجبني"
                         aria-label="لم يعجبني"
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "dislike" ? "text-red-600 bg-red-50 dark:bg-red-900/20" : ""}`}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "dislike" ? "text-red-600 bg-red-50 dark:bg-red-900/20" : ""}`}
                       >
                         <ThumbsDown className="h-4 w-4" />
                       </button>
@@ -1147,7 +1136,7 @@ export default function AIAssistantView({
                         onClick={() => handleRateMessage(msg.id, "like")}
                         title="أعجبني"
                         aria-label="أعجبني"
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "like" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" : ""}`}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${msg.rating === "like" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" : ""}`}
                       >
                         <ThumbsUp className="h-4 w-4" />
                       </button>
@@ -1158,7 +1147,7 @@ export default function AIAssistantView({
                           title="إعادة التوليد"
                           aria-label="إعادة التوليد"
                           disabled={isLoading}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40"
                         >
                           <RotateCw className="h-4 w-4" />
                         </button>
@@ -1169,7 +1158,7 @@ export default function AIAssistantView({
                         onClick={() => handleSetReplyContext(msg, "quote")}
                         title="اقتباس النص المحدد أو الرسالة"
                         aria-label="اقتباس الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Quote className="h-4 w-4" />
                       </button>
@@ -1178,7 +1167,7 @@ export default function AIAssistantView({
                         onClick={() => handleShareMessage(msg.text)}
                         title="مشاركة الرسالة"
                         aria-label="مشاركة الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Share2 className="h-4 w-4" />
                       </button>
@@ -1187,7 +1176,7 @@ export default function AIAssistantView({
                         onClick={() => handlePrintSingleMessage(msg)}
                         title="طباعة الرسالة"
                         aria-label="طباعة الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
@@ -1196,7 +1185,7 @@ export default function AIAssistantView({
                         onClick={() => void handleExportSingleMessagePDF(msg)}
                         title="تنزيل الرسالة PDF"
                         aria-label="تنزيل الرسالة PDF"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <FileDown className="h-4 w-4" />
                       </button>
@@ -1205,7 +1194,7 @@ export default function AIAssistantView({
                         onClick={() => handleCopy(msg.id, msg.text)}
                         title={copiedMsgId === msg.id ? "تم النسخ" : "نسخ النص"}
                         aria-label="نسخ النص"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                       </button>
@@ -1282,6 +1271,17 @@ export default function AIAssistantView({
                       </button>
                     </div>
                   )}
+                  {/* Message metadata below the compact action toolbar */}
+                  <div className="flex flex-wrap items-center gap-2 mt-1 px-1 text-[11px] text-slate-400">
+                    <span>{msg.timestamp}</span>
+                    {!isUser && msg.modelUsed && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        <Cpu className="w-2.5 h-2.5" />
+                        <span>{msg.modelUsed}</span>
+                        {msg.latencyMs && <span>({(msg.latencyMs / 1000).toFixed(1)}s)</span>}
+                      </span>
+                    )}
+                  </div>
                   {msg.isError && (
                       <button
                         type="button"
