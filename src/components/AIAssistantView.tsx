@@ -1219,6 +1219,7 @@ export default function AIAssistantView({
                           <RotateCw className="w-3 h-3" />
                         </button>
                       )}
+                  </div>
                   {msg.isError && (
                       <button
                         type="button"
@@ -1228,7 +1229,6 @@ export default function AIAssistantView({
                         إعادة المحاولة
                       </button>
                     )}
-                  </div>
                 </div>
               </div>
             );
