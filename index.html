@@ -4,18 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <script>
-      // On narrow phones, use a desktop-like layout canvas close to 500 CSS px.
-      // 501px intentionally sits just above the app's max-width: 600px mobile rules,
-      // allowing a 360px phone to render the wider layout at roughly 60% scale.
+      // Keep the layout-width choice on this device only (localStorage is not account-synced).
       (function () {
-        if (window.matchMedia && window.matchMedia("(max-width: 600px)").matches) {
-          var viewport = document.querySelector('meta[name="viewport"]');
-          if (viewport) {
-            viewport.setAttribute(
-              "content",
-              "width=501, viewport-fit=cover, interactive-widget=resizes-content"
-            );
-          }
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (!viewport) return;
+        var savedWidth = null;
+        try {
+          var stored = Number(window.localStorage.getItem("alhamdulillah_viewport_width"));
+          if (Number.isFinite(stored) && stored >= 500 && stored <= 1000) savedWidth = Math.round(stored);
+        } catch (_) {}
+        var isNarrowPhone = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
+        var width = savedWidth !== null ? savedWidth : (isNarrowPhone ? 501 : null);
+        if (width !== null) {
+          viewport.setAttribute("content", "width=" + width + ", viewport-fit=cover, interactive-widget=resizes-content");
         }
       })();
     </script>
