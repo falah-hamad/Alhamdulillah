@@ -142,7 +142,9 @@ export default function AccountManagerModal({
     }
     const viewport = document.querySelector('meta[name="viewport"]');
     viewport?.setAttribute("content", `width=${safeWidth}, viewport-fit=cover, interactive-widget=resizes-content`);
-    showToast(`تم حفظ وضع العرض لهذا الجهاز: ${safeWidth}.`);
+    showToast(`تم حفظ عرض الواجهة: ${safeWidth}px. جارٍ تطبيقه...`);
+    // Some Android WebViews do not recalculate the layout viewport until reload.
+    window.setTimeout(() => window.location.reload(), 250);
   };
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -2383,8 +2385,8 @@ export default function AccountManagerModal({
                       step={1}
                       value={viewportWidth}
                       onChange={(event) => setViewportWidth(Number(event.target.value))}
-                      onPointerUp={() => applyViewportWidth(viewportWidth)}
-                      onKeyUp={() => applyViewportWidth(viewportWidth)}
+                      onPointerUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
+                      onKeyUp={(event) => applyViewportWidth(Number(event.currentTarget.value))}
                       className="w-full accent-blue-600 cursor-pointer"
                     />
                     <div className="flex justify-between text-[10px] text-slate-400"><span>500</span><span>1000</span></div>
