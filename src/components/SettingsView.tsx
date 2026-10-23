@@ -414,7 +414,9 @@ export default function SettingsView({
             max={1000}
             step={1}
             value={viewportWidth}
-            onChange={(event) => applyViewportWidth(Number(event.target.value))}
+            onChange={(event) => setViewportWidth(Number(event.target.value))}
+            onPointerUp={() => applyViewportWidth(viewportWidth)}
+            onKeyUp={() => applyViewportWidth(viewportWidth)}
             className="w-full accent-blue-600 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400"><span>500 — أصغر</span><span>1000 — أوسع</span></div>
