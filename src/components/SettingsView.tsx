@@ -89,33 +89,6 @@ export default function SettingsView({
 
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Layout width is stored only in this device/browser, never in Firebase or user settings.
-  const [viewportWidth, setViewportWidth] = useState(() => {
-    try {
-      const saved = Number(window.localStorage.getItem("alhamdulillah_viewport_width"));
-      return Number.isFinite(saved) && saved >= 500 && saved <= 1000 ? saved : 501;
-    } catch {
-      return 501;
-    }
-  });
-
-  const applyViewportWidth = (nextWidth: number) => {
-    const safeWidth = Math.max(500, Math.min(1000, Math.round(nextWidth)));
-    setViewportWidth(safeWidth);
-    try {
-      window.localStorage.setItem("alhamdulillah_viewport_width", String(safeWidth));
-    } catch {
-      // The selection still applies for this session if storage is unavailable.
-    }
-    const viewport = document.querySelector('meta[name="viewport"]');
-    if (viewport) {
-      viewport.setAttribute(
-        "content",
-        `width=${safeWidth}, viewport-fit=cover, interactive-widget=resizes-content`
-      );
-    }
-    showMsg("success", `تم حفظ عرض الواجهة على هذا الجهاز: ${safeWidth}px.`);
-  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [savingSecurity, setSavingSecurity] = useState(false);
   const [localBiometricLock, setLocalBiometricLock] = useState(extendedProfile.twoFactorEnabled ?? false);
