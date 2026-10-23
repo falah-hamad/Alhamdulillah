@@ -485,3 +485,61 @@ button, [role="button"] { line-height: 1.35; }
   }
 }
 
+/* App-wide responsive sizing: use the real phone viewport instead of a scaled desktop canvas. */
+@media screen and (max-width: 600px) {
+  html, body, #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body { overflow-x: hidden !important; }
+  #root { overflow-x: clip !important; }
+
+  .app-shell,
+  .app-shell > *,
+  .app-content,
+  main,
+  [role="main"] {
+    box-sizing: border-box;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Remove desktop-style outer margins from common page and card wrappers. */
+  .app-content {
+    width: 100% !important;
+    margin-inline: 0 !important;
+  }
+
+  .app-content > .max-w-\[.*\],
+  .app-content > [class*="max-w-"] {
+    max-width: 100% !important;
+  }
+
+  /* Comfortable touch targets and legible form controls across all app screens. */
+  input, select, textarea,
+  button, [role="button"] {
+    max-width: 100%;
+    touch-action: manipulation;
+  }
+
+  .app-content :is(input, select, textarea) {
+    min-height: 42px;
+    font-size: 16px;
+  }
+
+  .app-content :is(button, [role="button"]) {
+    min-height: 38px;
+  }
+
+  /* Keep tables readable; scroll inside their own container instead of shrinking the whole page. */
+  .app-content :is(.overflow-x-auto, .overflow-x-scroll) {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
