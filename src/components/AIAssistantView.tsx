@@ -560,21 +560,67 @@ export default function AIAssistantView({
     window.setTimeout(() => { setCopiedMsgId(null); setNotice(""); }, 2200);
   };
 
-  const handleExportSingleMessagePDF = async (msg: ChatMessage) => {
-    const printable = document.createElement("div"); printable.dir = "rtl"; printable.style.cssText = "position:fixed;left:-10000px;top:0;width:760px;padding:28px;background:#fff;color:#111;font-family:Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere";
-    const title = document.createElement("h2"); title.textContent = `رسالة من مساعد الحمدلله - ${msg.sender === "ai" ? "المساعد" : "أنت"}`;
-    const time = document.createElement("p"); time.textContent = msg.timestamp;
-    const body = document.createElement("div"); body.textContent = msg.text; body.style.cssText = `font-size:${messageFontSize}px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere`;
-    printable.append(title, time, body); document.body.appendChild(printable);
-    try { await exportElementToPDF(printable, { filename: `رسالة_${msg.id}`, title: "رسالة من مساعد الحمدلله" }); setNotice("تم تجهيز PDF لهذه الرسالة فقط"); }
-    catch (error) { console.error("Message PDF export failed:", error); setNotice("تعذر إنشاء PDF لهذه الرسالة"); }
-    finally { printable.remove(); window.setTimeout(() => setNotice(""), 2200); }
+  const createSingleMessagePrintNode = (msg: ChatMessage): HTMLDivElement => {
+    const source = document.querySelector<HTMLElement>(`[data-message-card="${CSS.escape(msg.id)}"]`);
+    if (!source) throw new Error("تعذر العثور على بطاقة الرسالة");
+    const printable = document.createElement("div");
+    printable.dir = "rtl";
+    printable.lang = "ar";
+    printable.className = "message-export-root";
+    printable.style.cssText = "width:100%;max-width:100%;margin:0 auto;padding:18px;background:#fff;color:#0f172a;direction:rtl;text-align:right;font-family:Cairo,'Noto Sans Arabic',Arial,sans-serif;line-height:1.8;box-sizing:border-box";
+    const heading = document.createElement("div");
+    heading.style.cssText = "display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b";
+    const sender = document.createElement("strong");
+    sender.textContent = msg.sender === "ai" ? "مساعد الحمدلله" : "رسالتك";
+    const time = document.createElement("span");
+    time.textContent = msg.timestamp;
+    heading.append(sender, time);
+    const card = source.cloneNode(true) as HTMLElement;
+    card.querySelectorAll("button, .no-print, [data-no-print='true']").forEach((node) => node.remove());
+    card.style.width = "100%";
+    card.style.maxWidth = "100%";
+    card.style.margin = "0";
+    card.style.boxSizing = "border-box";
+    printable.append(heading, card);
+    return printable;
   };
-  const handlePrintSingleMessage = (msg: ChatMessage) => {
-    const printWindow = window.open("", "_blank", "width=800,height=700");
-    if (!printWindow) { setNotice("اسمح بفتح نافذة الطباعة ثم حاول مرة أخرى"); return; }
-    const safeText = msg.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    printWindow.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة رسالة</title><style>body{font-family:Arial,sans-serif;padding:28px;line-height:1.8;color:#111;white-space:pre-wrap;overflow-wrap:anywhere}small{color:#666}</style></head><body><h2>رسالة من مساعد الحمدلله</h2><small>${msg.timestamp}</small><p style="font-size:${messageFontSize}px">${safeText}</p><script>window.onload=()=>window.print()</script></body></html>`); printWindow.document.close();
+
+  const handleExportSingleMessagePDF = async (msg: ChatMessage) => {
+    let printable: HTMLDivElement | null = null;
+    try {
+      printable = createSingleMessagePrintNode(msg);
+      document.body.appendChild(printable);
+      printable.style.position = "fixed";
+      printable.style.left = "-10000px";
+      printable.style.top = "0";
+      await exportElementToPDF(printable, { filename: `رسالة_${msg.id}`, title: `رسالة من مساعد الحمدلله - ${msg.sender === "ai" ? "المساعد" : "أنت"}` });
+      setNotice("تم تصدير الرسالة المحددة إلى PDF");
+    } catch (error) {
+      console.error("Message PDF export failed:", error);
+      setNotice("تعذر إنشاء PDF لهذه الرسالة");
+    } finally {
+      printable?.remove();
+      window.setTimeout(() => setNotice(""), 2200);
+    }
+  };
+
+  const handlePrintSingleMessage = async (msg: ChatMessage) => {
+    let printable: HTMLDivElement | null = null;
+    try {
+      printable = createSingleMessagePrintNode(msg);
+      printable.style.position = "fixed";
+      printable.style.left = "-10000px";
+      printable.style.top = "0";
+      document.body.appendChild(printable);
+      const { printElement } = await import("../utils/printUtils");
+      await printElement(printable, { title: `رسالة من مساعد الحمدلله - ${msg.sender === "ai" ? "المساعد" : "أنت"}` });
+    } catch (error) {
+      console.error("Message print failed:", error);
+      setNotice("تعذرت طباعة هذه الرسالة");
+      window.setTimeout(() => setNotice(""), 2200);
+    } finally {
+      printable?.remove();
+    }
   };
   const handleShareMessage = async (text: string) => {
     try {
@@ -1010,6 +1056,7 @@ export default function AIAssistantView({
                 {/* Message Bubble */}
                 <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${isUser ? "items-end" : "items-start"}`}>
                   <div
+                    data-message-card={msg.id}
                     className={`p-3.5 sm:p-4 shadow-xs ${aiSettings.bubbleShape} ${
                       chatStyle === "soft" ? "ring-1 ring-violet-200 dark:ring-violet-900 shadow-md" : chatStyle === "midnight" ? (isUser ? "bg-slate-700 text-white border border-slate-600" : "bg-slate-900 text-slate-100 border border-slate-700") : chatStyle === "mint" ? (isUser ? "bg-emerald-600 text-white border border-emerald-500" : "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-slate-900 dark:text-emerald-50") : ""
                     } ${
@@ -1068,10 +1115,9 @@ export default function AIAssistantView({
                     )}
                   </div>
 
-                  {/* Message Meta Info & Action Buttons */}
-                  <div className="flex items-center gap-2 mt-1 px-1 text-[11px] text-slate-400">
+                  {/* Message metadata above a toolbar visually attached to the card */}
+                  <div className="flex flex-wrap items-center gap-2 mt-1 px-1 text-[11px] text-slate-400">
                     <span>{msg.timestamp}</span>
-
                     {!isUser && msg.modelUsed && (
                       <span className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                         <Cpu className="w-2.5 h-2.5" />
@@ -1079,9 +1125,9 @@ export default function AIAssistantView({
                         {msg.latencyMs && <span>({(msg.latencyMs / 1000).toFixed(1)}s)</span>}
                       </span>
                     )}
+                  </div>
+                  <div className={`flex flex-wrap items-center gap-1 px-2 py-1.5 -mt-px border border-t-0 rounded-b-xl shadow-xs ${isUser ? "bg-blue-50 dark:bg-slate-800 border-blue-100 dark:border-slate-700" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}`}>
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap items-center gap-1 mt-1 border-t border-slate-200/70 dark:border-slate-700/70 pt-1.5 opacity-100 transition-opacity">
                       <button
                         type="button"
                         onClick={() => handleCopy(msg.id, msg.text)}
@@ -1173,9 +1219,7 @@ export default function AIAssistantView({
                           <RotateCw className="w-3 h-3" />
                         </button>
                       )}
-                    </div>
-
-                    {msg.isError && (
+                  {msg.isError && (
                       <button
                         type="button"
                         onClick={() => handleRetry(msg.text)}
@@ -1220,11 +1264,6 @@ export default function AIAssistantView({
             {notice}
           </div>
         )}
-
-        <div className="px-3 sm:px-5 py-2 flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 shrink-0">
-          <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300"><span>حجم الخط</span><input aria-label="حجم خط المحادثة" type="range" min="5" max="32" step="1" value={messageFontSize} onChange={(e) => setMessageFontSize(Number(e.target.value))} className="w-24 accent-blue-600" /><span className="min-w-7 text-center tabular-nums">{messageFontSize}px</span></label>
-          <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300"><span>نمط المحادثة</span><select aria-label="نمط المحادثة" value={chatStyle} onChange={(e) => setChatStyle(e.target.value as "classic" | "soft" | "midnight" | "mint")} className="max-w-36 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-xs"><option value="classic">كلاسيكي</option><option value="soft">بطاقات ناعمة</option><option value="midnight">ليلي</option><option value="mint">أخضر هادئ</option></select></label>
-        </div>
 
         {/* Quick Questions Suggestions Carousel */}
         <div className="px-3 sm:px-5 py-2 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
@@ -1358,6 +1397,10 @@ export default function AIAssistantView({
         totalMessagesCount={conversations.reduce((acc, c) => acc + c.messages.length, 0)}
         onExportAllConversations={handleExportAllJSON}
         onClearAllConversations={handleClearAllConversations}
+        messageFontSize={messageFontSize}
+        onMessageFontSizeChange={setMessageFontSize}
+        chatStyle={chatStyle}
+        onChatStyleChange={setChatStyle}
       />
     </div>
   );
