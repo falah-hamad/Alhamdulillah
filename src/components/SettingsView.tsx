@@ -780,64 +780,6 @@ export default function SettingsView({
 
 
 
-      {/* Miscellaneous settings */}
-      <section className="bg-slate-50 rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-          <Settings className="w-5 h-5 text-slate-600" />
-          <div>
-            <h2 className="text-sm font-extrabold text-slate-800">إعدادات متنوعة</h2>
-            <p className="text-xs text-slate-500 mt-1">خيارات إضافية خاصة بطريقة عرض التطبيق على جهازك.</p>
-          </div>
-        </div>
-        <section className="bg-white rounded-xl border border-blue-100 shadow-sm p-4 sm:p-5 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-700 shrink-0"><Phone className="w-5 h-5" /></div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-extrabold text-slate-800">وضع الهاتف والآيباد</h2>
-              <p className="text-xs text-slate-500 mt-1">اختَر وضع العرض المناسب لجهازك. يُحفظ محلياً على هذا الجهاز فقط ولا يتزامن مع حسابك أو أجهزتك الأخرى.</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { width: 500, label: "وضع الهاتف الصغير" },
-              { width: 600, label: "وضع الهاتف" },
-              { width: 800, label: "وضع الجهاز الكبير" },
-              { width: 1000, label: "وضع الآيباد" },
-            ].map((option) => (
-              <button
-                key={option.width}
-                type="button"
-                onClick={() => applyViewportWidth(option.width)}
-                className={`rounded-lg border px-2 py-3 text-xs font-bold transition-colors ${viewportWidth === option.width ? "border-blue-600 bg-blue-50 text-blue-800 ring-1 ring-blue-200" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-              >
-                <span className="block text-sm font-extrabold">{option.width}</span>
-                <span className="block mt-1">{option.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <label htmlFor="local-viewport-width" className="font-bold text-slate-700">تخصيص حجم العرض</label>
-              <span className="font-extrabold text-blue-700 tabular-nums">{viewportWidth}px</span>
-            </div>
-            <input
-              id="local-viewport-width"
-              type="range"
-              min={500}
-              max={1000}
-              step={1}
-              value={viewportWidth}
-              onChange={(event) => setViewportWidth(Number(event.target.value))}
-              onPointerUp={() => applyViewportWidth(viewportWidth)}
-              onKeyUp={() => applyViewportWidth(viewportWidth)}
-              className="w-full accent-blue-600 cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-400"><span>500 — أصغر</span><span>1000 — أوسع</span></div>
-            <p className="text-[11px] text-slate-500">اختَر «وضع الهاتف» للهواتف، أو «وضع الآيباد» للأجهزة اللوحية. إذا احتجت ضبطاً أدق، استخدم الشريط ثم أعد فتح التطبيق لتطبيق العرض.</p>
-          </div>
-        </section>
-      </section>
-
     </div>
   );
 }
