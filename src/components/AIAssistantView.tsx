@@ -1160,7 +1160,7 @@ export default function AIAssistantView({
                           disabled={isLoading}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40"
                         >
-                          <RotateCcw className="h-4 w-4" />
+                          <RotateCw className="h-4 w-4" />
                         </button>
                       )}
                       <button
