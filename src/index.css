@@ -440,3 +440,48 @@ button, [role="button"] { line-height: 1.35; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Authentication screen: full-bleed, touch-friendly layout on phones only. */
+@media screen and (max-width: 600px) {
+  .auth-modal-overlay {
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    padding: 0 !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .auth-modal-card {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #auth-card > .bg-gradient-to-r {
+    padding: 20px 16px !important;
+  }
+
+  #auth-card form :is(input, select, textarea) {
+    width: 100%;
+    min-height: 48px !important;
+    font-size: 16px !important;
+    padding: 10px 12px !important;
+  }
+
+  #auth-card form button {
+    min-height: 46px !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+  }
+
+  #auth-card form label {
+    font-size: 14px;
+  }
+}
+
