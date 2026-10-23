@@ -69,22 +69,26 @@ jobs:
           api-level: 30
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -cores 2 -memory 4096
           disable-animations: true
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb wait-for-device
             adb shell monkey -p com.falah.allahisgreat1 1
-            sleep 25
+            sleep 45
+            adb logcat -d -t 2500 > ./android-emulator-logcat.txt || true
             adb shell screencap -p /sdcard/alhamdulillah-portrait.png
             adb pull /sdcard/alhamdulillah-portrait.png ./alhamdulillah-portrait.png
             test -s ./alhamdulillah-portrait.png
 
-      - name: Upload emulator screenshot
+      - name: Upload emulator screenshot and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-emulator-portrait-screenshot
-          path: alhamdulillah-portrait.png
+          name: android-emulator-portrait-screenshot-and-logs
+          path: |
+            alhamdulillah-portrait.png
+            android-emulator-logcat.txt
           if-no-files-found: warn
           retention-days: 7
 
