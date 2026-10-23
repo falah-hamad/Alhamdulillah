@@ -328,6 +328,18 @@ export function preparePrintableClone(element: HTMLElement): HTMLElement {
     clone.style.borderRadius = "16px";
     clone.style.padding = "24px 28px";
   }
+  // A few export callers keep the live source node off-screen with position:fixed.
+  // Do not carry that screen-only positioning into the print/PDF document, or the
+  // cloned content can render outside the printable page and produce a blank sheet.
+  clone.style.position = "static";
+  clone.style.left = "auto";
+  clone.style.right = "auto";
+  clone.style.top = "auto";
+  clone.style.bottom = "auto";
+  clone.style.inset = "auto";
+  clone.style.transform = "none";
+  clone.style.visibility = "visible";
+  clone.style.opacity = "1";
   clone.style.width = "100%";
   clone.style.maxWidth = "100%";
   clone.style.margin = "0 auto";
