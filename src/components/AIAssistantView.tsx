@@ -1099,7 +1099,7 @@ export default function AIAssistantView({
                       <button type="button" onClick={() => handlePrintSingleMessage(msg)} title="طباعة هذه الرسالة" aria-label="طباعة الرسالة" className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"><Printer className="w-3 h-3" /></button>
                       <button
                         type="button"
-                        onClick={() => handleShareMessage(msg.text)
+                        onClick={() => handleShareMessage(msg.text)}
                         title="مشاركة الرسالة"
                         aria-label="مشاركة الرسالة"
                         className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500"
