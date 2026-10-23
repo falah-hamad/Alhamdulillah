@@ -3,6 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <script>
+      // On narrow phones, use a desktop-like layout canvas close to 600 CSS px.
+      // 601px intentionally sits just above the app's max-width: 600px mobile rules,
+      // allowing a 360px phone to render the wider layout at roughly 60% scale.
+      (function () {
+        if (window.matchMedia && window.matchMedia("(max-width: 600px)").matches) {
+          var viewport = document.querySelector('meta[name="viewport"]');
+          if (viewport) {
+            viewport.setAttribute(
+              "content",
+              "width=601, viewport-fit=cover, interactive-widget=resizes-content"
+            );
+          }
+        }
+      })();
+    </script>
     <title>دفتر الديون المحاسبي</title>
     <meta name="description" content="نظام محاسبي متكامل لإدارة سجل الديون، العملاء، البضائع، الدفعات، الفواتير، والتقارير المالية بدقة واحترافية عالية مع دعم كامل للطباعة والبحث والنسخ الاحتياطي." />
     <meta property="og:title" content="دفتر الديون المحاسبي" />
