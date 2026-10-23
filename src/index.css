@@ -514,7 +514,6 @@ button, [role="button"] { line-height: 1.35; }
     margin-inline: 0 !important;
   }
 
-  .app-content > .max-w-\[.*\],
   .app-content > [class*="max-w-"] {
     max-width: 100% !important;
   }
