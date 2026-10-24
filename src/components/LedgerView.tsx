@@ -739,6 +739,7 @@ ${folderCustomers
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("ledger-unsaved-change", {
       detail: {
+        source: "accounting-sheet",
         dirty: accountingRowsDirty,
         label: "القائمة الحسابية",
         save: saveAccountingRows,
@@ -746,7 +747,7 @@ ${folderCustomers
       },
     }));
     return () => {
-      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { dirty: false } }));
+      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { source: "accounting-sheet", dirty: false } }));
     };
   }, [accountingRowsDirty, accountingDraftRows, selectedCustomer?.id]);
 
