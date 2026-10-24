@@ -334,6 +334,7 @@ export default function VerticalLedgerSheet({
     });
     try {
       await onUpdateInvoice(updatedInvoice);
+      originalInvoiceRef.current = updatedInvoice;
       for (const entry of [...pendingChangeLogs, ...editLogs]) {
         await Promise.resolve(commitChangeLog?.(entry));
       }
