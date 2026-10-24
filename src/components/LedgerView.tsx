@@ -3410,7 +3410,40 @@ ${folderCustomers
                           </button>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        {ledgerDisplayMode === "vertical" && (
+                          <div className="flex items-center gap-1.5" dir="rtl" aria-label="إجراءات سجل الديون">
+                            <button
+                              type="button"
+                              onClick={handlePrint}
+                              disabled={isPrinting}
+                              aria-label="طباعة وصل الدين A4"
+                              title={isPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+                            >
+                              {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleExportPDF}
+                              disabled={isExportingPDF}
+                              aria-label="حفظ وصل الدين PDF"
+                              title={isExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                            >
+                              {isExportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById("tab-btn-changelog")?.click()}
+                              aria-label="سجل التغييرات"
+                              title="سجل التغييرات"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                         {(() => {
                           const custInvs = selectedCustomer ? getCustomerStats(selectedCustomer.id).custInvoices : [];
                           if (custInvs.length > 1) {
