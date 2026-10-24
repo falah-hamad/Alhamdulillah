@@ -1804,28 +1804,6 @@ export default function VerticalLedgerSheet({
                 </div>
               )}
 
-              <button
-                type="button"
-                id="btn-insert-above"
-                onClick={() => handleInsertRowAbove()}
-                className="px-1.5 py-0.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer border border-slate-200"
-                title="إضافة صف جديد أعلى الصف المحدد"
-              >
-                <ArrowUpToLine className="w-2.5 h-2.5 text-blue-600 shrink-0" />
-                <span>أعلى</span>
-              </button>
-
-              <button
-                type="button"
-                id="btn-insert-below"
-                onClick={() => handleInsertRowBelow()}
-                className="px-1.5 py-0.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer border border-slate-200"
-                title="إضافة صف جديد أسفل الصف المحدد"
-              >
-                <ArrowDownToLine className="w-2.5 h-2.5 text-blue-600 shrink-0" />
-                <span>أسفل</span>
-              </button>
-
               <div className="h-3 w-px bg-slate-200 mx-0.5"></div>
 
               <button
@@ -1865,17 +1843,7 @@ export default function VerticalLedgerSheet({
                 </button>
               )}
 
-              <button
-                type="button"
-                id="btn-delete-row"
-                onClick={() => selectedItem && handleDeleteRow(selectedItem.id)}
-                className="px-1.5 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer border border-rose-200"
-                title="حذف هذا الصف كاملاً من السجل"
-              >
-                <Trash2 className="w-2.5 h-2.5 text-rose-600 shrink-0" />
-                <span>حذف</span>
-              </button>
-            </div>
+              </div>
           </div>
         )}
       </div>
