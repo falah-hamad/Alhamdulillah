@@ -148,6 +148,16 @@ export default function App() {
     return () => window.removeEventListener("ledger-unsaved-change", onLedgerGuardChange as EventListener);
   }, []);
 
+  // Handle the in-app "العودة إلى سجل الديون" button through the same unsaved-changes guard.
+  useEffect(() => {
+    const onLedgerRequestNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ action?: () => void }>).detail;
+      requestLedgerNavigation(detail?.action);
+    };
+    window.addEventListener("ledger-request-navigation", onLedgerRequestNavigation as EventListener);
+    return () => window.removeEventListener("ledger-request-navigation", onLedgerRequestNavigation as EventListener);
+  }, [requestLedgerNavigation]);
+
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!ledgerLeaveGuardRef.current?.dirty) return;
