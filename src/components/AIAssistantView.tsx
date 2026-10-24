@@ -533,28 +533,33 @@ export default function AIAssistantView({
   };
 
   // Regenerate last AI response
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (targetMessageId?: string) => {
     if (!activeConversation || isLoading) return;
     const msgs = activeConversation.messages;
-    let lastUserIndex = -1;
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].sender === "user") {
-        lastUserIndex = i;
-        break;
+    let targetUserIndex = -1;
+
+    if (targetMessageId) {
+      targetUserIndex = msgs.findIndex((message) => message.id === targetMessageId && message.sender === "user");
+    } else {
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].sender === "user") {
+          targetUserIndex = i;
+          break;
+        }
       }
     }
-    if (lastUserIndex < 0) return;
+    if (targetUserIndex < 0) return;
 
-    const lastUserMsg = msgs[lastUserIndex];
+    const targetUserMessage = msgs[targetUserIndex];
     const baseConversation: ChatConversation = {
       ...activeConversation,
-      messages: msgs.slice(0, lastUserIndex),
+      messages: msgs.slice(0, targetUserIndex),
       updatedAt: new Date().toISOString(),
     };
     setConversations((prev) =>
       prev.map((c) => (c.id === baseConversation.id ? baseConversation : c))
     );
-    await handleSendMessage(lastUserMsg.text, baseConversation);
+    await handleSendMessage(targetUserMessage.text, baseConversation);
   };
 
   // Retry when error occurs
@@ -1077,7 +1082,6 @@ export default function AIAssistantView({
           {messages.map((msg, index) => {
             const isUser = msg.sender === "user";
             const isLastMessage = index === messages.length - 1;
-            const isLastUserMessage = isUser && !messages.slice(index + 1).some((laterMsg) => laterMsg.sender === "user");
 
             return (
               <div
@@ -1194,7 +1198,6 @@ export default function AIAssistantView({
                         >
                           <RotateCw className="h-4 w-4" />
                         </button>
-                      )}
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
@@ -1258,10 +1261,9 @@ export default function AIAssistantView({
                       >
                         {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                       </button>
-                      {isLastUserMessage && (
-                        <button
+                      <button
                           type="button"
-                          onClick={handleRegenerate}
+                          onClick={() => handleRegenerate(msg.id)}
                           title="إعادة توليد الإجابة"
                           aria-label="إعادة توليد الإجابة"
                           disabled={isLoading}
