@@ -73,7 +73,7 @@ export default function VerticalLedgerSheet({
   onOpenProductCart,
   changeLogs = [],
   isCloudSyncing = false,
-  onAddChangeLog,
+  onAddChangeLog: commitChangeLog,
   onDeleteChangeLog,
   onClearCustomerChangeLogs,
   onRevertChangeLog,
@@ -239,6 +239,13 @@ export default function VerticalLedgerSheet({
 
   // Save feedback state
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingChangeLogs, setPendingChangeLogs] = useState<Array<Parameters<NonNullable<typeof commitChangeLog>>[0]>>([]);
+
+  // Queue history entries until the user explicitly confirms saving.
+  const onAddChangeLog = (entry: Parameters<NonNullable<typeof commitChangeLog>>[0]) => {
+    setPendingChangeLogs((previous) => [...previous, entry]);
+  };
 
   // Sync back to parent whenever items change
   const persistChanges = (updatedItems: InvoiceItem[], explicitPageCount?: number) => {
@@ -272,8 +279,47 @@ export default function VerticalLedgerSheet({
       pageCount: finalPageCount,
     };
 
+    setHasUnsavedChanges(true);
+    setSaveStatus("توجد تغييرات غير محفوظة");
+  };
+
+  const handleConfirmSave = () => {
+    const latestItems = items;
+    let grandTotal = 0;
+    let totalPaid = 0;
+    latestItems.forEach((it) => {
+      if (!it.isSeparator && !it.isPaymentRow && !it.isRemainingRow) {
+        grandTotal += Number(it.total || it.unitPrice || 0);
+      }
+      if (it.isSeparator) totalPaid += Number(it.paidAmount || 0);
+    });
+    if (!latestItems.some((it) => it.isSeparator)) totalPaid = invoice.paidAmount;
+    const updatedInvoice: Invoice = {
+      ...invoice,
+      items: latestItems,
+      grandTotal,
+      paidAmount: totalPaid,
+      remainingAmount: Math.max(0, grandTotal - totalPaid),
+      pageCount,
+    };
     onUpdateInvoice(updatedInvoice);
-    setSaveStatus("تم الحفظ وتحديث الحساب تلقائياً");
+    pendingChangeLogs.forEach((entry) => { void commitChangeLog?.(entry); });
+    setPendingChangeLogs([]);
+    setHasUnsavedChanges(false);
+    setSaveStatus("تم حفظ التغييرات وتسجيل الحركة");
+    setTimeout(() => setSaveStatus(null), 2200);
+  };
+
+  const handleCancelChanges = () => {
+    if (!hasUnsavedChanges && pendingChangeLogs.length === 0) return;
+    if (!window.confirm("إلغاء جميع التغييرات غير المحفوظة؟ لن تُحفظ البيانات ولن تُسجّل أي حركة.")) return;
+    const originalItems = (invoice.items || []).map((it) => ({ ...it, pageNumber: it.pageNumber || 1 }));
+    setItems(originalItems);
+    setPageCount(Math.max(1, invoice.pageCount || 1, ...originalItems.map((it) => it.pageNumber || 1)));
+    setEditingAmounts({});
+    setPendingChangeLogs([]);
+    setHasUnsavedChanges(false);
+    setSaveStatus("تم إلغاء التغييرات");
     setTimeout(() => setSaveStatus(null), 1800);
   };
 
@@ -1881,6 +1927,13 @@ export default function VerticalLedgerSheet({
                 <Check className="w-3 h-3" />
                 <span>{saveStatus}</span>
               </span>
+            )}
+            {sheetMode === "edit" && hasUnsavedChanges && (
+              <div className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 p-1.5" role="group" aria-label="تأكيد حفظ التغييرات">
+                <span className="px-1 text-[10px] font-bold text-amber-800">تغييرات غير محفوظة</span>
+                <button type="button" onClick={handleConfirmSave} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" />تم الحفظ</button>
+                <button type="button" onClick={handleCancelChanges} className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-50"><X className="h-3.5 w-3.5" />إلغاء</button>
+              </div>
             )}
           </div>
 
