@@ -78,6 +78,13 @@ export default function VerticalLedgerSheet({
   onClearCustomerChangeLogs,
   onRevertChangeLog,
 }: VerticalLedgerSheetProps) {
+  // Keep the original baseline for the entire edit session, even if an optimistic
+  // parent update happens during a failed cloud save attempt.
+  const originalInvoiceRef = useRef(invoice);
+  useEffect(() => {
+    if (originalInvoiceRef.current.id !== invoice.id) originalInvoiceRef.current = invoice;
+  }, [invoice.id]);
+
   // Main view tab: "sheet" (ورقة حساب الدين) or "changelog" (سجل التغييرات)
   const [activeViewTab, setActiveViewTab] = useState<"sheet" | "changelog">("sheet");
 
@@ -294,7 +301,7 @@ export default function VerticalLedgerSheet({
       }
       if (it.isSeparator) totalPaid += Number(it.paidAmount || 0);
     });
-    if (!latestItems.some((it) => it.isSeparator)) totalPaid = invoice.paidAmount;
+    if (!latestItems.some((it) => it.isSeparator)) totalPaid = originalInvoiceRef.current.paidAmount;
     const updatedInvoice: Invoice = {
       ...invoice,
       items: latestItems,
@@ -305,7 +312,7 @@ export default function VerticalLedgerSheet({
     };
     // Existing rows changed during this editing session must also create a history entry,
     // but only after the user confirms saving.
-    const originalById = new Map((invoice.items || []).map((item) => [item.id, item]));
+    const originalById = new Map((originalInvoiceRef.current.items || []).map((item) => [item.id, item]));
     const editLogs = latestItems.flatMap((item) => {
       const previous = originalById.get(item.id);
       if (!previous || item.isSeparator || previous.isSeparator) return [];
@@ -349,9 +356,10 @@ export default function VerticalLedgerSheet({
   const handleCancelChanges = () => {
     if (!hasUnsavedChanges && pendingChangeLogs.length === 0) return;
 
-    const originalItems = (invoice.items || []).map((it) => ({ ...it, pageNumber: it.pageNumber || 1 }));
+    const originalInvoice = originalInvoiceRef.current;
+    const originalItems = (originalInvoice.items || []).map((it) => ({ ...it, pageNumber: it.pageNumber || 1 }));
     setItems(originalItems);
-    setPageCount(Math.max(1, invoice.pageCount || 1, ...originalItems.map((it) => it.pageNumber || 1)));
+    setPageCount(Math.max(1, originalInvoice.pageCount || 1, ...originalItems.map((it) => it.pageNumber || 1)));
     setEditingAmounts({});
     setPendingChangeLogs([]);
     setPendingPaidNotifications([]);
