@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   BookOpen,
   ShoppingCart,
@@ -699,9 +699,11 @@ ${folderCustomers
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId && !c.isDeleted);
+  const accountingOriginalRowsRef = useRef<AccountingSheetRow[]>(selectedCustomer?.accountingSheetRows || []);
 
   useEffect(() => {
-    setAccountingDraftRows(selectedCustomer?.accountingSheetRows || []);
+    accountingOriginalRowsRef.current = selectedCustomer?.accountingSheetRows || [];
+    setAccountingDraftRows(accountingOriginalRowsRef.current);
     setAccountingRowsDirty(false);
     setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
     setEditingAccountingRowId(null);
@@ -721,12 +723,13 @@ ${folderCustomers
     if (!selectedCustomer || !updateCustomer) throw new Error("تحديث بيانات الزبون غير متاح.");
     await Promise.resolve(updateCustomer({ ...selectedCustomer, accountingSheetRows: accountingDraftRows }));
     setAccountingRowsDirty(false);
+    accountingOriginalRowsRef.current = accountingDraftRows;
     showToast("تم حفظ القائمة الحسابية بنجاح.");
     return true;
   };
 
   const cancelAccountingRows = () => {
-    setAccountingDraftRows(selectedCustomer?.accountingSheetRows || []);
+    setAccountingDraftRows(accountingOriginalRowsRef.current);
     setAccountingRowsDirty(false);
     setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
     setEditingAccountingRowId(null);
