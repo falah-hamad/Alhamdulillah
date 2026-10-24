@@ -372,6 +372,7 @@ export default function VerticalLedgerSheet({
     const notifyGuard = () => {
       window.dispatchEvent(new CustomEvent("ledger-unsaved-change", {
         detail: {
+          source: "debt-sheet",
           dirty: hasUnsavedChanges || pendingChangeLogs.length > 0,
           label: "ورقة الدفتر",
           save: async () => {
@@ -384,7 +385,7 @@ export default function VerticalLedgerSheet({
     };
     notifyGuard();
     return () => {
-      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { dirty: false } }));
+      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { source: "debt-sheet", dirty: false } }));
     };
   }, [hasUnsavedChanges, pendingChangeLogs, items, pageCount, invoice.id]);
 
