@@ -188,8 +188,7 @@ export default function LedgerView({
   const [accountingFontBold, setAccountingFontBold] = useState(true);
   const [accountingFontItalic, setAccountingFontItalic] = useState(false);
   const [accountingFontUnderline, setAccountingFontUnderline] = useState(false);
-  const [accountingBgColor, setAccountingBgColor] = useState(() => { try { return localStorage.getItem("ledger_sheet_bg_color") || "#faf6ef"; } catch { return "#faf6ef"; } });
-  const [showAccountingColorPicker, setShowAccountingColorPicker] = useState(false);
+  const [accountingBgColor, setAccountingBgColor] = useState(() => { try { return localStorage.getItem("accounting_sheet_bg_color") || "#faf6ef"; } catch { return "#faf6ef"; } });
   const [accountingSelectedRow, setAccountingSelectedRow] = useState(0);
   const [accountingCursorSelected, setAccountingCursorSelected] = useState(false);
   const [isAccountingChangeLogOpen, setIsAccountingChangeLogOpen] = useState(false);
@@ -3507,7 +3506,7 @@ ${folderCustomers
                           </div>}
                           {accountingToolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
                             <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={accountingBgColor} onChange={(event) => {setAccountingBgColor(event.target.value); try {localStorage.setItem("ledger_sheet_bg_color",event.target.value);} catch {}}} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
-                            <div className="flex flex-wrap gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" title={label} aria-label={label} onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("ledger_sheet_bg_color",color);} catch {}}} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:color}}/>)}</div>
+                            <div className="flex flex-wrap gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" title={label} aria-label={label} onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("accounting_sheet_bg_color",color);} catch {}}} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:color}}/>)}</div>
                           </div>}
                         </div>
                         {(() => {
