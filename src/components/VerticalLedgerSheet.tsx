@@ -302,8 +302,30 @@ export default function VerticalLedgerSheet({
       remainingAmount: Math.max(0, grandTotal - totalPaid),
       pageCount,
     };
+    // Existing rows changed during this editing session must also create a history entry,
+    // but only after the user confirms saving.
+    const originalById = new Map((invoice.items || []).map((item) => [item.id, item]));
+    const editLogs = latestItems.flatMap((item) => {
+      const previous = originalById.get(item.id);
+      if (!previous || item.isSeparator || previous.isSeparator) return [];
+      const oldAmount = Number(previous.total || previous.unitPrice || 0);
+      const newAmount = Number(item.total || item.unitPrice || 0);
+      const oldName = (previous.details || "").trim();
+      const newName = (item.details || "").trim();
+      if (oldAmount === newAmount && oldName === newName) return [];
+      return [{
+        customerId: customer.id,
+        invoiceId: invoice.id,
+        actionType: "تعديل دين",
+        details: `تعديل: ${formatDebtChangeLogDetails(oldName, oldAmount, settings.currency)} ← ${formatDebtChangeLogDetails(newName, newAmount, settings.currency)}`,
+        rawAmount: newAmount,
+        itemName: newName,
+        targetItemId: item.id,
+        previousState: previous,
+      }];
+    });
     onUpdateInvoice(updatedInvoice);
-    pendingChangeLogs.forEach((entry) => { void commitChangeLog?.(entry); });
+    [...pendingChangeLogs, ...editLogs].forEach((entry) => { void commitChangeLog?.(entry); });
     setPendingChangeLogs([]);
     setHasUnsavedChanges(false);
     setSaveStatus("تم حفظ التغييرات وتسجيل الحركة");
