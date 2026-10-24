@@ -1198,6 +1198,7 @@ export default function AIAssistantView({
                         >
                           <RotateCw className="h-4 w-4" />
                         </button>
+                      )}
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
