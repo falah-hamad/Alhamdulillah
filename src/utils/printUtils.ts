@@ -606,20 +606,21 @@ export async function printElement(
         }
 
         #vertical-ledger-sheet .a4-page {
-          /* Keep the full sheet inside the printer's reliable printable area.
-             Center it on A4 so neither side is clipped by browser/printer margins. */
+          /* Preserve the A4 card's minimum printable area, but never force
+             overflowing ledger rows outside its white/bordered container. */
           width: 194mm !important;
           max-width: 194mm !important;
-          height: 274.2mm !important;
+          height: auto !important;
           min-height: 274.2mm !important;
-          max-height: 274.2mm !important;
+          max-height: none !important;
           padding: 5.87mm 7.82mm !important;
           margin: 0 auto !important;
           box-sizing: border-box !important;
+          overflow: visible !important;
           page-break-after: always !important;
           break-after: page !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
+          page-break-inside: auto !important;
+          break-inside: auto !important;
         }
         #vertical-ledger-sheet .a4-page:last-child {
           page-break-after: auto !important;
