@@ -569,13 +569,33 @@ export async function printElement(
           margin: 6px 0 !important;
         }
 
-        /* Prevent individual rows from splitting mid-page */
-        [id^="row-"],
-        [id^="sep-"],
-        tr,
-        .ledger-row {
+        /* Smart pagination for the vertical debt ledger:
+           keep each debt row and its complete accounting separator together,
+           and keep headings attached to the content that follows them. */
+        #vertical-ledger-sheet [id^="row-"],
+        #vertical-ledger-sheet [id^="sep-"],
+        #vertical-ledger-sheet tr,
+        #vertical-ledger-sheet .ledger-row,
+        #vertical-ledger-sheet [id^="sep-"] > div {
           page-break-inside: avoid !important;
-          break-inside: avoid !important;
+          break-inside: avoid-page !important;
+        }
+
+        #vertical-ledger-sheet .a4-page h1,
+        #vertical-ledger-sheet .a4-page h2,
+        #vertical-ledger-sheet .a4-page h3,
+        #vertical-ledger-sheet .a4-page h4,
+        #vertical-ledger-sheet .a4-page h5,
+        #vertical-ledger-sheet .a4-page h6 {
+          page-break-after: avoid !important;
+          break-after: avoid-page !important;
+        }
+
+        /* Never split a short label/value block, but allow long text to flow. */
+        #vertical-ledger-sheet .a4-page th,
+        #vertical-ledger-sheet .a4-page td {
+          page-break-inside: avoid !important;
+          break-inside: avoid-page !important;
         }
 
         /* Hide interactive non-printable elements */
