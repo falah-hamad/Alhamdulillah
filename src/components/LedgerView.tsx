@@ -5039,7 +5039,7 @@ ${folderCustomers
               <CustomerChangeLogTable
                 customerId={selectedCustomer.id}
                 customerName={selectedCustomer.name}
-                changeLogs={changeLogs || []}
+                changeLogs={(changeLogs || []).filter((log) => log.customerId === selectedCustomer.id && !log.invoiceId)}
                 currency={settings.currency}
                 onDeleteLog={deleteChangeLog}
                 onClearCustomerLogs={clearCustomerChangeLogs}
