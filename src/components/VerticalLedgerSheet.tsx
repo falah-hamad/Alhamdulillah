@@ -1240,8 +1240,8 @@ export default function VerticalLedgerSheet({
             {/* Table Header: ت | المبلغ | التفاصيل */}
             <div className="grid grid-cols-12 border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
-              <div className="col-span-4 text-center font-bold text-xs">المبلغ</div>
-              <div className="col-span-7 text-right pr-3 font-bold text-xs">التفاصيل والبيان</div>
+              <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
+              <div className="col-span-8 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
             </div>
 
             {/* Empty Account State Notice */}
@@ -1304,7 +1304,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* 2. المبلغ (Amount) */}
-                        <div className="col-span-4 px-2">
+                        <div className="col-span-3 px-1">
                           {sheetMode === "view" ? (
                             <div
                               style={{ fontSize: `${fontSize}px` }}
@@ -1346,7 +1346,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* 3. التفاصيل (Details) */}
-                        <div className="col-span-7 pr-3 pl-1 flex items-center justify-between">
+                        <div className="col-span-8 pr-1 pl-1 flex items-center justify-between">
                           {sheetMode === "view" ? (
                             <div
                               style={{ fontSize: `${fontSize}px` }}
@@ -1441,13 +1441,13 @@ export default function VerticalLedgerSheet({
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
-                          className="col-span-4 text-center font-mono font-bold text-slate-900"
+                          className="col-span-3 text-center font-mono font-bold text-slate-900"
                         >
                           {sec.subtotal.toLocaleString()}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize}px` }}
-                          className="col-span-7 pr-3 font-bold text-slate-800 flex items-center justify-between"
+                          className="col-span-8 pr-1 font-bold text-slate-800 flex items-center justify-between"
                         >
                           <span>المجموع</span>
                         </div>
@@ -1456,7 +1456,7 @@ export default function VerticalLedgerSheet({
                       {/* الواصل (Paid Amount) */}
                       <div className="grid grid-cols-12 items-center py-1">
                         <div className="col-span-1"></div>
-                        <div className="col-span-4 text-center flex items-center justify-center">
+                        <div className="col-span-3 text-center flex items-center justify-center">
                           {sheetMode === "view" ? (
                             <span
                               style={{ fontSize: `${fontSize + 1}px` }}
@@ -1493,7 +1493,7 @@ export default function VerticalLedgerSheet({
                             />
                           )}
                         </div>
-                        <div className="col-span-7 pr-3 flex items-center justify-between gap-2">
+                        <div className="col-span-8 pr-1 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap shrink-0">
                             <span
                               style={{ fontSize: `${fontSize}px` }}
@@ -1585,13 +1585,13 @@ export default function VerticalLedgerSheet({
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 2}px` }}
-                          className="col-span-4 text-center font-mono font-black text-slate-950"
+                          className="col-span-3 text-center font-mono font-black text-slate-950"
                         >
                           {sec.remaining.toLocaleString()}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
-                          className="col-span-7 pr-3 font-black text-slate-950 flex items-center gap-2"
+                          className="col-span-8 pr-1 font-black text-slate-950 flex items-center gap-2"
                         >
                           <span>المتبقي</span>
                           {sec.remaining === 0 ? (
@@ -1650,7 +1650,7 @@ export default function VerticalLedgerSheet({
     );
   };
 
-  const customerLogs = (changeLogs || []).filter((l) => l.customerId === customer.id);
+  const customerLogs = (changeLogs || []).filter((l) => l.customerId === customer.id && l.invoiceId === invoice.id);
 
   useEffect(() => {
     const openHistory = () => setActiveViewTab("changelog");
