@@ -1137,6 +1137,7 @@ export default function VerticalLedgerSheet({
         }}
         data-ledger-font="true"
       >
+        <style>{`.a4-page[data-ledger-font="true"] .text-slate-900,.a4-page[data-ledger-font="true"] .text-slate-800,.a4-page[data-ledger-font="true"] .text-slate-700,.a4-page[data-ledger-font="true"] .text-slate-600,.a4-page[data-ledger-font="true"] input{color:${ledgerFontColor}!important;font-weight:${ledgerFontBold ? 800 : 400}!important;font-style:${ledgerFontItalic ? "italic" : "normal"}!important;text-decoration:${ledgerFontUnderline ? "underline" : "none"}!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
