@@ -36,7 +36,6 @@ import {
   MessageSquare,
   AtSign,
   AlertCircle,
-  Cpu,
   Share2,
   ThumbsUp,
   ThumbsDown,
@@ -1271,16 +1270,10 @@ export default function AIAssistantView({
                       </button>
                     </div>
                   )}
-                  {/* Message metadata below the compact action toolbar */}
-                  <div className="flex flex-wrap items-center gap-2 mt-1 px-1 text-[11px] text-slate-400">
+                  {/* Keep only the message time beneath the action buttons */}
+                  <div className="mt-1 flex items-center gap-1 px-1 text-[11px] text-slate-400" dir="rtl">
+                    <Clock className="h-3 w-3" aria-hidden="true" />
                     <span>{msg.timestamp}</span>
-                    {!isUser && msg.modelUsed && (
-                      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        <Cpu className="w-2.5 h-2.5" />
-                        <span>{msg.modelUsed}</span>
-                        {msg.latencyMs && <span>({(msg.latencyMs / 1000).toFixed(1)}s)</span>}
-                      </span>
-                    )}
                   </div>
                   {msg.isError && (
                       <button
@@ -1306,7 +1299,7 @@ export default function AIAssistantView({
               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3.5 rounded-2xl rounded-bl-xs shadow-xs space-y-2">
                 <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
                   <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                  <span>المساعد يفحص السجلات ويحلل البيانات بنموذج <strong>{aiSettings.selectedModel}</strong>...</span>
+                  <span>المساعد يفحص السجلات ويحلل البيانات...</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
