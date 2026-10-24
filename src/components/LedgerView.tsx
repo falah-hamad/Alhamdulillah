@@ -179,6 +179,7 @@ export default function LedgerView({
   const [isPrinting, setIsPrinting] = useState(false);
   const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
   const [accountingDraftRows, setAccountingDraftRows] = useState<AccountingSheetRow[]>([]);
+  const [accountingRowsDirty, setAccountingRowsDirty] = useState(false);
   const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
   const [accountingSheetMode, setAccountingSheetMode] = useState<"view" | "edit">("view");
   const [accountingFontSize, setAccountingFontSize] = useState(13);
@@ -701,15 +702,50 @@ ${folderCustomers
 
   useEffect(() => {
     setAccountingDraftRows(selectedCustomer?.accountingSheetRows || []);
+    setAccountingRowsDirty(false);
+    setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+    setEditingAccountingRowId(null);
   }, [selectedCustomer?.id]);
 
   const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
     if (!selectedCustomer || !updateCustomer) {
-      showToast("تعذر حفظ القائمة الحسابية: تحديث بيانات الزبون غير متاح.");
+      showToast("تعذر تعديل القائمة الحسابية: تحديث بيانات الزبون غير متاح.");
       return;
     }
-    updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows });
+    setAccountingDraftRows(nextRows);
+    setAccountingRowsDirty(true);
   };
+
+  const saveAccountingRows = async (): Promise<boolean> => {
+    if (!accountingRowsDirty) return true;
+    if (!selectedCustomer || !updateCustomer) throw new Error("تحديث بيانات الزبون غير متاح.");
+    await Promise.resolve(updateCustomer({ ...selectedCustomer, accountingSheetRows: accountingDraftRows }));
+    setAccountingRowsDirty(false);
+    showToast("تم حفظ القائمة الحسابية بنجاح.");
+    return true;
+  };
+
+  const cancelAccountingRows = () => {
+    setAccountingDraftRows(selectedCustomer?.accountingSheetRows || []);
+    setAccountingRowsDirty(false);
+    setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
+    setEditingAccountingRowId(null);
+    showToast("تم إلغاء التغييرات غير المحفوظة.");
+  };
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("ledger-unsaved-change", {
+      detail: {
+        dirty: accountingRowsDirty,
+        label: "القائمة الحسابية",
+        save: saveAccountingRows,
+        cancel: cancelAccountingRows,
+      },
+    }));
+    return () => {
+      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { dirty: false } }));
+    };
+  }, [accountingRowsDirty, accountingDraftRows, selectedCustomer?.id]);
 
   const saveAccountingRow = () => {
     if (!selectedCustomer) return;
