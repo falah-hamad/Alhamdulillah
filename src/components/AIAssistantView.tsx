@@ -115,6 +115,24 @@ export default function AIAssistantView({
   const [messageFontSize, setMessageFontSize] = useState(16);
   const [chatStyle, setChatStyle] = useState<"classic" | "soft" | "midnight" | "mint">("classic");
 
+  // Restore message appearance preferences per account and keep them across app restarts.
+  useEffect(() => {
+    const key = `alhamd_ai_message_appearance_${userId || "guest"}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { messageFontSize?: number; chatStyle?: string };
+      if (typeof saved.messageFontSize === "number" && Number.isFinite(saved.messageFontSize)) {
+        setMessageFontSize(Math.max(5, Math.min(32, saved.messageFontSize)));
+      }
+      if (saved.chatStyle === "classic" || saved.chatStyle === "soft" || saved.chatStyle === "midnight" || saved.chatStyle === "mint") {
+        setChatStyle(saved.chatStyle);
+      }
+    } catch (error) {
+      console.warn("Could not restore AI chat appearance preferences:", error);
+    }
+  }, [userId]);
+
   // Mention Autocomplete
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -244,6 +262,14 @@ export default function AIAssistantView({
   // Save Settings handler
   const handleSaveSettings = async (newSettings: AISettings) => {
     setAiSettings(newSettings);
+    try {
+      localStorage.setItem(`alhamd_ai_message_appearance_${userId || "guest"}`, JSON.stringify({
+        messageFontSize,
+        chatStyle,
+      }));
+    } catch (error) {
+      console.warn("Could not save AI chat appearance preferences:", error);
+    }
     await persistAISettings(newSettings, userId);
   };
 
@@ -370,9 +396,10 @@ export default function AIAssistantView({
   };
 
   // Send Question / Message
-  const handleSendMessage = async (queryText?: string) => {
+  const handleSendMessage = async (queryText?: string, conversationOverride?: ChatConversation) => {
+    const conversation = conversationOverride || activeConversation;
     const textToSend = (queryText || inputQuery).trim();
-    if (!textToSend || isLoading || !activeConversation) return;
+    if (!textToSend || isLoading || !conversation) return;
 
     setShowMentionDropdown(false);
     const contextForSend = queryText ? null : replyContext;
@@ -394,14 +421,14 @@ export default function AIAssistantView({
     };
 
     // Auto title for conversation if it's the first user question
-    let newTitle = activeConversation.title;
-    if (activeConversation.title === "محادثة محاسبية جديدة" || activeConversation.messages.length <= 1) {
+    let newTitle = conversation.title;
+    if (conversation.title === "محادثة محاسبية جديدة" || conversation.messages.length <= 1) {
       newTitle = textToSend.slice(0, 32) + (textToSend.length > 32 ? "..." : "");
     }
 
-    const updatedMessages = [...activeConversation.messages, userMsg];
+    const updatedMessages = [...conversation.messages, userMsg];
     const updatedConversation: ChatConversation = {
-      ...activeConversation,
+      ...conversation,
       title: newTitle,
       messages: updatedMessages,
       updatedAt: new Date().toISOString(),
@@ -509,25 +536,25 @@ export default function AIAssistantView({
   const handleRegenerate = async () => {
     if (!activeConversation || isLoading) return;
     const msgs = activeConversation.messages;
-    if (msgs.length < 2) return;
-
-    // Find the last user message
-    let lastUserMsg: ChatMessage | null = null;
+    let lastUserIndex = -1;
     for (let i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].sender === "user") {
-        lastUserMsg = msgs[i];
+        lastUserIndex = i;
         break;
       }
     }
+    if (lastUserIndex < 0) return;
 
-    if (lastUserMsg) {
-      // Remove last AI response if it followed the user message
-      const filteredMsgs = msgs.slice(0, msgs.length - 1);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === activeConversation.id ? { ...c, messages: filteredMsgs } : c))
-      );
-      handleSendMessage(lastUserMsg.text);
-    }
+    const lastUserMsg = msgs[lastUserIndex];
+    const baseConversation: ChatConversation = {
+      ...activeConversation,
+      messages: msgs.slice(0, lastUserIndex),
+      updatedAt: new Date().toISOString(),
+    };
+    setConversations((prev) =>
+      prev.map((c) => (c.id === baseConversation.id ? baseConversation : c))
+    );
+    await handleSendMessage(lastUserMsg.text, baseConversation);
   };
 
   // Retry when error occurs
@@ -575,7 +602,22 @@ export default function AIAssistantView({
     time.textContent = msg.timestamp;
     heading.append(sender, time);
     const card = source.cloneNode(true) as HTMLElement;
-    card.querySelectorAll("button, .no-print, [data-no-print='true']").forEach((node) => node.remove());
+    // Preserve customer navigation chips as readable text in print/PDF; remove other controls.
+    card.querySelectorAll("button").forEach((button) => {
+      const isCustomerLink = button.title?.includes("كشف حساب العميل") || button.title?.includes("فتح دفتر ديون");
+      if (isCustomerLink) {
+        const label = button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "";
+        if (label) {
+          const textNode = document.createElement("span");
+          textNode.textContent = label;
+          textNode.style.cssText = "font-size:inherit;font-weight:700;color:inherit;background:transparent;border:0;padding:0;margin:0";
+          button.replaceWith(textNode);
+          return;
+        }
+      }
+      button.remove();
+    });
+    card.querySelectorAll(".no-print, [data-no-print='true']").forEach((node) => node.remove());
     card.style.width = "100%";
     card.style.maxWidth = "100%";
     card.style.margin = "0";
@@ -679,7 +721,7 @@ export default function AIAssistantView({
       );
       setEditingMessageId(null);
       setEditingMessageText("");
-      handleSendMessage(text);
+      void handleSendMessage(text, updatedConv);
     }
   };
 
@@ -1035,6 +1077,7 @@ export default function AIAssistantView({
           {messages.map((msg, index) => {
             const isUser = msg.sender === "user";
             const isLastMessage = index === messages.length - 1;
+            const isLastUserMessage = isUser && !messages.slice(index + 1).some((laterMsg) => laterMsg.sender === "user");
 
             return (
               <div
@@ -1114,12 +1157,13 @@ export default function AIAssistantView({
                     )}
                   </div>
 
+                  <div className="mt-1 flex flex-wrap items-center gap-2" dir="rtl">
                   {!isUser ? (
                     <div
                       role="toolbar"
                       aria-label="إجراءات إجابة المساعد"
                       dir="rtl"
-                      className="flex flex-wrap items-center justify-start gap-1 px-0 py-0 mt-1 bg-transparent"
+                      className="flex flex-wrap items-center justify-start gap-1 px-0 py-0 bg-transparent"
                     >
                       <button
                         type="button"
@@ -1203,77 +1247,45 @@ export default function AIAssistantView({
                       role="toolbar"
                       aria-label="إجراءات رسالتك"
                       dir="rtl"
-                      className="flex flex-wrap items-center gap-2 px-2 py-1 -mt-px rounded-b-xl bg-blue-50/70 dark:bg-slate-800/90"
+                      className="flex items-center gap-1 px-0 py-0 bg-transparent"
                     >
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(msg.id, msg.text)}
+                        title={copiedMsgId === msg.id ? "تم النسخ" : "نسخ السؤال"}
+                        aria-label="نسخ السؤال"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                      {isLastUserMessage && (
+                        <button
+                          type="button"
+                          onClick={handleRegenerate}
+                          title="إعادة توليد الإجابة"
+                          aria-label="إعادة توليد الإجابة"
+                          disabled={isLoading}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        >
+                          <RotateCw className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleStartEditMessage(msg)}
                         title="تعديل السؤال"
                         aria-label="تعديل السؤال"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Edit3 className="h-4 w-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetReplyContext(msg, "reply")}
-                        title="الرد على هذه الرسالة"
-                        aria-label="الرد على الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        <Reply className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetReplyContext(msg, "quote")}
-                        title="اقتباس الرسالة"
-                        aria-label="اقتباس الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        <Quote className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleShareMessage(msg.text)}
-                        title="مشاركة الرسالة"
-                        aria-label="مشاركة الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePrintSingleMessage(msg)}
-                        title="طباعة الرسالة"
-                        aria-label="طباعة الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleExportSingleMessagePDF(msg)}
-                        title="تنزيل الرسالة PDF"
-                        aria-label="تنزيل الرسالة PDF"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        <FileDown className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(msg.id, msg.text)}
-                        title="نسخ الرسالة"
-                        aria-label="نسخ الرسالة"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      >
-                        {copiedMsgId === msg.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                      </button>
                     </div>
                   )}
-                  {/* Keep only the message time beneath the action buttons */}
-                  <div className="mt-1 flex items-center gap-1 px-1 text-[11px] text-slate-400" dir="rtl">
+                  {/* Timestamp sits beside the actions, separated by a small divider. */}
+                  <div className="inline-flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-2 text-[11px] text-slate-400 shrink-0" dir="rtl">
                     <Clock className="h-3 w-3" aria-hidden="true" />
                     <span>{msg.timestamp}</span>
+                  </div>
                   </div>
                   {msg.isError && (
                       <button
