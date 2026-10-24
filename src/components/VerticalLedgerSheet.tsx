@@ -31,6 +31,7 @@ import {
   ChevronLeft,
   History,
   ShoppingCart,
+  HandCoins,
 } from "lucide-react";
 import { Invoice, InvoiceItem, Customer, SystemSettings, CustomerChangeLogItem } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
@@ -475,7 +476,7 @@ export default function VerticalLedgerSheet({
 
     const newSeparator: InvoiceItem = {
       id: `sep-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      details: "فاصلة حساب",
+      details: "تسديد",
       quantity: 1,
       unitPrice: 0,
       total: 0,
@@ -1919,10 +1920,10 @@ export default function VerticalLedgerSheet({
                   id="btn-insert-separator"
                   onClick={() => handleInsertSeparator()}
                   className="px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
-                  title="إدراج فاصلة حسابية (المجموع / الواصل / المتبقي)"
+                  title="إضافة تسديد (المجموع / الواصل / المتبقي)"
                 >
-                  <Calculator className="w-3 h-3 text-blue-100 shrink-0" />
-                  <span>فاصلة حسابية 🧮</span>
+                  <HandCoins className="w-3.5 h-3.5 text-blue-100 shrink-0" />
+                  <span>تسديد</span>
                 </button>
               </>
             )}
@@ -2003,7 +2004,7 @@ export default function VerticalLedgerSheet({
               {selectedItem ? (
                 <div className="truncate bg-blue-50/90 text-blue-900 border border-blue-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
                   {selectedItem.isSeparator
-                    ? `فاصلة حسابية (صفحة ${selectedItem.pageNumber || 1})`
+                    ? `تسديد (صفحة ${selectedItem.pageNumber || 1})`
                     : `#${selectedIndex + 1}: ${selectedItem.details || "صف فارغ"} (${Number(
                         selectedItem.total || selectedItem.unitPrice || 0
                       ).toLocaleString()} ${settings.currency}) — صفحة ${selectedItem.pageNumber || 1}`}
