@@ -87,12 +87,12 @@ interface LedgerViewProps {
   payments: Payment[];
   settings: SystemSettings;
   addInvoice: (invoice: Omit<Invoice, "id" | "createdAt">) => Invoice;
-  updateInvoice: (invoice: Invoice) => void;
+  updateInvoice: (invoice: Invoice) => Promise<void> | void;
   addPayment: (payment: Omit<Payment, "id" | "createdAt">) => Payment;
   deleteInvoice: (id: string) => void;
   onOpenNewCustomerModal: () => void;
   addCustomer?: (customer: Omit<Customer, "id" | "createdAt">) => Customer;
-  updateCustomer?: (customer: Customer) => void;
+  updateCustomer?: (customer: Customer) => Promise<void> | void;
   deleteCustomer?: (id: string) => void;
   restoreCustomer?: (id: string) => void;
   permanentDeleteCustomer?: (id: string) => void;
