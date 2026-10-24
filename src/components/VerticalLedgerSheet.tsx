@@ -94,6 +94,11 @@ export default function VerticalLedgerSheet({
 
   // Font Size: Dynamic numeric font size in pixels (default 13, range 10 to 22)
   const [fontSize, setFontSize] = useState<number>(13);
+  const [toolbarTab, setToolbarTab] = useState<"font" | "add" | "delete" | "page">("font");
+  const [ledgerFontColor, setLedgerFontColor] = useState("#111827");
+  const [ledgerFontBold, setLedgerFontBold] = useState(true);
+  const [ledgerFontItalic, setLedgerFontItalic] = useState(false);
+  const [ledgerFontUnderline, setLedgerFontUnderline] = useState(false);
 
   // Background Color State (لون خلفية الكشف وورقة الدفتر)
   const [sheetBgColor, setSheetBgColor] = useState<string>(() => {
@@ -1125,7 +1130,12 @@ export default function VerticalLedgerSheet({
         className="a4-page w-full max-w-[794px] min-h-[1123px] border border-amber-900/25 shadow-xl rounded-2xl p-6 sm:p-8 text-slate-900 font-sans relative transition-all flex flex-col justify-between mx-auto"
         style={{
           backgroundColor: sheetBgColor,
+          color: ledgerFontColor,
+          fontWeight: ledgerFontBold ? 800 : 400,
+          fontStyle: ledgerFontItalic ? "italic" : "normal",
+          textDecoration: ledgerFontUnderline ? "underline" : "none",
         }}
+        data-ledger-font="true"
       >
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
@@ -1711,247 +1721,42 @@ export default function VerticalLedgerSheet({
         />
       ) : (
         <>
-          {/* 1. TOP TOOLBAR: COMPACT, ELEGANT, ORGANIZED CONTROLS */}
-          <div className="bg-white/95 backdrop-blur-xs p-2.5 sm:p-3 rounded-xl border border-slate-200/90 shadow-2xs no-print space-y-2.5">
-        {/* Row 1: Mode Switcher, Font Size, Paper Color, Add Row, Separator & Print/PDF */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-          {/* Primary Controls Group */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {/* View / Edit Mode Switcher */}
-            <div className="flex items-center p-0.5 bg-slate-100/90 rounded-lg border border-slate-200/80">
-              <button
-                type="button"
-                id="btn-mode-view"
-                onClick={() => setSheetMode("view")}
-                className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  sheetMode === "view"
-                    ? "bg-white text-blue-700 shadow-xs ring-1 ring-blue-300/80"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="وضع العرض: معاينة كشف الحساب للقراءة والطباعة بشكل دفتر ورقي نظيف"
-              >
-                <Eye className="w-3 h-3 text-blue-600 shrink-0" />
-                <span>عرض</span>
-              </button>
-
-              <button
-                type="button"
-                id="btn-mode-edit"
-                onClick={() => setSheetMode("edit")}
-                className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  sheetMode === "edit"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="وضع التعديل: تحرير مباشر للبيانات والأسطر والمبالغ وإدراج الفواصل الحسابية"
-              >
-                <Pencil className="w-3 h-3 shrink-0" />
-                <span>تعديل</span>
-              </button>
-            </div>
-
-            {/* Font Size Slider Bar with Numbers */}
-            <div
-              id="toolbar-font-size-control"
-              className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg border border-slate-200/80 shadow-2xs"
-              title="التحكم بحجم الخط عبر شريط التمرير والأرقام"
-            >
-              <Type className="w-3 h-3 text-blue-600 shrink-0" />
-              <button
-                type="button"
-                id="btn-font-decrease"
-                onClick={() => setFontSize((prev) => Math.max(10, prev - 1))}
-                className="w-4 h-4 rounded text-[10px] font-black bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer shadow-2xs active:scale-90 select-none"
-                title="تصغير حجم الخط (-1)"
-              >
-                -
-              </button>
-              <input
-                id="input-font-size-slider"
-                type="range"
-                min={10}
-                max={22}
-                step={1}
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="w-16 sm:w-20 h-1.5 accent-blue-600 bg-slate-200 rounded-lg cursor-pointer"
-                title={`حجم الخط: ${fontSize}`}
-              />
-              <button
-                type="button"
-                id="btn-font-increase"
-                onClick={() => setFontSize((prev) => Math.min(22, prev + 1))}
-                className="w-4 h-4 rounded text-[10px] font-black bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer shadow-2xs active:scale-90 select-none"
-                title="تكبير حجم الخط (+1)"
-              >
-                +
-              </button>
-              <div className="flex items-center gap-0.5 bg-white border border-blue-200/90 rounded px-1.5 py-0.5 shadow-2xs select-none">
-                <span className="text-[11px] font-mono font-black text-blue-700 leading-none">{fontSize}</span>
-                <span className="text-[8px] text-slate-400 font-bold leading-none">pt</span>
+          {/* أدوات السجل مرتبة ضمن تبويبات قصيرة، وحالتها مستقلة عن القائمة الحسابية */}
+          <div className="bg-white/95 backdrop-blur-xs p-2 rounded-xl border border-slate-200/90 shadow-sm no-print space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات سجل الحساب العمودي">
+              <button type="button" role="tab" aria-selected={toolbarTab === "font"} onClick={() => setToolbarTab("font")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "font" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}>تنسيق الخط</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => setToolbarTab("add")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}>إضافة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => setToolbarTab("delete")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}>حذف</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => setToolbarTab("page")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}>لون الصفحة</button>
+              <div className="ms-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                <button type="button" onClick={() => setSheetMode("view")} className={`rounded-md px-2 py-1 text-[11px] font-bold ${sheetMode === "view" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`}><Eye className="inline h-3 w-3 me-1"/>عرض</button>
+                <button type="button" onClick={() => setSheetMode("edit")} className={`rounded-md px-2 py-1 text-[11px] font-bold ${sheetMode === "edit" ? "bg-blue-600 text-white" : "text-slate-600"}`}><Pencil className="inline h-3 w-3 me-1"/>تعديل</button>
               </div>
             </div>
-
-            {/* Background Color Selector */}
-            <div ref={colorPickerRef} className="relative">
-              <button
-                type="button"
-                id="btn-toggle-bg-color-picker"
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="flex items-center gap-1.5 px-2 py-1 bg-slate-100/90 hover:bg-slate-200/80 rounded-lg border border-slate-200/80 shadow-2xs transition-colors cursor-pointer text-[11px] font-bold text-slate-700 active:scale-95"
-                title="اختيار وتغيير لون خلفية ورقة الدفتر"
-              >
-                <Palette className="w-3 h-3 text-indigo-600 shrink-0" />
-                <span
-                  className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs shrink-0"
-                  style={{ backgroundColor: sheetBgColor }}
-                />
-                <span className="hidden sm:inline">لون الورقة</span>
-              </button>
-
-              {showColorPicker && (
-                <div
-                  id="bg-color-picker-popover"
-                  className="absolute top-full right-0 mt-1.5 z-40 bg-white rounded-xl shadow-lg border border-slate-200 p-2.5 w-64 space-y-2 animate-in fade-in zoom-in-95 duration-100 no-print"
-                >
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 pb-1 border-b border-slate-100">
-                    <span className="flex items-center gap-1">
-                      <Palette className="w-3 h-3 text-indigo-600" />
-                      اختيار لون خلفية الدفتر
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowColorPicker(false)}
-                      className="text-slate-400 hover:text-slate-700 text-xs p-0.5 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {/* Preset Swatches */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-0.5">
-                    {BG_COLOR_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          handleSelectBgColor(preset.color);
-                          setShowColorPicker(false);
-                        }}
-                        className={`flex flex-col items-center gap-1 p-1 rounded-lg border text-center transition-all cursor-pointer ${
-                          sheetBgColor.toLowerCase() === preset.color.toLowerCase()
-                            ? "ring-2 ring-blue-500 border-transparent shadow-xs"
-                            : "border-slate-200 hover:border-slate-300 hover:shadow-2xs"
-                        }`}
-                        title={preset.name}
-                      >
-                        <span
-                          className="w-6 h-6 rounded-md border border-black/15 shadow-2xs"
-                          style={{ backgroundColor: preset.color }}
-                        />
-                        <span className="text-[9px] font-medium text-slate-600 truncate w-full">
-                          {preset.name.split(" ")[0]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom Color Picker */}
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                    <span className="text-[10px] text-slate-500 font-medium">لون حر مخصص:</span>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="color"
-                        id="input-custom-bg-color"
-                        value={sheetBgColor}
-                        onChange={(e) => handleSelectBgColor(e.target.value)}
-                        className="w-6 h-6 rounded cursor-pointer border border-slate-200 p-0 bg-transparent"
-                        title="اختر أي لون مخصص"
-                      />
-                      <span className="text-[10px] font-mono text-slate-600 uppercase font-bold">{sheetBgColor}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {sheetMode === "edit" && (
-              <>
-                {/* Cart is available only in edit mode and requires an explicitly selected cursor row. */}
-                <button
-                  type="button"
-                  id="btn-toolbar-product-cart"
-                  onClick={() => {
-                    if (!hasExplicitRowSelection || !selectedRowId) {
-                      alert("يرجى وضع المؤشر على الصف المطلوب أولاً، ثم اضغط عربة البضاعة للإضافة.");
-                      return;
-                    }
-                    onOpenProductCart?.(selectedRowId);
-                  }}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
-                  title="إدراج البضاعة عند الصف المحدد"
-                >
-                  <ShoppingCart className="w-3 h-3 text-white shrink-0" />
-                  <span>عربة البضاعة</span>
-                </button>
-                {/* Add new row button */}
-                <button
-                  type="button"
-                  id="btn-toolbar-add-row"
-                  onClick={() => handleInsertRowBelow()}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
-                  title="إضافة صف جديد إلى السجل"
-                >
-                  <Plus className="w-3 h-3 text-white shrink-0" />
-                  <span>إضافة صف</span>
-                </button>
-
-                {/* Separator Button */}
-                <button
-                  type="button"
-                  id="btn-insert-separator"
-                  onClick={() => handleInsertSeparator()}
-                  className="px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
-                  title="إضافة تسديد (المجموع / الواصل / المتبقي)"
-                >
-                  <HandCoins className="w-3.5 h-3.5 text-blue-100 shrink-0" />
-                  <span>تسديد</span>
-                </button>
-              </>
-            )}
-
-            {saveStatus && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/90 px-1.5 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                <Check className="w-3 h-3" />
-                <span>{saveStatus}</span>
-              </span>
-            )}
-            {sheetMode === "edit" && hasUnsavedChanges && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 p-1.5" role="group" aria-label="تأكيد حفظ التغييرات">
-                <span className="px-1 text-[10px] font-bold text-amber-800">تغييرات غير محفوظة</span>
-                <button type="button" onClick={handleConfirmSave} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" />تم الحفظ</button>
-                <button type="button" onClick={handleCancelChanges} className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-50"><X className="h-3.5 w-3.5" />إلغاء</button>
-              </div>
-            )}
+            {toolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+              <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
+              <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={ledgerFontColor} onChange={(e) => setLedgerFontColor(e.target.value)} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
+              <button type="button" onClick={() => setLedgerFontBold(x => !x)} aria-pressed={ledgerFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${ledgerFontBold ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>غامق B</button>
+              <button type="button" onClick={() => setLedgerFontItalic(x => !x)} aria-pressed={ledgerFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${ledgerFontItalic ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>مائل I</button>
+              <button type="button" onClick={() => setLedgerFontUnderline(x => !x)} aria-pressed={ledgerFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${ledgerFontUnderline ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>تسطير U</button>
+            </div>}
+            {toolbarTab === "add" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+              <button type="button" onClick={() => handleInsertRowAbove()} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أعلاه</button>
+              <button type="button" onClick={() => handleInsertRowBelow()} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
+              <button type="button" onClick={() => { if (!hasExplicitRowSelection || !selectedRowId) { alert("يرجى تحديد الصف المطلوب أولاً، ثم فتح عربة البضاعة."); return; } onOpenProductCart?.(selectedRowId); }} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
+              <button type="button" id="btn-insert-separator" onClick={() => handleInsertSeparator()} title="إضافة تسديد (المجموع / الواصل / المتبقي)" className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white"><HandCoins className="inline h-3.5 w-3.5 me-1"/>إضافة تسديد</button>
+            </div>}
+            {toolbarTab === "delete" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+              {selectedItem && <button type="button" onClick={() => handleDeleteRow()} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700"><Eraser className="inline h-3.5 w-3.5 me-1"/>حذف الصف</button>}
+              <button type="button" onClick={handleClearAllItems} disabled={items.length === 0} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-40"><Eraser className="inline h-3.5 w-3.5 me-1"/>تفريغ السجل</button>
+            </div>}
+            {toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+              <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={sheetBgColor} onChange={(e) => handleSelectBgColor(e.target.value)} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
+              <div className="flex flex-wrap gap-1.5">{BG_COLOR_PRESETS.slice(0,8).map((preset) => <button key={preset.id} type="button" title={preset.name} aria-label={preset.name} onClick={() => handleSelectBgColor(preset.color)} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.color}}/>)}</div>
+            </div>}
+            {saveStatus && <div className="text-[10px] font-bold text-emerald-700">{saveStatus}</div>}
+            {sheetMode === "edit" && hasUnsavedChanges && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2"><span className="text-[10px] font-bold text-amber-800">تغييرات غير محفوظة</span><button type="button" onClick={handleConfirmSave} className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><Check className="inline h-3.5 w-3.5 me-1"/>تم الحفظ</button><button type="button" onClick={handleCancelChanges} className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-700"><X className="inline h-3.5 w-3.5 me-1"/>إلغاء</button></div>}
           </div>
-
-          {/* Secondary Actions: Print & PDF */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {sheetMode === "edit" && items.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearAllItems}
-                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer border border-rose-200"
-                title="تفريغ جميع بنود الحساب وجعله فارغاً"
-              >
-                <Eraser className="w-3 h-3 text-rose-600 shrink-0" />
-                <span>تفريغ السجل</span>
-              </button>
-            )}
-
-          </div>
-        </div>
-
         {/* Row 3: Active Row Controls in Edit Mode */}
         {sheetMode === "edit" && (
           <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5 border-t border-slate-100 text-[11px]">
