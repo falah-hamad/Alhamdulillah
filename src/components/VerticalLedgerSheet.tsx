@@ -1652,6 +1652,20 @@ export default function VerticalLedgerSheet({
 
   const customerLogs = (changeLogs || []).filter((l) => l.customerId === customer.id);
 
+  useEffect(() => {
+    const openHistory = () => setActiveViewTab("changelog");
+    const printSheet = () => { void handlePrint(); };
+    const exportSheetPDF = () => { void handleExportPDF(); };
+    window.addEventListener("vertical-ledger-open-history", openHistory);
+    window.addEventListener("vertical-ledger-print", printSheet);
+    window.addEventListener("vertical-ledger-export-pdf", exportSheetPDF);
+    return () => {
+      window.removeEventListener("vertical-ledger-open-history", openHistory);
+      window.removeEventListener("vertical-ledger-print", printSheet);
+      window.removeEventListener("vertical-ledger-export-pdf", exportSheetPDF);
+    };
+  }, [handlePrint, handleExportPDF]);
+
   return (
     <div className="space-y-4 select-none">
       {/* 0. TAB SWITCHER: ورقة الحساب (3 أعمدة) vs سجل التغييرات */}
@@ -1671,28 +1685,6 @@ export default function VerticalLedgerSheet({
             <span>ورقة حساب الدين (3 أعمدة)</span>
           </button>
 
-          <button
-            type="button"
-            id="tab-btn-changelog"
-            onClick={() => setActiveViewTab("changelog")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeViewTab === "changelog"
-                ? "bg-amber-600 text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>سجل التغييرات</span>
-            <span
-              className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
-                activeViewTab === "changelog"
-                  ? "bg-amber-700/90 text-white border-amber-500"
-                  : "bg-amber-100 text-amber-900 border-amber-300"
-              }`}
-            >
-              {customerLogs.length}
-            </span>
-          </button>
         </div>
 
         <div className="text-xs text-slate-500 font-medium px-2 flex items-center gap-2">
@@ -1957,37 +1949,6 @@ export default function VerticalLedgerSheet({
               </button>
             )}
 
-            <button
-              type="button"
-              id="btn-print-debt-voucher"
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95 disabled:opacity-50 select-none"
-              title="طباعة وصل الدين كاملاً بجميع القيود والصفحات (A4) بدون أي نقص"
-            >
-              {isPrinting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              ) : (
-                <Printer className="w-3.5 h-3.5 shrink-0" />
-              )}
-              <span>{isPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}</span>
-            </button>
-
-            <button
-              type="button"
-              id="btn-export-debt-pdf"
-              onClick={handleExportPDF}
-              disabled={isExportingPDF}
-              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300/80 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 select-none"
-              title="تصدير وصل الدين بصيغة PDF عالية الدقة ومتعددة الصفحات"
-            >
-              {isExportingPDF ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-emerald-600" />
-              ) : (
-                <Download className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-              )}
-              <span>{isExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}</span>
-            </button>
           </div>
         </div>
 
