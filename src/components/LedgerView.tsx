@@ -760,7 +760,7 @@ ${folderCustomers
       showToast("أدخل التفاصيل والكمية والسعر بشكل صحيح.");
       return;
     }
-    const currentRows = selectedCustomer.accountingSheetRows || [];
+    const currentRows = accountingDraftRows;
     const row: AccountingSheetRow = {
       id: editingAccountingRowId || `asr-${Date.now()}`,
       details,
@@ -774,7 +774,7 @@ ${folderCustomers
       : [...currentRows, row]);
     setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
     setEditingAccountingRowId(null);
-    showToast(editingAccountingRowId ? "تم تعديل البند الحسابي." : "تمت إضافة البند إلى القائمة الحسابية.");
+    showToast(editingAccountingRowId ? "تم تعديل البند في المسودة؛ احفظ التغييرات لتثبيتها." : "تمت إضافة البند إلى المسودة؛ احفظ التغييرات لتثبيتها.");
   };
 
   const startEditAccountingRow = (row: AccountingSheetRow) => {
@@ -785,12 +785,12 @@ ${folderCustomers
   const deleteAccountingRow = (rowId: string) => {
     if (!selectedCustomer) return;
     if (!window.confirm("هل تريد حذف هذا البند من القائمة الحسابية؟")) return;
-    persistAccountingRows((selectedCustomer.accountingSheetRows || []).filter((row) => row.id !== rowId));
+    persistAccountingRows(accountingDraftRows.filter((row) => row.id !== rowId));
     if (editingAccountingRowId === rowId) {
       setEditingAccountingRowId(null);
       setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
     }
-    showToast("تم حذف البند من القائمة الحسابية.");
+    showToast("تم حذف البند من المسودة؛ احفظ التغييرات لتثبيتها.");
   };
 
   const insertAccountingRow = (position: "above" | "below") => {
