@@ -208,7 +208,7 @@ function formatInlineText(
               onSelectCustomerForLedger(foundCustomer.id);
             }}
             title="انتقل إلى كشف حساب العميل في دفتر الديون"
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 font-bold text-xs sm:text-sm transition-colors border border-blue-300 dark:border-blue-700 cursor-pointer"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 font-bold transition-colors border border-blue-300 dark:border-blue-700 cursor-pointer" style={{ fontSize: "inherit" }}
           >
             <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
             <span>{inner}</span>
@@ -235,7 +235,7 @@ function formatInlineText(
               onSelectCustomerForLedger(foundCustomer.id);
             }}
             title="فتح دفتر ديون هذا العميل"
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-full bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-bold text-xs transition-colors border border-emerald-300 dark:border-emerald-700 cursor-pointer"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-full bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-bold transition-colors border border-emerald-300 dark:border-emerald-700 cursor-pointer" style={{ fontSize: "inherit" }}
           >
             <span>@{name}</span>
             <ExternalLink className="w-2.5 h-2.5 opacity-70" />
