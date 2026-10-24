@@ -106,7 +106,73 @@ export default function App() {
     clearAllData,
   } = useAccountingData();
 
-  const [currentTab, setCurrentTab] = useState("home");
+  const [currentTab, setCurrentTabRaw] = useState("home");
+  type LedgerLeaveGuard = { dirty: boolean; label: string; save: () => Promise<boolean> | boolean; cancel: () => Promise<void> | void };
+  const [ledgerLeaveGuard, setLedgerLeaveGuard] = useState<LedgerLeaveGuard | null>(null);
+  const [showLedgerLeaveDialog, setShowLedgerLeaveDialog] = useState(false);
+  const [isLedgerGuardSaving, setIsLedgerGuardSaving] = useState(false);
+  const [ledgerGuardError, setLedgerGuardError] = useState("");
+  const pendingLedgerNavigationRef = useRef<(() => void) | null>(null);
+  const ledgerLeaveGuardRef = useRef<LedgerLeaveGuard | null>(null);
+  const guardedNavigationRef = useRef<(action?: () => void) => void>(() => {});
+  const requestLedgerNavigation = useCallback((action?: () => void) => {
+    const guard = ledgerLeaveGuardRef.current;
+    if (!guard?.dirty) { action?.(); return; }
+    pendingLedgerNavigationRef.current = action || null;
+    setLedgerGuardError("");
+    setShowLedgerLeaveDialog(true);
+  }, []);
+  guardedNavigationRef.current = requestLedgerNavigation;
+  const setCurrentTab = useCallback((next: React.SetStateAction<string>) => {
+    const action = () => setCurrentTabRaw(next);
+    if (typeof next === "string" && next === currentTab) return;
+    requestLedgerNavigation(action);
+  }, [currentTab, requestLedgerNavigation]);
+
+  useEffect(() => {
+    const onLedgerGuardChange = (event: Event) => {
+      const detail = (event as CustomEvent<LedgerLeaveGuard>).detail;
+      ledgerLeaveGuardRef.current = detail?.dirty ? detail : null;
+      setLedgerLeaveGuard(detail?.dirty ? detail : null);
+      if (!detail?.dirty) {
+        setShowLedgerLeaveDialog(false);
+        setLedgerGuardError("");
+      }
+    };
+    window.addEventListener("ledger-unsaved-change", onLedgerGuardChange as EventListener);
+    return () => window.removeEventListener("ledger-unsaved-change", onLedgerGuardChange as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!ledgerLeaveGuardRef.current?.dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onPopState = () => {
+      if (!ledgerLeaveGuardRef.current?.dirty) return;
+      window.history.pushState({ ledgerGuard: true }, "");
+      guardedNavigationRef.current();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    if (ledgerLeaveGuardRef.current?.dirty) window.history.pushState({ ledgerGuard: true }, "");
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [ledgerLeaveGuard?.dirty]);
+
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    let handle: { remove: () => Promise<void> } | undefined;
+    CapApp.addListener("backButton", () => {
+      if (ledgerLeaveGuardRef.current?.dirty) {
+        guardedNavigationRef.current();
+      }
+    }).then((listener) => { handle = listener; });
+    return () => { void handle?.remove(); };
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -602,6 +668,46 @@ export default function App() {
         onOpenAccountModal={() => setIsAccountModalOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
+
+      {showLedgerLeaveDialog && ledgerLeaveGuard?.dirty && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="ledger-unsaved-title">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldAlert className="h-5 w-5" /></div>
+              <div><h2 id="ledger-unsaved-title" className="font-bold text-slate-900">عندك تغييرات غير محفوظة</h2><p className="mt-1 text-xs text-slate-500">{ledgerLeaveGuard.label || "سجل الديون"}</p></div>
+            </div>
+            <p className="mb-4 text-sm leading-6 text-slate-600">احفظ تغييراتك أو ألغها قبل مغادرة هذه الصفحة حتى لا تضيع بياناتك.</p>
+            {ledgerGuardError && <p className="mb-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{ledgerGuardError}</p>}
+            <div className="grid grid-cols-1 gap-2">
+              <button type="button" disabled={isLedgerGuardSaving} onClick={async () => {
+                if (!ledgerLeaveGuardRef.current?.dirty) { setShowLedgerLeaveDialog(false); return; }
+                setIsLedgerGuardSaving(true); setLedgerGuardError("");
+                try {
+                  const saved = await ledgerLeaveGuardRef.current.save();
+                  if (!saved) { setLedgerGuardError("لم يكتمل الحفظ. بقيت البيانات مفتوحة؛ حاول مرة أخرى."); return; }
+                  const navigate = pendingLedgerNavigationRef.current;
+                  pendingLedgerNavigationRef.current = null;
+                  setShowLedgerLeaveDialog(false);
+                  navigate?.();
+                } catch (error) {
+                  setLedgerGuardError(error instanceof Error ? error.message : "تعذر الحفظ. بياناتك ما زالت موجودة.");
+                } finally { setIsLedgerGuardSaving(false); }
+              }} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{isLedgerGuardSaving ? "جارٍ الحفظ..." : "حفظ التغييرات"}</button>
+              <button type="button" disabled={isLedgerGuardSaving} onClick={async () => {
+                try {
+                  await ledgerLeaveGuardRef.current?.cancel();
+                  ledgerLeaveGuardRef.current = null; setLedgerLeaveGuard(null);
+                  const navigate = pendingLedgerNavigationRef.current;
+                  pendingLedgerNavigationRef.current = null;
+                  setShowLedgerLeaveDialog(false); setLedgerGuardError("");
+                  navigate?.();
+                } catch (error) { setLedgerGuardError(error instanceof Error ? error.message : "تعذر إلغاء التغييرات."); }
+              }} className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 disabled:opacity-50">إلغاء التغييرات والخروج</button>
+              <button type="button" disabled={isLedgerGuardSaving} onClick={() => { pendingLedgerNavigationRef.current = null; setShowLedgerLeaveDialog(false); }} className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">البقاء في الصفحة</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto">
