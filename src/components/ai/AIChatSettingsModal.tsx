@@ -218,26 +218,27 @@ export default function AIChatSettingsModal({
 
         {/* Tab Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          <section className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 p-3.5 space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">إعدادات المحادثة</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">تحكم بحجم نص الرسائل وشكل بطاقات المحادثة من هنا.</p>
-            </div>
-            <label className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <span>حجم الخط</span>
-              <input aria-label="حجم خط المحادثة" type="range" min="5" max="32" step="1" value={messageFontSize} onChange={(e) => onMessageFontSizeChange(Number(e.target.value))} className="flex-1 min-w-28 accent-blue-600" />
-              <span className="min-w-10 text-center tabular-nums">{messageFontSize}px</span>
-            </label>
-            <label className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <span>نمط المحادثة</span>
-              <select aria-label="نمط المحادثة" value={chatStyle} onChange={(e) => onChatStyleChange(e.target.value as "classic" | "soft" | "midnight" | "mint")} className="flex-1 min-w-32 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs">
-                <option value="classic">كلاسيكي</option><option value="soft">بطاقات ناعمة</option><option value="midnight">ليلي</option><option value="mint">أخضر هادئ</option>
-              </select>
-            </label>
-          </section>
+
           {/* 1. APPEARANCE TAB */}
           {activeTab === "appearance" && (
             <div className="space-y-6">
+              <section className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 p-3.5 space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">إعدادات المحادثة</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">تحكم بحجم نص الرسائل وشكل بطاقات المحادثة من هنا.</p>
+                </div>
+                <label className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <span>حجم الخط</span>
+                  <input aria-label="حجم خط المحادثة" type="range" min="5" max="32" step="1" value={messageFontSize} onChange={(e) => onMessageFontSizeChange(Number(e.target.value))} className="flex-1 min-w-28 accent-blue-600" />
+                  <span className="min-w-10 text-center tabular-nums">{messageFontSize}px</span>
+                </label>
+                <label className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <span>نمط المحادثة</span>
+                  <select aria-label="نمط المحادثة" value={chatStyle} onChange={(e) => onChatStyleChange(e.target.value as "classic" | "soft" | "midnight" | "mint")} className="flex-1 min-w-32 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs">
+                    <option value="classic">كلاسيكي</option><option value="soft">بطاقات ناعمة</option><option value="midnight">ليلي</option><option value="mint">أخضر هادئ</option>
+                  </select>
+                </label>
+              </section>
               {/* Font Family */}
               <div>
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">
