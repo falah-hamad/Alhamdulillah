@@ -2386,11 +2386,17 @@ ${folderCustomers
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm no-print">
             <button
               onClick={() => {
-                setSelectedCustomerId(null);
-                setSelectedInvoiceId(null);
-                setIsAddingInvoice(false);
-                setEditingInvoice(null);
-                setIsRecordingPayment(false);
+                window.dispatchEvent(new CustomEvent("ledger-request-navigation", {
+                  detail: {
+                    action: () => {
+                      setSelectedCustomerId(null);
+                      setSelectedInvoiceId(null);
+                      setIsAddingInvoice(false);
+                      setEditingInvoice(null);
+                      setIsRecordingPayment(false);
+                    },
+                  },
+                }));
               }}
               className="flex items-center gap-1 text-slate-500 hover:text-slate-800 text-xs font-semibold cursor-pointer"
             >
