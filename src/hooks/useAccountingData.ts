@@ -403,7 +403,7 @@ export function useAccountingData() {
   }, [currentUser]);
 
   // Firestore & local saving helpers
-  const saveToFirestoreDoc = async (subcollection: string, docId: string, data: any) => {
+  const saveToFirestoreDoc = async (subcollection: string, docId: string, data: any, throwOnError = false) => {
     if (!currentUser) return;
     const path = `users/${currentUser.uid}/${subcollection}/${docId}`;
     try {
@@ -413,6 +413,7 @@ export function useAccountingData() {
       }));
     } catch (err) {
       console.warn("Firestore save warning at path:", path, err);
+      if (throwOnError) throw err;
     }
   };
 
@@ -710,7 +711,7 @@ export function useAccountingData() {
     });
 
     if (currentUser) {
-      await saveToFirestoreDoc("customers", updated.id, custWithUser);
+      await saveToFirestoreDoc("customers", updated.id, custWithUser, true);
     }
   };
 
@@ -1185,9 +1186,9 @@ export function useAccountingData() {
     }
 
     if (currentUser) {
-      void saveToFirestoreDoc("invoices", updated.id, invWithUser).catch((error) => {
-        console.error("Failed to sync updated debt invoice:", updated.id, error);
-      });
+      // The debt-sheet save must know whether the invoice reached Firestore before it
+      // clears its draft or records deferred history/notifications.
+      await saveToFirestoreDoc("invoices", updated.id, invWithUser, true);
     }
   };
 
