@@ -54,7 +54,7 @@ interface VerticalLedgerSheetProps {
   invoice: Invoice;
   customer: Customer;
   settings: SystemSettings;
-  onUpdateInvoice: (updatedInvoice: Invoice) => void;
+  onUpdateInvoice: (updatedInvoice: Invoice) => Promise<void> | void;
   onOpenProductCart?: (selectedRowId: string) => void;
   onClose?: () => void;
   changeLogs?: CustomerChangeLogItem[];
@@ -241,6 +241,7 @@ export default function VerticalLedgerSheet({
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingChangeLogs, setPendingChangeLogs] = useState<Array<Parameters<NonNullable<typeof commitChangeLog>>[0]>>([]);
+  const [pendingPaidNotifications, setPendingPaidNotifications] = useState<Array<{ userId: string; payload: Parameters<typeof dispatchPaidAmountNotification>[1] }>>([]);
 
   // Queue history entries until the user explicitly confirms saving.
   const onAddChangeLog = (entry: Parameters<NonNullable<typeof commitChangeLog>>[0]) => {
@@ -283,7 +284,7 @@ export default function VerticalLedgerSheet({
     setSaveStatus("توجد تغييرات غير محفوظة");
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async (): Promise<boolean> => {
     const latestItems = items;
     let grandTotal = 0;
     let totalPaid = 0;
@@ -324,26 +325,60 @@ export default function VerticalLedgerSheet({
         previousState: previous,
       }];
     });
-    onUpdateInvoice(updatedInvoice);
-    [...pendingChangeLogs, ...editLogs].forEach((entry) => { void commitChangeLog?.(entry); });
-    setPendingChangeLogs([]);
-    setHasUnsavedChanges(false);
-    setSaveStatus("تم حفظ التغييرات وتسجيل الحركة");
-    setTimeout(() => setSaveStatus(null), 2200);
+    try {
+      await onUpdateInvoice(updatedInvoice);
+      for (const entry of [...pendingChangeLogs, ...editLogs]) {
+        await Promise.resolve(commitChangeLog?.(entry));
+      }
+      for (const notification of pendingPaidNotifications) {
+        await dispatchPaidAmountNotification(notification.userId, notification.payload);
+      }
+      setPendingPaidNotifications([]);
+      setPendingChangeLogs([]);
+      setHasUnsavedChanges(false);
+      setSaveStatus("تم حفظ التغييرات وتسجيل الحركة");
+      setTimeout(() => setSaveStatus(null), 2200);
+      return true;
+    } catch (error) {
+      console.error("Failed to save ledger sheet changes:", error);
+      setSaveStatus("تعذر الحفظ؛ بقيت التغييرات محفوظة مؤقتاً داخل الورقة");
+      return false;
+    }
   };
 
   const handleCancelChanges = () => {
     if (!hasUnsavedChanges && pendingChangeLogs.length === 0) return;
-    if (!window.confirm("إلغاء جميع التغييرات غير المحفوظة؟ لن تُحفظ البيانات ولن تُسجّل أي حركة.")) return;
+
     const originalItems = (invoice.items || []).map((it) => ({ ...it, pageNumber: it.pageNumber || 1 }));
     setItems(originalItems);
     setPageCount(Math.max(1, invoice.pageCount || 1, ...originalItems.map((it) => it.pageNumber || 1)));
     setEditingAmounts({});
     setPendingChangeLogs([]);
+    setPendingPaidNotifications([]);
     setHasUnsavedChanges(false);
     setSaveStatus("تم إلغاء التغييرات");
     setTimeout(() => setSaveStatus(null), 1800);
   };
+
+  useEffect(() => {
+    const notifyGuard = () => {
+      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", {
+        detail: {
+          dirty: hasUnsavedChanges || pendingChangeLogs.length > 0,
+          label: "ورقة الدفتر",
+          save: async () => {
+            if (!hasUnsavedChanges && pendingChangeLogs.length === 0) return true;
+            return await handleConfirmSave();
+          },
+          cancel: () => { handleCancelChanges(); },
+        },
+      }));
+    };
+    notifyGuard();
+    return () => {
+      window.dispatchEvent(new CustomEvent("ledger-unsaved-change", { detail: { dirty: false } }));
+    };
+  }, [hasUnsavedChanges, pendingChangeLogs, items, pageCount, invoice.id]);
 
   // Add New Page handler
   const handleAddNewPage = () => {
@@ -763,15 +798,18 @@ export default function VerticalLedgerSheet({
       const remainingVal = calculateSeparatorRemaining(sepId);
       const opId = `${customer.id}_${invoice.id}_${sep.id}_${paid}`;
 
-      dispatchPaidAmountNotification(currentUserId, {
-        operationId: opId,
-        customerId: customer.id,
-        customerName: customer.name || invoice.customerName || "العميل",
-        invoiceId: invoice.id,
-        paidAmount: paid,
-        remainingAmount: remainingVal,
-        currency: settings.currency,
-      }).catch((e) => console.warn("Failed to dispatch paid amount notification:", e));
+      setPendingPaidNotifications((previous) => [...previous, {
+        userId: currentUserId,
+        payload: {
+          operationId: opId,
+          customerId: customer.id,
+          customerName: customer.name || invoice.customerName || "العميل",
+          invoiceId: invoice.id,
+          paidAmount: paid,
+          remainingAmount: remainingVal,
+          currency: settings.currency,
+        },
+      }]);
     }
   };
 
