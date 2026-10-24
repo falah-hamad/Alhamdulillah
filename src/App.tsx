@@ -107,13 +107,14 @@ export default function App() {
   } = useAccountingData();
 
   const [currentTab, setCurrentTabRaw] = useState("home");
-  type LedgerLeaveGuard = { dirty: boolean; label: string; save: () => Promise<boolean> | boolean; cancel: () => Promise<void> | void };
+  type LedgerLeaveGuard = { source: string; dirty: boolean; label: string; save: () => Promise<boolean> | boolean; cancel: () => Promise<void> | void };
   const [ledgerLeaveGuard, setLedgerLeaveGuard] = useState<LedgerLeaveGuard | null>(null);
   const [showLedgerLeaveDialog, setShowLedgerLeaveDialog] = useState(false);
   const [isLedgerGuardSaving, setIsLedgerGuardSaving] = useState(false);
   const [ledgerGuardError, setLedgerGuardError] = useState("");
   const pendingLedgerNavigationRef = useRef<(() => void) | null>(null);
   const ledgerLeaveGuardRef = useRef<LedgerLeaveGuard | null>(null);
+  const ledgerGuardRegistryRef = useRef<Map<string, LedgerLeaveGuard>>(new Map());
   const guardedNavigationRef = useRef<(action?: () => void) => void>(() => {});
   const requestLedgerNavigation = useCallback((action?: () => void) => {
     const guard = ledgerLeaveGuardRef.current;
@@ -132,9 +133,13 @@ export default function App() {
   useEffect(() => {
     const onLedgerGuardChange = (event: Event) => {
       const detail = (event as CustomEvent<LedgerLeaveGuard>).detail;
-      ledgerLeaveGuardRef.current = detail?.dirty ? detail : null;
-      setLedgerLeaveGuard(detail?.dirty ? detail : null);
-      if (!detail?.dirty) {
+      if (!detail?.source) return;
+      if (detail.dirty) ledgerGuardRegistryRef.current.set(detail.source, detail);
+      else ledgerGuardRegistryRef.current.delete(detail.source);
+      const nextGuard = Array.from(ledgerGuardRegistryRef.current.values()).find((guard) => guard.dirty) || null;
+      ledgerLeaveGuardRef.current = nextGuard;
+      setLedgerLeaveGuard(nextGuard);
+      if (!nextGuard) {
         setShowLedgerLeaveDialog(false);
         setLedgerGuardError("");
       }
