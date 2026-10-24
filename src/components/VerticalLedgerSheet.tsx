@@ -1846,7 +1846,6 @@ export default function VerticalLedgerSheet({
               </div>
           </div>
         )}
-      </div>
 
       {/* 2. THE MAIN PAPER LEDGER SHEET CONTAINER (EXACT A4 PROPORTIONS & PAGES) */}
       <div id="vertical-ledger-sheet" className="space-y-6">
