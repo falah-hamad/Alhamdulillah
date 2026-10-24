@@ -198,7 +198,7 @@ export default function VerticalLedgerSheet({
     return Math.max(1, invoice.pageCount || 1, maxItemPage);
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [viewAllPages, setViewAllPages] = useState<boolean>(false);
+  const [viewAllPages, setViewAllPages] = useState<boolean>(true);
 
   // Sync items and state whenever a different invoice is loaded
   useEffect(() => {
@@ -1987,93 +1987,6 @@ export default function VerticalLedgerSheet({
               )}
               <span>{isExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}</span>
             </button>
-          </div>
-        </div>
-
-        {/* Row 2: A4 PAGES MANAGEMENT BAR (شريط إدارة وتصفح صفحات الوصل A4) */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-50/90 rounded-xl border border-slate-200/90">
-          {/* Page Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700 ml-1">
-              <Layers className="w-3.5 h-3.5 text-amber-600" />
-              <span>صفحات الديون (A4):</span>
-            </div>
-
-            {Array.from({ length: pageCount }, (_, i) => i + 1).map((pg) => {
-              const isSelected = currentPage === pg && !viewAllPages;
-              const countOnPage = items.filter((it) => (it.pageNumber || 1) === pg && !it.isSeparator).length;
-
-              return (
-                <button
-                  key={pg}
-                  type="button"
-                  onClick={() => {
-                    setCurrentPage(pg);
-                    setViewAllPages(false);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer select-none ${
-                    isSelected
-                      ? "bg-amber-500 text-white shadow-xs ring-1 ring-amber-600"
-                      : "bg-white hover:bg-slate-100 text-slate-700 border border-slate-200"
-                  }`}
-                  title={`عرض صفحة رقم ${pg}`}
-                >
-                  <BookOpen className="w-3 h-3 shrink-0" />
-                  <span>صفحة {pg}</span>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                      isSelected ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
-                    }`}
-                  >
-                    {countOnPage}
-                  </span>
-                </button>
-              );
-            })}
-
-          </div>
-
-          {/* View Options & Delete Page */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Toggle View: Single Page vs All Pages */}
-            <div className="flex items-center p-0.5 bg-white rounded-lg border border-slate-200 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setViewAllPages(false)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                  !viewAllPages
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="عرض صفحة واحدة فقط"
-              >
-                صفحة منفردة
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewAllPages(true)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                  viewAllPages
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="عرض كافة صفحات الكشف متتالية"
-              >
-                كافة الصفحات ({pageCount})
-              </button>
-            </div>
-
-            {pageCount > 1 && (
-              <button
-                type="button"
-                onClick={handleDeleteCurrentPage}
-                className="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-[10px] font-bold border border-rose-200 transition-colors cursor-pointer flex items-center gap-1"
-                title={`حذف صفحة رقم ${currentPage}`}
-              >
-                <Trash2 className="w-3 h-3 text-rose-500" />
-                <span>حذف صفحة {currentPage}</span>
-              </button>
-            )}
           </div>
         </div>
 
