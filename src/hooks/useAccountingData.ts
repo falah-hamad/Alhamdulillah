@@ -684,16 +684,19 @@ export function useAccountingData() {
     });
 
     if (currentUser) {
-      saveToFirestoreDoc("customers", newCustomer.id, newCustomer).catch((e) => console.error(e));
-
-      // 🔔 Dispatch cross-device notification for newly added customer
-      dispatchCustomerAddedNotification(currentUser.uid, {
-        operationId: `cust_add_${newCustomer.id}`,
-        customerId: newCustomer.id,
-        customerName: newCustomer.name,
-        phone: newCustomer.phone,
-        address: newCustomer.address,
-      }).catch((e) => console.warn("Failed to dispatch customer notification:", e));
+      // Notify only after the customer write has completed successfully.
+      // A failed or cancelled save must never announce a customer that was not saved.
+      void saveToFirestoreDoc("customers", newCustomer.id, newCustomer)
+        .then(() =>
+          dispatchCustomerAddedNotification(currentUser.uid, {
+            operationId: `cust_add_${newCustomer.id}`,
+            customerId: newCustomer.id,
+            customerName: newCustomer.name,
+            phone: newCustomer.phone,
+            address: newCustomer.address,
+          })
+        )
+        .catch((e) => console.warn("Customer save/notification failed; no notification was sent:", e));
     }
     return newCustomer;
   };
