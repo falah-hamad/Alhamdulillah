@@ -3415,7 +3415,7 @@ ${folderCustomers
                           <div className="flex items-center gap-1.5" dir="rtl" aria-label="إجراءات سجل الديون">
                             <button
                               type="button"
-                              onClick={handlePrint}
+                              onClick={() => window.dispatchEvent(new CustomEvent("vertical-ledger-print"))}
                               disabled={isPrinting}
                               aria-label="طباعة وصل الدين A4"
                               title={isPrinting ? "جاري تجهيز الوصل..." : "طباعة وصل الدين (A4)"}
@@ -3425,7 +3425,7 @@ ${folderCustomers
                             </button>
                             <button
                               type="button"
-                              onClick={handleExportPDF}
+                              onClick={() => window.dispatchEvent(new CustomEvent("vertical-ledger-export-pdf"))}
                               disabled={isExportingPDF}
                               aria-label="حفظ وصل الدين PDF"
                               title={isExportingPDF ? "جاري الحفظ..." : "حفظ PDF"}
@@ -3435,7 +3435,7 @@ ${folderCustomers
                             </button>
                             <button
                               type="button"
-                              onClick={() => document.getElementById("tab-btn-changelog")?.click()}
+                              onClick={() => window.dispatchEvent(new CustomEvent("vertical-ledger-open-history"))}
                               aria-label="سجل التغييرات"
                               title="سجل التغييرات"
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100"
