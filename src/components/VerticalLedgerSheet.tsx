@@ -1188,16 +1188,10 @@ export default function VerticalLedgerSheet({
         key={`a4-page-${pageData.pageNum}`}
         id={`vertical-ledger-page-${pageData.pageNum}`}
         className="a4-page w-full max-w-[794px] min-h-[1123px] border border-amber-900/25 shadow-xl rounded-2xl p-6 sm:p-8 text-slate-900 font-sans relative transition-all flex flex-col justify-between mx-auto"
-        style={{
-          backgroundColor: sheetBgColor,
-          color: ledgerFontColor,
-          fontWeight: ledgerFontBold ? 800 : 400,
-          fontStyle: ledgerFontItalic ? "italic" : "normal",
-          textDecoration: ledgerFontUnderline ? "underline" : "none",
-        }}
+        style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`[data-ledger-row-format="true"] .text-slate-900,[data-ledger-row-format="true"] .text-slate-800,[data-ledger-row-format="true"] .text-slate-700,[data-ledger-row-format="true"] .text-slate-600,[data-ledger-row-format="true"] input{color:var(--row-font-color)!important;font-size:var(--row-font-size)!important;font-weight:var(--row-font-weight)!important;font-style:var(--row-font-style)!important;text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
@@ -1375,8 +1369,12 @@ export default function VerticalLedgerSheet({
                             ? "bg-amber-100/70 ring-1 ring-amber-500/80 shadow-2xs"
                             : "hover:bg-amber-900/5"
                         }`}
-                        data-ledger-row-format={item.rowFontSize || item.rowFontColor || item.rowFontBold !== undefined || item.rowFontItalic !== undefined || item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
-                        style={{ backgroundColor: rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || fontSize}px`, "--row-font-weight": item.rowFontBold === undefined ? 400 : item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
+                        data-row-font-color={item.rowFontColor ? "true" : undefined}
+                        data-row-font-size={item.rowFontSize ? "true" : undefined}
+                        data-row-font-bold={item.rowFontBold !== undefined ? "true" : undefined}
+                        data-row-font-italic={item.rowFontItalic !== undefined ? "true" : undefined}
+                        data-row-font-decoration={item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
+                        style={{ backgroundColor: rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
                         {/* 1. ت (Line Index) */}
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
