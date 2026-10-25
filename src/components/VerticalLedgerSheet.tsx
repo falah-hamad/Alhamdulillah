@@ -1384,7 +1384,7 @@ export default function VerticalLedgerSheet({
                               aria-label={isMultiSelected ? `إلغاء تحديد الصف ${lineIndex}` : `تحديد الصف ${lineIndex}`}
                               aria-pressed={isMultiSelected}
                               onClick={(event) => { event.stopPropagation(); if (rowLongPressTriggered.current) { rowLongPressTriggered.current = false; return; } toggleRowSelection(item.id); }}
-                              className={`flex h-5 w-5 items-center justify-center rounded border ${isMultiSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}`}
+                              className={`flex h-5 w-5 items-center justify-center rounded-none border-2 ${isMultiSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}`}
                             >{isMultiSelected ? <Check className="h-3.5 w-3.5"/> : <span className="h-2 w-2"/>}</button>
                           ) : sheetMode === "edit" && !rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
                             <button
