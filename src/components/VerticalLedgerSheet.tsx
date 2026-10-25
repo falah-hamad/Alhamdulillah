@@ -1846,13 +1846,6 @@ export default function VerticalLedgerSheet({
               </>}
 
             </div>
-            {sheetMode === "edit" && rowSelectionMode && (
-              <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 no-print" role="status">
-                <button type="button" onClick={exitRowSelectionMode} aria-label="إنهاء تحديد الصفوف" title="إنهاء التحديد" className="rounded-full p-1.5 text-slate-600 hover:bg-white"><X className="h-4 w-4"/></button>
-                <span className="text-xs font-bold text-blue-900">تم تحديد {selectedRowIds.length} صف</span>
-                <button type="button" onClick={() => setSelectedRowIds(items.filter((it) => !it.isSeparator && !it.isPaymentRow && !it.isRemainingRow).map((it) => it.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-bold text-blue-800">تحديد الكل</button>
-              </div>
-            )}
             {sheetMode === "edit" && toolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
               <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={ledgerFontColor} onChange={(e) => setLedgerFontColor(e.target.value)} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
@@ -1861,7 +1854,17 @@ export default function VerticalLedgerSheet({
               <button type="button" onClick={() => setLedgerFontUnderline(x => !x)} aria-pressed={ledgerFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${ledgerFontUnderline ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>تسطير U</button>
               <button type="button" onClick={() => setLedgerFontStrike(x => !x)} aria-pressed={ledgerFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${ledgerFontStrike ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>شطب النص</button>
             </div>}
-            {sheetMode === "edit" && toolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+            {sheetMode === "edit" && rowSelectionMode && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-1.5 no-print text-xs font-bold" role="status">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={exitRowSelectionMode} aria-label="إنهاء تحديد الصفوف" title="إنهاء التحديد" className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 hover:bg-white"><X className="h-4 w-4"/></button>
+                  <button type="button" onClick={() => setSelectedRowIds(items.filter((it) => !it.isSeparator && !it.isPaymentRow && !it.isRemainingRow).map((it) => it.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-blue-800">تحديد الكل</button>
+                </div>
+                <span className="whitespace-nowrap text-blue-800">تم تحديد {selectedRowIds.length} عنصر</span>
+              </div>
+            )}
+
+                        {sheetMode === "edit" && toolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <button type="button" onClick={() => handleInsertRowAbove()} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أعلاه</button>
               <button type="button" onClick={() => handleInsertRowBelow()} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
               <button type="button" onClick={() => { if (!hasExplicitRowSelection || !selectedRowId) { alert("يرجى تحديد الصف المطلوب أولاً، ثم فتح عربة البضاعة."); return; } onOpenProductCart?.(selectedRowId); }} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
