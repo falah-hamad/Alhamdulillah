@@ -768,16 +768,26 @@ ${folderCustomers
       showToast("تعذر تعديل القائمة الحسابية: تحديث بيانات الزبون غير متاح.");
       return;
     }
+    // Update synchronously so an input blur cannot overwrite toolbar formatting
+    // with an older render-time draft before React completes the next render.
+    accountingDraftRowsRef.current = nextRows;
     setAccountingDraftRows(nextRows);
     setAccountingRowsDirty(true);
   };
 
   const applyAccountingRowFormat = (patch: Partial<AccountingSheetRow>) => {
-    const targetIds = accountingSelectionMode && accountingSelectedRowIds.length
+    const currentRows = accountingDraftRowsRef.current;
+    const targetIds = accountingSelectionMode
       ? accountingSelectedRowIds
-      : accountingDraftRows[accountingSelectedRow] ? [accountingDraftRows[accountingSelectedRow].id] : [];
-    if (!targetIds.length) return;
-    persistAccountingRows(accountingDraftRows.map((row) => targetIds.includes(row.id) ? { ...row, ...patch } : row));
+      : currentRows[accountingSelectedRow] ? [currentRows[accountingSelectedRow].id] : [];
+    if (!targetIds.length) {
+      showToast(accountingSelectionMode ? "حدد صفاً واحداً على الأقل أولاً." : "حدد الصف المطلوب تنسيقه أولاً.");
+      return;
+    }
+    const nextRows = currentRows.map((row) =>
+      targetIds.includes(row.id) ? { ...row, ...patch } : row
+    );
+    persistAccountingRows(nextRows);
   };
 
   const saveAccountingRows = async (): Promise<boolean> => {
