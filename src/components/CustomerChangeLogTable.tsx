@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
   History,
+  Pencil,
   PlusCircle,
   Trash2,
   ArrowDownCircle,
