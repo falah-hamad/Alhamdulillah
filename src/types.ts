@@ -18,6 +18,14 @@ export interface AccountingSheetRow {
   unit: string;
   unitPrice: number;
   total: number;
+  /** Optional per-row formatting; old saved rows remain compatible. */
+  rowFontSize?: number;
+  rowFontColor?: string;
+  rowFontBold?: boolean;
+  rowFontItalic?: boolean;
+  rowFontUnderline?: boolean;
+  rowFontStrike?: boolean;
+  rowBackgroundColor?: string;
   isSeparator?: boolean;
   /** Keep intentionally inserted blank rows when saving the accounting sheet. */
   isManual?: boolean;
