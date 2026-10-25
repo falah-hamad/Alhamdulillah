@@ -180,6 +180,8 @@ export default function LedgerView({
   const [isPrinting, setIsPrinting] = useState(false);
   const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
   const [accountingDraftRows, setAccountingDraftRows] = useState<AccountingSheetRow[]>([]);
+  const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
+  accountingDraftRowsRef.current = accountingDraftRows;
   const [accountingRowsDirty, setAccountingRowsDirty] = useState(false);
   const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
   const [accountingSheetMode, setAccountingSheetMode] = useState<"view" | "edit">("view");
@@ -3631,8 +3633,11 @@ ${folderCustomers
                           const rowCount = rows.length;
                           const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
                           const persistDraftRows = () => {
-                            const lastUsedIndex = rows.reduce((last, row, index) => row.isManual || row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
-                            const validRows = rows.slice(0, lastUsedIndex + 1);
+                            // Read the latest draft, not the render-time "rows" snapshot.
+                            // A blur event can otherwise restore old rows and erase formatting just applied from the toolbar.
+                            const latestRows = accountingDraftRowsRef.current;
+                            const lastUsedIndex = latestRows.reduce((last, row, index) => row.isManual || row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
+                            const validRows = latestRows.slice(0, lastUsedIndex + 1);
                             persistAccountingRows(validRows.map((row) => ({ ...row, total: (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0) })));
                           };
                           const changeCell = (index: number, field: "details" | "quantity" | "unit" | "unitPrice", value: string) => {
