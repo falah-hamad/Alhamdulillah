@@ -774,14 +774,14 @@ ${folderCustomers
       return true;
     }
     if (!selectedCustomer || !updateCustomer) throw new Error("تحديث بيانات الزبون غير متاح.");
-    const previousRows = accountingOriginalRowsRef.current || [];
+    const previousRows = (accountingOriginalRowsRef.current || []) as AccountingSheetRow[];
     const nextRows = accountingDraftRows;
     await Promise.resolve(updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows }));
 
     // Write accounting-list history independently from invoice/debt-sheet history.
     if (addChangeLog) {
-      const previousById = new Map(previousRows.map((row) => [row.id, row]));
-      const nextById = new Map(nextRows.map((row) => [row.id, row]));
+      const previousById = new Map<string, AccountingSheetRow>(previousRows.map((row): [string, AccountingSheetRow] => [row.id, row]));
+      const nextById = new Map<string, AccountingSheetRow>(nextRows.map((row): [string, AccountingSheetRow] => [row.id, row]));
       const entries: Array<Parameters<NonNullable<typeof addChangeLog>>[0]> = [];
       for (const row of nextRows) {
         const previous = previousById.get(row.id);
