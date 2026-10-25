@@ -356,6 +356,7 @@ export default function VerticalLedgerSheet({
       setPendingPaidNotifications([]);
       setPendingChangeLogs([]);
       setHasUnsavedChanges(false);
+      setSheetMode("view");
       setSaveStatus("تم حفظ التغييرات وتسجيل الحركة");
       setTimeout(() => setSaveStatus(null), 2200);
       return true;
@@ -367,7 +368,11 @@ export default function VerticalLedgerSheet({
   };
 
   const handleCancelChanges = () => {
-    if (!hasUnsavedChanges && pendingChangeLogs.length === 0) return;
+    if (!hasUnsavedChanges && pendingChangeLogs.length === 0) {
+      setSheetMode("view");
+      setSaveStatus(null);
+      return;
+    }
 
     const originalInvoice = originalInvoiceRef.current;
     const originalItems = (originalInvoice.items || []).map((it) => ({ ...it, pageNumber: it.pageNumber || 1 }));
@@ -377,6 +382,7 @@ export default function VerticalLedgerSheet({
     setPendingChangeLogs([]);
     setPendingPaidNotifications([]);
     setHasUnsavedChanges(false);
+    setSheetMode("view");
     setSaveStatus("تم إلغاء التغييرات");
     setTimeout(() => setSaveStatus(null), 1800);
   };
@@ -1685,34 +1691,59 @@ export default function VerticalLedgerSheet({
 
   return (
     <div className="space-y-4 select-none">
-      {/* 0. TAB SWITCHER: ورقة الحساب (3 أعمدة) vs سجل التغييرات */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white/95 rounded-2xl border border-slate-200/90 shadow-2xs no-print">
-        <div className="flex items-center gap-1.5">
+      {/* شريط وضع الورقة: عرض أو تعديل مع حفظ/إلغاء التغييرات */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white/95 rounded-2xl border border-slate-200/90 shadow-2xs no-print" dir="rtl">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            id="tab-btn-ledger-sheet"
-            onClick={() => setActiveViewTab("sheet")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              activeViewTab === "sheet"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            id="ledger-mode-view"
+            onClick={() => {
+              if (hasUnsavedChanges || pendingChangeLogs.length > 0) {
+                setSaveStatus("لديك تغييرات غير محفوظة؛ اختر حفظ التغييرات أو إلغاء.");
+                return;
+              }
+              setSheetMode("view");
+            }}
+            aria-pressed={sheetMode === "view"}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+              sheetMode === "view" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>ورقة حساب الدين (3 أعمدة)</span>
+            <Eye className="h-4 w-4" /> عرض
           </button>
-
+          <button
+            type="button"
+            id="ledger-mode-edit"
+            onClick={() => setSheetMode("edit")}
+            aria-pressed={sheetMode === "edit"}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+              sheetMode === "edit" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <Pencil className="h-4 w-4" /> تعديل
+          </button>
         </div>
-
-        <div className="text-xs text-slate-500 font-medium px-2 flex items-center gap-2">
-          <span>حساب:</span>
-          <span className="font-bold text-slate-800">{customer.name}</span>
-          {customerLogs.length > 0 && (
-            <span className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 font-medium">
-              {customerLogs.length} حركة مسجلة
-            </span>
-          )}
-        </div>
+        {sheetMode === "edit" && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              id="ledger-save-changes"
+              onClick={() => { void handleConfirmSave(); }}
+              disabled={!hasUnsavedChanges && pendingChangeLogs.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check className="h-4 w-4" /> حفظ التغييرات
+            </button>
+            <button
+              type="button"
+              id="ledger-cancel-changes"
+              onClick={handleCancelChanges}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50"
+            >
+              <X className="h-4 w-4" /> إلغاء
+            </button>
+          </div>
+        )}
       </div>
 
       {activeViewTab === "changelog" ? (
@@ -1739,10 +1770,7 @@ export default function VerticalLedgerSheet({
               <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => setToolbarTab("page")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
               <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => setToolbarTab("favorites")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
               </>}
-              <div className="ms-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                <button type="button" onClick={() => setSheetMode("view")} className={`rounded-md px-2 py-1 text-[11px] font-bold ${sheetMode === "view" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`}><Eye className="inline h-3 w-3 me-1"/>عرض</button>
-                <button type="button" onClick={() => setSheetMode("edit")} className={`rounded-md px-2 py-1 text-[11px] font-bold ${sheetMode === "edit" ? "bg-blue-600 text-white" : "text-slate-600"}`}><Pencil className="inline h-3 w-3 me-1"/>تعديل</button>
-              </div>
+
             </div>
             {sheetMode === "edit" && toolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
