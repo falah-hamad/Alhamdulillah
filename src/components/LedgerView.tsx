@@ -3584,13 +3584,6 @@ ${folderCustomers
                               <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "page"} onClick={() => setAccountingToolbarTab("page")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "page" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
                               <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "favorites"} onClick={() => setAccountingToolbarTab("favorites")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "favorites" ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Sparkles className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
                             </div>
-                            {accountingSelectionMode && accountingSheetMode === "edit" && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-xs font-bold text-slate-700" role="region" aria-label="التحكم بالتحديد المتعدد">
-                              <div className="flex items-center gap-2">
-                                <button type="button" onClick={exitAccountingSelectionMode} aria-label="إلغاء وضع التحديد" title="إلغاء وضع التحديد" className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-rose-50 hover:text-rose-700"><X className="h-4 w-4"/></button>
-                                <button type="button" onClick={() => setAccountingSelectedRowIds(accountingDraftRows.map((row) => row.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-100">تحديد الكل</button>
-                              </div>
-                              <span className="rounded-lg bg-white px-3 py-2 text-blue-800">تم تحديد {accountingSelectedRowIds.length} {accountingSelectedRowIds.length === 1 ? "عنصر" : "عناصر"}</span>
-                            </div>}
                           {accountingSheetMode === "edit" && accountingToolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
                             <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={accountingFontSize} onChange={(event) => setAccountingFontSize(Number(event.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{accountingFontSize}</span></label>
                             <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={accountingFontColor} onChange={(event) => setAccountingFontColor(event.target.value)} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
@@ -3599,7 +3592,15 @@ ${folderCustomers
                             <button type="button" onClick={() => setAccountingFontUnderline((value) => !value)} aria-pressed={accountingFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${accountingFontUnderline ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>تسطير U</button>
                             <button type="button" onClick={() => setAccountingFontStrike(value => !value)} aria-pressed={accountingFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${accountingFontStrike ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>شطب النص</button>
                           </div>}
-                          {accountingSheetMode === "edit" && accountingToolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+                            {accountingSelectionMode && accountingSheetMode === "edit" && <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-bold text-slate-700" role="region" aria-label="التحكم بالتحديد المتعدد">
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={exitAccountingSelectionMode} aria-label="إلغاء وضع التحديد" title="إلغاء وضع التحديد" className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 hover:bg-white"><X className="h-4 w-4"/></button>
+                                <button type="button" onClick={() => setAccountingSelectedRowIds(accountingDraftRows.map((row) => row.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-blue-800">تحديد الكل</button>
+                              </div>
+                              <span className="whitespace-nowrap text-blue-800">تم تحديد {accountingSelectedRowIds.length} عنصر</span>
+                            </div>}
+
+                                      {accountingSheetMode === "edit" && accountingToolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
                             <button type="button" onClick={() => insertAccountingRow("above")} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أعلاه</button>
                             <button type="button" onClick={() => insertAccountingRow("below")} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
                             <button type="button" onClick={() => handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow })} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
