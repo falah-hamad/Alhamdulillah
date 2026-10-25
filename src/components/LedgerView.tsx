@@ -186,6 +186,13 @@ export default function LedgerView({
   const [editingAccountingRowId, setEditingAccountingRowId] = useState<string | null>(null);
   const [accountingSheetMode, setAccountingSheetMode] = useState<"view" | "edit">("view");
   const [accountingFontSize, setAccountingFontSize] = useState(13);
+  // Dedicated controls for selected-row formatting; never reuse document-wide typography state.
+  const [accountingRowFontSize, setAccountingRowFontSize] = useState(13);
+  const [accountingRowFontColor, setAccountingRowFontColor] = useState("#111827");
+  const [accountingRowFontBold, setAccountingRowFontBold] = useState(true);
+  const [accountingRowFontItalic, setAccountingRowFontItalic] = useState(false);
+  const [accountingRowFontUnderline, setAccountingRowFontUnderline] = useState(false);
+  const [accountingRowFontStrike, setAccountingRowFontStrike] = useState(false);
   const [accountingToolbarTab, setAccountingToolbarTab] = useState<"font" | "add" | "delete" | "move" | "page" | "favorites">("font");
   const [accountingFontColor, setAccountingFontColor] = useState("#111827");
   const [accountingFontBold, setAccountingFontBold] = useState(true);
@@ -773,7 +780,7 @@ ${folderCustomers
   };
 
   const applyAccountingRowFormat = (patch: Partial<AccountingSheetRow>) => {
-    const targetIds = accountingSelectionMode && accountingSelectedRowIds.length
+    const targetIds = accountingSelectionMode
       ? accountingSelectedRowIds
       : accountingDraftRows[accountingSelectedRow] ? [accountingDraftRows[accountingSelectedRow].id] : [];
     if (!targetIds.length) return;
@@ -3595,12 +3602,12 @@ ${folderCustomers
                               <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "favorites"} onClick={() => setAccountingToolbarTab("favorites")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "favorites" ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Sparkles className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
                             </div>
                           {accountingSheetMode === "edit" && accountingToolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-                            <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={accountingFontSize} onChange={(event) => { const value = Number(event.target.value); setAccountingFontSize(value); applyAccountingRowFormat({ rowFontSize: value }); }} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{accountingFontSize}</span></label>
-                            <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={accountingFontColor} onChange={(event) => { const value = event.target.value; setAccountingFontColor(value); applyAccountingRowFormat({ rowFontColor: value }); }} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
-                            <button type="button" onClick={() => { const value = !accountingFontBold; setAccountingFontBold(value); applyAccountingRowFormat({ rowFontBold: value }); }} aria-pressed={accountingFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${accountingFontBold ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>غامق B</button>
-                            <button type="button" onClick={() => { const value = !accountingFontItalic; setAccountingFontItalic(value); applyAccountingRowFormat({ rowFontItalic: value }); }} aria-pressed={accountingFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${accountingFontItalic ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>مائل I</button>
-                            <button type="button" onClick={() => { const value = !accountingFontUnderline; setAccountingFontUnderline(value); applyAccountingRowFormat({ rowFontUnderline: value }); }} aria-pressed={accountingFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${accountingFontUnderline ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>تسطير U</button>
-                            <button type="button" onClick={() => { const value = !accountingFontStrike; setAccountingFontStrike(value); applyAccountingRowFormat({ rowFontStrike: value }); }} aria-pressed={accountingFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${accountingFontStrike ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>شطب النص</button>
+                            <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={accountingRowFontSize} onChange={(event) => { const value = Number(event.target.value); setAccountingRowFontSize(value); applyAccountingRowFormat({ rowFontSize: value }); }} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{accountingRowFontSize}</span></label>
+                            <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={accountingRowFontColor} onChange={(event) => { const value = event.target.value; setAccountingRowFontColor(value); applyAccountingRowFormat({ rowFontColor: value }); }} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
+                            <button type="button" onClick={() => { const value = !accountingRowFontBold; setAccountingRowFontBold(value); applyAccountingRowFormat({ rowFontBold: value }); }} aria-pressed={accountingRowFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${accountingRowFontBold ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>غامق B</button>
+                            <button type="button" onClick={() => { const value = !accountingRowFontItalic; setAccountingRowFontItalic(value); applyAccountingRowFormat({ rowFontItalic: value }); }} aria-pressed={accountingRowFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${accountingRowFontItalic ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>مائل I</button>
+                            <button type="button" onClick={() => { const value = !accountingRowFontUnderline; setAccountingRowFontUnderline(value); applyAccountingRowFormat({ rowFontUnderline: value }); }} aria-pressed={accountingRowFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${accountingRowFontUnderline ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>تسطير U</button>
+                            <button type="button" onClick={() => { const value = !accountingRowFontStrike; setAccountingRowFontStrike(value); applyAccountingRowFormat({ rowFontStrike: value }); }} aria-pressed={accountingRowFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${accountingRowFontStrike ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>شطب النص</button>
                             <label className="flex items-center gap-1 text-[11px] font-bold">تلوين الصف <input type="color" defaultValue="#fff2b3" onChange={(event) => applyAccountingRowFormat({ rowBackgroundColor: event.target.value })} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5" aria-label="لون خلفية الصف"/></label>
                           </div>}
                             {accountingSelectionMode && accountingSheetMode === "edit" && <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-bold text-slate-700" role="region" aria-label="التحكم بالتحديد المتعدد">
