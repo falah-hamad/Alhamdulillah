@@ -1684,17 +1684,6 @@ export default function FileManagerView({
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  triggerDeleteCustomer(cust);
-                                }}
-                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
-                                title="حذف هذا الزبون ونقله لسلة المهملات"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
                                 onClick={() => {
                                   setItemActionMenu({
                                     type: "customer",
@@ -1784,18 +1773,6 @@ export default function FileManagerView({
                         >
                           {debt > 0 ? `${debt.toLocaleString()} ${currency}` : "خالص"}
                         </span>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerDeleteCustomer(cust);
-                          }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                          title="حذف هذا الزبون ونقله لسلة المهملات"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
 
                         <button
                           type="button"
