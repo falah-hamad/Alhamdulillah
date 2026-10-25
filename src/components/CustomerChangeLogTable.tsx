@@ -62,7 +62,7 @@ export default function CustomerChangeLogTable({
     return customerLogs.filter((log) => {
       const matchesType =
         filterType === "all" ||
-        (filterType === "debts" && (log.actionType === "إضافة دين" || log.actionType === "حذف دين")) ||
+        (filterType === "debts" && (log.actionType === "إضافة دين" || log.actionType === "تعديل دين" || log.actionType === "حذف دين")) ||
         (filterType === "payments" && (log.actionType === "إضافة واصل" || log.actionType === "حذف واصل")) ||
         log.actionType === filterType;
 
@@ -80,6 +80,13 @@ export default function CustomerChangeLogTable({
   // Badge styler for action types
   const getActionBadge = (type: ChangeLogActionType) => {
     switch (type) {
+      case "تعديل دين":
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100/90 text-blue-800 border border-blue-300">
+            <Pencil className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+            <span>تعديل دين</span>
+          </span>
+        );
       case "إضافة دين":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-300">
