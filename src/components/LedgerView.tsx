@@ -228,6 +228,15 @@ export default function LedgerView({
   const toggleAccountingSelectedRow = (rowId: string) => {
     setAccountingSelectedRowIds((previous) => previous.includes(rowId) ? previous.filter((id) => id !== rowId) : [...previous, rowId]);
   };
+  useEffect(() => {
+    if (accountingSheetMode !== "edit" && accountingSelectionMode) {
+      setAccountingSelectionMode(false);
+      setAccountingSelectedRowIds([]);
+      clearAccountingRowLongPress();
+      accountingLongPressTriggered.current = false;
+    }
+    return () => clearAccountingRowLongPress();
+  }, [accountingSheetMode, accountingSelectionMode]);
   const [isAccountingChangeLogOpen, setIsAccountingChangeLogOpen] = useState(false);
   const [productCartInsertContext, setProductCartInsertContext] = useState<{ mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string } | null>(null);
   const [isAccountingPrinting, setIsAccountingPrinting] = useState(false);
