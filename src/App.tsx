@@ -136,7 +136,7 @@ export default function App() {
       if (!detail?.source) return;
       if (detail.dirty) ledgerGuardRegistryRef.current.set(detail.source, detail);
       else ledgerGuardRegistryRef.current.delete(detail.source);
-      const nextGuard = Array.from(ledgerGuardRegistryRef.current.values()).find((guard) => guard.dirty) || null;
+      const nextGuard = (Array.from(ledgerGuardRegistryRef.current.values()) as LedgerLeaveGuard[]).find((guard) => guard.dirty) || null;
       ledgerLeaveGuardRef.current = nextGuard;
       setLedgerLeaveGuard(nextGuard);
       if (!nextGuard) {
