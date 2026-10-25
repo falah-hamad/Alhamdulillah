@@ -290,6 +290,7 @@ export default function VerticalLedgerSheet({
     setSelectedRowIds([]);
   };
   useEffect(() => () => clearRowLongPress(), []);
+  useEffect(() => { if (sheetMode !== "edit" && rowSelectionMode) exitRowSelectionMode(); }, [sheetMode, rowSelectionMode]);
 
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
@@ -1374,7 +1375,7 @@ export default function VerticalLedgerSheet({
                               type="button"
                               aria-label={isMultiSelected ? `إلغاء تحديد الصف ${lineIndex}` : `تحديد الصف ${lineIndex}`}
                               aria-pressed={isMultiSelected}
-                              onClick={(event) => { event.stopPropagation(); toggleRowSelection(item.id); }}
+                              onClick={(event) => { event.stopPropagation(); if (rowLongPressTriggered.current) { rowLongPressTriggered.current = false; return; } toggleRowSelection(item.id); }}
                               className={`flex h-5 w-5 items-center justify-center rounded border ${isMultiSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}`}
                             >{isMultiSelected ? <Check className="h-3.5 w-3.5"/> : <span className="h-2 w-2"/>}</button>
                           ) : sheetMode === "edit" && !rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
