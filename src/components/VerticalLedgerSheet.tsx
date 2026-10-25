@@ -292,6 +292,14 @@ export default function VerticalLedgerSheet({
   useEffect(() => () => clearRowLongPress(), []);
   useEffect(() => { if (sheetMode !== "edit" && rowSelectionMode) exitRowSelectionMode(); }, [sheetMode, rowSelectionMode]);
 
+  const applyLedgerRowFormat = (patch: Partial<InvoiceItem>) => {
+    const targetIds = rowSelectionMode && selectedRowIds.length ? selectedRowIds : selectedRowId ? [selectedRowId] : [];
+    if (!targetIds.length) return;
+    setItems((previous) => previous.map((item) => targetIds.includes(item.id) ? { ...item, ...patch } : item));
+    setHasUnsavedChanges(true);
+    setSaveStatus("توجد تغييرات تنسيق غير محفوظة");
+  };
+
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
 
@@ -1189,7 +1197,7 @@ export default function VerticalLedgerSheet({
         }}
         data-ledger-font="true"
       >
-        <style>{`.a4-page[data-ledger-font="true"] .text-slate-900,.a4-page[data-ledger-font="true"] .text-slate-800,.a4-page[data-ledger-font="true"] .text-slate-700,.a4-page[data-ledger-font="true"] .text-slate-600,.a4-page[data-ledger-font="true"] input{color:${ledgerFontColor}!important;font-weight:${ledgerFontBold ? 800 : 400}!important;font-style:${ledgerFontItalic ? "italic" : "normal"}!important;text-decoration:${[ledgerFontUnderline ? "underline" : "", ledgerFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none"}!important}`}</style>
+        <style>{`[data-ledger-row-format="true"] .text-slate-900,[data-ledger-row-format="true"] .text-slate-800,[data-ledger-row-format="true"] .text-slate-700,[data-ledger-row-format="true"] .text-slate-600,[data-ledger-row-format="true"] input{color:var(--row-font-color)!important;font-size:var(--row-font-size)!important;font-weight:var(--row-font-weight)!important;font-style:var(--row-font-style)!important;text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
@@ -1367,6 +1375,8 @@ export default function VerticalLedgerSheet({
                             ? "bg-amber-100/70 ring-1 ring-amber-500/80 shadow-2xs"
                             : "hover:bg-amber-900/5"
                         }`}
+                        data-ledger-row-format={item.rowFontSize || item.rowFontColor || item.rowFontBold !== undefined || item.rowFontItalic !== undefined || item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
+                        style={{ backgroundColor: rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || fontSize}px`, "--row-font-weight": item.rowFontBold === undefined ? 400 : item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
                         {/* 1. ت (Line Index) */}
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
@@ -1837,22 +1847,23 @@ export default function VerticalLedgerSheet({
           <div className="bg-white/95 backdrop-blur-xs p-2 rounded-xl border border-slate-200/90 shadow-sm no-print space-y-2">
             <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات سجل الحساب العمودي">
               {sheetMode === "edit" && <>
-              <button type="button" role="tab" aria-selected={toolbarTab === "font"} onClick={() => setToolbarTab("font")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "font" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Type className="inline h-3.5 w-3.5 me-1"/>تنسيق الخط</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => !rowSelectionMode && setToolbarTab("add")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => !rowSelectionMode && setToolbarTab("delete")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => !rowSelectionMode && setToolbarTab("move")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => !rowSelectionMode && setToolbarTab("page")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => !rowSelectionMode && setToolbarTab("favorites")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "font"} onClick={() => setToolbarTab("font")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "font" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Type className="inline h-3.5 w-3.5 me-1"/>تنسيق الخط</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => !rowSelectionMode && setToolbarTab("add")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => !rowSelectionMode && setToolbarTab("delete")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => !rowSelectionMode && setToolbarTab("move")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => !rowSelectionMode && setToolbarTab("page")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => !rowSelectionMode && setToolbarTab("favorites")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
               </>}
 
             </div>
             {sheetMode === "edit" && toolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-              <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
-              <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={ledgerFontColor} onChange={(e) => setLedgerFontColor(e.target.value)} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
-              <button type="button" onClick={() => setLedgerFontBold(x => !x)} aria-pressed={ledgerFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${ledgerFontBold ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>غامق B</button>
-              <button type="button" onClick={() => setLedgerFontItalic(x => !x)} aria-pressed={ledgerFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${ledgerFontItalic ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>مائل I</button>
-              <button type="button" onClick={() => setLedgerFontUnderline(x => !x)} aria-pressed={ledgerFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${ledgerFontUnderline ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>تسطير U</button>
-              <button type="button" onClick={() => setLedgerFontStrike(x => !x)} aria-pressed={ledgerFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${ledgerFontStrike ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>شطب النص</button>
+              <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => { const value = Number(e.target.value); setFontSize(value); applyLedgerRowFormat({ rowFontSize: value }); }} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
+              <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={ledgerFontColor} onChange={(e) => { const value = e.target.value; setLedgerFontColor(value); applyLedgerRowFormat({ rowFontColor: value }); }} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
+              <button type="button" onClick={() => { const value = !ledgerFontBold; setLedgerFontBold(value); applyLedgerRowFormat({ rowFontBold: value }); }} aria-pressed={ledgerFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${ledgerFontBold ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>غامق B</button>
+              <button type="button" onClick={() => { const value = !ledgerFontItalic; setLedgerFontItalic(value); applyLedgerRowFormat({ rowFontItalic: value }); }} aria-pressed={ledgerFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${ledgerFontItalic ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>مائل I</button>
+              <button type="button" onClick={() => { const value = !ledgerFontUnderline; setLedgerFontUnderline(value); applyLedgerRowFormat({ rowFontUnderline: value }); }} aria-pressed={ledgerFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${ledgerFontUnderline ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>تسطير U</button>
+              <button type="button" onClick={() => { const value = !ledgerFontStrike; setLedgerFontStrike(value); applyLedgerRowFormat({ rowFontStrike: value }); }} aria-pressed={ledgerFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${ledgerFontStrike ? "bg-blue-100 border-blue-300 text-blue-800" : "bg-white border-slate-200"}`}>شطب النص</button>
+              <label className="flex items-center gap-1 text-[11px] font-bold">تلوين الصف <input type="color" defaultValue="#fff2b3" onChange={(e) => applyLedgerRowFormat({ rowBackgroundColor: e.target.value })} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5" aria-label="لون خلفية الصف"/></label>
             </div>}
             {sheetMode === "edit" && rowSelectionMode && (
               <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-1.5 no-print text-xs font-bold" role="status">
