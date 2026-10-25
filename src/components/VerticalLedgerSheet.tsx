@@ -252,6 +252,44 @@ export default function VerticalLedgerSheet({
     return null;
   });
   const [hasExplicitRowSelection, setHasExplicitRowSelection] = useState(false);
+  // Multi-row selection for the vertical debt ledger (edit mode only).
+  const [rowSelectionMode, setRowSelectionMode] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const rowLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowLongPressTriggered = useRef(false);
+
+  const clearRowLongPress = () => {
+    if (rowLongPressTimer.current) {
+      clearTimeout(rowLongPressTimer.current);
+      rowLongPressTimer.current = null;
+    }
+  };
+  const startRowLongPress = (rowId: string, button: number) => {
+    if (sheetMode !== "edit" || button !== 0 || rowSelectionMode) return;
+    clearRowLongPress();
+    rowLongPressTriggered.current = false;
+    rowLongPressTimer.current = setTimeout(() => {
+      rowLongPressTriggered.current = true;
+      setRowSelectionMode(true);
+      setSelectedRowIds([rowId]);
+      setSelectedRowId(rowId);
+      setHasExplicitRowSelection(true);
+      setToolbarTab("font");
+      rowLongPressTimer.current = null;
+    }, 550);
+  };
+  const toggleRowSelection = (rowId: string) => {
+    setSelectedRowIds((previous) =>
+      previous.includes(rowId) ? previous.filter((id) => id !== rowId) : [...previous, rowId]
+    );
+  };
+  const exitRowSelectionMode = () => {
+    clearRowLongPress();
+    rowLongPressTriggered.current = false;
+    setRowSelectionMode(false);
+    setSelectedRowIds([]);
+  };
+  useEffect(() => () => clearRowLongPress(), []);
 
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
@@ -1302,29 +1340,63 @@ export default function VerticalLedgerSheet({
                   {/* Section Operations Rows */}
                   {sec.items.map(({ item, lineIndex }) => {
                     const isSelected = selectedRowId === item.id;
+                    const isMultiSelected = selectedRowIds.includes(item.id);
 
                     return (
                       <div
                         key={item.id}
                         id={`row-${item.id}`}
-                        onClick={() => { setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}
+                        onClick={() => {
+                          if (rowSelectionMode) {
+                            if (!item.isSeparator && !item.isPaymentRow && !item.isRemainingRow) toggleRowSelection(item.id);
+                            return;
+                          }
+                          setSelectedRowId(item.id);
+                          setHasExplicitRowSelection(true);
+                        }}
                         onBlur={(e) => {
                           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                             handleCommitRowDebtLog(item.id);
                           }
                         }}
                         className={`grid grid-cols-12 items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${
-                          sheetMode === "edit" && isSelected
+                          rowSelectionMode && isMultiSelected
+                            ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
+                            : sheetMode === "edit" && isSelected
                             ? "bg-amber-100/70 ring-1 ring-amber-500/80 shadow-2xs"
                             : "hover:bg-amber-900/5"
                         }`}
                       >
                         {/* 1. ت (Line Index) */}
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
-                          {sheetMode === "edit" && isSelected && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block no-print"></span>
+                          {sheetMode === "edit" && rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
+                            <button
+                              type="button"
+                              aria-label={isMultiSelected ? `إلغاء تحديد الصف ${lineIndex}` : `تحديد الصف ${lineIndex}`}
+                              aria-pressed={isMultiSelected}
+                              onClick={(event) => { event.stopPropagation(); toggleRowSelection(item.id); }}
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${isMultiSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}`}
+                            >{isMultiSelected ? <Check className="h-3.5 w-3.5"/> : <span className="h-2 w-2"/>}</button>
+                          ) : sheetMode === "edit" && !rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
+                            <button
+                              type="button"
+                              aria-label={`رقم الصف ${lineIndex}، اضغط مطولاً للتحديد المتعدد`}
+                              onPointerDown={(event) => startRowLongPress(item.id, event.button)}
+                              onPointerUp={clearRowLongPress}
+                              onPointerCancel={clearRowLongPress}
+                              onContextMenu={(event) => event.preventDefault()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                clearRowLongPress();
+                                if (rowLongPressTriggered.current) { rowLongPressTriggered.current = false; return; }
+                                setSelectedRowId(item.id);
+                                setHasExplicitRowSelection(true);
+                              }}
+                              className="min-w-5 rounded px-0.5 py-1 text-slate-500 active:bg-blue-100"
+                            >{lineIndex}</button>
+                          ) : (
+                            <span>{lineIndex}</span>
                           )}
-                          <span>{lineIndex}</span>
                         </div>
 
                         {/* 2. المبلغ (Amount) */}
@@ -1765,14 +1837,21 @@ export default function VerticalLedgerSheet({
             <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات سجل الحساب العمودي">
               {sheetMode === "edit" && <>
               <button type="button" role="tab" aria-selected={toolbarTab === "font"} onClick={() => setToolbarTab("font")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "font" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Type className="inline h-3.5 w-3.5 me-1"/>تنسيق الخط</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => setToolbarTab("add")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => setToolbarTab("delete")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => setToolbarTab("move")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => setToolbarTab("page")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => setToolbarTab("favorites")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => !rowSelectionMode && setToolbarTab("add")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => !rowSelectionMode && setToolbarTab("delete")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => !rowSelectionMode && setToolbarTab("move")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => !rowSelectionMode && setToolbarTab("page")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => !rowSelectionMode && setToolbarTab("favorites")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
               </>}
 
             </div>
+            {sheetMode === "edit" && rowSelectionMode && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 no-print" role="status">
+                <button type="button" onClick={exitRowSelectionMode} aria-label="إنهاء تحديد الصفوف" title="إنهاء التحديد" className="rounded-full p-1.5 text-slate-600 hover:bg-white"><X className="h-4 w-4"/></button>
+                <span className="text-xs font-bold text-blue-900">تم تحديد {selectedRowIds.length} صف</span>
+                <button type="button" onClick={() => setSelectedRowIds(items.filter((it) => !it.isSeparator && !it.isPaymentRow && !it.isRemainingRow).map((it) => it.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-bold text-blue-800">تحديد الكل</button>
+              </div>
+            )}
             {sheetMode === "edit" && toolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{fontSize}</span></label>
               <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={ledgerFontColor} onChange={(e) => setLedgerFontColor(e.target.value)} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
