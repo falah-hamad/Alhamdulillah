@@ -192,6 +192,12 @@ export default function LedgerView({
   const [accountingFontItalic, setAccountingFontItalic] = useState(false);
   const [accountingFontUnderline, setAccountingFontUnderline] = useState(false);
   const [accountingFontStrike, setAccountingFontStrike] = useState(false);
+  const [accountingRowFontSize, setAccountingRowFontSize] = useState(13);
+  const [accountingRowFontColor, setAccountingRowFontColor] = useState("#111827");
+  const [accountingRowFontBold, setAccountingRowFontBold] = useState(true);
+  const [accountingRowFontItalic, setAccountingRowFontItalic] = useState(false);
+  const [accountingRowFontUnderline, setAccountingRowFontUnderline] = useState(false);
+  const [accountingRowFontStrike, setAccountingRowFontStrike] = useState(false);
   const [accountingToolbarFavorites, setAccountingToolbarFavorites] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("accounting_sheet_favorites") || '["bold","addBelow","moveUp","italic","underline","strike","cart"]'); } catch { return ["bold","addBelow","moveUp","italic","underline","strike","cart"]; } });
   const [showAccountingFavoritesEditor, setShowAccountingFavoritesEditor] = useState(false);
   const [accountingFavoritesDraft, setAccountingFavoritesDraft] = useState<string[]>([]);
