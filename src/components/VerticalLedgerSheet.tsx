@@ -324,7 +324,8 @@ export default function VerticalLedgerSheet({
     };
     // Existing rows changed during this editing session must also create a history entry,
     // but only after the user confirms saving.
-    const originalById = new Map((originalInvoiceRef.current.items || []).map((item) => [item.id, item]));
+    const originalItems = (originalInvoiceRef.current.items || []) as InvoiceItem[];
+    const originalById = new Map<string, InvoiceItem>(originalItems.map((item): [string, InvoiceItem] => [item.id, item]));
     const editLogs = latestItems.flatMap((item) => {
       const previous = originalById.get(item.id);
       if (!previous || item.isSeparator || previous.isSeparator) return [];
