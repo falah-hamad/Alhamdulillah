@@ -181,6 +181,7 @@ export interface SystemSettings {
 
 export type ChangeLogActionType =
   | "إضافة دين"
+  | "تعديل دين"
   | "حذف دين"
   | "إضافة واصل"
   | "حذف واصل"
