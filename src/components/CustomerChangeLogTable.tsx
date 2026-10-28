@@ -366,10 +366,13 @@ export default function CustomerChangeLogTable({
                           {filteredLogs.length - idx}
                         </td>
                         <td rowSpan={2} className="py-2.5 px-4 whitespace-nowrap align-middle">
-                          {getActionBadge(log.actionType)}
+                          <div className="inline-flex flex-col items-start gap-2">
+                            {getActionBadge(log.actionType)}
+                            <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
+                            <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                          </div>
                         </td>
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800 ml-2">قبل</span>
                           {beforeAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
@@ -406,7 +409,6 @@ export default function CustomerChangeLogTable({
                       </tr>
                       <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800 ml-2">بعد</span>
                           {afterAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
