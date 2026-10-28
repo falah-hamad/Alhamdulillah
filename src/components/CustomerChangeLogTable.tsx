@@ -348,55 +348,120 @@ export default function CustomerChangeLogTable({
                 </td>
               </tr>
             ) : (
-              filteredLogs.map((log, idx) => (
-                <tr
-                  key={log.id}
-                  className="hover:bg-slate-50/80 transition-colors group"
-                >
-                  <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
-                    {filteredLogs.length - idx}
-                  </td>
-                  <td className="py-2.5 px-4 whitespace-nowrap">
-                    {getActionBadge(log.actionType)}
-                  </td>
-                  <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
-                    {log.actionType === "تعديل دين" ? "ــــ" : getLogAmount(log)}
-                  </td>
-                  <td className="py-2.5 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
-                    {getLogDescription(log)}
-                  </td>
-                  <td className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap">
-                    <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
-                  </td>
+              filteredLogs.map((log, idx) => {
+                const isDebtEdit = log.actionType === "تعديل دين";
+                const previous = log.previousState;
+                const formatDetails = (value: unknown) =>
+                  value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
+                const beforeAmount = formatLogAmountValue(previous?.total ?? previous?.amount ?? previous?.unitPrice);
+                const afterAmount = formatLogAmountValue(log.rawAmount);
+                const beforeDetails = formatDetails(previous?.details ?? previous?.itemName);
+                const afterDetails = formatDetails(log.itemName);
 
-                  {/* Action (Revert / Delete) */}
-                  {handleRevert && (
-                    <td className="py-2.5 px-4 text-center no-print">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleRevert(log)}
-                          className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
-                          title="استرجاع هذه العملية إلى ورقة الحساب"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>استرجاع</span>
-                        </button>
-                        {onDeleteLog && (
+                if (isDebtEdit) {
+                  return (
+                    <React.Fragment key={log.id}>
+                      <tr className="hover:bg-slate-50/80 transition-colors group">
+                        <td rowSpan={2} className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
+                          {filteredLogs.length - idx}
+                        </td>
+                        <td rowSpan={2} className="py-2.5 px-4 whitespace-nowrap align-middle">
+                          {getActionBadge(log.actionType)}
+                        </td>
+                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800 ml-2">قبل</span>
+                          {beforeAmount}
+                        </td>
+                        <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
+                          {beforeDetails}
+                        </td>
+                        <td rowSpan={2} className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap align-middle">
+                          <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
+                        </td>
+                        {handleRevert && (
+                          <td rowSpan={2} className="py-2.5 px-4 text-center no-print align-middle">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleRevert(log)}
+                                className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
+                                title="استرجاع هذه العملية إلى ورقة الحساب"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>استرجاع</span>
+                              </button>
+                              {onDeleteLog && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteLog(log.id)}
+                                  className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="حذف هذا السجل فقط"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                      <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800 ml-2">بعد</span>
+                          {afterAmount}
+                        </td>
+                        <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
+                          {afterDetails}
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                }
+
+                return (
+                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
+                      {filteredLogs.length - idx}
+                    </td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">
+                      {getActionBadge(log.actionType)}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
+                      {getLogAmount(log)}
+                    </td>
+                    <td className="py-2.5 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
+                      {getLogDescription(log)}
+                    </td>
+                    <td className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap">
+                      <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
+                    </td>
+                    {handleRevert && (
+                      <td className="py-2.5 px-4 text-center no-print">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            onClick={() => onDeleteLog(log.id)}
-                            className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="حذف هذا السجل فقط"
+                            onClick={() => handleRevert(log)}
+                            className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
+                            title="استرجاع هذه العملية إلى ورقة الحساب"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <RotateCcw className="w-3 h-3" />
+                            <span>استرجاع</span>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
+                          {onDeleteLog && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteLog(log.id)}
+                              className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="حذف هذا السجل فقط"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
