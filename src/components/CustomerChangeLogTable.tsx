@@ -59,45 +59,24 @@ export default function CustomerChangeLogTable({
     return `${day} — ${time} — ${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  const renderOriginalRow = (log: CustomerChangeLogItem) => {
+  const getLogAmount = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
-    if (!row || typeof row !== "object") return <span>{log.details}</span>;
-    const isPayment = log.actionType.includes("واصل") || log.actionType.includes("تسديد");
-    const amount = Number(row.total ?? row.amount ?? row.paidAmount ?? log.rawAmount ?? 0);
-    const details = String(row.details ?? row.itemName ?? log.itemName ?? log.details ?? "");
-    const quantity = row.quantity;
-    const unit = String(row.unit ?? "");
-    const unitPrice = Number(row.unitPrice ?? 0);
-    const hasDebtRow = row.details !== undefined || row.quantity !== undefined || row.unitPrice !== undefined;
-    if (!hasDebtRow) {
-      return (
-        <div className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-slate-200 bg-white px-3 py-2 font-semibold">
-          <span>{details && !isPayment ? details : (isPayment ? "مبلغ التسديد" : "المبلغ")}</span>
-          <span>{amount.toLocaleString("en-US")} {currency}</span>
-          {row.notes && <span className="font-normal text-slate-500">{String(row.notes)}</span>}
-        </div>
-      );
+    const amount = Number(row?.total ?? row?.amount ?? row?.paidAmount ?? log.rawAmount ?? 0);
+    return `${amount.toLocaleString("en-US")} ${currency}`;
+  };
+
+  const getLogDescription = (log: CustomerChangeLogItem) => {
+    const row = log.previousState;
+    if (row && typeof row === "object") {
+      const details = String(row.details ?? row.itemName ?? log.itemName ?? log.details ?? "");
+      const quantity = row.quantity;
+      const unit = String(row.unit ?? "");
+      if (quantity !== undefined && quantity !== null) {
+        return `${details} (${quantity} ${unit || "قطعة"})`;
+      }
+      return details || log.details;
     }
-    return (
-      <div className="w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <table className="w-full min-w-[340px] border-collapse text-xs">
-          <thead><tr className="bg-slate-100 text-slate-600">
-            <th className="border-b border-l border-slate-200 px-2 py-1.5">التفاصيل</th>
-            <th className="border-b border-l border-slate-200 px-2 py-1.5">الكمية</th>
-            <th className="border-b border-l border-slate-200 px-2 py-1.5">الوحدة</th>
-            <th className="border-b border-l border-slate-200 px-2 py-1.5">السعر</th>
-            <th className="border-b border-slate-200 px-2 py-1.5">المبلغ الكلي</th>
-          </tr></thead>
-          <tbody><tr className="text-slate-900">
-            <td className="border-l border-slate-100 px-2 py-2 font-bold">{details || "—"}</td>
-            <td className="border-l border-slate-100 px-2 py-2 text-center">{quantity ?? "—"}</td>
-            <td className="border-l border-slate-100 px-2 py-2 text-center">{unit || "—"}</td>
-            <td className="border-l border-slate-100 px-2 py-2 text-center">{unitPrice ? unitPrice.toLocaleString("en-US") : "—"}</td>
-            <td className="px-2 py-2 text-center font-bold">{amount.toLocaleString("en-US")} {currency}</td>
-          </tr></tbody>
-        </table>
-      </div>
-    );
+    return log.details;
   };
 
   // Filter logs for this specific customer
@@ -302,18 +281,19 @@ export default function CustomerChangeLogTable({
       <div id="printable-customer-changelog-table" className="overflow-x-auto">
         <table className="w-full text-right border-collapse select-text">
           <thead>
-            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200">
-              <th className="py-3 px-4 text-center w-16">#</th>
-              <th className="py-3 px-4 text-right min-w-[140px]">نوع الحركة</th>
-              <th className="py-3 px-6 text-right min-w-[240px]">تفاصيل الحركة</th>
-              <th className="py-3 px-4 text-right min-w-[180px]">وقت ويوم الحركة</th>
-              {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print">إجراءات</th>}
+            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
+              <th className="py-3 px-4 text-center w-14 whitespace-nowrap">ت</th>
+              <th className="py-3 px-4 text-right min-w-[140px] whitespace-nowrap">نوع التغيير</th>
+              <th className="py-3 px-4 text-right min-w-[130px] whitespace-nowrap">المبلغ</th>
+              <th className="py-3 px-4 text-right min-w-[280px] whitespace-nowrap">التفاصيل والبيان</th>
+              <th className="py-3 px-4 text-right min-w-[230px] whitespace-nowrap">الطابع الزمني</th>
+              {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+          <tbody className="divide-y divide-slate-100 text-xs text-slate-700 whitespace-nowrap">
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={onRevertLog ? 5 : 4} className="py-12 px-4 text-center text-slate-400">
+                <td colSpan={onRevertLog ? 6 : 5} className="py-12 px-4 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <FileSpreadsheet className="w-8 h-8 text-slate-300 stroke-1" />
                     <p className="font-bold text-sm text-slate-600">لا توجد حركات مسجلة في سجل التغييرات</p>
@@ -329,26 +309,20 @@ export default function CustomerChangeLogTable({
                   key={log.id}
                   className="hover:bg-slate-50/80 transition-colors group"
                 >
-                  {/* Sequence Number */}
-                  <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400">
+                  <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
                     {filteredLogs.length - idx}
                   </td>
-
-                  {/* نوع الحركة (Action Type) */}
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-4 whitespace-nowrap">
                     {getActionBadge(log.actionType)}
                   </td>
-
-                  {/* تفاصيل الحركة (Details) */}
-                  <td className="py-2.5 px-4 font-sans">
-                    {["إضافة دين", "حذف دين", "إضافة واصل", "حذف واصل", "تعديل واصل"].includes(log.actionType)
-                      ? renderOriginalRow(log)
-                      : <span className="font-bold text-slate-900 text-[13px]">{log.details}</span>}
+                  <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
+                    {getLogAmount(log)}
                   </td>
-
-                  {/* وقت ويوم الحركة (Date & Time) */}
-                  <td className="py-2.5 px-4 text-slate-600 font-mono text-xs" dir="ltr">
-                    <span className="font-semibold text-slate-800" dir="rtl">{formatArabicTimestamp(log)}</span>
+                  <td className="py-2.5 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
+                    {getLogDescription(log)}
+                  </td>
+                  <td className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap">
+                    <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
                   </td>
 
                   {/* Action (Revert / Delete) */}
