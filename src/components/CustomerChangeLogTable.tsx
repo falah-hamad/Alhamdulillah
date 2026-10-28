@@ -341,7 +341,16 @@ export default function CustomerChangeLogTable({
 
       {/* Table Container */}
       <div id="printable-customer-changelog-table" className="w-full max-w-full max-h-[65dvh] overflow-auto overscroll-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
-        <table className={`w-[715px] min-w-[715px] text-right border-collapse select-text table-fixed ${onRevertLog ? "min-w-[825px]" : ""}`}>
+        <table className={`w-[715px] min-w-[715px] text-center border-collapse select-text table-fixed ${onRevertLog ? "min-w-[825px]" : ""}`}>
+          <colgroup>
+            <col style={{ width: "25px" }} />
+            <col style={{ width: "30px" }} />
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "100px" }} />
+            <col style={{ width: "250px" }} />
+            <col style={{ width: "200px" }} />
+            {onRevertLog && <col style={{ width: "110px" }} />}
+          </colgroup>
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
               <th className="py-2 px-1 text-center w-[25px] min-w-[25px] max-w-[25px] whitespace-nowrap">ت</th>
@@ -353,7 +362,7 @@ export default function CustomerChangeLogTable({
               {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
-          <tbody className="text-xs text-slate-700 whitespace-nowrap">
+          <tbody className="text-xs text-slate-700 whitespace-normal [&_td]:text-center [&_td]:align-middle [&_td]:px-1 [&_td]:break-words">
             {filteredLogs.length === 0 ? (
               <tr>
                 <td colSpan={onRevertLog ? 7 : 6} className="py-12 px-4 text-center text-slate-400">
@@ -390,22 +399,22 @@ export default function CustomerChangeLogTable({
                   return (
                     <React.Fragment key={log.id}>
                       <tr className="hover:bg-slate-50/80 transition-colors group">
-                        <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
+                        <td rowSpan={3} className="py-2.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-normal align-middle">
                           {filteredLogs.length - idx}
                         </td>
-                        <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap align-middle">
+                        <td rowSpan={3} className="py-2.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-normal align-middle">
                           {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
                         </td>
-                        <td className="py-2 px-4 whitespace-nowrap align-middle">
+                        <td className="py-2 px-1 whitespace-normal text-center align-middle">
                           {getActionBadge(log.actionType)}
                         </td>
-                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap"></td>
-                        <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap"></td>
+                        <td className="py-2 px-1 font-bold text-slate-900 whitespace-normal text-center"></td>
+                        <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal text-center break-words"></td>
                         <td rowSpan={3} className="py-2 px-1 text-slate-600 text-xs whitespace-normal break-words text-center align-middle">
                           <span className="font-semibold text-slate-800 relative top-4">{formatArabicTimestamp(log)}</span>
                         </td>
                         {handleRevert && (
-                          <td rowSpan={3} className="py-2.5 px-4 text-center no-print align-middle">
+                          <td rowSpan={3} className="py-2.5 px-1 text-center no-print align-middle">
                             <div className="relative top-4 flex items-center justify-center gap-1">
                               <button
                                 type="button"
@@ -434,7 +443,7 @@ export default function CustomerChangeLogTable({
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
                         </td>
-                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
+                        <td className="py-2 px-1 font-bold text-slate-900 whitespace-normal text-center align-middle">
                           {isPaymentEdit ? (
                             <span className="inline-flex flex-col items-center justify-center gap-1.5">
                               <span>{beforeAmount}</span>
@@ -444,7 +453,7 @@ export default function CustomerChangeLogTable({
                         </td>
                         <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal break-words align-middle">
                           {isPaymentEdit ? (
-                            <span className="inline-flex flex-col items-start justify-center gap-1.5">
+                            <span className="inline-flex flex-col items-center justify-center gap-1.5">
                               <span>المجموع</span>
                               <span>التسديد</span>
                             </span>
@@ -478,16 +487,16 @@ export default function CustomerChangeLogTable({
 
                 return (
                   <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
-                    <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
+                    <td className="py-2.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-normal">
                       {filteredLogs.length - idx}
                     </td>
-                    <td className="py-2.5 px-4 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
+                    <td className="py-2.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-normal">
                       {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
                     </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">
+                    <td className="py-2.5 px-1 whitespace-normal text-center">
                       {getActionBadge(log.actionType)}
                     </td>
-                    <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
+                    <td className="py-2.5 px-1 font-bold text-slate-900 whitespace-normal text-center">
                       {getLogAmount(log)}
                     </td>
                     <td className="py-2.5 px-1 font-sans font-bold text-slate-900 whitespace-normal break-words">
@@ -497,7 +506,7 @@ export default function CustomerChangeLogTable({
                       <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
                     </td>
                     {handleRevert && (
-                      <td className="py-2.5 px-4 text-center no-print">
+                      <td className="py-2.5 px-1 text-center no-print">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
