@@ -334,7 +334,7 @@ export default function CustomerChangeLogTable({
               {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs text-slate-700 whitespace-nowrap">
+          <tbody className="text-xs text-slate-700 whitespace-nowrap">
             {filteredLogs.length === 0 ? (
               <tr>
                 <td colSpan={onRevertLog ? 6 : 5} className="py-12 px-4 text-center text-slate-400">
@@ -361,7 +361,7 @@ export default function CustomerChangeLogTable({
                 if (isDebtEdit) {
                   return (
                     <React.Fragment key={log.id}>
-                      <tr className="hover:bg-slate-50/80 transition-colors group border-t-transparent">
+                      <tr className="hover:bg-slate-50/80 transition-colors group">
                         <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
                           {filteredLogs.length - idx}
                         </td>
@@ -399,7 +399,7 @@ export default function CustomerChangeLogTable({
                           </td>
                         )}
                       </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group border-t-transparent">
+                      <tr className="hover:bg-slate-50/80 transition-colors group">
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
                         </td>
@@ -410,7 +410,7 @@ export default function CustomerChangeLogTable({
                           {beforeDetails}
                         </td>
                       </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group border-t-transparent">
+                      <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
                         </td>
@@ -426,7 +426,7 @@ export default function CustomerChangeLogTable({
                 }
 
                 return (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
                     <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
                       {filteredLogs.length - idx}
                     </td>
