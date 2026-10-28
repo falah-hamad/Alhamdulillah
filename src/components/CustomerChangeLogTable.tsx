@@ -67,14 +67,12 @@ export default function CustomerChangeLogTable({
 
   const getLogDescription = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
+    // Show the original description verbatim; never append quantity or unit text.
     if (row && typeof row === "object") {
-      const details = String(row.details ?? row.itemName ?? log.itemName ?? log.details ?? "");
-      const quantity = row.quantity;
-      const unit = String(row.unit ?? "");
-      if (quantity !== undefined && quantity !== null) {
-        return `${details} (${quantity} ${unit || "قطعة"})`;
+      const details = row.details ?? row.itemName;
+      if (details !== undefined && details !== null && String(details) !== "") {
+        return String(details);
       }
-      return details || log.details;
     }
     return log.details;
   };
