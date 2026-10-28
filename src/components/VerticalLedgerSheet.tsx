@@ -411,7 +411,7 @@ export default function VerticalLedgerSheet({
           rawAmount: newPaid,
           targetItemId: item.id,
           location: getLedgerSequence(latestItems, item.id),
-          previousState: { ...previous, subtotal: oldTotal },
+          previousState: { ...previous, subtotal: oldTotal, afterSubtotal: newTotal, afterPaidAmount: newPaid },
         }];
       }
       if (item.isSeparator || previous.isSeparator) return [];
