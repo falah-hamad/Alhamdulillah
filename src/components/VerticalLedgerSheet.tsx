@@ -309,12 +309,28 @@ export default function VerticalLedgerSheet({
   const [pendingChangeLogs, setPendingChangeLogs] = useState<Array<Parameters<NonNullable<typeof commitChangeLog>>[0]>>([]);
   const [pendingPaidNotifications, setPendingPaidNotifications] = useState<Array<{ userId: string; payload: Parameters<typeof dispatchPaidAmountNotification>[1] }>>([]);
 
+  // Match the visible sequence number printed on the ledger, not the raw array index.
+  // The sheet numbers debt rows across pages and excludes separators/payment/remaining rows.
+  const getLedgerSequence = (sourceItems: InvoiceItem[], targetItemId?: string): number | undefined => {
+    if (!targetItemId) return undefined;
+    const maxPage = Math.max(pageCount, 1, ...sourceItems.map((item) => item.pageNumber || 1));
+    const orderedItems = Array.from({ length: maxPage }, (_, index) =>
+      sourceItems.filter((item) => (item.pageNumber || 1) === index + 1)
+    ).flat();
+    let sequence = 0;
+    for (const item of orderedItems) {
+      const isNumberedRow = !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
+      if (item.id === targetItemId) return isNumberedRow ? sequence + 1 : undefined;
+      if (isNumberedRow) sequence += 1;
+    }
+    return undefined;
+  };
+
   // Queue history entries until the user explicitly confirms saving.
   const onAddChangeLog = (entry: Parameters<NonNullable<typeof commitChangeLog>>[0]) => {
-    const rowIndex = entry.targetItemId ? items.findIndex((item) => item.id === entry.targetItemId) : -1;
     const entryWithLocation = {
       ...entry,
-      location: entry.location ?? (rowIndex >= 0 ? rowIndex + 1 : undefined),
+      location: entry.location ?? getLedgerSequence(items, entry.targetItemId),
     };
     setPendingChangeLogs((previous) => [...previous, entryWithLocation]);
   };
@@ -394,7 +410,7 @@ export default function VerticalLedgerSheet({
         rawAmount: newAmount,
         itemName: newName,
         targetItemId: item.id,
-        location: latestItems.findIndex((row) => row.id === item.id) + 1,
+        location: getLedgerSequence(latestItems, item.id),
         previousState: previous,
       }];
     });
