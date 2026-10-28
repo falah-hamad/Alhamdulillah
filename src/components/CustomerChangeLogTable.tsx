@@ -61,8 +61,12 @@ export default function CustomerChangeLogTable({
 
   const getLogAmount = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
-    const rawAmount = row?.total ?? row?.amount ?? row?.paidAmount ?? log.rawAmount;
-    if (rawAmount === undefined || rawAmount === null || rawAmount === "") return "ــــ";
+    const candidates = [row?.total, row?.amount, row?.paidAmount, log.rawAmount];
+    // Treat missing, blank, and zero placeholder values as an empty amount.
+    const rawAmount = candidates.find(
+      (value) => value !== undefined && value !== null && String(value).trim() !== "" && Number(value) !== 0
+    );
+    if (rawAmount === undefined) return "ــــ";
     const amount = Number(rawAmount);
     if (!Number.isFinite(amount)) return "ــــ";
     return `${amount.toLocaleString("en-US")} ${currency}`;
