@@ -61,20 +61,24 @@ export default function CustomerChangeLogTable({
 
   const getLogAmount = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
-    const amount = Number(row?.total ?? row?.amount ?? row?.paidAmount ?? log.rawAmount ?? 0);
+    const rawAmount = row?.total ?? row?.amount ?? row?.paidAmount ?? log.rawAmount;
+    if (rawAmount === undefined || rawAmount === null || rawAmount === "") return "ــــ";
+    const amount = Number(rawAmount);
+    if (!Number.isFinite(amount)) return "ــــ";
     return `${amount.toLocaleString("en-US")} ${currency}`;
   };
 
   const getLogDescription = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
-    // Show the original description verbatim; never append quantity or unit text.
-    if (row && typeof row === "object") {
-      const details = row.details ?? row.itemName;
-      if (details !== undefined && details !== null && String(details) !== "") {
-        return String(details);
-      }
+    // Keep the original description exactly as stored; mark an empty field explicitly.
+    const originalDetails =
+      row && typeof row === "object"
+        ? (row.details ?? row.itemName ?? log.itemName ?? log.details)
+        : log.details;
+    if (originalDetails === undefined || originalDetails === null || String(originalDetails).trim() === "") {
+      return "ــــ";
     }
-    return log.details;
+    return String(originalDetails);
   };
 
   // Filter logs for this specific customer
