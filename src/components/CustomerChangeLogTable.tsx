@@ -322,7 +322,7 @@ export default function CustomerChangeLogTable({
       </div>
 
       {/* Table Container */}
-      <div id="printable-customer-changelog-table" className="w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div id="printable-customer-changelog-table" className="w-full max-w-full max-h-[65dvh] overflow-auto overscroll-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
         <table className="w-max min-w-[920px] text-right border-collapse select-text table-auto">
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
