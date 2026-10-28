@@ -66,16 +66,19 @@ export default function CustomerChangeLogTable({
     return `${amount.toLocaleString("en-US")} ${currency}`;
   };
 
-  const renderBeforeAfter = (beforeLabel: string, beforeValue: string, afterValue: string) => (
-    <span className="inline-flex items-center gap-2">
-      <span className="inline-flex items-center gap-1.5">
+  const renderBeforeAfter = (beforeAmount: string, beforeDetails: string, afterAmount: string, afterDetails: string) => (
+    <span className="inline-flex flex-col items-start gap-1.5 whitespace-nowrap">
+      <span className="inline-flex items-center gap-2">
         <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
-        <span>{beforeValue}</span>
+        <span>{beforeAmount}</span>
+        <span className="text-slate-300">|</span>
+        <span>{beforeDetails}</span>
       </span>
-      <span className="text-slate-300">|</span>
-      <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center gap-2">
         <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
-        <span>{afterValue}</span>
+        <span>{afterAmount}</span>
+        <span className="text-slate-300">|</span>
+        <span>{afterDetails}</span>
       </span>
     </span>
   );
@@ -85,7 +88,16 @@ export default function CustomerChangeLogTable({
     if (log.actionType === "تعديل دين") {
       const beforeAmount = row?.total ?? row?.amount ?? row?.unitPrice;
       const afterAmount = log.rawAmount;
-      return renderBeforeAfter("قبل", formatLogAmountValue(beforeAmount), formatLogAmountValue(afterAmount));
+      const beforeDetails = row?.details ?? row?.itemName;
+      const afterDetails = log.itemName;
+      const formatDetails = (value: unknown) =>
+        value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
+      return renderBeforeAfter(
+        formatLogAmountValue(beforeAmount),
+        formatDetails(beforeDetails),
+        formatLogAmountValue(afterAmount),
+        formatDetails(afterDetails)
+      );
     }
     const candidates = [row?.total, row?.amount, row?.paidAmount, log.rawAmount];
     const rawAmount = candidates.find(
@@ -101,7 +113,7 @@ export default function CustomerChangeLogTable({
       const afterDetails = log.itemName;
       const formatDetails = (value: unknown) =>
         value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
-      return renderBeforeAfter("قبل", formatDetails(beforeDetails), formatDetails(afterDetails));
+      return formatDetails(afterDetails);
     }
     // Keep the original description exactly as stored; mark an empty field explicitly.
     const originalDetails =
