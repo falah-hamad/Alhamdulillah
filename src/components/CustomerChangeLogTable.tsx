@@ -346,10 +346,10 @@ export default function CustomerChangeLogTable({
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
               <th className="py-2 px-1 text-center w-[25px] min-w-[25px] max-w-[25px] whitespace-nowrap">ت</th>
               <th className="py-2 px-1 text-center w-[30px] min-w-[30px] max-w-[30px] whitespace-nowrap">الموقع</th>
-              <th className="py-2 px-1 text-right w-[110px] min-w-[110px] max-w-[110px] whitespace-normal">نوع التغيير</th>
-              <th className="py-2 px-1 text-right w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">المبلغ</th>
-              <th className="py-2 px-1 text-right w-[250px] min-w-[250px] max-w-[250px]">التفاصيل والبيان</th>
-              <th className="py-2 px-1 text-right w-[200px] min-w-[200px] max-w-[200px]">الطابع الزمني</th>
+              <th className="py-2 px-1 text-center w-[110px] min-w-[110px] max-w-[110px] whitespace-normal">نوع التغيير</th>
+              <th className="py-2 px-1 text-center w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">المبلغ</th>
+              <th className="py-2 px-1 text-center w-[250px] min-w-[250px] max-w-[250px]">التفاصيل والبيان</th>
+              <th className="py-2 px-1 text-center w-[200px] min-w-[200px] max-w-[200px]">الطابع الزمني</th>
               {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
