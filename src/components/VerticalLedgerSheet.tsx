@@ -450,7 +450,14 @@ export default function VerticalLedgerSheet({
     try {
       await onUpdateInvoice(updatedInvoice);
       originalInvoiceRef.current = updatedInvoice;
-      for (const entry of [...consolidatedPending.values(), ...editLogs]) {
+      const finalPendingLogs = [...consolidatedPending.values()];
+      const pendingAdditionIds = new Set(
+        finalPendingLogs
+          .filter((entry) => entry.actionType === "إضافة دين" || entry.actionType === "إضافة واصل")
+          .map((entry) => entry.targetItemId)
+          .filter((id): id is string => Boolean(id))
+      );
+      for (const entry of [...finalPendingLogs, ...editLogs.filter((item) => !item.targetItemId || !pendingAdditionIds.has(item.targetItemId))]) {
         await Promise.resolve(commitChangeLog?.(entry));
       }
       for (const notification of pendingPaidNotifications) {
