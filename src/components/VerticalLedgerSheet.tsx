@@ -392,10 +392,65 @@ export default function VerticalLedgerSheet({
         previousState: previous,
       }];
     });
+    // Resolve queued actions against the last saved snapshot and the final draft.
+    // This prevents intermediate edits (even hundreds of them) from being recorded as
+    // separate saved changes; the history records the final state at the moment of Save.
+    const savedById = new Map<string, InvoiceItem>(originalItems.map((item) => [item.id, item]));
+    const latestById = new Map<string, InvoiceItem>(latestItems.map((item) => [item.id, item]));
+    const consolidatedPending = new Map<string, (typeof pendingChangeLogs)[number]>();
+    for (const entry of pendingChangeLogs) {
+      const targetId = entry.targetItemId;
+      if (!targetId) {
+        consolidatedPending.set(`untargeted:${entry.actionType}:${entry.details}`, entry);
+        continue;
+      }
+      const savedRow = savedById.get(targetId);
+      const latestRow = latestById.get(targetId);
+      const isAdd = entry.actionType === "إضافة دين" || entry.actionType === "إضافة واصل";
+      const isDelete = entry.actionType === "حذف دين" || entry.actionType === "حذف واصل";
+      // An item created and removed before Save has no persisted change to record.
+      if (isAdd && !latestRow) continue;
+      // A full row deletion is only real if that row existed in the last saved version.
+      if (isDelete && !latestRow && !savedRow) continue;
+      // If a row still exists, ignore stale full-row delete records. Clearing an amount
+      // leaves the row in place and is intentionally retained as a delete movement.
+      if (isDelete && latestRow && (Number(latestRow.total || latestRow.unitPrice || 0) > 0 || Number(latestRow.paidAmount || 0) > 0)) continue;
+      const sourceRow = latestRow || savedRow || entry.previousState;
+      let finalEntry = entry;
+      if (sourceRow && isAdd) {
+        const finalAmount = sourceRow.isSeparator ? Number(sourceRow.paidAmount || 0) : Number(sourceRow.total || sourceRow.unitPrice || 0);
+        const finalName = (sourceRow.details || "").trim();
+        if (finalAmount <= 0 && !finalName) continue;
+        finalEntry = {
+          ...entry,
+          details: sourceRow.isSeparator
+            ? formatPaymentChangeLogDetails(finalAmount, settings.currency)
+            : formatDebtChangeLogDetails(finalName, finalAmount, settings.currency),
+          rawAmount: finalAmount,
+          itemName: finalName,
+          previousState: sourceRow,
+        };
+      } else if (sourceRow && isDelete) {
+        const originalRow = savedRow || sourceRow;
+        const finalAmount = originalRow.isSeparator ? Number(originalRow.paidAmount || 0) : Number(originalRow.total || originalRow.unitPrice || 0);
+        const finalName = (originalRow.details || "").trim();
+        finalEntry = {
+          ...entry,
+          details: originalRow.isSeparator
+            ? formatPaymentChangeLogDetails(finalAmount, settings.currency)
+            : formatDebtChangeLogDetails(finalName, finalAmount, settings.currency),
+          rawAmount: finalAmount,
+          itemName: finalName,
+          previousState: originalRow,
+        };
+      }
+      const key = targetId + ":" + entry.actionType;
+      consolidatedPending.set(key, finalEntry);
+    }
     try {
       await onUpdateInvoice(updatedInvoice);
       originalInvoiceRef.current = updatedInvoice;
-      for (const entry of [...pendingChangeLogs, ...editLogs]) {
+      for (const entry of [...consolidatedPending.values(), ...editLogs]) {
         await Promise.resolve(commitChangeLog?.(entry));
       }
       for (const notification of pendingPaidNotifications) {
