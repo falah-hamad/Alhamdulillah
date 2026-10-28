@@ -431,25 +431,33 @@ export default function CustomerChangeLogTable({
                         )}
                       </tr>
                       <tr className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="py-2 px-4 whitespace-nowrap align-middle">
-                          <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
+                        <td className={`py-2 px-4 whitespace-nowrap align-middle ${isPaymentEdit ? "font-bold text-slate-900" : ""}`}>
+                          {isPaymentEdit ? `المجموع: ${beforeAmount}` : (
+                            <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
+                          )}
                         </td>
-                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          {isPaymentEdit ? `المجموع: ${beforeAmount}` : beforeAmount}
+                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap text-center">
+                          {isPaymentEdit ? (
+                            <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
+                          ) : beforeAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
-                          {beforeDetails}
+                          {isPaymentEdit ? `واصل: ${beforeDetails.replace(/^التسديد:\\s*/, "")}` : beforeDetails}
                         </td>
                       </tr>
                       <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
-                        <td className="py-2 px-4 whitespace-nowrap align-middle">
-                          <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                        <td className={`py-2 px-4 whitespace-nowrap align-middle ${isPaymentEdit ? "font-bold text-slate-900" : ""}`}>
+                          {isPaymentEdit ? `المجموع: ${afterAmount}` : (
+                            <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                          )}
                         </td>
-                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          {isPaymentEdit ? `المجموع: ${afterAmount}` : afterAmount}
+                        <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap text-center">
+                          {isPaymentEdit ? (
+                            <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                          ) : afterAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
-                          {afterDetails}
+                          {isPaymentEdit ? `واصل: ${afterDetails.replace(/^التسديد:\\s*/, "")}` : afterDetails}
                         </td>
                       </tr>
                     </React.Fragment>
