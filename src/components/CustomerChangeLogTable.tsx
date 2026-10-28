@@ -327,6 +327,7 @@ export default function CustomerChangeLogTable({
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
               <th className="py-3 px-4 text-center w-14 whitespace-nowrap">ت</th>
+              <th className="py-3 px-4 text-center min-w-[90px] whitespace-nowrap">الموقع</th>
               <th className="py-3 px-4 text-right min-w-[140px] whitespace-nowrap">نوع التغيير</th>
               <th className="py-3 px-4 text-right min-w-[130px] whitespace-nowrap">المبلغ</th>
               <th className="py-3 px-4 text-right min-w-[280px] whitespace-nowrap">التفاصيل والبيان</th>
@@ -337,7 +338,7 @@ export default function CustomerChangeLogTable({
           <tbody className="text-xs text-slate-700 whitespace-nowrap">
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={onRevertLog ? 6 : 5} className="py-12 px-4 text-center text-slate-400">
+                <td colSpan={onRevertLog ? 7 : 6} className="py-12 px-4 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <FileSpreadsheet className="w-8 h-8 text-slate-300 stroke-1" />
                     <p className="font-bold text-sm text-slate-600">لا توجد حركات مسجلة في سجل التغييرات</p>
@@ -364,6 +365,9 @@ export default function CustomerChangeLogTable({
                       <tr className="hover:bg-slate-50/80 transition-colors group">
                         <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
                           {filteredLogs.length - idx}
+                        </td>
+                        <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap align-middle">
+                          {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
                         </td>
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           {getActionBadge(log.actionType)}
@@ -429,6 +433,9 @@ export default function CustomerChangeLogTable({
                   <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
                     <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
                       {filteredLogs.length - idx}
+                    </td>
+                    <td className="py-2.5 px-4 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
+                      {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
                     </td>
                     <td className="py-2.5 px-4 whitespace-nowrap">
                       {getActionBadge(log.actionType)}
