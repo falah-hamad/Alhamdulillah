@@ -1586,6 +1586,7 @@ export function useAccountingData() {
       timestamp: item.timestamp || now.toISOString(),
       formattedDateTime: item.formattedDateTime || formatChangeLogDateTime(now),
       targetItemId: item.targetItemId,
+      location: item.location,
       previousState: item.previousState,
     };
 
