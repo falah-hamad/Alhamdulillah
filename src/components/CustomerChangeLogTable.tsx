@@ -59,21 +59,36 @@ export default function CustomerChangeLogTable({
     return `${day} — ${time} — ${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  const getLogAmount = (log: CustomerChangeLogItem) => {
-    const row = log.previousState;
-    const candidates = [row?.total, row?.amount, row?.paidAmount, log.rawAmount];
-    // Treat missing, blank, and zero placeholder values as an empty amount.
-    const rawAmount = candidates.find(
-      (value) => value !== undefined && value !== null && String(value).trim() !== "" && Number(value) !== 0
-    );
-    if (rawAmount === undefined) return "ــــ";
-    const amount = Number(rawAmount);
+  const formatLogAmountValue = (value: unknown) => {
+    if (value === undefined || value === null || String(value).trim() === "" || Number(value) === 0) return "ــــ";
+    const amount = Number(value);
     if (!Number.isFinite(amount)) return "ــــ";
     return `${amount.toLocaleString("en-US")} ${currency}`;
   };
 
+  const getLogAmount = (log: CustomerChangeLogItem) => {
+    const row = log.previousState;
+    if (log.actionType === "تعديل دين") {
+      const beforeAmount = row?.total ?? row?.amount ?? row?.unitPrice;
+      const afterAmount = log.rawAmount;
+      return `قبل: ${formatLogAmountValue(beforeAmount)} | بعد: ${formatLogAmountValue(afterAmount)}`;
+    }
+    const candidates = [row?.total, row?.amount, row?.paidAmount, log.rawAmount];
+    const rawAmount = candidates.find(
+      (value) => value !== undefined && value !== null && String(value).trim() !== "" && Number(value) !== 0
+    );
+    return formatLogAmountValue(rawAmount);
+  };
+
   const getLogDescription = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
+    if (log.actionType === "تعديل دين") {
+      const beforeDetails = row?.details ?? row?.itemName;
+      const afterDetails = log.itemName;
+      const formatDetails = (value: unknown) =>
+        value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
+      return `قبل: ${formatDetails(beforeDetails)} | بعد: ${formatDetails(afterDetails)}`;
+    }
     // Keep the original description exactly as stored; mark an empty field explicitly.
     const originalDetails =
       row && typeof row === "object"
