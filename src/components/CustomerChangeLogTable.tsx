@@ -340,8 +340,8 @@ export default function CustomerChangeLogTable({
       </div>
 
       {/* Table Container */}
-      <div id="printable-customer-changelog-table" className="w-full max-w-full max-h-[65dvh] overflow-auto overscroll-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
-        <table className={`w-[715px] min-w-[715px] text-right border-collapse select-text table-fixed ${onRevertLog ? "min-w-[825px]" : ""}`}>
+      <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
+        <table className={`w-max min-w-[715px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[825px]" : ""}`}>
           <colgroup>
             <col style={{ width: "25px" }} />
             <col style={{ width: "30px" }} />
