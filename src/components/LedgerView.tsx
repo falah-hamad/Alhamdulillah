@@ -816,7 +816,7 @@ ${folderCustomers
         const amount = Number(row.total) || (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
         const details = `القائمة الحسابية: ${row.details || "بند بدون تفاصيل"} — ${row.quantity} ${row.unit || "قطعة"} × ${Number(row.unitPrice || 0).toLocaleString()} = ${amount.toLocaleString()} ${settings.currency}`;
         if (!previous) {
-          entries.push({ customerId: selectedCustomer.id, actionType: "إضافة دين", details, rawAmount: amount, itemName: row.details, targetItemId: row.id });
+          entries.push({ customerId: selectedCustomer.id, actionType: "إضافة دين", details, rawAmount: amount, itemName: row.details, targetItemId: row.id, previousState: row });
           continue;
         }
         const oldAmount = Number(previous.total) || (Number(previous.quantity) || 0) * (Number(previous.unitPrice) || 0);
