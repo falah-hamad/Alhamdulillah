@@ -51,6 +51,55 @@ export default function CustomerChangeLogTable({
   const [filterType, setFilterType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  const formatArabicTimestamp = (log: CustomerChangeLogItem) => {
+    const date = new Date(log.timestamp);
+    if (Number.isNaN(date.getTime())) return log.formattedDateTime;
+    const day = new Intl.DateTimeFormat("ar-IQ", { weekday: "long" }).format(date);
+    const time = new Intl.DateTimeFormat("ar-IQ", { hour: "numeric", minute: "2-digit", hour12: true }).format(date);
+    return `${day} — ${time} — ${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  const renderOriginalRow = (log: CustomerChangeLogItem) => {
+    const row = log.previousState;
+    if (!row || typeof row !== "object") return <span>{log.details}</span>;
+    const isPayment = log.actionType.includes("واصل") || log.actionType.includes("تسديد");
+    const amount = Number(row.total ?? row.amount ?? row.paidAmount ?? log.rawAmount ?? 0);
+    const details = String(row.details ?? row.itemName ?? log.itemName ?? log.details ?? "");
+    const quantity = row.quantity;
+    const unit = String(row.unit ?? "");
+    const unitPrice = Number(row.unitPrice ?? 0);
+    const hasDebtRow = row.details !== undefined || row.quantity !== undefined || row.unitPrice !== undefined;
+    if (!hasDebtRow) {
+      return (
+        <div className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-slate-200 bg-white px-3 py-2 font-semibold">
+          <span>{details && !isPayment ? details : (isPayment ? "مبلغ التسديد" : "المبلغ")}</span>
+          <span>{amount.toLocaleString("en-US")} {currency}</span>
+          {row.notes && <span className="font-normal text-slate-500">{String(row.notes)}</span>}
+        </div>
+      );
+    }
+    return (
+      <div className="w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <table className="w-full min-w-[340px] border-collapse text-xs">
+          <thead><tr className="bg-slate-100 text-slate-600">
+            <th className="border-b border-l border-slate-200 px-2 py-1.5">التفاصيل</th>
+            <th className="border-b border-l border-slate-200 px-2 py-1.5">الكمية</th>
+            <th className="border-b border-l border-slate-200 px-2 py-1.5">الوحدة</th>
+            <th className="border-b border-l border-slate-200 px-2 py-1.5">السعر</th>
+            <th className="border-b border-slate-200 px-2 py-1.5">المبلغ الكلي</th>
+          </tr></thead>
+          <tbody><tr className="text-slate-900">
+            <td className="border-l border-slate-100 px-2 py-2 font-bold">{details || "—"}</td>
+            <td className="border-l border-slate-100 px-2 py-2 text-center">{quantity ?? "—"}</td>
+            <td className="border-l border-slate-100 px-2 py-2 text-center">{unit || "—"}</td>
+            <td className="border-l border-slate-100 px-2 py-2 text-center">{unitPrice ? unitPrice.toLocaleString("en-US") : "—"}</td>
+            <td className="px-2 py-2 text-center font-bold">{amount.toLocaleString("en-US")} {currency}</td>
+          </tr></tbody>
+        </table>
+      </div>
+    );
+  };
+
   // Filter logs for this specific customer
   const customerLogs = useMemo(() => {
     return changeLogs
@@ -63,8 +112,12 @@ export default function CustomerChangeLogTable({
     return customerLogs.filter((log) => {
       const matchesType =
         filterType === "all" ||
-        (filterType === "debts" && (log.actionType === "إضافة دين" || log.actionType === "تعديل دين" || log.actionType === "حذف دين")) ||
-        (filterType === "payments" && (log.actionType === "إضافة واصل" || log.actionType === "حذف واصل")) ||
+        (filterType === "debt-add" && log.actionType === "إضافة دين") ||
+        (filterType === "debt-delete" && log.actionType === "حذف دين") ||
+        (filterType === "debt-edit" && log.actionType === "تعديل دين") ||
+        (filterType === "payment-add" && log.actionType === "إضافة واصل") ||
+        (filterType === "payment-delete" && log.actionType === "حذف واصل") ||
+        (filterType === "payment-edit" && log.actionType === "تعديل واصل") ||
         log.actionType === filterType;
 
       const q = searchQuery.trim().toLowerCase();
@@ -210,11 +263,13 @@ export default function CustomerChangeLogTable({
             تصفية:
           </span>
           {[
-            { id: "all", label: "كافة الحركات" },
-            { id: "debts", label: "الديون فقط" },
-            { id: "payments", label: "الواصل فقط" },
-            { id: "إضافة دين", label: "إضافة دين" },
-            { id: "حذف دين", label: "حذف دين" },
+            { id: "all", label: "كل الحركات" },
+            { id: "debt-add", label: "إضافة دين" },
+            { id: "debt-delete", label: "حذف دين" },
+            { id: "debt-edit", label: "تعديل دين" },
+            { id: "payment-add", label: "إضافة تسديد" },
+            { id: "payment-delete", label: "حذف تسديد" },
+            { id: "payment-edit", label: "تعديل التسديد" },
           ].map((btn) => (
             <button
               key={btn.id}
@@ -285,13 +340,15 @@ export default function CustomerChangeLogTable({
                   </td>
 
                   {/* تفاصيل الحركة (Details) */}
-                  <td className="py-2.5 px-6 font-bold text-slate-900 text-[13px] font-sans">
-                    {log.details}
+                  <td className="py-2.5 px-4 font-sans">
+                    {["إضافة دين", "حذف دين", "إضافة واصل", "حذف واصل", "تعديل واصل"].includes(log.actionType)
+                      ? renderOriginalRow(log)
+                      : <span className="font-bold text-slate-900 text-[13px]">{log.details}</span>}
                   </td>
 
                   {/* وقت ويوم الحركة (Date & Time) */}
                   <td className="py-2.5 px-4 text-slate-600 font-mono text-xs" dir="ltr">
-                    <span className="font-semibold text-slate-800">{log.formattedDateTime}</span>
+                    <span className="font-semibold text-slate-800" dir="rtl">{formatArabicTimestamp(log)}</span>
                   </td>
 
                   {/* Action (Revert / Delete) */}
