@@ -341,15 +341,15 @@ export default function CustomerChangeLogTable({
 
       {/* Table Container */}
       <div id="printable-customer-changelog-table" className="w-full max-w-full max-h-[65dvh] overflow-auto overscroll-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
-        <table className="w-max min-w-[920px] text-right border-collapse select-text table-auto">
+        <table className={`w-[715px] min-w-[715px] text-right border-collapse select-text table-fixed ${onRevertLog ? "min-w-[825px]" : ""}`}>
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
-              <th className="py-3 px-4 text-center w-14 whitespace-nowrap">ت</th>
-              <th className="py-3 px-4 text-center min-w-[90px] whitespace-nowrap">الموقع</th>
-              <th className="py-3 px-4 text-right min-w-[140px] whitespace-nowrap">نوع التغيير</th>
-              <th className="py-3 px-4 text-right min-w-[130px] whitespace-nowrap">المبلغ</th>
-              <th className="py-3 px-4 text-right min-w-[280px] whitespace-nowrap">التفاصيل والبيان</th>
-              <th className="py-3 px-4 text-right min-w-[230px] whitespace-nowrap">الطابع الزمني</th>
+              <th className="py-2 px-1 text-center w-[25px] min-w-[25px] max-w-[25px] whitespace-nowrap">ت</th>
+              <th className="py-2 px-1 text-center w-[30px] min-w-[30px] max-w-[30px] whitespace-nowrap">الموقع</th>
+              <th className="py-2 px-1 text-right w-[110px] min-w-[110px] max-w-[110px] whitespace-normal">نوع التغيير</th>
+              <th className="py-2 px-1 text-right w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">المبلغ</th>
+              <th className="py-2 px-1 text-right w-[250px] min-w-[250px] max-w-[250px]">التفاصيل والبيان</th>
+              <th className="py-2 px-1 text-right w-[200px] min-w-[200px] max-w-[200px]">الطابع الزمني</th>
               {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
@@ -401,7 +401,7 @@ export default function CustomerChangeLogTable({
                         </td>
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap"></td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap"></td>
-                        <td rowSpan={3} className="py-2 px-4 text-slate-600 text-xs whitespace-nowrap text-center align-middle">
+                        <td rowSpan={3} className="py-2 px-1 text-slate-600 text-xs whitespace-normal break-words text-center align-middle">
                           <span className="font-semibold text-slate-800 relative top-4">{formatArabicTimestamp(log)}</span>
                         </td>
                         {handleRevert && (
@@ -442,7 +442,7 @@ export default function CustomerChangeLogTable({
                             </span>
                           ) : beforeAmount}
                         </td>
-                        <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap align-middle">
+                        <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal break-words align-middle">
                           {isPaymentEdit ? (
                             <span className="inline-flex flex-col items-start justify-center gap-1.5">
                               <span>المجموع</span>
@@ -463,7 +463,7 @@ export default function CustomerChangeLogTable({
                             </span>
                           ) : afterAmount}
                         </td>
-                        <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap align-middle">
+                        <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal break-words align-middle">
                           {isPaymentEdit ? (
                             <span className="inline-flex flex-col items-start justify-center gap-1.5">
                               <span>المجموع</span>
@@ -490,10 +490,10 @@ export default function CustomerChangeLogTable({
                     <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
                       {getLogAmount(log)}
                     </td>
-                    <td className="py-2.5 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
+                    <td className="py-2.5 px-1 font-sans font-bold text-slate-900 whitespace-normal break-words">
                       {getLogDescription(log)}
                     </td>
-                    <td className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap">
+                    <td className="py-2.5 px-1 text-slate-600 text-xs whitespace-normal break-words">
                       <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
                     </td>
                     {handleRevert && (
