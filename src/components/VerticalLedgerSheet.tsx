@@ -468,7 +468,9 @@ export default function VerticalLedgerSheet({
             : formatDebtChangeLogDetails(finalName, finalAmount, settings.currency),
           rawAmount: finalAmount,
           itemName: finalName,
-          previousState: sourceRow,
+          previousState: sourceRow.isSeparator
+            ? { ...sourceRow, subtotal: calculateSeparatorTotal(latestItems, sourceRow.id) }
+            : sourceRow,
         };
       } else if (sourceRow && isDelete) {
         const originalRow = savedRow || sourceRow;
@@ -481,7 +483,9 @@ export default function VerticalLedgerSheet({
             : formatDebtChangeLogDetails(finalName, finalAmount, settings.currency),
           rawAmount: finalAmount,
           itemName: finalName,
-          previousState: originalRow,
+          previousState: originalRow.isSeparator
+            ? { ...originalRow, subtotal: calculateSeparatorTotal(originalItems, originalRow.id) }
+            : originalRow,
         };
       }
       const key = targetId + ":" + entry.actionType;
