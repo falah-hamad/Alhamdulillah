@@ -208,6 +208,7 @@ export interface CustomerChangeLogItem {
   timestamp: string; // ISO string
   formattedDateTime: string; // مثال: "15/09/2026 — 10:30"
   targetItemId?: string; // معرف الصف أو الفاصلة لتسهيل الاسترجاع
+  location?: number | string; // تسلسل الصف داخل ورقة الحساب وقت تسجيل الحركة
   previousState?: any; // البيانات السابقة لإتاحة الاسترجاع الدقيق
 }
 
