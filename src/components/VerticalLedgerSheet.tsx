@@ -319,7 +319,7 @@ export default function VerticalLedgerSheet({
     ).flat();
     let sequence = 0;
     for (const item of orderedItems) {
-      const isNumberedRow = !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
+      const isNumberedRow = !item.isPaymentRow && !item.isRemainingRow;
       if (item.id === targetItemId) return isNumberedRow ? sequence + 1 : undefined;
       if (isNumberedRow) sequence += 1;
     }
@@ -1160,6 +1160,7 @@ export default function VerticalLedgerSheet({
     sectionIndex: number;
     items: { item: InvoiceItem; lineIndex: number }[];
     separator?: InvoiceItem;
+    separatorLineIndex?: number;
     previousRemaining: number;
     currentItemsTotal: number;
     subtotal: number;
@@ -1199,6 +1200,7 @@ export default function VerticalLedgerSheet({
           sectionIndex: sectionCounter++,
           items: currentSecItems,
           separator: it,
+          separatorLineIndex: globalLineCounter++,
           previousRemaining: sectionPreviousRemaining,
           currentItemsTotal: currentItemsSum,
           subtotal: subtotalVal,
@@ -1644,7 +1646,9 @@ export default function VerticalLedgerSheet({
 
                       {/* الواصل (Paid Amount) */}
                       <div className="grid grid-cols-12 items-center py-1">
-                        <div className="col-span-1"></div>
+                        <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400">
+                          {sec.separatorLineIndex ?? ""}
+                        </div>
                         <div className="col-span-3 text-center flex items-center justify-center">
                           {sheetMode === "view" ? (
                             <span
