@@ -193,6 +193,7 @@ export type ChangeLogActionType =
   | "حذف دين"
   | "إضافة واصل"
   | "حذف واصل"
+  | "تعديل واصل"
   | "استرجاع عملية";
 
 export interface CustomerChangeLogItem {
