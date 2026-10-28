@@ -311,7 +311,12 @@ export default function VerticalLedgerSheet({
 
   // Queue history entries until the user explicitly confirms saving.
   const onAddChangeLog = (entry: Parameters<NonNullable<typeof commitChangeLog>>[0]) => {
-    setPendingChangeLogs((previous) => [...previous, entry]);
+    const rowIndex = entry.targetItemId ? items.findIndex((item) => item.id === entry.targetItemId) : -1;
+    const entryWithLocation = {
+      ...entry,
+      location: entry.location ?? (rowIndex >= 0 ? rowIndex + 1 : undefined),
+    };
+    setPendingChangeLogs((previous) => [...previous, entryWithLocation]);
   };
 
   // Sync back to parent whenever items change
@@ -389,6 +394,7 @@ export default function VerticalLedgerSheet({
         rawAmount: newAmount,
         itemName: newName,
         targetItemId: item.id,
+        location: latestItems.findIndex((row) => row.id === item.id) + 1,
         previousState: previous,
       }];
     });
