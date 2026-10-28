@@ -396,7 +396,25 @@ export default function VerticalLedgerSheet({
     const originalById = new Map<string, InvoiceItem>(originalItems.map((item): [string, InvoiceItem] => [item.id, item]));
     const editLogs = latestItems.flatMap((item) => {
       const previous = originalById.get(item.id);
-      if (!previous || item.isSeparator || previous.isSeparator) return [];
+      if (!previous) return [];
+      if (item.isSeparator && previous.isSeparator) {
+        const oldPaid = Number(previous.paidAmount || 0);
+        const newPaid = Number(item.paidAmount || 0);
+        if (oldPaid === newPaid) return [];
+        const oldTotal = calculateSeparatorTotal(originalItems, previous.id);
+        const newTotal = calculateSeparatorTotal(latestItems, item.id);
+        return [{
+          customerId: customer.id,
+          invoiceId: invoice.id,
+          actionType: "تعديل واصل",
+          details: `تعديل التسديد: المجموع ${oldTotal.toLocaleString("en-US")} ${settings.currency}، التسديد ${oldPaid.toLocaleString("en-US")} ← ${newPaid.toLocaleString("en-US")} ${settings.currency}`,
+          rawAmount: newPaid,
+          targetItemId: item.id,
+          location: getLedgerSequence(latestItems, item.id),
+          previousState: { ...previous, subtotal: oldTotal },
+        }];
+      }
+      if (item.isSeparator || previous.isSeparator) return [];
       const oldAmount = Number(previous.total || previous.unitPrice || 0);
       const newAmount = Number(item.total || item.unitPrice || 0);
       const oldName = (previous.details || "").trim();
@@ -834,7 +852,10 @@ export default function VerticalLedgerSheet({
             details: formatPaymentChangeLogDetails(paid, settings.currency),
             rawAmount: paid,
             targetItemId: itemToDelete.id,
-            previousState: itemToDelete,
+            previousState: {
+              ...itemToDelete,
+              subtotal: calculateSeparatorTotal(items, itemToDelete.id),
+            },
           });
         }
       } else {
@@ -901,6 +922,18 @@ export default function VerticalLedgerSheet({
     }
   };
 
+  // Calculate the running debt total at the separator for accurate payment history.
+  const calculateSeparatorTotal = (sourceItems: InvoiceItem[], sepId: string): number => {
+    let runningDebt = 0;
+    for (const it of sourceItems) {
+      if (it.id === sepId) return runningDebt;
+      if (!it.isSeparator && !it.isPaymentRow && !it.isRemainingRow) {
+        runningDebt += Number(it.total || it.unitPrice || 0);
+      }
+    }
+    return runningDebt;
+  };
+
   // Helper to calculate remaining balance at the time of a separator
   const calculateSeparatorRemaining = (sepId: string): number => {
     let runningDebt = 0;
@@ -946,7 +979,10 @@ export default function VerticalLedgerSheet({
           details: formatPaymentChangeLogDetails(paid, settings.currency),
           rawAmount: paid,
           targetItemId: sep.id,
-          previousState: sep,
+          previousState: {
+            ...sep,
+            subtotal: calculateSeparatorTotal(items, sep.id),
+          },
         });
       }
     }
