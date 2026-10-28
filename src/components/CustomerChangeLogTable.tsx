@@ -334,7 +334,7 @@ export default function CustomerChangeLogTable({
               {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs text-slate-700 whitespace-nowrap">
+          <tbody className="text-xs text-slate-700 whitespace-nowrap">
             {filteredLogs.length === 0 ? (
               <tr>
                 <td colSpan={onRevertLog ? 6 : 5} className="py-12 px-4 text-center text-slate-400">
@@ -370,7 +370,7 @@ export default function CustomerChangeLogTable({
                         </td>
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap"></td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap"></td>
-                        <td rowSpan={3} className="py-2.5 px-4 text-slate-600 text-xs whitespace-nowrap align-middle">
+                        <td rowSpan={3} className="py-2 px-4 text-slate-600 text-xs whitespace-nowrap text-center align-middle">
                           <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
                         </td>
                         {handleRevert && (
@@ -410,7 +410,7 @@ export default function CustomerChangeLogTable({
                           {beforeDetails}
                         </td>
                       </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                      <tr className="hover:bg-slate-50/80 transition-colors group">
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
                         </td>
