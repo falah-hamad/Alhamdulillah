@@ -435,13 +435,18 @@ export default function CustomerChangeLogTable({
                           <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
                         </td>
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? beforeAmount : beforeAmount}
+                          {isPaymentEdit ? (
+                            <span className="inline-flex flex-col items-center justify-center gap-1.5">
+                              <span>{beforeAmount}</span>
+                              <span>{formatLogAmountValue(previous?.paidAmount)}</span>
+                            </span>
+                          ) : beforeAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap align-middle">
                           {isPaymentEdit ? (
                             <span className="inline-flex flex-col items-start justify-center gap-1.5">
-                              <span>{beforeAmount} المجموع</span>
-                              <span>{formatLogAmountValue(previous?.paidAmount)} تسديد</span>
+                              <span>المجموع</span>
+                              <span>التسديد</span>
                             </span>
                           ) : beforeDetails}
                         </td>
@@ -451,13 +456,18 @@ export default function CustomerChangeLogTable({
                           <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
                         </td>
                         <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? afterAmount : afterAmount}
+                          {isPaymentEdit ? (
+                            <span className="inline-flex flex-col items-center justify-center gap-1.5">
+                              <span>{afterAmount}</span>
+                              <span>{formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}</span>
+                            </span>
+                          ) : afterAmount}
                         </td>
                         <td className="py-2 px-4 font-sans font-bold text-slate-900 whitespace-nowrap align-middle">
                           {isPaymentEdit ? (
                             <span className="inline-flex flex-col items-start justify-center gap-1.5">
-                              <span>{afterAmount} المجموع</span>
-                              <span>{formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)} تسديد</span>
+                              <span>المجموع</span>
+                              <span>التسديد</span>
                             </span>
                           ) : afterDetails}
                         </td>
