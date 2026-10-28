@@ -87,17 +87,7 @@ export default function CustomerChangeLogTable({
     const row = log.previousState;
     if (log.actionType === "تعديل دين") {
       const beforeAmount = row?.total ?? row?.amount ?? row?.unitPrice;
-      const afterAmount = log.rawAmount;
-      const beforeDetails = row?.details ?? row?.itemName;
-      const afterDetails = log.itemName;
-      const formatDetails = (value: unknown) =>
-        value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
-      return renderBeforeAfter(
-        formatLogAmountValue(beforeAmount),
-        formatDetails(beforeDetails),
-        formatLogAmountValue(afterAmount),
-        formatDetails(afterDetails)
-      );
+      return null;
     }
     const candidates = [row?.total, row?.amount, row?.paidAmount, log.rawAmount];
     const rawAmount = candidates.find(
@@ -109,11 +99,18 @@ export default function CustomerChangeLogTable({
   const getLogDescription = (log: CustomerChangeLogItem) => {
     const row = log.previousState;
     if (log.actionType === "تعديل دين") {
+      const beforeAmount = row?.total ?? row?.amount ?? row?.unitPrice;
+      const afterAmount = log.rawAmount;
       const beforeDetails = row?.details ?? row?.itemName;
       const afterDetails = log.itemName;
       const formatDetails = (value: unknown) =>
         value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
-      return formatDetails(afterDetails);
+      return renderBeforeAfter(
+        formatLogAmountValue(beforeAmount),
+        formatDetails(beforeDetails),
+        formatLogAmountValue(afterAmount),
+        formatDetails(afterDetails)
+      );
     }
     // Keep the original description exactly as stored; mark an empty field explicitly.
     const originalDetails =
@@ -363,7 +360,7 @@ export default function CustomerChangeLogTable({
                     {getActionBadge(log.actionType)}
                   </td>
                   <td className="py-2.5 px-4 font-bold text-slate-900 whitespace-nowrap">
-                    {getLogAmount(log)}
+                    {log.actionType === "تعديل دين" ? "ــــ" : getLogAmount(log)}
                   </td>
                   <td className="py-2.5 px-4 font-sans font-bold text-slate-900 whitespace-nowrap">
                     {getLogDescription(log)}
