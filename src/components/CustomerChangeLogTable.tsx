@@ -361,7 +361,7 @@ export default function CustomerChangeLogTable({
                 if (isDebtEdit) {
                   return (
                     <React.Fragment key={log.id}>
-                      <tr className="hover:bg-slate-50/80 transition-colors group">
+                      <tr className="hover:bg-slate-50/80 transition-colors group border-t-transparent">
                         <td rowSpan={3} className="py-2.5 px-4 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
                           {filteredLogs.length - idx}
                         </td>
@@ -399,7 +399,7 @@ export default function CustomerChangeLogTable({
                           </td>
                         )}
                       </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group">
+                      <tr className="hover:bg-slate-50/80 transition-colors group border-t-transparent">
                         <td className="py-2 px-4 whitespace-nowrap align-middle">
                           <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
                         </td>
