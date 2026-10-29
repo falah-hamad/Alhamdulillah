@@ -1957,18 +1957,28 @@ export default function VerticalLedgerSheet({
       </div>
 
       {activeViewTab === "changelog" ? (
-        <CustomerChangeLogTable
-          customerId={customer.id}
-          customerName={customer.name}
-          invoiceId={invoice.id}
-          changeLogs={changeLogs}
-          currency={settings.currency}
-          onDeleteLog={onDeleteChangeLog}
-          onClearCustomerLogs={onClearCustomerChangeLogs}
-          onRevertAction={onRevertChangeLog}
-          isCloudSyncing={isCloudSyncing}
-        />
-      ) : (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4 no-print" dir="rtl" onClick={(event) => { if (event.target === event.currentTarget) setActiveViewTab("sheet"); }}>
+          <div role="dialog" aria-modal="true" aria-label="سجل تغييرات السجل العمودي" className="flex h-[96dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b bg-amber-50 p-3 sm:p-4">
+              <div className="flex items-center gap-2"><History className="h-5 w-5 text-amber-700"/><div><h3 className="font-black text-slate-900">سجل تغييرات السجل العمودي</h3><p className="text-xs text-slate-600">حساب الزبون: {customer.name}</p></div></div>
+              <button type="button" onClick={() => setActiveViewTab("sheet")} className="rounded-lg border bg-white p-2 text-slate-600" aria-label="إغلاق سجل التغييرات"><X className="h-4 w-4"/></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-4">
+              <CustomerChangeLogTable
+                customerId={customer.id}
+                customerName={customer.name}
+                invoiceId={invoice.id}
+                changeLogs={changeLogs}
+                currency={settings.currency}
+                onDeleteLog={onDeleteChangeLog}
+                onClearCustomerLogs={onClearCustomerChangeLogs}
+                onRevertAction={onRevertChangeLog}
+                isCloudSyncing={isCloudSyncing}
+              />
+            </div>
+          </div>
+        </div>
+      ) : ( : (
         <>
           {/* أدوات السجل مرتبة ضمن تبويبات قصيرة، وحالتها مستقلة عن القائمة الحسابية */}
           <div className="bg-white/95 backdrop-blur-xs p-2 rounded-xl border border-slate-200/90 shadow-sm no-print space-y-2">
