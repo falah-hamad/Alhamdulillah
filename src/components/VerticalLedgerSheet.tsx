@@ -1978,7 +1978,7 @@ export default function VerticalLedgerSheet({
             </div>
           </div>
         </div>
-      ) : ( : (
+      ) : (
         <>
           {/* أدوات السجل مرتبة ضمن تبويبات قصيرة، وحالتها مستقلة عن القائمة الحسابية */}
           <div className="bg-white/95 backdrop-blur-xs p-2 rounded-xl border border-slate-200/90 shadow-sm no-print space-y-2">
