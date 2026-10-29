@@ -117,7 +117,7 @@ interface LedgerViewProps {
   isCloudSyncing?: boolean;
   addChangeLog?: (item: Omit<CustomerChangeLogItem, "id" | "timestamp" | "formattedDateTime"> & { id?: string; timestamp?: string; formattedDateTime?: string }) => Promise<CustomerChangeLogItem>;
   deleteChangeLog?: (id: string) => Promise<void>;
-  clearCustomerChangeLogs?: (customerId: string) => Promise<void>;
+  clearCustomerChangeLogs?: (customerId: string, invoiceId?: string) => Promise<void>;
   revertChangeLogAction?: (logItem: CustomerChangeLogItem) => Promise<void>;
 }
 
