@@ -343,8 +343,9 @@ export default function CustomerChangeLogTable({
       </div>
 
       {/* Table Container: accounting-list mode is isolated from the vertical ledger's existing layout. */}
-      <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="relative w-full min-w-0 max-w-full">
         {accountingListMode ? (
+          <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
           <table className={`w-max min-w-[1000px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[1120px]" : ""}`}>
             <colgroup>
               <col style={{ width: "48px" }} />
@@ -416,6 +417,7 @@ export default function CustomerChangeLogTable({
               )}
             </tbody>
           </table>
+          </div>
         ) : (
           <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
                   <table className={`w-max min-w-[715px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[825px]" : ""}`}>
@@ -613,6 +615,7 @@ export default function CustomerChangeLogTable({
                       )}
                     </tbody>
                   </table>
+                </div>
         )}
       </div>
 
