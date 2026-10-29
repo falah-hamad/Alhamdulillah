@@ -96,6 +96,7 @@ export default function VerticalLedgerSheet({
   // Mode: "view" (عرض علامة عين) or "edit" (تعديل علامة قلم) - الافتراضي هو وضع العرض
   const [sheetMode, setSheetMode] = useState<"edit" | "view">("view");
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [detailIsPayment, setDetailIsPayment] = useState(false);
   const [pressedViewRowId, setPressedViewRowId] = useState<string | null>(null);
   const viewLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearViewLongPress = () => {
@@ -111,6 +112,7 @@ export default function VerticalLedgerSheet({
   const [detailUploading, setDetailUploading] = useState(false);
   const openRowDetails = (item: InvoiceItem) => {
     setDetailRowId(item.id);
+    setDetailIsPayment(Boolean(item.isSeparator));
     setDetailSeller(item.sellerName || "");
     setDetailNotes(item.saleNotes || "");
     setDetailFiles(Array.isArray(item.saleAttachments) ? item.saleAttachments : []);
@@ -1724,13 +1726,30 @@ export default function VerticalLedgerSheet({
                   {sec.separator && (
                     <div
                       id={`sep-${sec.separator.id}`}
-                      onClick={() => setSelectedRowId(sec.separator!.id)}
+                      onClick={() => { if (sheetMode === "edit") setSelectedRowId(sec.separator!.id); }}
+                      onPointerDown={event => {
+                        if (sheetMode !== "view" || event.button !== 0) return;
+                        clearViewLongPress();
+                        setPressedViewRowId(sec.separator!.id);
+                        viewLongPressTimer.current = setTimeout(() => {
+                          setSelectedRowId(sec.separator!.id);
+                          openRowDetails(sec.separator!);
+                          viewLongPressTimer.current = null;
+                        }, 550);
+                      }}
+                      onPointerUp={() => { clearViewLongPress(); setPressedViewRowId(null); }}
+                      onPointerLeave={() => { clearViewLongPress(); setPressedViewRowId(null); }}
+                      onPointerCancel={() => { clearViewLongPress(); setPressedViewRowId(null); }}
+                      onContextMenu={event => { if (sheetMode === "view") event.preventDefault(); }}
                       className={`pt-1.5 pb-2.5 transition-all rounded-lg ${
                         sheetMode === "edit" && selectedRowId === sec.separator.id
                           ? "ring-1 ring-blue-500 bg-blue-50/40 p-2 my-1.5 shadow-2xs"
+                          : sheetMode === "view" && (pressedViewRowId === sec.separator.id || detailRowId === sec.separator.id)
+                          ? "ring-1 ring-blue-300 bg-blue-100/30"
                           : ""
                       }`}
                     >
+                      {sheetMode === "edit" && <button type="button" className="no-print float-left rounded-md bg-white/90 p-1 text-slate-500" aria-label="تفاصيل المجموع والتسديد" onClick={event => { event.stopPropagation(); openRowDetails(sec.separator!); }}><Info className="h-3.5 w-3.5"/></button>}
                       {/* ━━━━━━━━━ Line 1: Refined clean divider ━━━━━━━━━ */}
                       <div className="w-full h-[1.5px] bg-slate-700/80 rounded-full my-1.5"></div>
 
@@ -2028,12 +2047,12 @@ export default function VerticalLedgerSheet({
         if (!detailRow) return null;
         return (
           <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/60 p-3 no-print" dir="rtl">
-            <div role="dialog" aria-modal="true" aria-label="تفاصيل صف الدين" className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b bg-amber-50 p-4"><h3 className="font-black">تفاصيل صف الدين</h3><button type="button" onClick={() => setDetailRowId(null)} aria-label="إغلاق"><X className="h-5 w-5"/></button></div>
+            <div role="dialog" aria-modal="true" aria-label={detailIsPayment ? "تفاصيل المجموع والتسديد" : "تفاصيل صف الدين"} className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b bg-amber-50 p-4"><h3 className="font-black">{detailIsPayment ? "تفاصيل المجموع والتسديد" : "تفاصيل صف الدين"}</h3><button type="button" onClick={() => setDetailRowId(null)} aria-label="إغلاق"><X className="h-5 w-5"/></button></div>
               <div className="space-y-4 overflow-y-auto p-4">
                 <p className="text-sm">{detailRow.details}</p>
                 <div><label className="mb-2 block rounded-lg bg-amber-100/70 px-3 py-2 text-sm font-extrabold text-amber-950">الطابع الزمني</label><p className="rounded-lg bg-slate-50 p-2 text-sm">{detailRow.createdAt ? (() => { const date = new Date(detailRow.createdAt); if (Number.isNaN(date.getTime())) return "تاريخ غير صالح"; const weekday = new Intl.DateTimeFormat("ar-IQ", { weekday: "long", timeZone: "Asia/Baghdad" }).format(date); const day = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Baghdad" }).format(date).replace(/-/g, "/"); const time = new Intl.DateTimeFormat("ar-IQ", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Baghdad" }).format(date); return weekday + " — " + day + " — " + time; })() : "غير مسجل لهذا الصف القديم"}</p></div>
-                <div><label className="mb-2 block rounded-lg bg-amber-100/70 px-3 py-2 text-sm font-extrabold text-amber-950">اسم البائع</label>{sheetMode === "edit" ? <input className="w-full rounded-lg border p-2" value={detailSeller} onChange={e => setDetailSeller(e.target.value)} /> : <p className="rounded-lg bg-slate-50 p-2">{detailSeller || "ــــ"}</p>}</div>
+                <div><label className="mb-2 block rounded-lg bg-amber-100/70 px-3 py-2 text-sm font-extrabold text-amber-950">{detailIsPayment ? "اسم المستلم" : "اسم البائع"}</label>{sheetMode === "edit" ? <input className="w-full rounded-lg border p-2" value={detailSeller} onChange={e => setDetailSeller(e.target.value)} /> : <p className="rounded-lg bg-slate-50 p-2">{detailSeller || "ــــ"}</p>}</div>
                 <div><label className="mb-2 block rounded-lg bg-amber-100/70 px-3 py-2 text-sm font-extrabold text-amber-950">الملاحظات</label>{sheetMode === "edit" ? <textarea className="min-h-24 w-full rounded-lg border p-2" value={detailNotes} onChange={e => setDetailNotes(e.target.value)} /> : <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2">{detailNotes || "ــــ"}</p>}</div>
                 <div><label className="mb-2 block rounded-lg bg-amber-100/70 px-3 py-2 text-sm font-extrabold text-amber-950">الصور</label>
                   {(() => {
