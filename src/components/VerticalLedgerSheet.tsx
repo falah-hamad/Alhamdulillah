@@ -106,6 +106,7 @@ export default function VerticalLedgerSheet({
   const [detailNotes, setDetailNotes] = useState("");
   const [detailFiles, setDetailFiles] = useState<Array<{ name: string; url: string }>>([]);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [expandedPhoto, setExpandedPhoto] = useState<{ url: string; name: string } | null>(null);
   const photoTouchX = useRef<number | null>(null);
   const [detailUploading, setDetailUploading] = useState(false);
   const openRowDetails = (item: InvoiceItem) => {
@@ -2042,7 +2043,7 @@ export default function VerticalLedgerSheet({
                     const navigate = (delta: number) => setPhotoIndex(index => (index + delta + photos.length) % photos.length);
                     if (!photo) return <p className="rounded-lg border p-4 text-center text-xs text-slate-500">لا توجد صور مرفقة</p>;
                     return <div className="overflow-hidden rounded-xl border bg-slate-100">
-                      <div className="relative flex h-56 items-center justify-center sm:h-72"
+                      <div className="relative mx-auto flex aspect-square w-full max-w-80 items-center justify-center"
                         onTouchStart={e => { photoTouchX.current = e.touches[0]?.clientX ?? null; }}
                         onTouchEnd={e => {
                           if (photoTouchX.current === null || photos.length < 2) return;
@@ -2050,7 +2051,7 @@ export default function VerticalLedgerSheet({
                           photoTouchX.current = null;
                           if (Math.abs(difference) > 45) navigate(difference < 0 ? 1 : -1);
                         }}>
-                        <img src={photo.url} alt={photo.name} draggable={false} className="h-full w-full select-none object-contain" />
+                        <button type="button" aria-label="تكبير الصورة" onClick={() => setExpandedPhoto(photo)} className="flex h-full w-full items-center justify-center overflow-hidden"><img src={photo.url} alt={photo.name} draggable={false} className="h-full w-full select-none object-contain" /></button>
                         {photos.length > 1 && <>
                           <button type="button" aria-label="السابق" onClick={() => navigate(-1)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 shadow">❯</button>
                           <button type="button" aria-label="التالي" onClick={() => navigate(1)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 shadow">❮</button>
@@ -2068,6 +2069,10 @@ export default function VerticalLedgerSheet({
           </div>
         );
       })()}
+      {expandedPhoto && <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/90 p-3 no-print" role="dialog" aria-modal="true" aria-label="عرض الصورة بالحجم الكامل" onClick={() => setExpandedPhoto(null)}>
+        <button type="button" aria-label="إغلاق الصورة" onClick={() => setExpandedPhoto(null)} className="absolute right-4 top-4 z-10 rounded-full bg-white/90 p-2 text-slate-900"><X className="h-6 w-6"/></button>
+        <img src={expandedPhoto.url} alt={expandedPhoto.name} onClick={event => event.stopPropagation()} className="max-h-[94dvh] max-w-full object-contain" />
+      </div>}
       {activeViewTab === "changelog" ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4 no-print" dir="rtl" onClick={(event) => { if (event.target === event.currentTarget) setActiveViewTab("sheet"); }}>
           <div role="dialog" aria-modal="true" aria-label="سجل تغييرات السجل العمودي" className="flex h-[96dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
