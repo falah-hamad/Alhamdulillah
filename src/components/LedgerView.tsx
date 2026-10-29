@@ -816,18 +816,18 @@ ${folderCustomers
         const amount = Number(row.total) || (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
         const details = `القائمة الحسابية: ${row.details || "بند بدون تفاصيل"} — ${row.quantity} ${row.unit || "قطعة"} × ${Number(row.unitPrice || 0).toLocaleString()} = ${amount.toLocaleString()} ${settings.currency}`;
         if (!previous) {
-          entries.push({ customerId: selectedCustomer.id, actionType: "إضافة دين", details, rawAmount: amount, itemName: row.details, targetItemId: row.id, previousState: row });
+          entries.push({ customerId: selectedCustomer.id, actionType: "إضافة دين", details, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: nextRows.findIndex((item) => item.id === row.id) + 1, previousState: { ...row, afterDetails: row.details, afterQuantity: row.quantity, afterUnit: row.unit, afterUnitPrice: row.unitPrice, afterTotal: amount } });
           continue;
         }
         const oldAmount = Number(previous.total) || (Number(previous.quantity) || 0) * (Number(previous.unitPrice) || 0);
         if (previous.details !== row.details || Number(previous.quantity) !== Number(row.quantity) || previous.unit !== row.unit || Number(previous.unitPrice) !== Number(row.unitPrice)) {
-          entries.push({ customerId: selectedCustomer.id, actionType: "تعديل دين", details: `القائمة الحسابية — تعديل: ${previous.details || "بدون تفاصيل"} (${oldAmount.toLocaleString()} ${settings.currency}) ← ${row.details || "بدون تفاصيل"} (${amount.toLocaleString()} ${settings.currency})`, rawAmount: amount, itemName: row.details, targetItemId: row.id, previousState: previous });
+          entries.push({ customerId: selectedCustomer.id, actionType: "تعديل دين", details: `القائمة الحسابية — تعديل: ${previous.details || "بدون تفاصيل"} (${oldAmount.toLocaleString()} ${settings.currency}) ← ${row.details || "بدون تفاصيل"} (${amount.toLocaleString()} ${settings.currency})`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: nextRows.findIndex((item) => item.id === row.id) + 1, previousState: { ...previous, afterDetails: row.details, afterQuantity: row.quantity, afterUnit: row.unit, afterUnitPrice: row.unitPrice, afterTotal: amount } });
         }
       }
       for (const row of previousRows) {
         if (!nextById.has(row.id)) {
           const amount = Number(row.total) || (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
-          entries.push({ customerId: selectedCustomer.id, actionType: "حذف دين", details: `القائمة الحسابية: حذف ${row.details || "بند بدون تفاصيل"} — ${amount.toLocaleString()} ${settings.currency}`, rawAmount: amount, itemName: row.details, targetItemId: row.id, previousState: row });
+          entries.push({ customerId: selectedCustomer.id, actionType: "حذف دين", details: `القائمة الحسابية: حذف ${row.details || "بند بدون تفاصيل"} — ${amount.toLocaleString()} ${settings.currency}`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: previousRows.findIndex((item) => item.id === row.id) + 1, previousState: row });
         }
       }
       for (const entry of entries) {
