@@ -8,6 +8,7 @@ import {
   Payment,
   SystemSettings,
   CustomerChangeLogItem,
+  AccountingSheetRow,
   CloudBackupItem,
 } from "../types";
 import { formatChangeLogDateTime } from "../utils/changeLogUtils";
@@ -1634,7 +1635,45 @@ export function useAccountingData() {
   };
 
   const revertChangeLogAction = async (logItem: CustomerChangeLogItem) => {
-    const targetInvoice = invoices.find((inv) => inv.customerId === logItem.customerId);
+    // Accounting-list logs have no invoiceId; revert them only inside accountingSheetRows.
+    if (!logItem.invoiceId) {
+      const targetCustomer = customers.find((customer) => customer.id === logItem.customerId);
+      if (!targetCustomer) return;
+      const rows = [...(targetCustomer.accountingSheetRows || [])];
+      const targetIndex = logItem.targetItemId ? rows.findIndex((row) => row.id === logItem.targetItemId) : -1;
+      let nextRows = rows;
+      if (logItem.actionType === "حذف دين" && logItem.previousState) {
+        const restoredRow = { ...(logItem.previousState as Partial<AccountingSheetRow>), id: logItem.targetItemId || logItem.previousState.id || `accounting-row-${Date.now()}` } as AccountingSheetRow;
+        nextRows = [...rows];
+        const insertAt = Math.max(0, Math.min(nextRows.length, Number(logItem.location || nextRows.length + 1) - 1));
+        nextRows.splice(insertAt, 0, restoredRow);
+      } else if (logItem.actionType === "إضافة دين" && targetIndex >= 0) {
+        nextRows = rows.filter((row) => row.id !== logItem.targetItemId);
+      } else if (logItem.actionType === "تعديل دين" && logItem.previousState) {
+        const restoredRow = { ...(logItem.previousState as Partial<AccountingSheetRow>), id: logItem.targetItemId || logItem.previousState.id } as AccountingSheetRow;
+        if (targetIndex >= 0) nextRows = rows.map((row) => row.id === logItem.targetItemId ? restoredRow : row);
+        else {
+          nextRows = [...rows];
+          const insertAt = Math.max(0, Math.min(nextRows.length, Number(logItem.location || nextRows.length + 1) - 1));
+          nextRows.splice(insertAt, 0, restoredRow);
+        }
+      } else {
+        return;
+      }
+      await Promise.resolve(updateCustomer({ ...targetCustomer, accountingSheetRows: nextRows }));
+      await addChangeLog({
+        customerId: logItem.customerId,
+        actionType: "استرجاع عملية",
+        details: `استرجاع القائمة الحسابية: ${logItem.details}`,
+        itemName: logItem.itemName,
+        rawAmount: logItem.rawAmount,
+        targetItemId: logItem.targetItemId,
+        previousState: logItem.previousState,
+      });
+      return;
+    }
+
+    const targetInvoice = invoices.find((inv) => inv.id === logItem.invoiceId && inv.customerId === logItem.customerId);
     if (!targetInvoice) return;
 
     const currentItems = [...(targetInvoice.items || [])];
