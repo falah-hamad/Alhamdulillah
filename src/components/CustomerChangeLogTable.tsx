@@ -29,6 +29,8 @@ interface CustomerChangeLogTableProps {
   onRevertAction?: (log: CustomerChangeLogItem) => void;
   isSyncing?: boolean;
   isCloudSyncing?: boolean;
+  /** Use the accounting-list-specific log layout; leave the vertical ledger layout unchanged. */
+  accountingListMode?: boolean;
 }
 
 export default function CustomerChangeLogTable({
@@ -43,6 +45,7 @@ export default function CustomerChangeLogTable({
   onRevertAction,
   isSyncing = false,
   isCloudSyncing = false,
+  accountingListMode = false,
 }: CustomerChangeLogTableProps) {
   const handleClear = onClearCustomerLogs || onClearLogs;
   const handleRevert = onRevertAction || onRevertLog;
@@ -339,203 +342,279 @@ export default function CustomerChangeLogTable({
         </div>
       </div>
 
-      {/* Table Container */}
+      {/* Table Container: accounting-list mode is isolated from the vertical ledger's existing layout. */}
       <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
-        <table className={`w-max min-w-[715px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[825px]" : ""}`}>
-          <colgroup>
-            <col style={{ width: "25px" }} />
-            <col style={{ width: "30px" }} />
-            <col style={{ width: "110px" }} />
-            <col style={{ width: "100px" }} />
-            <col style={{ width: "250px" }} />
-            <col style={{ width: "200px" }} />
-            {onRevertLog && <col style={{ width: "110px" }} />}
-          </colgroup>
-          <thead>
-            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
-              <th className="py-2 px-1 text-center w-[25px] min-w-[25px] max-w-[25px] whitespace-nowrap">ت</th>
-              <th className="py-2 px-1 text-center w-[30px] min-w-[30px] max-w-[30px] whitespace-nowrap">الموقع</th>
-              <th className="py-2 px-1 text-center w-[110px] min-w-[110px] max-w-[110px] whitespace-normal">نوع التغيير</th>
-              <th className="py-2 px-1 text-center w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">المبلغ</th>
-              <th className="py-2 px-1 text-center w-[250px] min-w-[250px] max-w-[250px]">التفاصيل والبيان</th>
-              <th className="py-2 px-1 text-center w-[200px] min-w-[200px] max-w-[200px]">الطابع الزمني</th>
-              {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
-            </tr>
-          </thead>
-          <tbody className="text-xs text-slate-700 whitespace-nowrap">
-            {filteredLogs.length === 0 ? (
-              <tr>
-                <td colSpan={onRevertLog ? 7 : 6} className="py-12 px-4 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <FileSpreadsheet className="w-8 h-8 text-slate-300 stroke-1" />
-                    <p className="font-bold text-sm text-slate-600">لا توجد حركات مسجلة في سجل التغييرات</p>
-                    <p className="text-xs text-slate-400 max-w-sm">
-                      يتم تسجيل العمليات تلقائياً عند إضافة دين جديد بالمبلغ والبيان، أو حذف أي صف دين أو واصل من ورقة الحساب.
-                    </p>
-                  </div>
-                </td>
+        {accountingListMode ? (
+          <table className={`w-max min-w-[1000px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[1120px]" : ""}`}>
+            <colgroup>
+              <col style={{ width: "48px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "260px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "150px" }} />
+              <col style={{ width: "220px" }} />
+              {handleRevert && <col style={{ width: "120px" }} />}
+            </colgroup>
+            <thead>
+              <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
+                <th className="py-2 px-2 text-center">ت</th>
+                <th className="py-2 px-2 text-center">الموقع</th>
+                <th className="py-2 px-2 text-center">نوع التغير</th>
+                <th className="py-2 px-2 text-center">التفاصيل</th>
+                <th className="py-2 px-2 text-center">الكمية</th>
+                <th className="py-2 px-2 text-center">السعر</th>
+                <th className="py-2 px-2 text-center">المبلغ الكلي</th>
+                <th className="py-2 px-2 text-center">الطابع الزمني</th>
+                {handleRevert && <th className="py-2 px-2 text-center no-print whitespace-nowrap">إجراءات</th>}
               </tr>
-            ) : (
-              filteredLogs.map((log, idx) => {
-                const isDebtEdit = log.actionType === "تعديل دين";
-                const isPaymentEdit = log.actionType === "تعديل واصل";
-                const previous = log.previousState;
-                const formatDetails = (value: unknown) =>
-                  value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
-                const beforeAmount = formatLogAmountValue(
-                  isPaymentEdit ? previous?.subtotal ?? previous?.total : previous?.total ?? previous?.amount ?? previous?.unitPrice
-                );
-                const afterAmount = formatLogAmountValue(
-                  isPaymentEdit ? previous?.afterSubtotal ?? previous?.subtotal ?? previous?.total : log.rawAmount
-                );
-                const beforeDetails = isPaymentEdit
-                  ? `التسديد: ${formatLogAmountValue(previous?.paidAmount)}`
-                  : formatDetails(previous?.details ?? previous?.itemName);
-                const afterDetails = isPaymentEdit
-                  ? `التسديد: ${formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}`
-                  : formatDetails(log.itemName);
-
-                if (isDebtEdit || isPaymentEdit) {
+            </thead>
+            <tbody className="text-xs text-slate-700 whitespace-nowrap">
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={handleRevert ? 9 : 8} className="py-12 px-4 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileSpreadsheet className="w-8 h-8 text-slate-300 stroke-1" />
+                      <p className="font-bold text-sm text-slate-600">لا توجد حركات مسجلة في سجل التغييرات</p>
+                      <p className="text-xs text-slate-400 max-w-sm">تظهر هنا تغييرات القائمة الحسابية فقط.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log, idx) => {
+                  const row = log.previousState && typeof log.previousState === "object" ? log.previousState : {};
+                  const quantity = row.afterQuantity ?? row.quantity ?? log.previousState?.quantity;
+                  const unitPrice = row.afterUnitPrice ?? row.unitPrice ?? row.price;
+                  const total = log.rawAmount ?? row.afterTotal ?? row.total ?? row.amount;
+                  const details = log.itemName ?? row.afterDetails ?? row.details ?? row.itemName ?? log.details;
+                  const displayValue = (value: unknown) =>
+                    value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
                   return (
-                    <React.Fragment key={log.id}>
-                      <tr className="hover:bg-slate-50/80 transition-colors group">
-                        <td rowSpan={3} className="py-1.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
-                          {filteredLogs.length - idx}
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                      <td className="py-2 px-2 text-center font-mono font-bold text-slate-400">{filteredLogs.length - idx}</td>
+                      <td className="py-2 px-2 text-center font-mono font-extrabold text-indigo-700">{log.location ?? row.location ?? row.sequence ?? row.lineIndex ?? "ــــ"}</td>
+                      <td className="py-2 px-2 text-center">{getActionBadge(log.actionType)}</td>
+                      <td className="py-2 px-2 font-bold text-slate-900 whitespace-normal min-w-[180px]">{displayValue(details)}</td>
+                      <td className="py-2 px-2 text-center">{displayValue(quantity)}</td>
+                      <td className="py-2 px-2 text-center">{unitPrice === undefined || unitPrice === null || String(unitPrice).trim() === "" ? "ــــ" : formatLogAmountValue(unitPrice)}</td>
+                      <td className="py-2 px-2 text-center font-bold text-slate-900">{formatLogAmountValue(total)}</td>
+                      <td className="py-2 px-2 text-slate-600 text-center whitespace-nowrap"><span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span></td>
+                      {handleRevert && (
+                        <td className="py-2 px-2 text-center no-print">
+                          <div className="flex items-center justify-center gap-1">
+                            <button type="button" onClick={() => handleRevert(log)} className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200" title="استرجاع هذه العملية إلى ورقة الحساب">
+                              <RotateCcw className="w-3 h-3" /><span>استرجاع</span>
+                            </button>
+                            {onDeleteLog && <button type="button" onClick={() => onDeleteLog(log.id)} className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="حذف هذا السجل فقط"><Trash2 className="w-3.5 h-3.5" /></button>}
+                          </div>
                         </td>
-                        <td rowSpan={3} className="py-1.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap align-middle">
-                          {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
-                        </td>
-                        <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
-                          {getActionBadge(log.actionType)}
-                        </td>
-                        <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center"></td>
-                        <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal text-center break-words"></td>
-                        <td rowSpan={3} className="py-1 px-1 text-slate-600 text-xs whitespace-nowrap text-center align-middle">
-                          <span className="font-semibold text-slate-800 relative top-4">{formatArabicTimestamp(log)}</span>
-                        </td>
-                        {handleRevert && (
-                          <td rowSpan={3} className="py-1.5 px-1 text-center no-print align-middle">
-                            <div className="relative top-4 flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleRevert(log)}
-                                className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
-                                title="استرجاع هذه العملية إلى ورقة الحساب"
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>استرجاع</span>
-                              </button>
-                              {onDeleteLog && (
-                                <button
-                                  type="button"
-                                  onClick={() => onDeleteLog(log.id)}
-                                  className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                  title="حذف هذا السجل فقط"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <div id="printable-customer-changelog-table" className="relative w-full min-w-0 max-w-full max-h-[65dvh] overflow-x-auto overflow-y-auto overscroll-x-contain overscroll-y-contain touch-pan-x touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className={`w-max min-w-[715px] text-right border-collapse select-text table-fixed ${handleRevert ? "min-w-[825px]" : ""}`}>
+                    <colgroup>
+                      <col style={{ width: "25px" }} />
+                      <col style={{ width: "30px" }} />
+                      <col style={{ width: "110px" }} />
+                      <col style={{ width: "100px" }} />
+                      <col style={{ width: "250px" }} />
+                      <col style={{ width: "200px" }} />
+                      {onRevertLog && <col style={{ width: "110px" }} />}
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold border-b border-slate-200 whitespace-nowrap">
+                        <th className="py-2 px-1 text-center w-[25px] min-w-[25px] max-w-[25px] whitespace-nowrap">ت</th>
+                        <th className="py-2 px-1 text-center w-[30px] min-w-[30px] max-w-[30px] whitespace-nowrap">الموقع</th>
+                        <th className="py-2 px-1 text-center w-[110px] min-w-[110px] max-w-[110px] whitespace-normal">نوع التغيير</th>
+                        <th className="py-2 px-1 text-center w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">المبلغ</th>
+                        <th className="py-2 px-1 text-center w-[250px] min-w-[250px] max-w-[250px]">التفاصيل والبيان</th>
+                        <th className="py-2 px-1 text-center w-[200px] min-w-[200px] max-w-[200px]">الطابع الزمني</th>
+                        {onRevertLog && <th className="py-3 px-4 text-center w-28 no-print whitespace-nowrap">إجراءات</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="text-xs text-slate-700 whitespace-nowrap">
+                      {filteredLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={onRevertLog ? 7 : 6} className="py-12 px-4 text-center text-slate-400">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <FileSpreadsheet className="w-8 h-8 text-slate-300 stroke-1" />
+                              <p className="font-bold text-sm text-slate-600">لا توجد حركات مسجلة في سجل التغييرات</p>
+                              <p className="text-xs text-slate-400 max-w-sm">
+                                يتم تسجيل العمليات تلقائياً عند إضافة دين جديد بالمبلغ والبيان، أو حذف أي صف دين أو واصل من ورقة الحساب.
+                              </p>
                             </div>
                           </td>
-                        )}
-                      </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
-                          <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
-                        </td>
-                        <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? (
-                            <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                              <span>{beforeAmount}</span>
-                              <span>{formatLogAmountValue(previous?.paidAmount)}</span>
-                            </span>
-                          ) : beforeAmount}
-                        </td>
-                        <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? (
-                            <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                              <span>المجموع</span>
-                              <span>التسديد</span>
-                            </span>
-                          ) : beforeDetails}
-                        </td>
-                      </tr>
-                      <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
-                        <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
-                          <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
-                        </td>
-                        <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? (
-                            <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                              <span>{afterAmount}</span>
-                              <span>{formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}</span>
-                            </span>
-                          ) : afterAmount}
-                        </td>
-                        <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
-                          {isPaymentEdit ? (
-                            <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                              <span>المجموع</span>
-                              <span>التسديد</span>
-                            </span>
-                          ) : afterDetails}
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  );
-                }
-
-                return (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
-                    <td className="py-1.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
-                      {filteredLogs.length - idx}
-                    </td>
-                    <td className="py-1.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
-                      {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
-                    </td>
-                    <td className="py-1.5 px-1 whitespace-nowrap text-center">
-                      {getActionBadge(log.actionType)}
-                    </td>
-                    <td className="py-1.5 px-1 font-bold text-slate-900 whitespace-nowrap text-center">
-                      {getLogAmount(log)}
-                    </td>
-                    <td className="py-1.5 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center">
-                      {getLogDescription(log)}
-                    </td>
-                    <td className="py-1.5 px-1 text-slate-600 text-xs whitespace-nowrap text-center">
-                      <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
-                    </td>
-                    {handleRevert && (
-                      <td className="py-2.5 px-1 text-center no-print">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleRevert(log)}
-                            className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
-                            title="استرجاع هذه العملية إلى ورقة الحساب"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>استرجاع</span>
-                          </button>
-                          {onDeleteLog && (
-                            <button
-                              type="button"
-                              onClick={() => onDeleteLog(log.id)}
-                              className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="حذف هذا السجل فقط"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                        </tr>
+                      ) : (
+                        filteredLogs.map((log, idx) => {
+                          const isDebtEdit = log.actionType === "تعديل دين";
+                          const isPaymentEdit = log.actionType === "تعديل واصل";
+                          const previous = log.previousState;
+                          const formatDetails = (value: unknown) =>
+                            value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
+                          const beforeAmount = formatLogAmountValue(
+                            isPaymentEdit ? previous?.subtotal ?? previous?.total : previous?.total ?? previous?.amount ?? previous?.unitPrice
+                          );
+                          const afterAmount = formatLogAmountValue(
+                            isPaymentEdit ? previous?.afterSubtotal ?? previous?.subtotal ?? previous?.total : log.rawAmount
+                          );
+                          const beforeDetails = isPaymentEdit
+                            ? `التسديد: ${formatLogAmountValue(previous?.paidAmount)}`
+                            : formatDetails(previous?.details ?? previous?.itemName);
+                          const afterDetails = isPaymentEdit
+                            ? `التسديد: ${formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}`
+                            : formatDetails(log.itemName);
+          
+                          if (isDebtEdit || isPaymentEdit) {
+                            return (
+                              <React.Fragment key={log.id}>
+                                <tr className="hover:bg-slate-50/80 transition-colors group">
+                                  <td rowSpan={3} className="py-1.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-nowrap align-middle">
+                                    {filteredLogs.length - idx}
+                                  </td>
+                                  <td rowSpan={3} className="py-1.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap align-middle">
+                                    {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
+                                  </td>
+                                  <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
+                                    {getActionBadge(log.actionType)}
+                                  </td>
+                                  <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center"></td>
+                                  <td className="py-2 px-1 font-sans font-bold text-slate-900 whitespace-normal text-center break-words"></td>
+                                  <td rowSpan={3} className="py-1 px-1 text-slate-600 text-xs whitespace-nowrap text-center align-middle">
+                                    <span className="font-semibold text-slate-800 relative top-4">{formatArabicTimestamp(log)}</span>
+                                  </td>
+                                  {handleRevert && (
+                                    <td rowSpan={3} className="py-1.5 px-1 text-center no-print align-middle">
+                                      <div className="relative top-4 flex items-center justify-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRevert(log)}
+                                          className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
+                                          title="استرجاع هذه العملية إلى ورقة الحساب"
+                                        >
+                                          <RotateCcw className="w-3 h-3" />
+                                          <span>استرجاع</span>
+                                        </button>
+                                        {onDeleteLog && (
+                                          <button
+                                            type="button"
+                                            onClick={() => onDeleteLog(log.id)}
+                                            className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                            title="حذف هذا السجل فقط"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  )}
+                                </tr>
+                                <tr className="hover:bg-slate-50/80 transition-colors group">
+                                  <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
+                                    <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-extrabold text-amber-800">قبل</span>
+                                  </td>
+                                  <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
+                                    {isPaymentEdit ? (
+                                      <span className="inline-flex flex-col items-center justify-center gap-0.5">
+                                        <span>{beforeAmount}</span>
+                                        <span>{formatLogAmountValue(previous?.paidAmount)}</span>
+                                      </span>
+                                    ) : beforeAmount}
+                                  </td>
+                                  <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
+                                    {isPaymentEdit ? (
+                                      <span className="inline-flex flex-col items-center justify-center gap-0.5">
+                                        <span>المجموع</span>
+                                        <span>التسديد</span>
+                                      </span>
+                                    ) : beforeDetails}
+                                  </td>
+                                </tr>
+                                <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                                  <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
+                                    <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                                  </td>
+                                  <td className="py-1 px-1 font-bold text-slate-900 whitespace-nowrap text-center align-middle">
+                                    {isPaymentEdit ? (
+                                      <span className="inline-flex flex-col items-center justify-center gap-0.5">
+                                        <span>{afterAmount}</span>
+                                        <span>{formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}</span>
+                                      </span>
+                                    ) : afterAmount}
+                                  </td>
+                                  <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
+                                    {isPaymentEdit ? (
+                                      <span className="inline-flex flex-col items-center justify-center gap-0.5">
+                                        <span>المجموع</span>
+                                        <span>التسديد</span>
+                                      </span>
+                                    ) : afterDetails}
+                                  </td>
+                                </tr>
+                              </React.Fragment>
+                            );
+                          }
+          
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                              <td className="py-1.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
+                                {filteredLogs.length - idx}
+                              </td>
+                              <td className="py-1.5 px-1 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
+                                {log.location ?? log.previousState?.location ?? log.previousState?.sequence ?? log.previousState?.lineIndex ?? "ــــ"}
+                              </td>
+                              <td className="py-1.5 px-1 whitespace-nowrap text-center">
+                                {getActionBadge(log.actionType)}
+                              </td>
+                              <td className="py-1.5 px-1 font-bold text-slate-900 whitespace-nowrap text-center">
+                                {getLogAmount(log)}
+                              </td>
+                              <td className="py-1.5 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center">
+                                {getLogDescription(log)}
+                              </td>
+                              <td className="py-1.5 px-1 text-slate-600 text-xs whitespace-nowrap text-center">
+                                <span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span>
+                              </td>
+                              {handleRevert && (
+                                <td className="py-2.5 px-1 text-center no-print">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRevert(log)}
+                                      className="px-2 py-1 rounded text-[11px] font-bold text-purple-700 hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
+                                      title="استرجاع هذه العملية إلى ورقة الحساب"
+                                    >
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>استرجاع</span>
+                                    </button>
+                                    {onDeleteLog && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onDeleteLog(log.id)}
+                                        className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                        title="حذف هذا السجل فقط"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+        )}
       </div>
 
       {/* Footer / Summary */}
