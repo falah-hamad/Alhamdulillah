@@ -96,6 +96,7 @@ export default function VerticalLedgerSheet({
   // Mode: "view" (عرض علامة عين) or "edit" (تعديل علامة قلم) - الافتراضي هو وضع العرض
   const [sheetMode, setSheetMode] = useState<"edit" | "view">("view");
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [pressedViewRowId, setPressedViewRowId] = useState<string | null>(null);
   const viewLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearViewLongPress = () => {
     if (viewLongPressTimer.current) clearTimeout(viewLongPressTimer.current);
@@ -1526,6 +1527,7 @@ export default function VerticalLedgerSheet({
                         onPointerDown={event => {
                           if (sheetMode !== "view" || event.button !== 0 || item.isSeparator || item.isPaymentRow || item.isRemainingRow) return;
                           clearViewLongPress();
+                          setPressedViewRowId(item.id);
                           viewLongPressTimer.current = setTimeout(() => {
                             setSelectedRowId(item.id);
                             setHasExplicitRowSelection(true);
@@ -1533,9 +1535,9 @@ export default function VerticalLedgerSheet({
                             viewLongPressTimer.current = null;
                           }, 550);
                         }}
-                        onPointerUp={clearViewLongPress}
-                        onPointerLeave={clearViewLongPress}
-                        onPointerCancel={clearViewLongPress}
+                        onPointerUp={() => { clearViewLongPress(); setPressedViewRowId(null); }}
+                        onPointerLeave={() => { clearViewLongPress(); setPressedViewRowId(null); }}
+                        onPointerCancel={() => { clearViewLongPress(); setPressedViewRowId(null); }}
                         onContextMenu={event => { if (sheetMode === "view" && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow) event.preventDefault(); }}
                         onBlur={(e) => {
                           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
@@ -1547,7 +1549,7 @@ export default function VerticalLedgerSheet({
                             ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
                              : sheetMode === "edit" && isSelected
                             ? "bg-amber-100/70 ring-1 ring-amber-500/80 shadow-2xs"
-                            : sheetMode === "view" && isSelected && detailRowId === item.id
+                            : sheetMode === "view" && (pressedViewRowId === item.id || detailRowId === item.id)
                             ? "ring-1 ring-blue-300/60"
                             : "hover:bg-amber-900/5"
                         }`}
@@ -1556,7 +1558,7 @@ export default function VerticalLedgerSheet({
                         data-row-font-bold={item.rowFontBold !== undefined ? "true" : undefined}
                         data-row-font-italic={item.rowFontItalic !== undefined ? "true" : undefined}
                         data-row-font-decoration={item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
-                        style={{ backgroundColor: sheetMode === "view" && isSelected && detailRowId === item.id ? "#dbeafe" : rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
+                        style={{ backgroundColor: sheetMode === "view" && (pressedViewRowId === item.id || detailRowId === item.id) ? "rgba(147, 197, 253, 0.28)" : rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
                         {sheetMode === "edit" && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (
                           <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" className="absolute left-0 top-1 z-10 rounded-md bg-white/90 p-1 text-slate-500 hover:text-blue-700 no-print" onClick={event => { event.stopPropagation(); openRowDetails(item); }}>
