@@ -1540,7 +1540,7 @@ export default function VerticalLedgerSheet({
                             <Info className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {/* 1. ت (Line Index) */
+                        {/* 1. ت (Line Index) */}
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
                           {sheetMode === "edit" && rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
                             <button
