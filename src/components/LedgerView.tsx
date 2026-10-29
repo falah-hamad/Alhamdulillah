@@ -2056,17 +2056,7 @@ ${folderCustomers
         setProductCartQuantities({});
         setProductCartSearch("");
         const total = cartRows.reduce((sum, row) => sum + row.total, 0);
-        if (addChangeLog) {
-          void Promise.all(cartRows.map((row) => addChangeLog({
-            customerId: selectedCustomer.id,
-            
-            actionType: "إضافة دين",
-            details: "القائمة الحسابية: " + row.details + " — " + row.quantity + " " + row.unit + " × " + row.unitPrice.toLocaleString() + " = " + row.total.toLocaleString() + " " + settings.currency,
-            rawAmount: row.total,
-            itemName: row.details,
-            targetItemId: row.id,
-          }))).catch((logError) => console.warn("Accounting cart added, but its change-log entry could not be written:", logError));
-        }
+        // Do not write history for draft cart rows; saveAccountingRows owns the final audit entries.
         showToast("تمت إضافة البضاعة إلى القائمة الحسابية فقط بمبلغ " + total.toLocaleString() + " " + settings.currency + ".");
         return;
       }
