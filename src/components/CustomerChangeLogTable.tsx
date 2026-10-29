@@ -108,17 +108,16 @@ export default function CustomerChangeLogTable({
       value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
     if (log.actionType === "تعديل واصل") {
       return renderBeforeAfter(
-        `المجموع: ${formatLogAmountValue(row?.subtotal ?? row?.total)}`,
-        `التسديد: ${formatLogAmountValue(row?.paidAmount)}`,
-        `المجموع: ${formatLogAmountValue(row?.afterSubtotal ?? row?.subtotal ?? row?.total)}`,
-        `التسديد: ${formatLogAmountValue(row?.afterPaidAmount ?? log.rawAmount)}`
+        "المبلغ المسدد",
+        formatLogAmountValue(row?.paidAmount),
+        "المبلغ المسدد",
+        formatLogAmountValue(row?.afterPaidAmount ?? log.rawAmount)
       );
     }
     if (log.actionType === "إضافة واصل" || log.actionType === "حذف واصل") {
       return (
         <span className="inline-flex flex-col items-start gap-1 whitespace-nowrap">
-          <span>المجموع: {formatLogAmountValue(row?.subtotal ?? row?.total)}</span>
-          <span>التسديد: {formatLogAmountValue(row?.paidAmount ?? log.rawAmount)}</span>
+          <span>المبلغ المسدد: {formatLogAmountValue(row?.paidAmount ?? log.rawAmount)}</span>
         </span>
       );
     }
@@ -492,16 +491,16 @@ export default function CustomerChangeLogTable({
                           const formatDetails = (value: unknown) =>
                             value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
                           const beforeAmount = formatLogAmountValue(
-                            isPaymentEdit ? previous?.subtotal ?? previous?.total : previous?.total ?? previous?.amount ?? previous?.unitPrice
+                            isPaymentEdit ? previous?.paidAmount : previous?.total ?? previous?.amount ?? previous?.unitPrice
                           );
                           const afterAmount = formatLogAmountValue(
-                            isPaymentEdit ? previous?.afterSubtotal ?? previous?.subtotal ?? previous?.total : log.rawAmount
+                            isPaymentEdit ? previous?.afterPaidAmount ?? log.rawAmount : log.rawAmount
                           );
                           const beforeDetails = isPaymentEdit
-                            ? `التسديد: ${formatLogAmountValue(previous?.paidAmount)}`
+                            ? "المبلغ المسدد"
                             : formatDetails(previous?.details ?? previous?.itemName);
                           const afterDetails = isPaymentEdit
-                            ? `التسديد: ${formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}`
+                            ? "المبلغ المسدد"
                             : formatDetails(log.itemName);
           
                           if (isDebtEdit || isPaymentEdit) {
@@ -556,15 +555,13 @@ export default function CustomerChangeLogTable({
                                     {isPaymentEdit ? (
                                       <span className="inline-flex flex-col items-center justify-center gap-0.5">
                                         <span>{beforeAmount}</span>
-                                        <span>{formatLogAmountValue(previous?.paidAmount)}</span>
                                       </span>
                                     ) : beforeAmount}
                                   </td>
                                   <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
                                     {isPaymentEdit ? (
                                       <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                                        <span>المجموع</span>
-                                        <span>التسديد</span>
+                                        <span>المبلغ المسدد</span>
                                       </span>
                                     ) : beforeDetails}
                                   </td>
@@ -577,15 +574,13 @@ export default function CustomerChangeLogTable({
                                     {isPaymentEdit ? (
                                       <span className="inline-flex flex-col items-center justify-center gap-0.5">
                                         <span>{afterAmount}</span>
-                                        <span>{formatLogAmountValue(previous?.afterPaidAmount ?? log.rawAmount)}</span>
                                       </span>
                                     ) : afterAmount}
                                   </td>
                                   <td className="py-1 px-1 font-sans font-bold text-slate-900 whitespace-nowrap text-center align-middle">
                                     {isPaymentEdit ? (
                                       <span className="inline-flex flex-col items-center justify-center gap-0.5">
-                                        <span>المجموع</span>
-                                        <span>التسديد</span>
+                                        <span>المبلغ المسدد</span>
                                       </span>
                                     ) : afterDetails}
                                   </td>
