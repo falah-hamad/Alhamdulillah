@@ -2042,8 +2042,8 @@ export default function VerticalLedgerSheet({
                     const photo = photos[current];
                     const navigate = (delta: number) => setPhotoIndex(index => (index + delta + photos.length) % photos.length);
                     if (!photo) return <p className="rounded-lg border p-4 text-center text-xs text-slate-500">لا توجد صور مرفقة</p>;
-                    return <div className="overflow-hidden rounded-xl border bg-slate-100">
-                      <div className="relative mx-auto flex aspect-square w-full max-w-80 items-center justify-center"
+                    return <div className="relative mx-auto aspect-square w-full max-w-80 overflow-hidden rounded-xl border bg-slate-100">
+                      <div className="absolute inset-0 flex items-center justify-center"
                         onTouchStart={e => { photoTouchX.current = e.touches[0]?.clientX ?? null; }}
                         onTouchEnd={e => {
                           if (photoTouchX.current === null || photos.length < 2) return;
@@ -2058,7 +2058,7 @@ export default function VerticalLedgerSheet({
                         </>}
                         {sheetMode === "edit" && <button type="button" aria-label="حذف الصورة الحالية" onClick={() => { setDetailFiles(files => files.filter(file => file !== photo)); setPhotoIndex(0); }} className="absolute left-2 top-2 rounded-full bg-white/90 p-2 text-rose-600 shadow"><Trash2 className="h-4 w-4"/></button>}
                       </div>
-                      <div className="border-t bg-white p-2 text-center text-xs text-slate-600" dir="ltr">{current + 1} / {photos.length}</div>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-center text-xs text-white" dir="ltr">{current + 1} / {photos.length}</div>
                     </div>;
                   })()}
                   {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><ImagePlus className="h-4 w-4"/>{detailUploading ? "جاري رفع الصورة..." : "إضافة صور"}<input type="file" accept="image/*" multiple className="hidden" disabled={detailUploading} onChange={e => { const files = Array.from(e.target.files || []); void (async () => { for (const file of files) await attachRowFile(file); })(); e.target.value = ""; }}/></label>}
