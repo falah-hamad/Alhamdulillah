@@ -563,7 +563,7 @@ export default function CustomerChangeLogTable({
                                     ) : beforeDetails}
                                   </td>
                                 </tr>
-                                <tr className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                                <tr className={`hover:bg-slate-50/80 transition-colors group border-t border-t-slate-200 ${idx < filteredLogs.length - 1 ? "border-b-[3px] border-b-indigo-300" : "border-b border-slate-100"}`}>
                                   <td className="py-1 px-1 whitespace-nowrap text-center align-middle">
                                     <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-1 text-[11px] font-extrabold text-emerald-800">بعد</span>
                                   </td>
@@ -589,7 +589,7 @@ export default function CustomerChangeLogTable({
                           }
           
                           return (
-                            <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                            <tr key={log.id} className={`hover:bg-slate-50/80 transition-colors group ${idx < filteredLogs.length - 1 ? "border-b-[3px] border-b-indigo-300" : "border-b border-slate-100"}`}>
                               <td className="py-1.5 px-1 text-center font-mono font-bold text-slate-400 whitespace-nowrap">
                                 {filteredLogs.length - idx}
                               </td>
