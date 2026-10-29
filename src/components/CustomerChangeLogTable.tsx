@@ -25,8 +25,8 @@ interface CustomerChangeLogTableProps {
   changeLogs: CustomerChangeLogItem[];
   currency?: string;
   onDeleteLog?: (id: string) => void;
-  onClearLogs?: (customerId: string) => void;
-  onClearCustomerLogs?: (customerId: string) => void;
+  onClearLogs?: (customerId: string, invoiceId?: string) => void;
+  onClearCustomerLogs?: (customerId: string, invoiceId?: string) => void;
   onRevertLog?: (log: CustomerChangeLogItem) => void;
   onRevertAction?: (log: CustomerChangeLogItem) => void;
   isSyncing?: boolean;
@@ -247,7 +247,7 @@ export default function CustomerChangeLogTable({
       `هل أنت متأكد من تفريغ سجل التغييرات للزبون "${customerName}"؟ لا يمكن التراجع عن هذا الإجراء.`
     );
     if (confirmed && handleClear) {
-      handleClear(customerId);
+      handleClear(customerId, accountingListMode ? undefined : invoiceId);
     }
   };
 
