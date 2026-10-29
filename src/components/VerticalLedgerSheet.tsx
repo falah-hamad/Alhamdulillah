@@ -63,7 +63,7 @@ interface VerticalLedgerSheetProps {
   isCloudSyncing?: boolean;
   onAddChangeLog?: (item: Omit<CustomerChangeLogItem, "id" | "timestamp" | "formattedDateTime"> & { id?: string; timestamp?: string; formattedDateTime?: string }) => Promise<CustomerChangeLogItem> | void;
   onDeleteChangeLog?: (id: string) => Promise<void> | void;
-  onClearCustomerChangeLogs?: (customerId: string) => Promise<void> | void;
+  onClearCustomerChangeLogs?: (customerId: string, invoiceId?: string) => Promise<void> | void;
   onRevertChangeLog?: (log: CustomerChangeLogItem) => Promise<void> | void;
 }
 
