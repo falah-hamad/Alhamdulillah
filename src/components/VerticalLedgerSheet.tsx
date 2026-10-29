@@ -1960,6 +1960,7 @@ export default function VerticalLedgerSheet({
         <CustomerChangeLogTable
           customerId={customer.id}
           customerName={customer.name}
+          invoiceId={invoice.id}
           changeLogs={changeLogs}
           currency={settings.currency}
           onDeleteLog={onDeleteChangeLog}
