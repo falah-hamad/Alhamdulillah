@@ -396,30 +396,40 @@ export default function CustomerChangeLogTable({
                       <td className="py-2 px-2 text-center font-mono font-bold text-slate-400">{filteredLogs.length - idx}</td>
                       <td className="py-2 px-2 text-center font-mono font-extrabold text-indigo-700">{log.location ?? row.location ?? row.sequence ?? row.lineIndex ?? "ــــ"}</td>
                       <td className="py-2 px-2 text-center">{getActionBadge(log.actionType)}</td>
-                      <td className="py-2 px-2 font-bold text-slate-900 whitespace-normal min-w-[180px]">
-                        {log.actionType === "تعديل دين" ? renderBeforeAfter(
-                          "التفاصيل", displayValue(row.details ?? row.itemName),
-                          "التفاصيل", displayValue(row.afterDetails ?? log.itemName ?? details)
-                        ) : displayValue(details)}
-                      </td>
-                      <td className="py-2 px-2 text-center">
-                        {log.actionType === "تعديل دين" ? renderBeforeAfter(
-                          displayValue(row.quantity), displayValue(row.unit),
-                          displayValue(row.afterQuantity ?? quantity), displayValue(row.afterUnit ?? row.unit)
-                        ) : <span className="inline-flex items-center gap-1"><span>{displayValue(quantity)}</span><span>{displayValue(row.unit ?? row.afterUnit)}</span></span>}
-                      </td>
-                      <td className="py-2 px-2 text-center">
-                        {log.actionType === "تعديل دين" ? renderBeforeAfter(
-                          formatLogAmountValue(row.unitPrice ?? row.price), "السعر",
-                          formatLogAmountValue(row.afterUnitPrice ?? unitPrice), "السعر"
-                        ) : unitPrice === undefined || unitPrice === null || String(unitPrice).trim() === "" ? "ــــ" : formatLogAmountValue(unitPrice)}
-                      </td>
-                      <td className="py-2 px-2 text-center font-bold text-slate-900">
-                        {log.actionType === "تعديل دين" ? renderBeforeAfter(
-                          formatLogAmountValue(row.total ?? row.amount ?? row.unitPrice), "المبلغ",
-                          formatLogAmountValue(row.afterTotal ?? log.rawAmount ?? total), "المبلغ"
-                        ) : formatLogAmountValue(total)}
-                      </td>
+                      {log.actionType === "تعديل دين" ? (
+                        <td colSpan={4} className="py-2 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-extrabold text-amber-700">قبل</span>
+                              <span>{displayValue(row.details ?? row.itemName)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{displayValue(row.quantity)} {displayValue(row.unit)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{formatLogAmountValue(row.unitPrice ?? row.price)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{formatLogAmountValue(row.total ?? row.amount ?? row.unitPrice)}</span>
+                            </div>
+                            <div className="h-px w-full bg-gradient-to-r from-sky-200 via-indigo-200 to-violet-200" />
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">بعد</span>
+                              <span>{displayValue(row.afterDetails ?? log.itemName ?? details)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{displayValue(row.afterQuantity ?? quantity)} {displayValue(row.afterUnit ?? row.unit)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{formatLogAmountValue(row.afterUnitPrice ?? unitPrice)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>{formatLogAmountValue(row.afterTotal ?? log.rawAmount ?? total)}</span>
+                            </div>
+                          </div>
+                        </td>
+                      ) : (
+                        <>
+                          <td className="py-2 px-2 font-bold text-slate-900 whitespace-normal min-w-[180px]">{displayValue(details)}</td>
+                          <td className="py-2 px-2 text-center"><span className="inline-flex items-center gap-1"><span>{displayValue(quantity)}</span><span>{displayValue(row.unit ?? row.afterUnit)}</span></span></td>
+                          <td className="py-2 px-2 text-center">{unitPrice === undefined || unitPrice === null || String(unitPrice).trim() === "" ? "ــــ" : formatLogAmountValue(unitPrice)}</td>
+                          <td className="py-2 px-2 text-center font-bold text-slate-900">{formatLogAmountValue(total)}</td>
+                        </>
+                      )}
                       <td className="py-2 px-2 text-slate-600 text-center whitespace-nowrap"><span className="font-semibold text-slate-800">{formatArabicTimestamp(log)}</span></td>
                       {handleRevert && (
                         <td className="py-2 px-2 text-center no-print">
