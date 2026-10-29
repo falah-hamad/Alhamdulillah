@@ -392,7 +392,7 @@ export default function CustomerChangeLogTable({
                   const displayValue = (value: unknown) =>
                     value === undefined || value === null || String(value).trim() === "" ? "ــــ" : String(value);
                   return (
-                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                    <tr key={log.id} className={`hover:bg-slate-50/80 transition-colors ${idx < filteredLogs.length - 1 ? "border-b-[3px] border-b-indigo-300" : "border-b border-b-slate-100"}`}>
                       <td className="py-2 px-2 text-center font-mono font-bold text-slate-400">{filteredLogs.length - idx}</td>
                       <td className="py-2 px-2 text-center font-mono font-extrabold text-indigo-700">{log.location ?? row.location ?? row.sequence ?? row.lineIndex ?? "ــــ"}</td>
                       <td className="py-2 px-2 text-center">{getActionBadge(log.actionType)}</td>
