@@ -35,6 +35,7 @@ import {
   HandCoins,
   Info,
   Paperclip,
+  ImagePlus,
 } from "lucide-react";
 import { Invoice, InvoiceItem, Customer, SystemSettings, CustomerChangeLogItem } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
@@ -113,7 +114,7 @@ export default function VerticalLedgerSheet({
   const attachRowFile = async (file?: File) => {
     if (!file || !detailRowId || !auth.currentUser) return;
     if (file.size > 10 * 1024 * 1024) { alert("حجم الملف يجب أن لا يتجاوز 10 ميغابايت"); return; }
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf") { alert("المسموح صور أو PDF فقط"); return; }
+    if (!file.type.startsWith("image/")) { alert("المسموح صور فقط"); return; }
     setDetailUploading(true);
     try {
       const url = await uploadUserFile(auth.currentUser.uid, "ledger-row-files/" + invoice.id + "/" + detailRowId, file.name, file);
@@ -1513,6 +1514,7 @@ export default function VerticalLedgerSheet({
                             if (!item.isSeparator && !item.isPaymentRow && !item.isRemainingRow) toggleRowSelection(item.id);
                             return;
                           }
+                          if (sheetMode === "view" && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow) { openRowDetails(item); return; }
                           setSelectedRowId(item.id);
                           setHasExplicitRowSelection(true);
                         }}
@@ -1535,7 +1537,7 @@ export default function VerticalLedgerSheet({
                         data-row-font-decoration={item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
                         style={{ backgroundColor: rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
-                        {!item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (
+                        {sheetMode === "edit" && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (
                           <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" className="absolute left-0 top-1 z-10 rounded-md bg-white/90 p-1 text-slate-500 hover:text-blue-700 no-print" onClick={event => { event.stopPropagation(); openRowDetails(item); }}>
                             <Info className="h-3.5 w-3.5" />
                           </button>
@@ -2003,12 +2005,17 @@ export default function VerticalLedgerSheet({
               <div className="flex items-center justify-between border-b bg-amber-50 p-4"><h3 className="font-black">تفاصيل صف الدين</h3><button type="button" onClick={() => setDetailRowId(null)} aria-label="إغلاق"><X className="h-5 w-5"/></button></div>
               <div className="space-y-4 overflow-y-auto p-4">
                 <p className="text-sm">{detailRow.details}</p>
-                <div><label className="mb-1 block text-xs font-bold">الطابع الزمني لإضافة الدين</label><p className="rounded-lg bg-slate-50 p-2 text-sm">{detailRow.createdAt ? new Date(detailRow.createdAt).toLocaleString("ar-IQ") : "غير مسجل لهذا الصف القديم"}</p></div>
+                <div><label className="mb-1 block text-xs font-bold">الطابع الزمني لإضافة الدين</label><p className="rounded-lg bg-slate-50 p-2 text-sm">{detailRow.createdAt ? (() => { const date = new Date(detailRow.createdAt); if (Number.isNaN(date.getTime())) return "تاريخ غير صالح"; const weekday = new Intl.DateTimeFormat("ar-IQ", { weekday: "long", timeZone: "Asia/Baghdad" }).format(date); const day = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Baghdad" }).format(date).replace(/-/g, "/"); const time = new Intl.DateTimeFormat("ar-IQ", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Baghdad" }).format(date); return weekday + " — " + day + " — " + time; })() : "غير مسجل لهذا الصف القديم"}</p></div>
                 <div><label className="mb-1 block text-xs font-bold">اسم البائع</label>{sheetMode === "edit" ? <input className="w-full rounded-lg border p-2" value={detailSeller} onChange={e => setDetailSeller(e.target.value)} /> : <p className="rounded-lg bg-slate-50 p-2">{detailSeller || "ــــ"}</p>}</div>
                 <div><label className="mb-1 block text-xs font-bold">ملاحظات البيع</label>{sheetMode === "edit" ? <textarea className="min-h-24 w-full rounded-lg border p-2" value={detailNotes} onChange={e => setDetailNotes(e.target.value)} /> : <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2">{detailNotes || "ــــ"}</p>}</div>
-                <div><label className="mb-2 block text-xs font-bold">المرفقات (صور أو PDF)</label>
-                  {detailFiles.map((file, index) => <div key={index} className="flex items-center justify-between gap-2 rounded-lg border p-2 text-xs"><a className="truncate text-blue-700 underline" href={file.url} target="_blank" rel="noopener noreferrer">{file.name}</a>{sheetMode === "edit" && <button type="button" onClick={() => setDetailFiles(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-rose-600"/></button>}</div>)}
-                  {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><Paperclip className="h-4 w-4"/>{detailUploading ? "جاري الرفع..." : "إضافة مرفق"}<input type="file" accept="image/*,application/pdf" className="hidden" disabled={detailUploading} onChange={e => { void attachRowFile(e.target.files?.[0]); e.target.value = ""; }}/></label>}
+                <div><label className="mb-2 block text-xs font-bold">الصور المرفقة</label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {detailFiles.filter(file => !/\.pdf(?:$|[?#])/i.test(file.url) && !/\.pdf$/i.test(file.name)).map((file, index) => <div key={file.url + index} className="relative overflow-hidden rounded-lg border bg-slate-50">
+                      <a href={file.url} target="_blank" rel="noopener noreferrer" aria-label={"عرض الصورة " + file.name}><img src={file.url} alt={file.name} loading="lazy" className="h-32 w-full object-contain"/></a>
+                      {sheetMode === "edit" && <button type="button" className="absolute left-1 top-1 rounded bg-white/90 p-1" onClick={() => setDetailFiles(prev => prev.filter(item => item !== file))} aria-label="إزالة الصورة"><Trash2 className="h-4 w-4 text-rose-600"/></button>}
+                    </div>)}
+                  </div>
+                  {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><ImagePlus className="h-4 w-4"/>{detailUploading ? "جاري رفع الصورة..." : "إضافة صور"}<input type="file" accept="image/*" multiple className="hidden" disabled={detailUploading} onChange={e => { const files = Array.from(e.target.files || []); void (async () => { for (const file of files) await attachRowFile(file); })(); e.target.value = ""; }}/></label>}
                 </div>
               </div>
               <div className="flex justify-end gap-2 border-t p-3"><button type="button" className="rounded-lg border px-4 py-2" onClick={() => setDetailRowId(null)}>إغلاق</button>{sheetMode === "edit" && <button type="button" disabled={detailUploading} className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white" onClick={saveRowDetails}>اعتماد التفاصيل</button>}</div>
