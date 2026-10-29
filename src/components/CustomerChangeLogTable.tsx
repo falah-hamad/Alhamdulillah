@@ -397,26 +397,22 @@ export default function CustomerChangeLogTable({
                       <td className="py-2 px-2 text-center font-mono font-extrabold text-indigo-700">{log.location ?? row.location ?? row.sequence ?? row.lineIndex ?? "ــــ"}</td>
                       <td className="py-2 px-2 text-center">{getActionBadge(log.actionType)}</td>
                       {log.actionType === "تعديل دين" ? (
-                        <td colSpan={4} className="py-2 px-3 text-right font-bold text-slate-900">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex flex-col gap-1">
-                              <span className="self-start inline-flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-extrabold text-amber-700">قبل</span>
-                              <div dir="rtl" className="grid grid-cols-[260px_90px_130px_150px] items-center text-center">
-                                <span className="min-w-0 whitespace-normal break-words">{displayValue(row.details ?? row.itemName)}</span>
-                                <span>{displayValue(row.quantity)} {displayValue(row.unit)}</span>
-                                <span>{formatLogAmountValue(row.unitPrice ?? row.price)}</span>
-                                <span>{formatLogAmountValue(row.total ?? row.amount ?? row.unitPrice)}</span>
-                              </div>
+                        <td colSpan={4} className="py-1.5 px-2 text-right font-bold text-slate-900">
+                          <div className="flex flex-col gap-1">
+                            <div dir="rtl" className="grid grid-cols-[40px_220px_90px_130px_150px] items-center text-center gap-0">
+                              <span className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[11px] font-extrabold text-amber-800">قبل</span>
+                              <span className="min-w-0 whitespace-normal break-words">{displayValue(row.details ?? row.itemName)}</span>
+                              <span>{displayValue(row.quantity)} {displayValue(row.unit)}</span>
+                              <span>{formatLogAmountValue(row.unitPrice ?? row.price)}</span>
+                              <span>{formatLogAmountValue(row.total ?? row.amount ?? row.unitPrice)}</span>
                             </div>
-                            <div className="h-px w-full bg-gradient-to-r from-sky-200 via-indigo-200 to-violet-200" />
-                            <div className="flex flex-col gap-1">
-                              <span className="self-start inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">بعد</span>
-                              <div dir="rtl" className="grid grid-cols-[260px_90px_130px_150px] items-center text-center">
-                                <span className="min-w-0 whitespace-normal break-words">{displayValue(row.afterDetails ?? log.itemName ?? details)}</span>
-                                <span>{displayValue(row.afterQuantity ?? quantity)} {displayValue(row.afterUnit ?? row.unit)}</span>
-                                <span>{formatLogAmountValue(row.afterUnitPrice ?? unitPrice)}</span>
-                                <span>{formatLogAmountValue(row.afterTotal ?? log.rawAmount ?? total)}</span>
-                              </div>
+                            <div className="h-[3px] w-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-500 to-violet-500 shadow-sm" />
+                            <div dir="rtl" className="grid grid-cols-[40px_220px_90px_130px_150px] items-center text-center gap-0">
+                              <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-[11px] font-extrabold text-emerald-800">بعد</span>
+                              <span className="min-w-0 whitespace-normal break-words">{displayValue(row.afterDetails ?? log.itemName ?? details)}</span>
+                              <span>{displayValue(row.afterQuantity ?? quantity)} {displayValue(row.afterUnit ?? row.unit)}</span>
+                              <span>{formatLogAmountValue(row.afterUnitPrice ?? unitPrice)}</span>
+                              <span>{formatLogAmountValue(row.afterTotal ?? log.rawAmount ?? total)}</span>
                             </div>
                           </div>
                         </td>
