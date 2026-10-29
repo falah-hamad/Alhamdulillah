@@ -105,12 +105,15 @@ export default function VerticalLedgerSheet({
   const [detailSeller, setDetailSeller] = useState("");
   const [detailNotes, setDetailNotes] = useState("");
   const [detailFiles, setDetailFiles] = useState<Array<{ name: string; url: string }>>([]);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const photoTouchX = useRef<number | null>(null);
   const [detailUploading, setDetailUploading] = useState(false);
   const openRowDetails = (item: InvoiceItem) => {
     setDetailRowId(item.id);
     setDetailSeller(item.sellerName || "");
     setDetailNotes(item.saleNotes || "");
     setDetailFiles(Array.isArray(item.saleAttachments) ? item.saleAttachments : []);
+    setPhotoIndex(0);
   };
   const saveRowDetails = () => {
     if (!detailRowId || sheetMode !== "edit") return;
@@ -2032,12 +2035,31 @@ export default function VerticalLedgerSheet({
                 <div><label className="mb-1 block text-xs font-bold">اسم البائع</label>{sheetMode === "edit" ? <input className="w-full rounded-lg border p-2" value={detailSeller} onChange={e => setDetailSeller(e.target.value)} /> : <p className="rounded-lg bg-slate-50 p-2">{detailSeller || "ــــ"}</p>}</div>
                 <div><label className="mb-1 block text-xs font-bold">ملاحظات البيع</label>{sheetMode === "edit" ? <textarea className="min-h-24 w-full rounded-lg border p-2" value={detailNotes} onChange={e => setDetailNotes(e.target.value)} /> : <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2">{detailNotes || "ــــ"}</p>}</div>
                 <div><label className="mb-2 block text-xs font-bold">الصور المرفقة</label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {detailFiles.filter(file => !/\.pdf(?:$|[?#])/i.test(file.url) && !/\.pdf$/i.test(file.name)).map((file, index) => <div key={file.url + index} className="relative overflow-hidden rounded-lg border bg-slate-50">
-                      <a href={file.url} target="_blank" rel="noopener noreferrer" aria-label={"عرض الصورة " + file.name}><img src={file.url} alt={file.name} loading="lazy" className="h-32 w-full object-contain"/></a>
-                      {sheetMode === "edit" && <button type="button" className="absolute left-1 top-1 rounded bg-white/90 p-1" onClick={() => setDetailFiles(prev => prev.filter(item => item !== file))} aria-label="إزالة الصورة"><Trash2 className="h-4 w-4 text-rose-600"/></button>}
-                    </div>)}
-                  </div>
+                  {(() => {
+                    const photos = detailFiles.filter(file => !file.name.toLowerCase().endsWith(".pdf") && !file.url.toLowerCase().includes(".pdf"));
+                    const current = Math.min(photoIndex, Math.max(0, photos.length - 1));
+                    const photo = photos[current];
+                    const navigate = (delta: number) => setPhotoIndex(index => (index + delta + photos.length) % photos.length);
+                    if (!photo) return <p className="rounded-lg border p-4 text-center text-xs text-slate-500">لا توجد صور مرفقة</p>;
+                    return <div className="overflow-hidden rounded-xl border bg-slate-100">
+                      <div className="relative flex h-56 items-center justify-center sm:h-72"
+                        onTouchStart={e => { photoTouchX.current = e.touches[0]?.clientX ?? null; }}
+                        onTouchEnd={e => {
+                          if (photoTouchX.current === null || photos.length < 2) return;
+                          const difference = e.changedTouches[0].clientX - photoTouchX.current;
+                          photoTouchX.current = null;
+                          if (Math.abs(difference) > 45) navigate(difference < 0 ? 1 : -1);
+                        }}>
+                        <img src={photo.url} alt={photo.name} draggable={false} className="h-full w-full select-none object-contain" />
+                        {photos.length > 1 && <>
+                          <button type="button" aria-label="السابق" onClick={() => navigate(-1)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 shadow">❯</button>
+                          <button type="button" aria-label="التالي" onClick={() => navigate(1)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 shadow">❮</button>
+                        </>}
+                        {sheetMode === "edit" && <button type="button" aria-label="حذف الصورة الحالية" onClick={() => { setDetailFiles(files => files.filter(file => file !== photo)); setPhotoIndex(0); }} className="absolute left-2 top-2 rounded-full bg-white/90 p-2 text-rose-600 shadow"><Trash2 className="h-4 w-4"/></button>}
+                      </div>
+                      <div className="border-t bg-white p-2 text-center text-xs text-slate-600" dir="ltr">{current + 1} / {photos.length}</div>
+                    </div>;
+                  })()}
                   {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><ImagePlus className="h-4 w-4"/>{detailUploading ? "جاري رفع الصورة..." : "إضافة صور"}<input type="file" accept="image/*" multiple className="hidden" disabled={detailUploading} onChange={e => { const files = Array.from(e.target.files || []); void (async () => { for (const file of files) await attachRowFile(file); })(); e.target.value = ""; }}/></label>}
                 </div>
               </div>
