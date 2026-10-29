@@ -1615,10 +1615,14 @@ export function useAccountingData() {
     }
   };
 
-  const clearCustomerChangeLogs = async (customerId: string) => {
-    const toDelete = changeLogs.filter((l) => l.customerId === customerId);
+  const clearCustomerChangeLogs = async (customerId: string, invoiceId?: string) => {
+    // Keep each history domain independent: an invoice ID targets vertical-ledger logs;
+    // no invoice ID targets only accounting-list logs.
+    const belongsToScope = (log: CustomerChangeLogItem) =>
+      log.customerId === customerId && (invoiceId ? log.invoiceId === invoiceId : !log.invoiceId);
+    const toDelete = changeLogs.filter(belongsToScope);
     setChangeLogs((prev) => {
-      const next = prev.filter((l) => l.customerId !== customerId);
+      const next = prev.filter((log) => !belongsToScope(log));
       saveScopedStorage("change_logs", next);
       return next;
     });
