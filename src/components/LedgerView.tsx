@@ -5186,7 +5186,7 @@ ${folderCustomers
       {/* PRODUCT CART — Add inventory items directly to the selected customer's debt ledger */}
       {isAccountingChangeLogOpen && selectedCustomer && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4" dir="rtl" onClick={(event) => { if (event.target === event.currentTarget) setIsAccountingChangeLogOpen(false); }}>
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
+          <div className="flex h-[96dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-3 border-b bg-amber-50 p-3 sm:p-4">
               <div className="flex items-center gap-2"><History className="h-5 w-5 text-amber-700"/><div><h3 className="font-black text-slate-900">سجل تغييرات القائمة الحسابية</h3><p className="text-xs text-slate-600">حساب الزبون: {selectedCustomer.name}</p></div></div>
               <button type="button" onClick={() => setIsAccountingChangeLogOpen(false)} className="rounded-lg border bg-white p-2 text-slate-600" aria-label="إغلاق سجل التغييرات"><X className="h-4 w-4"/></button>
