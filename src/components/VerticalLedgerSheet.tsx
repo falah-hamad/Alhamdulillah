@@ -606,6 +606,7 @@ export default function VerticalLedgerSheet({
       total: 0,
       pageNumber: nextPg,
       isLoggedDebt: false,
+      createdAt: new Date().toISOString(),
     };
 
     const updated = [...items, newRow];
@@ -721,6 +722,7 @@ export default function VerticalLedgerSheet({
       total: 0,
       pageNumber: pgNum,
       isLoggedDebt: false,
+      createdAt: new Date().toISOString(),
     };
     const updated = [...items, newRow];
     persistChanges(updated);
@@ -739,6 +741,7 @@ export default function VerticalLedgerSheet({
       total: 0,
       pageNumber: targetItem?.pageNumber || currentPage,
       isLoggedDebt: false,
+      createdAt: new Date().toISOString(),
     };
 
     if (!idToUse) {
@@ -772,6 +775,7 @@ export default function VerticalLedgerSheet({
       total: 0,
       pageNumber: targetItem?.pageNumber || currentPage,
       isLoggedDebt: false,
+      createdAt: new Date().toISOString(),
     };
 
     if (!idToUse) {
