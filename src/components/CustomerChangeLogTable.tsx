@@ -406,7 +406,7 @@ export default function CustomerChangeLogTable({
                               <span>{formatLogAmountValue(row.unitPrice ?? row.price)}</span>
                               <span>{formatLogAmountValue(row.total ?? row.amount ?? row.unitPrice)}</span>
                             </div>
-                            <div className="h-[3px] w-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-500 to-violet-500 shadow-sm" />
+                            <div className="h-px w-full bg-gradient-to-r from-sky-200 via-indigo-200 to-violet-200" />
                             <div dir="rtl" className="grid grid-cols-[40px_220px_90px_130px_150px] items-center text-center gap-0">
                               <span className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-[11px] font-extrabold text-emerald-800">بعد</span>
                               <span className="min-w-0 whitespace-normal break-words">{displayValue(row.afterDetails ?? log.itemName ?? details)}</span>
