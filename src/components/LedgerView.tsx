@@ -5206,6 +5206,7 @@ ${folderCustomers
                 customerId={selectedCustomer.id}
                 customerName={selectedCustomer.name}
                 changeLogs={(changeLogs || []).filter((log) => log.customerId === selectedCustomer.id && !log.invoiceId)}
+                accountingListMode
                 currency={settings.currency}
                 onDeleteLog={deleteChangeLog}
                 onClearCustomerLogs={clearCustomerChangeLogs}
