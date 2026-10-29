@@ -33,12 +33,14 @@ import {
   History,
   ShoppingCart,
   HandCoins,
+  Info,
+  Paperclip,
 } from "lucide-react";
 import { Invoice, InvoiceItem, Customer, SystemSettings, CustomerChangeLogItem } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import CustomerChangeLogTable from "./CustomerChangeLogTable";
 import { formatDebtChangeLogDetails, formatPaymentChangeLogDetails } from "../utils/changeLogUtils";
-import { auth } from "../lib/firebase";
+import { auth, uploadUserFile } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
 
 const BG_COLOR_PRESETS = [
@@ -92,6 +94,33 @@ export default function VerticalLedgerSheet({
 
   // Mode: "view" (عرض علامة عين) or "edit" (تعديل علامة قلم) - الافتراضي هو وضع العرض
   const [sheetMode, setSheetMode] = useState<"edit" | "view">("view");
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [detailSeller, setDetailSeller] = useState("");
+  const [detailNotes, setDetailNotes] = useState("");
+  const [detailFiles, setDetailFiles] = useState<Array<{ name: string; url: string }>>([]);
+  const [detailUploading, setDetailUploading] = useState(false);
+  const openRowDetails = (item: InvoiceItem) => {
+    setDetailRowId(item.id);
+    setDetailSeller(item.sellerName || "");
+    setDetailNotes(item.saleNotes || "");
+    setDetailFiles(Array.isArray(item.saleAttachments) ? item.saleAttachments : []);
+  };
+  const saveRowDetails = () => {
+    if (!detailRowId || sheetMode !== "edit") return;
+    persistChanges(items.map(item => item.id === detailRowId ? { ...item, sellerName: detailSeller.trim(), saleNotes: detailNotes.trim(), saleAttachments: detailFiles } : item));
+    setDetailRowId(null);
+  };
+  const attachRowFile = async (file?: File) => {
+    if (!file || !detailRowId || !auth.currentUser) return;
+    if (file.size > 10 * 1024 * 1024) { alert("حجم الملف يجب أن لا يتجاوز 10 ميغابايت"); return; }
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") { alert("المسموح صور أو PDF فقط"); return; }
+    setDetailUploading(true);
+    try {
+      const url = await uploadUserFile(auth.currentUser.uid, "ledger-row-files/" + invoice.id + "/" + detailRowId, file.name, file);
+      setDetailFiles(prev => [...prev, { name: file.name, url }]);
+    } catch (error) { console.error(error); alert("تعذر رفع المرفق"); }
+    finally { setDetailUploading(false); }
+  };
 
   // Font Size: Dynamic numeric font size in pixels (default 13, range 10 to 22)
   const [fontSize, setFontSize] = useState<number>(13);
@@ -1502,7 +1531,12 @@ export default function VerticalLedgerSheet({
                         data-row-font-decoration={item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
                         style={{ backgroundColor: rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
-                        {/* 1. ت (Line Index) */}
+                        {!item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (
+                          <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" className="absolute left-0 top-1 z-10 rounded-md bg-white/90 p-1 text-slate-500 hover:text-blue-700 no-print" onClick={event => { event.stopPropagation(); openRowDetails(item); }}>
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {/* 1. ت (Line Index) */
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
                           {sheetMode === "edit" && rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
                             <button
@@ -1956,6 +1990,28 @@ export default function VerticalLedgerSheet({
         )}
       </div>
 
+      {detailRowId && (() => {
+        const detailRow = items.find(item => item.id === detailRowId);
+        if (!detailRow) return null;
+        return (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/60 p-3 no-print" dir="rtl">
+            <div role="dialog" aria-modal="true" aria-label="تفاصيل صف الدين" className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b bg-amber-50 p-4"><h3 className="font-black">تفاصيل صف الدين</h3><button type="button" onClick={() => setDetailRowId(null)} aria-label="إغلاق"><X className="h-5 w-5"/></button></div>
+              <div className="space-y-4 overflow-y-auto p-4">
+                <p className="text-sm">{detailRow.details}</p>
+                <div><label className="mb-1 block text-xs font-bold">الطابع الزمني لإضافة الدين</label><p className="rounded-lg bg-slate-50 p-2 text-sm">{detailRow.createdAt ? new Date(detailRow.createdAt).toLocaleString("ar-IQ") : "غير مسجل لهذا الصف القديم"}</p></div>
+                <div><label className="mb-1 block text-xs font-bold">اسم البائع</label>{sheetMode === "edit" ? <input className="w-full rounded-lg border p-2" value={detailSeller} onChange={e => setDetailSeller(e.target.value)} /> : <p className="rounded-lg bg-slate-50 p-2">{detailSeller || "ــــ"}</p>}</div>
+                <div><label className="mb-1 block text-xs font-bold">ملاحظات البيع</label>{sheetMode === "edit" ? <textarea className="min-h-24 w-full rounded-lg border p-2" value={detailNotes} onChange={e => setDetailNotes(e.target.value)} /> : <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2">{detailNotes || "ــــ"}</p>}</div>
+                <div><label className="mb-2 block text-xs font-bold">المرفقات (صور أو PDF)</label>
+                  {detailFiles.map((file, index) => <div key={index} className="flex items-center justify-between gap-2 rounded-lg border p-2 text-xs"><a className="truncate text-blue-700 underline" href={file.url} target="_blank" rel="noopener noreferrer">{file.name}</a>{sheetMode === "edit" && <button type="button" onClick={() => setDetailFiles(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-rose-600"/></button>}</div>)}
+                  {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><Paperclip className="h-4 w-4"/>{detailUploading ? "جاري الرفع..." : "إضافة مرفق"}<input type="file" accept="image/*,application/pdf" className="hidden" disabled={detailUploading} onChange={e => { void attachRowFile(e.target.files?.[0]); e.target.value = ""; }}/></label>}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t p-3"><button type="button" className="rounded-lg border px-4 py-2" onClick={() => setDetailRowId(null)}>إغلاق</button>{sheetMode === "edit" && <button type="button" disabled={detailUploading} className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white" onClick={saveRowDetails}>اعتماد التفاصيل</button>}</div>
+            </div>
+          </div>
+        );
+      })()}
       {activeViewTab === "changelog" ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4 no-print" dir="rtl" onClick={(event) => { if (event.target === event.currentTarget) setActiveViewTab("sheet"); }}>
           <div role="dialog" aria-modal="true" aria-label="سجل تغييرات السجل العمودي" className="flex h-[96dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-2xl">
