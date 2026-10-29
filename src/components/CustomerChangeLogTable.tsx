@@ -20,6 +20,8 @@ import { printElement } from "../utils/printUtils";
 interface CustomerChangeLogTableProps {
   customerId: string;
   customerName: string;
+  /** Invoice that owns the vertical-ledger history; accounting-list history remains invoice-independent. */
+  invoiceId?: string;
   changeLogs: CustomerChangeLogItem[];
   currency?: string;
   onDeleteLog?: (id: string) => void;
@@ -36,6 +38,7 @@ interface CustomerChangeLogTableProps {
 export default function CustomerChangeLogTable({
   customerId,
   customerName,
+  invoiceId,
   changeLogs,
   currency = "د.ع",
   onDeleteLog,
@@ -147,9 +150,12 @@ export default function CustomerChangeLogTable({
   // Filter logs for this specific customer
   const customerLogs = useMemo(() => {
     return changeLogs
-      .filter((log) => log.customerId === customerId)
+      .filter((log) =>
+        log.customerId === customerId &&
+        (accountingListMode ? !log.invoiceId : Boolean(invoiceId && log.invoiceId === invoiceId))
+      )
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [changeLogs, customerId]);
+  }, [changeLogs, customerId, invoiceId, accountingListMode]);
 
   // Search and type filtering
   const filteredLogs = useMemo(() => {
