@@ -613,7 +613,6 @@ export default function CustomerChangeLogTable({
                       )}
                     </tbody>
                   </table>
-                </div>
         )}
       </div>
 
