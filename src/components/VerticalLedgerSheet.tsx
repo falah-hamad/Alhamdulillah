@@ -2080,7 +2080,7 @@ export default function VerticalLedgerSheet({
                       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-center text-xs text-white" dir="ltr">{current + 1} / {photos.length}</div>
                     </div>;
                   })()}
-                  {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><ImagePlus className="h-4 w-4"/>{detailUploading ? "جاري رفع الصورة..." : "إضافة صور"}<input type="file" accept="image/*" multiple className="hidden" disabled={detailUploading} onChange={e => { const files = Array.from(e.target.files || []); void (async () => { for (const file of files) await attachRowFile(file); })(); e.target.value = ""; }}/></label>}
+                  {sheetMode === "edit" && <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold"><ImagePlus className="h-4 w-4"/>{detailUploading ? "جاري رفع الصورة..." : "إضافة صور"}<input type="file" accept="image/*" multiple className="hidden" disabled={detailUploading} onChange={e => { const files: File[] = Array.from(e.currentTarget.files ?? []); void (async () => { for (const file of files) await attachRowFile(file); })(); e.target.value = ""; }}/></label>}
                 </div>
               </div>
               <div className="flex justify-end gap-2 border-t p-3"><button type="button" className="rounded-lg border px-4 py-2" onClick={() => setDetailRowId(null)}>إغلاق</button>{sheetMode === "edit" && <button type="button" disabled={detailUploading} className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white" onClick={saveRowDetails}>اعتماد التفاصيل</button>}</div>
