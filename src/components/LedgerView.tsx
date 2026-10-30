@@ -60,6 +60,7 @@ import {
   Palette,
   History,
   ScanBarcode,
+  ContactRound,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow } from "../types";
@@ -72,6 +73,7 @@ import {
   getTotalPaidFromItems,
   formatInvoiceAccountingText,
 } from "../utils/separatorUtils";
+import CustomerProfileModal from "./CustomerProfileModal";
 import VerticalLedgerSheet from "./VerticalLedgerSheet";
 import CustomerChangeLogTable from "./CustomerChangeLogTable";
 import DeleteConfirmModal from "./DeleteConfirmModal";
@@ -160,6 +162,7 @@ export default function LedgerView({
   clearCustomerChangeLogs,
   revertChangeLogAction,
 }: LedgerViewProps) {
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
   const [localCustomerId, setLocalCustomerId] = useState<string | null>(null);
   const [localInvoiceId, setLocalInvoiceId] = useState<string | null>(null);
 
@@ -2020,6 +2023,7 @@ ${folderCustomers
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
           details: product.name + " (" + quantity + " " + (product.unitName || "قطعة") + ")",
           productId: product.id,
+          unitCost: Number(product.purchasePrice) || 0,
           quantity,
           unitPrice,
           total: quantity * unitPrice,
@@ -2036,6 +2040,8 @@ ${folderCustomers
           return {
             id: "asr-cart-" + selectedCustomer.id + "-" + Date.now() + "-" + index,
             details: product.name,
+            productId: product.id,
+            unitCost: Number(product.purchasePrice) || 0,
             quantity,
             unit: product.unitName || "قطعة",
             unitPrice,
@@ -2510,6 +2516,7 @@ ${folderCustomers
             </button>
 
             <div className="flex items-center gap-2">
+              {!currentInvoice && <button type="button" onClick={() => setProfileCustomerId(selectedCustomer.id)} title="ملف العميل" aria-label="ملف العميل" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700"><ContactRound className="h-4 w-4" /></button>}
               <button
                 type="button"
                 onClick={() => setIsCustomerDeleteConfirmOpen(true)}
@@ -3548,6 +3555,7 @@ ${folderCustomers
                             >
                               <History className="h-4 w-4" />
                             </button>
+                            <button type="button" onClick={() => setProfileCustomerId(selectedCustomer.id)} aria-label="ملف العميل" title="ملف العميل" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"><ContactRound className="h-4 w-4" /></button>
                           </div>
                         )}
                         {(() => {
@@ -5182,6 +5190,10 @@ ${folderCustomers
         </div>
       )}
 
+
+      {profileCustomerId && selectedCustomer?.id === profileCustomerId && (
+        <CustomerProfileModal customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} onSave={updateCustomer} onClose={() => setProfileCustomerId(null)} />
+      )}
 
       {/* PRODUCT CART — Add inventory items directly to the selected customer's debt ledger */}
       {isAccountingChangeLogOpen && selectedCustomer && (

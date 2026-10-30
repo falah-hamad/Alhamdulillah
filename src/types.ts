@@ -12,6 +12,8 @@ export interface CustomerFolder {
 }
 
 export interface AccountingSheetRow {
+  productId?: string;
+  unitCost?: number;
   id: string;
   details: string;
   quantity: number;
@@ -38,7 +40,12 @@ export interface AccountingSheetPayment {
   notes?: string;
 }
 
+export interface CustomerProfile {
+  [field: string]: string;
+}
+
 export interface Customer {
+  profile?: CustomerProfile;
   id: string;
   userId?: string;
   name: string;
@@ -109,6 +116,7 @@ export interface Product {
 }
 
 export interface InvoiceItem {
+  unitCost?: number; // Historical purchase cost captured when the item is sold.
   id: string;
   details: string; // Product name or custom detail
   productId?: string; // Optional reference to standard product
