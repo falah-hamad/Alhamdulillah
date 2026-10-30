@@ -4,10 +4,10 @@ import { ContactRound, X } from "lucide-react";
 import { Customer, CustomerProfile, Invoice, Payment } from "../types";
 
 const groups: [string, [string, string, string?][]][] = [
-  ["المعلومات الشخصية", [["name", "الاسم الرباعي"], ["photo", "رابط الصورة", "url"], ["birthDate", "تاريخ الميلاد", "date"], ["gender", "الجنس"], ["maritalStatus", "الحالة الاجتماعية"]]],
+  ["المعلومات الشخصية", [["name", "الاسم الرباعي"], ["photo", "صورة العميل (رابط صورة محفوظة)", "url"], ["birthDate", "تاريخ الميلاد", "date"], ["gender", "الجنس"], ["maritalStatus", "الحالة الاجتماعية"]]],
   ["معلومات الاتصال", [["phone", "الهاتف الأساسي", "tel"], ["alternatePhone", "الهاتف البديل", "tel"], ["whatsapp", "واتساب", "tel"]]],
   ["معلومات السكن", [["address", "العنوان"], ["governorate", "المحافظة"], ["district", "القضاء"], ["area", "المنطقة"], ["neighborhood", "الحي"], ["street", "الزقاق"], ["house", "رقم الدار"], ["landmark", "أقرب نقطة دالة"], ["location", "رابط الموقع الجغرافي", "url"]]],
-  ["المعلومات الوظيفية", [["occupation", "المهنة"], ["employer", "جهة العمل / الدائرة"], ["salary", "الراتب الشهري (اختياري)", "number"], ["salaryType", "نوع بطاقة الراتب"]]],
+  ["المعلومات الوظيفية", [["occupation", "المهنة"], ["transactionType", "نوع التعامل المسموح (نقدي / آجل / أقساط)"], ["hasSalary", "هل لديه راتب؟ (نعم / لا)"], ["employer", "جهة العمل / الدائرة"], ["salary", "الراتب الشهري (اختياري)", "number"], ["salaryType", "نوع بطاقة الراتب"]]],
   ["معلومات الضامن", [["guarantorName", "اسم الكفيل"], ["guarantorPhone", "هاتف الكفيل", "tel"], ["guarantorAddress", "عنوان الكفيل"], ["guarantorEmployer", "جهة عمل الكفيل"]]],
   ["المرفقات والملاحظات", [["documents", "روابط المستندات والعقود والصور"], ["notes", "الملاحظات الشخصية"]]],
 ];
@@ -18,7 +18,7 @@ export default function CustomerProfileModal({ customer, invoices, payments, cur
   customer: Customer; invoices: Invoice[]; payments: Payment[]; currency: string;
   onSave?: (customer: Customer) => Promise<void> | void; onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"personal" | "financial">("personal");
+  const [tab, setTab] = useState<"personal" | "business" | "financial" | "due" | "analytics">("personal");
   const [source, setSource] = useState<"vertical" | "accounting">("vertical");
   const [draft, setDraft] = useState<CustomerProfile>(() => ({ ...customer.profile, name: customer.name, phone: customer.phone, address: customer.address || "", salaryType: customer.salaryType || "" }));
   const [editing, setEditing] = useState(false);
@@ -74,12 +74,61 @@ export default function CustomerProfileModal({ customer, invoices, payments, cur
     const nextDue = customerInvoices.filter(inv => inv.remainingAmount > 0 && inv.dueDate && validDate(inv.dueDate)).map(inv => inv.dueDate!).sort()[0];
     stats.push(["أقرب استحقاق كشف مفتوح", nextDue || "غير محدد"]);
   }
+  const salesType = (inv: Invoice) => (inv as Invoice & { saleType?: string }).saleType;
+  const classified = customerInvoices.filter(inv => ["cash", "credit", "installment"].includes(salesType(inv) || ""));
+  const saleTypeKnown = classified.length === customerInvoices.length && customerInvoices.length > 0;
+  const countType = (type: string) => classified.filter(inv => salesType(inv) === type).length;
+  const amountType = (type: string) => classified.filter(inv => salesType(inv) === type).reduce((sum, inv) => sum + inv.grandTotal, 0);
+  const unknown = "غير متوفر — البيانات غير مسجلة";
+  const sourceRows = source === "vertical" ? customerInvoices : [];
+  const dueKnown = source === "vertical" && sourceRows.length > 0 && sourceRows.every(inv => inv.remainingAmount <= 0 || (inv.dueDate && validDate(inv.dueDate)));
+  const currentDay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
+  const dueOpen = dueKnown ? sourceRows.filter(inv => inv.remainingAmount > 0 && inv.dueDate && inv.dueDate < currentDay) : [];
+  const oldestDue = dueOpen.map(inv => inv.dueDate!).sort()[0];
+  const nextDueDate = dueKnown ? sourceRows.filter(inv => inv.remainingAmount > 0 && inv.dueDate && inv.dueDate >= currentDay).map(inv => inv.dueDate!).sort()[0] : undefined;
+  const daysBetween = (start: string, end: string) => Math.max(0, Math.floor((Date.parse(end + "T12:00:00Z") - Date.parse(start + "T12:00:00Z")) / 86400000));
+  const topProfit = costsComplete ? [...saleItems.reduce((map, item) => {
+    const name = item.details || item.productId || "صنف غير مسمى";
+    map.set(name, (map.get(name) || 0) + item.total - item.quantity * (item.unitCost || 0));
+    return map;
+  }, new Map<string, number>()).entries()].sort((a,b) => b[1] - a[1])[0] : undefined;
+  const lastAccountingPayment = [...(customer.accountingSheetPayments || [])].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
+  const lastVerticalPayment = [...customerPayments].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
+  const lastPaid = source === "vertical" ? lastVerticalPayment : lastAccountingPayment;
+  const extraStats: Record<string, string> = {
+    "نوع التعامل": draft.transactionType || "غير محدد",
+    "عدد عمليات الشراء النقدية": source === "vertical" && saleTypeKnown ? number(countType("cash")) : unknown,
+    "عدد عمليات الشراء بالأقساط": source === "vertical" && saleTypeKnown ? number(countType("installment")) : unknown,
+    "عدد عمليات الشراء الآجلة": source === "vertical" && saleTypeKnown ? number(countType("credit")) : unknown,
+    "إجمالي المبيعات النقدية": source === "vertical" && saleTypeKnown ? `${number(amountType("cash"))} ${currency}` : unknown,
+    "إجمالي المبيعات بالأقساط": source === "vertical" && saleTypeKnown ? `${number(amountType("installment"))} ${currency}` : unknown,
+    "إجمالي المبيعات الآجلة": source === "vertical" && saleTypeKnown ? `${number(amountType("credit"))} ${currency}` : unknown,
+    "عدد الأصناف المختلفة": saleItems.length && saleItems.every(i => !!i.productId) ? number(new Set(saleItems.map(i => i.productId)).size) : unknown,
+    "أكثر صنف ربحاً": topProfit ? `${topProfit[0]} · ${number(topProfit[1])} ${currency}` : unknown,
+    "تاريخ آخر تسديد وقيمته": lastPaid ? `${lastPaid.date} · ${number(lastPaid.amount)} ${currency}` : unknown,
+    "أعلى رصيد دين تاريخي": unknown,
+    "متوسط مدة تسديد الدين": unknown,
+    "إجمالي المبالغ المتأخرة": dueKnown ? `${number(dueOpen.reduce((sum, inv) => sum + inv.remainingAmount, 0))} ${currency}` : unknown,
+    "عدد الكشوف المتأخرة": dueKnown ? number(dueOpen.length) : unknown,
+    "أقدم استحقاق متأخر": dueKnown ? (oldestDue || "لا يوجد") : unknown,
+    "أيام تأخير أقدم استحقاق": dueKnown ? (oldestDue ? `${number(daysBetween(oldestDue, currentDay))} يوم` : "0 يوم") : unknown,
+    "أقرب استحقاق قادم": dueKnown ? (nextDueDate || "لا يوجد") : unknown,
+    "إجمالي الأقساط المستحقة": unknown,
+    "عدد الأقساط غير المسددة": unknown,
+    "انتظام التسديد": unknown,
+    "متوسط أيام التأخير": unknown,
+    "نسبة سداد المستحقات": unknown,
+    "معدل تكرار الشراء": unknown,
+    "المقارنة مع الشهر السابق": unknown,
+    "حالة نشاط العميل": unknown,
+    "حالة الالتزام": dueKnown ? (dueOpen.length ? "متأخر حسب مواعيد الكشوف" : "لا توجد كشوف متأخرة") : unknown,
+    "التنبيهات التلقائية": "تتطلب جدول أقساط وتنبيهات موثقة؛ غير مفعّلة من هذه النافذة",
+  };
   const financialGroups = [
-    { title: "أ. الملخص المالي للعميل", labels: ["إجمالي المبيعات المسجلة", "إجمالي التسديدات", "المبلغ المتبقي", "الربح الإجمالي المسجل"] },
-    { title: "ب. تفاصيل التعامل التجاري", labels: ["أول / آخر تاريخ سجل", "مدة التعامل المسجلة", "القطع المسجلة", "أكثر بند مسجل بالكمية", "أكبر / أصغر كشف", "متوسط قيمة الكشف"] },
-    { title: "ج. الأرباح من العميل", labels: ["تكلفة البضاعة وقت البيع", "الربح الإجمالي المسجل", "هامش الربح"], note: "الربح المسجل = سعر البيع ناقص التكلفة المحفوظة وقت البيع، ولا يعني تحصيل النقد. السجلات القديمة التي لا تحتوي على تكلفة لا تُقدّر بسعر المخزون الحالي. صافي الربح يحتاج بيانات الخصومات والمرتجعات والمصاريف." },
-    { title: "د. الديون والتسديدات", labels: ["كشوف مفتوحة / مغلقة", "عدد سندات القبض المستقلة", "آخر سند قبض مستقل", "أقرب استحقاق كشف مفتوح", "المبالغ المتأخرة حسب استحقاق الكشف"] },
-    { title: "هـ. تحليل سلوك العميل", labels: ["حالة الاستحقاق"], note: "تحليل انتظام التسديد ومتوسط التأخير وتكرار الشراء يحتاج بيانات عمليات وأقساط ومواعيد استحقاق كاملة؛ لا تُستنتج من عدد صفوف الكشف." },
+    { title: "ب. تفاصيل التعامل التجاري", labels: ["أول / آخر تاريخ سجل", "مدة التعامل المسجلة", "عدد عمليات الشراء النقدية", "عدد عمليات الشراء بالأقساط", "عدد عمليات الشراء الآجلة", "القطع المسجلة", "عدد الأصناف المختلفة", "أكثر بند مسجل بالكمية", "أكبر / أصغر كشف", "متوسط قيمة الكشف"], note: "عدد العمليات حسب نوع الدفع لا يظهر إلا إذا كان نوع البيع محفوظاً في جميع الفواتير؛ السجل الحسابي المستقل لا يفترض أنه فاتورة نقدية أو أقساط." },
+    { title: "ج. الملخص الحسابي والأرباح", labels: ["إجمالي المبيعات المسجلة", "إجمالي المبيعات النقدية", "إجمالي المبيعات الآجلة", "إجمالي المبيعات بالأقساط", "إجمالي التسديدات", "المبلغ المتبقي", "الربح الإجمالي المسجل", "تكلفة البضاعة وقت البيع", "هامش الربح", "أكثر صنف ربحاً", "تاريخ آخر تسديد وقيمته", "أعلى رصيد دين تاريخي", "متوسط مدة تسديد الدين"], note: "الأرباح تعتمد على التكلفة التاريخية المحفوظة لكل صنف. التسديد لا يزيد المبيعات أو الربح مرة ثانية. الرصيد التاريخي ومدة السداد يتطلبان حركات مترابطة زمنياً." },
+    { title: "د. المستحقات والتأخير", labels: ["المبلغ المتبقي", "إجمالي الأقساط المستحقة", "إجمالي المبالغ المتأخرة", "عدد الأقساط غير المسددة", "عدد الكشوف المتأخرة", "أيام تأخير أقدم استحقاق", "أقدم استحقاق متأخر", "أقرب استحقاق قادم"], note: "المتاح حالياً هو استحقاق الكشف عندما يكون تاريخ الاستحقاق محفوظاً؛ لا يمكن استخراج أقساط متعددة من تاريخ استحقاق كشف واحد." },
+    { title: "هـ. تحليل سلوك العميل", labels: ["انتظام التسديد", "متوسط أيام التأخير", "نسبة سداد المستحقات", "معدل تكرار الشراء", "المقارنة مع الشهر السابق", "حالة نشاط العميل", "حالة الالتزام", "التنبيهات التلقائية"], note: "لا تُستنتج نسب الالتزام أو تصنيفات النشاط من بيانات ناقصة. يلزم جدول أقساط ومدفوعات مخصصة وتواريخ شراء مثبتة." },
   ];
   const save = async () => {
     if (!onSave || saving) return;
@@ -96,16 +145,16 @@ export default function CustomerProfileModal({ customer, invoices, payments, cur
       if (event.key === "Tab") { const nodes = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select, a[href]'); if (!nodes?.length) return; const first = nodes[0], last = nodes[nodes.length-1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
     }}>
       <header className="flex items-center justify-between gap-2 border-b bg-violet-50 p-4"><div className="min-w-0"><h2 id="customer-profile-title" className="flex items-center gap-2 font-bold text-slate-900"><ContactRound className="h-5 w-5 shrink-0" />ملف العميل</h2><p className="break-words text-sm text-slate-600">{customer.name}</p></div><button ref={closeButton} type="button" disabled={saving} aria-label="إغلاق ملف العميل" onClick={requestClose} className="rounded-lg p-2 hover:bg-white"><X className="h-5 w-5" /></button></header>
-      <div className="grid grid-cols-2 gap-2 border-b p-2" role="tablist" aria-label="أقسام ملف العميل">{([['personal','التفاصيل الديموغرافية'],['financial','التفاصيل المالية والتجارية']] as const).map(([value,label]) => <button type="button" key={value} role="tab" aria-selected={tab === value} aria-controls="customer-profile-panel" onClick={() => setTab(value)} className={`rounded-lg p-2 text-xs sm:text-sm font-bold ${tab === value ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>)}</div>
+      <div className="flex gap-2 overflow-x-auto border-b p-2" role="tablist" aria-label="أقسام ملف العميل">{([['personal','أ. المعلومات الشخصية'],['business','ب. التعامل التجاري'],['financial','ج. الملخص الحسابي'],['due','د. المستحقات والتأخير'],['analytics','هـ. تحليل السلوك']] as const).map(([value,label]) => <button type="button" key={value} role="tab" aria-selected={tab === value} aria-controls="customer-profile-panel" onClick={() => setTab(value)} className={`shrink-0 rounded-lg p-2 text-xs sm:text-sm font-bold ${tab === value ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>)}</div>
       <div id="customer-profile-panel" role="tabpanel" className="min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4">
         {tab === "personal" ? <>
           {groups.map(([title,fields], groupIndex) => <section key={title}><h3 className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-sm font-bold text-violet-900">{['أ', 'ب', 'ج', 'د', 'هـ', 'و'][groupIndex]}. {title}</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type || 'text'} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{draft[field] || 'غير مضاف'}</span>}</label>)}</div></section>)}
         </> : <>
           <label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { setSource(e.target.value as typeof source); setExpanded(false); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p>
-          {financialGroups.map(group => {
+          {financialGroups.filter(group => (tab === "business" && group.title.startsWith("ب.")) || (tab === "financial" && group.title.startsWith("ج.")) || (tab === "due" && group.title.startsWith("د.")) || (tab === "analytics" && group.title.startsWith("هـ."))).map(group => {
             const entries = group.labels.flatMap(label => {
-              const entry = stats.find(([statLabel]) => statLabel === label);
+              const entry = stats.find(([statLabel]) => statLabel === label) || (label in extraStats ? [label, extraStats[label]] as [string, string] : undefined);
               return entry ? [entry] : [];
             });
             return <section key={group.title} aria-label={group.title} className="space-y-3 rounded-xl border border-slate-200 p-3">
