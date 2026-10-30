@@ -3,13 +3,11 @@ import { createPortal } from "react-dom";
 import { ContactRound, X } from "lucide-react";
 import { Customer, CustomerProfile, Invoice, Payment } from "../types";
 
-const groups: [string, [string, string, string?][]][] = [
-  ["المعلومات الشخصية", [["name", "الاسم الرباعي"], ["photo", "صورة العميل (رابط صورة محفوظة)", "url"], ["birthDate", "تاريخ الميلاد", "date"], ["gender", "الجنس"], ["maritalStatus", "الحالة الاجتماعية"]]],
-  ["معلومات الاتصال", [["phone", "الهاتف الأساسي", "tel"], ["alternatePhone", "الهاتف البديل", "tel"], ["whatsapp", "واتساب", "tel"]]],
-  ["معلومات السكن", [["address", "العنوان"], ["governorate", "المحافظة"], ["district", "القضاء"], ["area", "المنطقة"], ["neighborhood", "الحي"], ["street", "الزقاق"], ["house", "رقم الدار"], ["landmark", "أقرب نقطة دالة"], ["location", "رابط الموقع الجغرافي", "url"]]],
-  ["المعلومات الوظيفية", [["occupation", "المهنة"], ["transactionType", "نوع التعامل المسموح (نقدي / آجل / أقساط)"], ["hasSalary", "هل لديه راتب؟ (نعم / لا)"], ["employer", "جهة العمل / الدائرة"], ["salary", "الراتب الشهري (اختياري)", "number"], ["salaryType", "نوع بطاقة الراتب"]]],
-  ["معلومات الضامن", [["guarantorName", "اسم الكفيل"], ["guarantorPhone", "هاتف الكفيل", "tel"], ["guarantorAddress", "عنوان الكفيل"], ["guarantorEmployer", "جهة عمل الكفيل"]]],
-  ["المرفقات والملاحظات", [["documents", "روابط المستندات والعقود والصور"], ["notes", "الملاحظات الشخصية"]]],
+const groups: [string, [string,string,string?][]][] = [
+["1. البيانات الأساسية",[["name","اسم العميل الرباعي"],["photo","صورة العميل","image"],["phone","رقم الهاتف","tel"],["address","عنوان السكن"],["occupation","المهنة أو الوظيفة"]]],
+["2. المعلومات المالية والوظيفية",[["transactionType","نوع التعامل","saleType"],["hasSalary","هل لديه راتب؟","yesNo"],["salaryType","نوع الراتب"]]],
+["3. معلومات الكفيل أو الضامن",[["guarantorName","اسم الكفيل"],["guarantorPhone","رقم هاتف الكفيل","tel"],["guarantorAddress","عنوان سكن الكفيل"]]],
+["4. معلومات الأرشفة",[["folderId","المجلد التابع له العميل","readonly"],["sequence","التسلسل داخل المجلد","readonly"]]]
 ];
 const number = (value: number) => value.toLocaleString("ar-IQ", { maximumFractionDigits: 2 });
 const validDate = (value: string) => Number.isFinite(Date.parse(value));
@@ -25,6 +23,8 @@ export default function CustomerProfileModal({ customer, invoices, payments, cur
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [openedGroups,setOpenedGroups] = useState<string[]>(["1. البيانات الأساسية"]);
+  const toggleGroup = (name:string) => setOpenedGroups(old=>old.includes(name)?old.filter(x=>x!==name):[...old,name]);
   const dialog = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const requestClose = () => { if (!saving && (!editing || window.confirm("إغلاق ملف العميل وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
@@ -148,7 +148,7 @@ export default function CustomerProfileModal({ customer, invoices, payments, cur
       <div className="flex gap-2 overflow-x-auto border-b p-2" role="tablist" aria-label="أقسام ملف العميل">{([['personal','أ. المعلومات الشخصية'],['business','ب. التعامل التجاري'],['financial','ج. الملخص الحسابي'],['due','د. المستحقات والتأخير'],['analytics','هـ. تحليل السلوك']] as const).map(([value,label]) => <button type="button" key={value} role="tab" aria-selected={tab === value} aria-controls="customer-profile-panel" onClick={() => setTab(value)} className={`shrink-0 rounded-lg p-2 text-xs sm:text-sm font-bold ${tab === value ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>)}</div>
       <div id="customer-profile-panel" role="tabpanel" className="min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4">
         {tab === "personal" ? <>
-          {groups.map(([title,fields], groupIndex) => <section key={title}><h3 className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-sm font-bold text-violet-900">{['أ', 'ب', 'ج', 'د', 'هـ', 'و'][groupIndex]}. {title}</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type || 'text'} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{draft[field] || 'غير مضاف'}</span>}</label>)}</div></section>)}
+          {groups.map(([title,fields]) => <section key={title}><button type="button" onClick={()=>toggleGroup(title)} aria-expanded={openedGroups.includes(title)} className="mb-3 flex w-full justify-between rounded-lg bg-violet-50 px-3 py-2 text-right text-sm font-bold text-violet-900"><span>{title}</span><span>{openedGroups.includes(title)?"−":"+"}</span></button>{openedGroups.includes(title) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type || 'text'} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{draft[field] || 'غير مضاف'}</span>}</label>)}</div>}</section>)}
         </> : <>
           <label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { setSource(e.target.value as typeof source); setExpanded(false); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p>
