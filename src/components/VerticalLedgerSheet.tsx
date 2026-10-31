@@ -1394,7 +1394,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr))!important}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
@@ -1504,13 +1504,14 @@ export default function VerticalLedgerSheet({
           )}
 
           {/* The Ledger Table */}
-          <div className="w-full">
+          <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "8.5rem" : "0px" } as React.CSSProperties}>
             {/* Table Header: ت | المبلغ | التفاصيل | الكمية */}
             <div className="grid grid-cols-12 vertical-ledger-grid border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
               <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
               <div className="col-span-5 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
               <div className="col-span-3 text-center font-bold text-xs">الكمية</div>
+              {sheetMode === "edit" && <div aria-hidden="true" className="no-print" style={{ gridColumn: 13 }} />}
             </div>
 
             {/* Empty Account State Notice */}
@@ -1598,11 +1599,6 @@ export default function VerticalLedgerSheet({
                         data-row-font-decoration={item.rowFontUnderline !== undefined || item.rowFontStrike !== undefined ? "true" : undefined}
                         style={{ backgroundColor: sheetMode === "view" && (pressedViewRowId === item.id || detailRowId === item.id) ? "rgba(147, 197, 253, 0.28)" : rowSelectionMode && isMultiSelected ? undefined : item.rowBackgroundColor, "--row-font-color": item.rowFontColor || "#111827", "--row-font-size": `${item.rowFontSize || 13}px`, "--row-font-weight": item.rowFontBold ? 800 : 400, "--row-font-style": item.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [item.rowFontUnderline ? "underline" : "", item.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties}
                       >
-                        {sheetMode === "edit" && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (
-                          <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" className="absolute left-0 top-1 z-10 rounded-md bg-white/90 p-1 text-slate-500 hover:text-blue-700 no-print" onClick={event => { event.stopPropagation(); openRowDetails(item); }}>
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                         {/* 1. ت (Line Index) */}
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400 flex items-center justify-center gap-1">
                           {sheetMode === "edit" && rowSelectionMode && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow ? (
@@ -1707,52 +1703,12 @@ export default function VerticalLedgerSheet({
                                 className="w-full text-right font-medium text-slate-800 bg-transparent focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-0.5 transition-all border border-transparent hover:border-slate-300/70 leading-normal"
                               />
 
-                              {/* Quick row actions floating/inline on hover or active row */}
-                              <div
-                                className={`flex items-center gap-0.5 no-print pr-1 ${
-                                  isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                } transition-opacity`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => handleInsertRowAbove(item.id)}
-                                  className="p-1 text-slate-500 hover:text-blue-700 hover:bg-white/80 rounded"
-                                  title="إضافة صف جديد أعلى هذا الصف"
-                                >
-                                  <ArrowUpToLine className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleInsertRowBelow(item.id)}
-                                  className="p-1 text-slate-500 hover:text-blue-700 hover:bg-white/80 rounded"
-                                  title="إضافة صف جديد أسفل هذا الصف"
-                                >
-                                  <ArrowDownToLine className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleClearRowAmount(item.id)}
-                                  className="p-1 text-slate-400 hover:text-amber-700 hover:bg-white/80 rounded"
-                                  title="تفريغ المبلغ فقط"
-                                >
-                                  <Eraser className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteRow(item.id)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white/80 rounded"
-                                  title="حذف هذا الصف كاملاً"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
                             </>
                           )}
                         </div>
 
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px`, paddingInlineEnd: sheetMode === "edit" ? "1.75rem" : undefined }}>
+                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
@@ -1764,7 +1720,7 @@ export default function VerticalLedgerSheet({
                                 onChange={event => handleUpdateQuantity(item.id, event.target.value)}
                                 onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "40%", flexShrink: 0 }} dir="ltr" />
+                                style={{ width: `${Math.max(4, String(editingQuantities[item.id] ?? item.quantity ?? "").length + 1)}ch`, minWidth: "4ch", flexShrink: 0 }} dir="ltr" />
                               <input type="text" aria-label="وحدة الكمية" title={item.unit || "الوحدة"} value={item.unit ?? ""} placeholder="الوحدة"
                                 onChange={event => handleUpdateUnit(item.id, event.target.value)}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1773,6 +1729,50 @@ export default function VerticalLedgerSheet({
                           )}
                         </div>
 
+                        {/* Row tools follow the quantity column in RTL. */}
+                        {sheetMode === "edit" && (
+                              <div
+                                className={`flex items-center justify-end gap-0.5 px-1 no-print ${
+                                  isSelected ? "visible" : "invisible group-hover:visible group-focus-within:visible"
+                                }`}
+                                style={{ gridColumn: 13, gridRow: 1 }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleInsertRowAbove(item.id)}
+                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-500 hover:text-blue-700 hover:bg-white/80 rounded"
+                                  title="إضافة صف جديد أعلى هذا الصف"
+                                >
+                                  <ArrowUpToLine className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleInsertRowBelow(item.id)}
+                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-500 hover:text-blue-700 hover:bg-white/80 rounded"
+                                  title="إضافة صف جديد أسفل هذا الصف"
+                                >
+                                  <ArrowDownToLine className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleClearRowAmount(item.id)}
+                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400 hover:text-amber-700 hover:bg-white/80 rounded"
+                                  title="تفريغ المبلغ فقط"
+                                >
+                                  <Eraser className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRow(item.id)}
+                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-white/80 rounded"
+                                  title="حذف هذا الصف كاملاً"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                                <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" onClick={() => openRowDetails(item)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-white/80 hover:text-blue-700"><Info className="h-4 w-4" /></button>
+                              </div>
+                        )}
                       </div>
                     );
                   })}
