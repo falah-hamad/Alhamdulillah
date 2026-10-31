@@ -11,6 +11,8 @@ import {
   Eraser,
   Printer,
   RotateCcw,
+  Undo2,
+  Redo2,
   Check,
   Layers,
   Sparkles,
@@ -59,6 +61,7 @@ interface VerticalLedgerSheetProps {
   invoice: Invoice;
   customer: Customer;
   settings: SystemSettings;
+  productUnits?: string[];
   onUpdateInvoice: (updatedInvoice: Invoice) => Promise<void> | void;
   onOpenProductCart?: (selectedRowId: string) => void;
   onClose?: () => void;
@@ -74,6 +77,7 @@ export default function VerticalLedgerSheet({
   invoice,
   customer,
   settings,
+  productUnits = [],
   onUpdateInvoice,
   onOpenProductCart,
   changeLogs = [],
@@ -345,12 +349,86 @@ export default function VerticalLedgerSheet({
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
   const [editingQuantities, setEditingQuantities] = useState<Record<string, string>>({});
+  const [quickPicker, setQuickPicker] = useState<{ rowId: string; kind: "quantity" | "unit"; top: number; left: number; width: number } | null>(null);
+  const quickPickerRef = useRef<HTMLDivElement>(null);
+  const quickPickerAnchor = useRef<{ rowId: string; kind: "quantity" | "unit"; input: HTMLInputElement } | null>(null);
+  const unitSuggestions = [...new Set(["قطعة", "رولة", "متر", "باكيت", "درجة", "كرتون", "علبة", "كيس", "كيلوغرام", "لتر", "زوج", "طقم", ...productUnits, ...items.map(item => String(item.unit || ""))].map(unit => unit.trim()).filter(Boolean))];
+  const openQuickPicker = (rowId: string, kind: "quantity" | "unit", input: HTMLInputElement) => {
+    quickPickerAnchor.current = { rowId, kind, input };
+    const rect = input.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 16);
+    const top = Math.max(8, Math.min(rect.bottom + 6, (window.visualViewport?.height ?? window.innerHeight) - 250));
+    setQuickPicker({ rowId, kind, top, left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)), width });
+  };
+  useEffect(() => {
+    const close = () => setQuickPicker(null);
+    const reposition = () => { const anchor = quickPickerAnchor.current; if (anchor && document.activeElement === anchor.input) openQuickPicker(anchor.rowId, anchor.kind, anchor.input); else close(); };
+    window.addEventListener("resize", reposition);
+    window.visualViewport?.addEventListener("resize", reposition);
+    const onScroll = (event: Event) => { if (!quickPickerRef.current?.contains(event.target as Node)) close(); };
+    window.addEventListener("scroll", onScroll, true);
+    return () => { window.removeEventListener("resize", reposition); window.visualViewport?.removeEventListener("resize", reposition); window.removeEventListener("scroll", onScroll, true); };
+  }, []);
+  useEffect(() => { if (sheetMode !== "edit") setQuickPicker(null); }, [sheetMode]);
 
   // Save feedback state
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingChangeLogs, setPendingChangeLogs] = useState<Array<Parameters<NonNullable<typeof commitChangeLog>>[0]>>([]);
   const [pendingPaidNotifications, setPendingPaidNotifications] = useState<Array<{ userId: string; payload: Parameters<typeof dispatchPaidAmountNotification>[1] }>>([]);
+
+  // Keep unsaved rows and their queued side effects together when undoing.
+  type EditSnapshot = {
+    items: InvoiceItem[]; pageCount: number; dirty: boolean; background: string;
+    logs: typeof pendingChangeLogs; notifications: typeof pendingPaidNotifications;
+  };
+  const editHistory = useRef<{ invoiceId: string; entries: EditSnapshot[]; index: number }>({ invoiceId: invoice.id, entries: [], index: -1 });
+  const restoringEdit = useRef(false);
+  const [, setHistoryVersion] = useState(0);
+  useEffect(() => {
+    const snapshot: EditSnapshot = { items, pageCount, dirty: hasUnsavedChanges, background: sheetBgColor, logs: pendingChangeLogs, notifications: pendingPaidNotifications };
+    const history = editHistory.current;
+    if (sheetMode !== "edit" || history.invoiceId !== invoice.id || history.index < 0) {
+      editHistory.current = { invoiceId: invoice.id, entries: [snapshot], index: 0 };
+      restoringEdit.current = false;
+      setHistoryVersion(version => version + 1);
+      return;
+    }
+    if (restoringEdit.current) { restoringEdit.current = false; return; }
+    if (JSON.stringify(history.entries[history.index]) === JSON.stringify(snapshot)) return;
+    const entries = [...history.entries.slice(0, history.index + 1), snapshot].slice(-100);
+    editHistory.current = { invoiceId: invoice.id, entries, index: entries.length - 1 };
+    setHistoryVersion(version => version + 1);
+  }, [items, pageCount, hasUnsavedChanges, pendingChangeLogs, pendingPaidNotifications, sheetBgColor, sheetMode, invoice.id]);
+  const restoreEdit = (direction: -1 | 1) => {
+    const history = editHistory.current;
+    const index = history.index + direction;
+    if (sheetMode !== "edit" || index < 0 || index >= history.entries.length) return;
+    const snapshot = history.entries[index];
+    restoringEdit.current = true;
+    history.index = index;
+    setItems(snapshot.items);
+    setPageCount(snapshot.pageCount);
+    setCurrentPage(page => Math.min(page, snapshot.pageCount));
+    setPendingChangeLogs(snapshot.logs);
+    setPendingPaidNotifications(snapshot.notifications);
+    setHasUnsavedChanges(snapshot.dirty);
+    setSheetBgColor(snapshot.background);
+    try { localStorage.setItem("ledger_sheet_bg_color", snapshot.background); } catch {}
+    setEditingAmounts({});
+    setEditingQuantities({});
+    setQuickPicker(null);
+    setDetailRowId(null);
+    setSelectedRowIds(ids => ids.filter(id => snapshot.items.some(item => item.id === id)));
+    if (!snapshot.items.some(item => item.id === selectedRowId)) {
+      setSelectedRowId(snapshot.items[0]?.id || null);
+      setHasExplicitRowSelection(false);
+    }
+    setSaveStatus(direction === -1 ? "تم التراجع عن التعديل" : "تمت إعادة التعديل");
+    setHistoryVersion(version => version + 1);
+  };
+  const canUndo = editHistory.current.index > 0;
+  const canRedo = editHistory.current.index < editHistory.current.entries.length - 1;
 
   // Match the visible sequence number printed on the ledger, not the raw array index.
   // The sheet numbers debt rows across pages and excludes separators/payment/remaining rows.
@@ -1504,7 +1582,7 @@ export default function VerticalLedgerSheet({
           )}
 
           {/* The Ledger Table */}
-          <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "8.5rem" : "0px" } as React.CSSProperties}>
+          <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "5rem" : "0px" } as React.CSSProperties}>
             {/* Table Header: ت | المبلغ | التفاصيل | الكمية */}
             <div className="grid grid-cols-12 vertical-ledger-grid border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
@@ -1717,11 +1795,20 @@ export default function VerticalLedgerSheet({
                           ) : (
                             <div className="flex w-full min-w-0 items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
                               <input type="text" inputMode="decimal" aria-label="الكمية" value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
+                                onFocus={event => openQuickPicker(item.id, "quantity", event.currentTarget)}
+                                onClick={event => openQuickPicker(item.id, "quantity", event.currentTarget)}
+                                onKeyDown={event => { if (event.key === "Escape") setQuickPicker(null); }}
+                                aria-haspopup="dialog" aria-expanded={quickPicker?.rowId === item.id && quickPicker.kind === "quantity"}
                                 onChange={event => handleUpdateQuantity(item.id, event.target.value)}
-                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
+                                onBlur={event => { setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; }); if (!quickPickerRef.current?.contains(event.relatedTarget as Node)) setQuickPicker(null); }}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 style={{ width: `${Math.max(4, String(editingQuantities[item.id] ?? item.quantity ?? "").length + 1)}ch`, minWidth: "4ch", flexShrink: 0 }} dir="ltr" />
                               <input type="text" aria-label="وحدة الكمية" title={item.unit || "الوحدة"} value={item.unit ?? ""} placeholder="الوحدة"
+                                onFocus={event => openQuickPicker(item.id, "unit", event.currentTarget)}
+                                onClick={event => openQuickPicker(item.id, "unit", event.currentTarget)}
+                                onBlur={event => { if (!quickPickerRef.current?.contains(event.relatedTarget as Node)) setQuickPicker(null); }}
+                                onKeyDown={event => { if (event.key === "Escape") setQuickPicker(null); }}
+                                aria-haspopup="dialog" aria-expanded={quickPicker?.rowId === item.id && quickPicker.kind === "unit"}
                                 onChange={event => handleUpdateUnit(item.id, event.target.value)}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 style={{ width: `${Math.max(3.5, String(item.unit || "الوحدة").length * 0.8 + 0.75)}em`, flexShrink: 1 }} />
@@ -1754,22 +1841,8 @@ export default function VerticalLedgerSheet({
                                 >
                                   <ArrowDownToLine className="w-4 h-4" />
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleClearRowAmount(item.id)}
-                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400 hover:text-amber-700 hover:bg-white/80 rounded"
-                                  title="تفريغ المبلغ فقط"
-                                >
-                                  <Eraser className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteRow(item.id)}
-                                  className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-white/80 rounded"
-                                  title="حذف هذا الصف كاملاً"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+
+
                                 <button type="button" title="تفاصيل الصف" aria-label="تفاصيل الصف" onClick={() => openRowDetails(item)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-white/80 hover:text-blue-700"><Info className="h-4 w-4" /></button>
                               </div>
                         )}
@@ -2075,7 +2148,9 @@ export default function VerticalLedgerSheet({
           </button>
         </div>
         {sheetMode === "edit" && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" id="ledger-undo" disabled={!canUndo} onClick={() => restoreEdit(-1)} className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40" title="التراجع عن التعديل السابق"><Undo2 className="h-4 w-4" />تراجع</button>
+            <button type="button" id="ledger-redo" disabled={!canRedo} onClick={() => restoreEdit(1)} className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40" title="إعادة التعديل الذي تم التراجع عنه"><Redo2 className="h-4 w-4" />إعادة</button>
             <button
               type="button"
               id="ledger-save-changes"
@@ -2097,6 +2172,24 @@ export default function VerticalLedgerSheet({
         )}
       </div>
 
+      {quickPicker && sheetMode === "edit" && createPortal(
+        <div ref={quickPickerRef} role="dialog" aria-label={quickPicker.kind === "unit" ? "اختيار الوحدة" : "اختيار الكمية"} dir="rtl"
+          className="fixed z-[10020] rounded-xl border border-slate-200 bg-white p-3 shadow-xl no-print"
+          style={{ top: quickPicker.top, left: quickPicker.left, width: quickPicker.width, maxHeight: 240, overflowY: "auto" }}
+          onKeyDown={event => { if (event.key === "Escape") setQuickPicker(null); }}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-700">{quickPicker.kind === "unit" ? "اختر الوحدة أو اكتبها يدويًا" : "اختر العدد أو اكتبه يدويًا"}</span>
+            <button type="button" aria-label="إغلاق الاختيارات" onMouseDown={event => event.preventDefault()} onClick={() => setQuickPicker(null)} className="rounded p-1"><X className="h-4 w-4" /></button>
+          </div>
+          <div className={quickPicker.kind === "quantity" ? "grid grid-cols-5 gap-1.5" : "flex flex-wrap gap-1.5"}>
+            {(quickPicker.kind === "quantity" ? Array.from({ length: 10 }, (_, index) => String(index + 1)) : unitSuggestions).map(value =>
+              <button key={value} type="button" onMouseDown={event => event.preventDefault()}
+                onClick={() => { if (quickPicker.kind === "quantity") handleUpdateQuantity(quickPicker.rowId, value); else handleUpdateUnit(quickPicker.rowId, value); setQuickPicker(null); }}
+                className="min-h-9 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-100">{value}</button>
+            )}
+          </div>
+        </div>, document.body
+      )}
       {detailRowId && (() => {
         const detailRow = items.find(item => item.id === detailRowId);
         if (!detailRow) return null;
