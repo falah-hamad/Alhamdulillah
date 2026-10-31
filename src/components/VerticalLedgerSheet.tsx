@@ -472,8 +472,8 @@ export default function VerticalLedgerSheet({
       const newName = (item.details || "").trim();
       const oldQuantity = Number(previous.quantity ?? 1);
       const newQuantity = Number(item.quantity ?? 1);
-      const oldUnit = previous.unit || "قطعة";
-      const newUnit = item.unit || "قطعة";
+      const oldUnit = previous.unit || "";
+      const newUnit = item.unit || "";
       if (oldAmount === newAmount && oldName === newName && oldQuantity === newQuantity && oldUnit === newUnit) return [];
       return [{
         customerId: customer.id,
@@ -1756,7 +1756,7 @@ export default function VerticalLedgerSheet({
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
-                              <span>{item.unit || "قطعة"}</span>
+                              <span>{item.unit || ""}</span>
                             </span>
                           ) : (
                             <div className="inline-flex max-w-full items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
@@ -1765,10 +1765,10 @@ export default function VerticalLedgerSheet({
                                 onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "45%" }} dir="ltr" />
-                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? "قطعة"} placeholder="الوحدة"
+                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? ""} placeholder="الوحدة"
                                 onChange={event => handleUpdateUnit(item.id, event.target.value)}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(3, String(item.unit ?? "قطعة").length + 1)}ch`, maxWidth: "55%" }} />
+                                style={{ width: `${Math.max(6, String(item.unit ?? "").length + 1)}ch`, maxWidth: "55%" }} />
                             </div>
                           )}
                         </div>
