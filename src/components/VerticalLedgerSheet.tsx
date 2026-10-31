@@ -1505,12 +1505,12 @@ export default function VerticalLedgerSheet({
 
           {/* The Ledger Table */}
           <div className="w-full">
-            {/* Table Header: ت | المبلغ | الكمية | التفاصيل */}
+            {/* Table Header: ت | المبلغ | التفاصيل | الكمية */}
             <div className="grid grid-cols-12 border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
               <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
-              <div className="col-span-3 text-center font-bold text-xs">الكمية</div>
               <div className="col-span-5 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
+              <div className="col-span-3 text-center font-bold text-xs">الكمية</div>
             </div>
 
             {/* Empty Account State Notice */}
@@ -1677,29 +1677,7 @@ export default function VerticalLedgerSheet({
                           )}
                         </div>
 
-                        {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
-                          {sheetMode === "view" ? (
-                            <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
-                              <span dir="ltr">{item.quantity ?? 1}</span>
-                              <span>{item.unit || "قطعة"}</span>
-                            </span>
-                          ) : (
-                            <div className="inline-flex max-w-full items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
-                              <input type="text" inputMode="decimal" aria-label="الكمية" value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
-                                onChange={event => handleUpdateQuantity(item.id, event.target.value)}
-                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
-                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "45%" }} dir="ltr" />
-                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? "قطعة"} placeholder="الوحدة"
-                                onChange={event => handleUpdateUnit(item.id, event.target.value)}
-                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(3, String(item.unit ?? "قطعة").length + 1)}ch`, maxWidth: "55%" }} />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 4. التفاصيل (Details) */}
+                        {/* 3. التفاصيل (Details) */}
                         <div className="col-span-5 min-w-0 pr-1 pl-1 flex items-center justify-between">
                           {sheetMode === "view" ? (
                             <div
@@ -1772,6 +1750,29 @@ export default function VerticalLedgerSheet({
                             </>
                           )}
                         </div>
+
+                        {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
+                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
+                          {sheetMode === "view" ? (
+                            <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
+                              <span dir="ltr">{item.quantity ?? 1}</span>
+                              <span>{item.unit || "قطعة"}</span>
+                            </span>
+                          ) : (
+                            <div className="inline-flex max-w-full items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
+                              <input type="text" inputMode="decimal" aria-label="الكمية" value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
+                                onChange={event => handleUpdateQuantity(item.id, event.target.value)}
+                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
+                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "45%" }} dir="ltr" />
+                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? "قطعة"} placeholder="الوحدة"
+                                onChange={event => handleUpdateUnit(item.id, event.target.value)}
+                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                style={{ width: `${Math.max(3, String(item.unit ?? "قطعة").length + 1)}ch`, maxWidth: "55%" }} />
+                            </div>
+                          )}
+                        </div>
+
                       </div>
                     );
                   })}
