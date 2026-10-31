@@ -169,7 +169,7 @@ interface VerticalLedgerSheetProps {
   settings: SystemSettings;
   productUnits?: string[];
   onUpdateInvoice: (updatedInvoice: Invoice) => Promise<void> | void;
-  onOpenProductCart?: (selectedRowId: string) => void;
+  onOpenProductCart?: (selectedRowId: string, insertItems: (cartItems: InvoiceItem[]) => boolean) => void;
   onClose?: () => void;
   changeLogs?: CustomerChangeLogItem[];
   isCloudSyncing?: boolean;
@@ -575,6 +575,65 @@ export default function VerticalLedgerSheet({
 
     setHasUnsavedChanges(true);
     setSaveStatus("توجد تغييرات غير محفوظة");
+  };
+
+
+  // The selected row may exist only in this unsaved sheet, not in invoice.items.
+  const cartDraftRef = useRef({ items, mode: sheetMode, invoiceId: invoice.id, mounted: true });
+  cartDraftRef.current.items = items;
+  cartDraftRef.current.mode = sheetMode;
+  cartDraftRef.current.invoiceId = invoice.id;
+  useEffect(() => {
+    cartDraftRef.current.mounted = true;
+    return () => { cartDraftRef.current.mounted = false; };
+  }, []);
+  const isEmptyCartRow = (row?: InvoiceItem) => Boolean(row &&
+    !row.isSeparator && !row.isPaymentRow && !row.isRemainingRow &&
+    !row.details.trim() && !row.productId && !Number(row.total || 0) && !Number(row.unitPrice || 0));
+  const openLedgerProductCart = () => {
+    const row = items.find(item => item.id === selectedRowId);
+    if (sheetMode !== "edit" || !hasExplicitRowSelection || !selectedRowId || !isEmptyCartRow(row)) {
+      alert("حدّد صفًا فارغًا في وضع التعديل أولًا، ثم افتح عربة البضاعة.");
+      return;
+    }
+    const targetRowId = selectedRowId;
+    const targetInvoiceId = invoice.id;
+    onOpenProductCart?.(targetRowId, cartItems => {
+      const draft = cartDraftRef.current;
+      if (!draft.mounted || draft.mode !== "edit" || draft.invoiceId !== targetInvoiceId || !cartItems.length) return false;
+      const index = draft.items.findIndex(item => item.id === targetRowId);
+      const target = draft.items[index];
+      if (index < 0 || !isEmptyCartRow(target)) {
+        alert("الصف المحدد لم يعد فارغًا. أغلق العربة وحدّد صفًا فارغًا ثم أعد المحاولة.");
+        return false;
+      }
+      const pageNumber = target.pageNumber || 1;
+      const inserted = cartItems.map((item, itemIndex) => ({
+        ...(itemIndex === 0 ? target : {}),
+        ...item,
+        id: itemIndex === 0 ? targetRowId : item.id,
+        pageNumber,
+        isLoggedDebt: true,
+      }));
+      const nextItems = [...draft.items];
+      nextItems.splice(index, 1, ...inserted);
+      cartDraftRef.current.items = nextItems;
+      persistChanges(nextItems);
+      setPendingChangeLogs(previous => [...previous, ...inserted.map(item => ({
+        customerId: customer.id,
+        invoiceId: targetInvoiceId,
+        actionType: "إضافة دين",
+        details: formatDebtChangeLogDetails(item.details, item.total, settings.currency),
+        rawAmount: item.total,
+        itemName: item.details,
+        targetItemId: item.id,
+        location: getLedgerSequence(nextItems, item.id),
+        previousState: item,
+      }))]);
+      setSelectedRowId(targetRowId);
+      setHasExplicitRowSelection(true);
+      return true;
+    });
   };
 
   const handleConfirmSave = async (): Promise<boolean> => {
@@ -2355,7 +2414,7 @@ export default function VerticalLedgerSheet({
                         {sheetMode === "edit" && toolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <button type="button" onClick={() => handleInsertRowAbove()} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أعلاه</button>
               <button type="button" onClick={() => handleInsertRowBelow()} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
-              <button type="button" onClick={() => { if (!hasExplicitRowSelection || !selectedRowId) { alert("يرجى تحديد الصف المطلوب أولاً، ثم فتح عربة البضاعة."); return; } onOpenProductCart?.(selectedRowId); }} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
+              <button type="button" onClick={openLedgerProductCart} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
               <button type="button" id="btn-insert-separator" onClick={() => handleInsertSeparator()} title="إضافة تسديد (المجموع / الواصل / المتبقي)" className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white"><HandCoins className="inline h-3.5 w-3.5 me-1"/>إضافة تسديد</button>
             </div>}
             {sheetMode === "edit" && toolbarTab === "delete" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
@@ -2363,7 +2422,7 @@ export default function VerticalLedgerSheet({
               <button type="button" onClick={handleClearAllItems} disabled={items.length === 0} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-40"><Eraser className="inline h-3.5 w-3.5 me-1"/>تفريغ السجل</button>
             </div>}
             {sheetMode === "edit" && toolbarTab === "move" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => handleMoveRowUp()} disabled={selectedIndex <= 0} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل للأعلى</button><button type="button" onClick={() => handleMoveRowDown()} disabled={selectedIndex === -1 || selectedIndex >= items.length - 1} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowDown className="inline h-3.5 w-3.5 me-1"/>نقل للأسفل</button></div>}
-            {sheetMode === "edit" && toolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{ledgerToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") setLedgerFontBold(x => !x); else if (key === "italic") setLedgerFontItalic(x => !x); else if (key === "underline") setLedgerFontUnderline(x => !x); else if (key === "strike") setLedgerFontStrike(x => !x); else if (key === "addAbove") handleInsertRowAbove(); else if (key === "addBelow") handleInsertRowBelow(); else if (key === "deleteRow") handleDeleteRow(); else if (key === "clear") handleClearAllItems(); else if (key === "moveUp") handleMoveRowUp(); else if (key === "moveDown") handleMoveRowDown(); else if (key === "cart" && selectedRowId) onOpenProductCart?.(selectedRowId); else if (key === "page") setToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUpToLine className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setLedgerFavoritesDraft([...ledgerToolbarFavorites]); setShowLedgerFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showLedgerFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={ledgerFavoritesDraft.includes(key)} onChange={() => setLedgerFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowLedgerFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setLedgerToolbarFavorites(ledgerFavoritesDraft); setShowLedgerFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{sheetMode === "edit" && toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+            {sheetMode === "edit" && toolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{ledgerToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") setLedgerFontBold(x => !x); else if (key === "italic") setLedgerFontItalic(x => !x); else if (key === "underline") setLedgerFontUnderline(x => !x); else if (key === "strike") setLedgerFontStrike(x => !x); else if (key === "addAbove") handleInsertRowAbove(); else if (key === "addBelow") handleInsertRowBelow(); else if (key === "deleteRow") handleDeleteRow(); else if (key === "clear") handleClearAllItems(); else if (key === "moveUp") handleMoveRowUp(); else if (key === "moveDown") handleMoveRowDown(); else if (key === "cart") openLedgerProductCart(); else if (key === "page") setToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUpToLine className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setLedgerFavoritesDraft([...ledgerToolbarFavorites]); setShowLedgerFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showLedgerFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={ledgerFavoritesDraft.includes(key)} onChange={() => setLedgerFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowLedgerFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setLedgerToolbarFavorites(ledgerFavoritesDraft); setShowLedgerFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{sheetMode === "edit" && toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={sheetBgColor} onChange={(e) => handleSelectBgColor(e.target.value)} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
               <div className="flex flex-wrap gap-1.5">{BG_COLOR_PRESETS.slice(0,8).map((preset) => <button key={preset.id} type="button" title={preset.name} aria-label={preset.name} onClick={() => handleSelectBgColor(preset.color)} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.color}}/>)}</div>
             </div>}
