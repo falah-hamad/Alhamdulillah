@@ -2031,7 +2031,7 @@ ${folderCustomers
         return {
           createdAt: new Date(now).toISOString(),
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
-          details: product.name + " (" + quantity + " " + (product.unitName || "قطعة") + ")",
+          details: product.name,
           productId: product.id,
           unitCost: Number(product.purchasePrice) || 0,
           quantity,
