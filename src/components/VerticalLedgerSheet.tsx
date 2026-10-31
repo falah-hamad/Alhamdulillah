@@ -1394,7 +1394,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr))!important}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
@@ -1506,7 +1506,7 @@ export default function VerticalLedgerSheet({
           {/* The Ledger Table */}
           <div className="w-full">
             {/* Table Header: ت | المبلغ | التفاصيل | الكمية */}
-            <div className="grid grid-cols-12 border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
+            <div className="grid grid-cols-12 vertical-ledger-grid border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
               <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
               <div className="col-span-5 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
@@ -1582,7 +1582,7 @@ export default function VerticalLedgerSheet({
                             handleCommitRowDebtLog(item.id);
                           }
                         }}
-                        className={`grid grid-cols-12 items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${
+                        className={`grid grid-cols-12 vertical-ledger-grid items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${
                           rowSelectionMode && isMultiSelected
                             ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
                              : sheetMode === "edit" && isSelected
@@ -1752,23 +1752,23 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
+                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px`, paddingInlineEnd: sheetMode === "edit" ? "1.75rem" : undefined }}>
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
                               <span>{item.unit || ""}</span>
                             </span>
                           ) : (
-                            <div className="inline-flex max-w-full items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
+                            <div className="flex w-full min-w-0 items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
                               <input type="text" inputMode="decimal" aria-label="الكمية" value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
                                 onChange={event => handleUpdateQuantity(item.id, event.target.value)}
                                 onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "45%" }} dir="ltr" />
-                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? ""} placeholder="الوحدة"
+                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "40%", flexShrink: 0 }} dir="ltr" />
+                              <input type="text" aria-label="وحدة الكمية" title={item.unit || "الوحدة"} value={item.unit ?? ""} placeholder="الوحدة"
                                 onChange={event => handleUpdateUnit(item.id, event.target.value)}
                                 className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(6, String(item.unit ?? "").length + 1)}ch`, maxWidth: "55%" }} />
+                                style={{ width: `${Math.max(3.5, String(item.unit || "الوحدة").length * 0.8 + 0.75)}em`, flexShrink: 1 }} />
                             </div>
                           )}
                         </div>
@@ -1809,7 +1809,7 @@ export default function VerticalLedgerSheet({
                       <div className="w-full h-[1.5px] bg-slate-700/80 rounded-full my-1.5"></div>
 
                       {/* المجموع (Subtotal) */}
-                      <div className="grid grid-cols-12 items-center py-1">
+                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
@@ -1826,7 +1826,7 @@ export default function VerticalLedgerSheet({
                       </div>
 
                       {/* الواصل (Paid Amount) */}
-                      <div className="grid grid-cols-12 items-center py-1">
+                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400">
                           {sec.separatorLineIndex ?? ""}
                         </div>
@@ -1955,7 +1955,7 @@ export default function VerticalLedgerSheet({
                       <div className="w-full h-[1.5px] bg-slate-700/80 rounded-full my-1.5"></div>
 
                       {/* المتبقي (Remaining) */}
-                      <div className="grid grid-cols-12 items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
+                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 2}px` }}
