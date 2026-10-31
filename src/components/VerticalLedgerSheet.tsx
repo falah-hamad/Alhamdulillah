@@ -344,6 +344,7 @@ export default function VerticalLedgerSheet({
 
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
+  const [editingQuantities, setEditingQuantities] = useState<Record<string, string>>({});
 
   // Save feedback state
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -469,12 +470,16 @@ export default function VerticalLedgerSheet({
       const newAmount = Number(item.total || item.unitPrice || 0);
       const oldName = (previous.details || "").trim();
       const newName = (item.details || "").trim();
-      if (oldAmount === newAmount && oldName === newName) return [];
+      const oldQuantity = Number(previous.quantity ?? 1);
+      const newQuantity = Number(item.quantity ?? 1);
+      const oldUnit = previous.unit || "قطعة";
+      const newUnit = item.unit || "قطعة";
+      if (oldAmount === newAmount && oldName === newName && oldQuantity === newQuantity && oldUnit === newUnit) return [];
       return [{
         customerId: customer.id,
         invoiceId: invoice.id,
         actionType: "تعديل دين",
-        details: `تعديل: ${formatDebtChangeLogDetails(oldName, oldAmount, settings.currency)} ← ${formatDebtChangeLogDetails(newName, newAmount, settings.currency)}`,
+        details: `تعديل: ${formatDebtChangeLogDetails(oldName, oldAmount, settings.currency)} (${oldQuantity} ${oldUnit}) ← ${formatDebtChangeLogDetails(newName, newAmount, settings.currency)} (${newQuantity} ${newUnit})`,
         rawAmount: newAmount,
         itemName: newName,
         targetItemId: item.id,
@@ -584,6 +589,7 @@ export default function VerticalLedgerSheet({
     setItems(originalItems);
     setPageCount(Math.max(1, originalInvoice.pageCount || 1, ...originalItems.map((it) => it.pageNumber || 1)));
     setEditingAmounts({});
+    setEditingQuantities({});
     setPendingChangeLogs([]);
     setPendingPaidNotifications([]);
     setHasUnsavedChanges(false);
@@ -1080,6 +1086,22 @@ export default function VerticalLedgerSheet({
   };
 
   // 9. Update row amount (inline editing)
+  const handleUpdateQuantity = (id: string, value: string) => {
+    const normalized = value
+      .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+      .replace(/٫/g, ".");
+    if (normalized !== "" && !/^\d*\.?\d*$/.test(normalized)) return;
+    const quantity = normalized === "" ? 0 : Number(normalized);
+    if (!Number.isFinite(quantity) || quantity < 0) return;
+    setEditingQuantities(previous => ({ ...previous, [id]: value }));
+    persistChanges(items.map(item => item.id === id ? { ...item, quantity } : item));
+  };
+
+  const handleUpdateUnit = (id: string, unit: string) => {
+    persistChanges(items.map(item => item.id === id ? { ...item, unit } : item));
+  };
+
   const handleUpdateAmount = (id: string, amountStr: string) => {
     // Keep exact user draft text so cursor, typing, backspace, and deletion work smoothly
     setEditingAmounts((prev) => ({ ...prev, [id]: amountStr }));
@@ -1483,11 +1505,12 @@ export default function VerticalLedgerSheet({
 
           {/* The Ledger Table */}
           <div className="w-full">
-            {/* Table Header: ت | المبلغ | التفاصيل */}
+            {/* Table Header: ت | المبلغ | الكمية | التفاصيل */}
             <div className="grid grid-cols-12 border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
               <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
-              <div className="col-span-8 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
+              <div className="col-span-3 text-center font-bold text-xs">الكمية</div>
+              <div className="col-span-5 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
             </div>
 
             {/* Empty Account State Notice */}
@@ -1654,8 +1677,30 @@ export default function VerticalLedgerSheet({
                           )}
                         </div>
 
-                        {/* 3. التفاصيل (Details) */}
-                        <div className="col-span-8 pr-1 pl-1 flex items-center justify-between">
+                        {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
+                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
+                          {sheetMode === "view" ? (
+                            <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
+                              <span dir="ltr">{item.quantity ?? 1}</span>
+                              <span>{item.unit || "قطعة"}</span>
+                            </span>
+                          ) : (
+                            <div className="inline-flex max-w-full items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
+                              <input type="text" inputMode="decimal" aria-label="الكمية" value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
+                                onChange={event => handleUpdateQuantity(item.id, event.target.value)}
+                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
+                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                style={{ width: `${Math.max(2, String(item.quantity ?? "").length + 1)}ch`, maxWidth: "45%" }} dir="ltr" />
+                              <input type="text" aria-label="وحدة الكمية" value={item.unit ?? "قطعة"} placeholder="الوحدة"
+                                onChange={event => handleUpdateUnit(item.id, event.target.value)}
+                                className="min-w-0 rounded border border-transparent bg-transparent px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                style={{ width: `${Math.max(3, String(item.unit ?? "قطعة").length + 1)}ch`, maxWidth: "55%" }} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 4. التفاصيل (Details) */}
+                        <div className="col-span-5 min-w-0 pr-1 pl-1 flex items-center justify-between">
                           {sheetMode === "view" ? (
                             <div
                               style={{ fontSize: `${fontSize}px` }}
@@ -2362,3 +2407,4 @@ export default function VerticalLedgerSheet({
     </div>
   );
 }
+
