@@ -2035,6 +2035,7 @@ ${folderCustomers
           productId: product.id,
           unitCost: Number(product.purchasePrice) || 0,
           quantity,
+          unit: product.unitName || "قطعة",
           unitPrice,
           total: quantity * unitPrice,
         };
