@@ -83,6 +83,8 @@ import BarcodeScannerModal from "./BarcodeScannerModal";
 import { auth } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
 
+type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
+
 interface LedgerViewProps {
   customers: Customer[];
   products: Product[];
@@ -251,7 +253,7 @@ export default function LedgerView({
     return () => clearAccountingRowLongPress();
   }, [accountingSheetMode, accountingSelectionMode]);
   const [isAccountingChangeLogOpen, setIsAccountingChangeLogOpen] = useState(false);
-  const [productCartInsertContext, setProductCartInsertContext] = useState<{ mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string } | null>(null);
+  const [productCartInsertContext, setProductCartInsertContext] = useState<ProductCartInsertContext | null>(null);
   const [isAccountingPrinting, setIsAccountingPrinting] = useState(false);
   const [isAccountingExportingPDF, setIsAccountingExportingPDF] = useState(false);
 
@@ -1937,7 +1939,7 @@ ${folderCustomers
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
-  const handleOpenProductCart = (context?: { mode: "accounting"; rowIndex: number } | { mode: "vertical"; rowId: string }) => {
+  const handleOpenProductCart = (context?: ProductCartInsertContext) => {
     if (!selectedCustomer) {
       alert("يرجى اختيار الزبون أولاً قبل إضافة البضاعة إلى سجل الدين.");
       return;
@@ -1954,7 +1956,17 @@ ${folderCustomers
         return;
       }
     } else return;
-    setProductCartInsertContext(context);
+    if (context?.mode === "accounting") {
+      const target = accountingDraftRowsRef.current[context.rowIndex];
+      if (!target || target.isSeparator || target.details.trim() || Number(target.total) || Number(target.unitPrice) || target.productId) {
+        alert("حدّد صفًا فارغًا في القائمة الحسابية أولًا، ثم افتح عربة البضاعة.");
+        return;
+      }
+      context = { ...context, rowId: target.id, customerId: selectedCustomer.id };
+    } else if (context?.mode === "vertical") {
+      context = { ...context, customerId: selectedCustomer.id };
+    }
+    setProductCartInsertContext(context || null);
     setProductCartSearch("");
     setProductCartQuantities({});
     setIsProductCartOpen(true);
@@ -2024,6 +2036,11 @@ ${folderCustomers
 
     setIsAddingCartItems(true);
     try {
+      if (!productCartInsertContext || productCartInsertContext.customerId !== selectedCustomer.id ||
+        ledgerDisplayMode !== productCartInsertContext.mode) {
+        alert("تغيّر سجل العميل. أغلق العربة وحدّد صفًا فارغًا من جديد.");
+        return;
+      }
       const now = Date.now();
       const cartItems: InvoiceItem[] = selectedProducts.map((product, index) => {
         const quantity = Number(productCartQuantities[product.id]) || 0;
@@ -2044,7 +2061,7 @@ ${folderCustomers
       // Keep the accounting table cart completely independent from the vertical/image ledger.
       // Accounting mode writes only editable accounting-sheet rows and must not create/update an invoice.
       if (productCartInsertContext?.mode === "accounting") {
-        const existingRows = [...accountingDraftRows];
+        const existingRows = [...accountingDraftRowsRef.current];
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
           const unitPrice = Number(product.salePrice) || 0;
@@ -2060,11 +2077,14 @@ ${folderCustomers
             isManual: true,
           };
         });
-        const insertAt = Math.min(
-          Math.max(productCartInsertContext.rowIndex, 0),
-          existingRows.length
-        );
-        existingRows.splice(insertAt, 0, ...cartRows);
+        const insertAt = existingRows.findIndex(row => row.id === productCartInsertContext.rowId);
+        const target = existingRows[insertAt];
+        if (insertAt < 0 || !target || target.isSeparator || target.details.trim() || Number(target.total) || Number(target.unitPrice) || target.productId) {
+          alert("الصف المحدد لم يعد فارغًا. أغلق العربة وحدّد صفًا فارغًا ثم أعد المحاولة.");
+          return;
+        }
+        cartRows[0] = { ...target, ...cartRows[0], id: target.id };
+        existingRows.splice(insertAt, 1, ...cartRows);
         setAccountingDraftRows(existingRows);
         persistAccountingRows(existingRows);
         setAccountingSelectedRow(insertAt);
@@ -2078,108 +2098,17 @@ ${folderCustomers
         return;
       }
 
-      // Vertical/image mode reaches the invoice workflow below only; it never writes accountingDraftRows.
-      if (productCartInsertContext?.mode !== "vertical") {
-        alert("تعذر تحديد القائمة المطلوب الإضافة إليها. افتح عربة البضاعة من القائمة الصحيحة ثم أعد المحاولة.");
+      // Insert into the mounted sheet's draft; Save owns persistence and history.
+      if (productCartInsertContext.mode !== "vertical" || currentInvoice?.id !== productCartInsertContext.invoiceId) {
+        alert("تغيّرت ورقة السجل. أغلق العربة وحدّد صفًا فارغًا من جديد.");
         return;
       }
-
-      const targetInvoice =
-        currentInvoice && currentInvoice.customerId === selectedCustomer.id ? currentInvoice : undefined;
-      let savedInvoiceId = "";
-      let addedGrandTotal = 0;
-
-      if (targetInvoice) {
-        // Keep payment/remaining summary rows at the bottom of the ledger.
-        const oldItems = targetInvoice.items || [];
-        let mergedItems: InvoiceItem[];
-        if (productCartInsertContext?.mode === "vertical") {
-          const cursorIndex = oldItems.findIndex((item) => item.id === productCartInsertContext.rowId);
-          if (cursorIndex < 0) {
-            alert("تعذر تحديد موضع المؤشر الحالي. حدّد الصف من جديد ثم أعد الإضافة.");
-            return;
-          }
-          const targetPage = oldItems[cursorIndex].pageNumber || 1;
-          const positionedCartItems = cartItems.map((item) => ({ ...item, pageNumber: targetPage }));
-          mergedItems = [...oldItems];
-          mergedItems.splice(cursorIndex, 0, ...positionedCartItems);
-        } else {
-          const specialRowsIndex = oldItems.findIndex((item) => item.isPaymentRow || item.isRemainingRow);
-          mergedItems = specialRowsIndex < 0
-            ? [...oldItems, ...cartItems]
-            : [...oldItems.slice(0, specialRowsIndex), ...cartItems, ...oldItems.slice(specialRowsIndex)];
-        }
-        const calculatedItems = calculateCumulativeSeparators(mergedItems) as InvoiceItem[];
-        const grandTotal = calculatedItems
-          .filter((item) => !item.isPaymentRow && !item.isRemainingRow && !item.isSeparator)
-          .reduce((sum, item) => {
-            const declaredTotal = Number(item.total);
-            const rowTotal = Number.isFinite(declaredTotal)
-              ? declaredTotal
-              : (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
-            return sum + rowTotal;
-          }, 0);
-        const paidAmount = Math.max(0, Number(targetInvoice.paidAmount) || 0);
-        const updatedInvoice: Invoice = {
-          ...targetInvoice,
-          customerName: selectedCustomer.name,
-          customerPhone: selectedCustomer.phone,
-          customerAddress: selectedCustomer.address || "",
-          items: calculatedItems,
-          grandTotal,
-          paidAmount,
-          remainingAmount: Math.max(0, grandTotal - paidAmount),
-        };
-        await updateInvoice(updatedInvoice);
-        savedInvoiceId = targetInvoice.id;
-        addedGrandTotal = cartItems.reduce((sum, item) => sum + item.total, 0);
-      } else {
-        const grandTotal = cartItems.reduce((sum, item) => sum + item.total, 0);
-        const createdInvoice = addInvoice({
-          invoiceNumber: "INV-" + Date.now().toString().slice(-6),
-          date: new Date().toISOString().split("T")[0],
-          customerId: selectedCustomer.id,
-          customerName: selectedCustomer.name,
-          customerPhone: selectedCustomer.phone,
-          customerAddress: selectedCustomer.address || "",
-          items: cartItems,
-          grandTotal,
-          paidAmount: 0,
-          remainingAmount: grandTotal,
-          notes: "",
-          employeeName: "",
-          signature: "",
-          columns: [
-            { id: "amount", label: "المبلغ", type: "amount", width: "150px" },
-            { id: "details", label: "البيان (التفاصيل)", type: "details" },
-          ],
-        });
-        savedInvoiceId = createdInvoice.id;
-        addedGrandTotal = grandTotal;
-        setSelectedInvoiceId(createdInvoice.id);
-      }
-
-      // Write audit entries in the background so the cart closes as soon as the ledger is updated.
-      if (addChangeLog && savedInvoiceId) {
-        void Promise.all(cartItems.map((item) => addChangeLog({
-          customerId: selectedCustomer.id,
-          invoiceId: savedInvoiceId,
-          actionType: "إضافة دين",
-          details: item.details + " — " + item.total.toLocaleString() + " " + settings.currency,
-          rawAmount: item.total,
-          itemName: item.details,
-          targetItemId: item.id,
-        }))).catch((logError) => {
-          console.warn("Product cart saved, but a change-log entry could not be written:", logError);
-        });
-      }
-
-      setSelectedCustomerId(selectedCustomer.id);
-      setSelectedInvoiceId(savedInvoiceId);
+      if (!productCartInsertContext.insertItems(cartItems)) return;
       setIsProductCartOpen(false);
+      setProductCartInsertContext(null);
       setProductCartQuantities({});
       setProductCartSearch("");
-      showToast("تمت إضافة " + selectedProducts.length + " صنف إلى سجل " + selectedCustomer.name + " بمبلغ " + addedGrandTotal.toLocaleString() + " " + settings.currency + " بنجاح.");
+      showToast("تم إدراج " + cartItems.length + " صنف في الصف المحدد وتحته. اضغط حفظ لتثبيت التغييرات.");
     } catch (error) {
       console.error("Product cart save failed:", error);
       alert("تعذر إكمال إضافة البضاعة إلى سجل الدين. لم تُغلق العربة حتى تتمكن من المراجعة والمحاولة مجدداً.");
@@ -3781,7 +3710,7 @@ ${folderCustomers
                         customer={selectedCustomer}
                         settings={settings}
                         onUpdateInvoice={updateInvoice}
-                        onOpenProductCart={(rowId) => handleOpenProductCart({ mode: "vertical", rowId })}
+                        onOpenProductCart={(rowId, insertItems) => handleOpenProductCart({ mode: "vertical", rowId, invoiceId: currentInvoice.id, insertItems })}
                         changeLogs={changeLogs}
                         isCloudSyncing={isCloudSyncing}
                         onAddChangeLog={addChangeLog}
@@ -5397,7 +5326,7 @@ ${folderCustomers
                   إلغاء
                 </button>
               </div>
-              <p className="text-[10px] leading-relaxed text-slate-400">يُسجل سعر البيع الحالي لكل صنف، وتُخصم الكمية من المخزون بعد الحفظ. الإدخال اليدوي الحالي يبقى متاحاً.</p>
+              <p className="text-[10px] leading-relaxed text-slate-400">يُملأ الصف الفارغ المحدد بأول صنف، وتُضاف بقية الأصناف أسفله. تُحفظ العملية وتُخصم الكمية عند حفظ الورقة.</p>
             </div>
           </div>
         </div>
