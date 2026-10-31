@@ -414,7 +414,15 @@ export default function VerticalLedgerSheet({
   };
 
   const handleConfirmSave = async (): Promise<boolean> => {
-    const latestItems = items;
+    const previousItems = new Map<string, InvoiceItem>(originalInvoiceRef.current.items.map((row: InvoiceItem): [string, InvoiceItem] => [row.id, row]));
+    const savedAt = new Date().toISOString();
+    const latestItems = items.map(row => {
+      const previous = previousItems.get(row.id);
+      const isPurchase = !row.isSeparator && !row.isPaymentRow && !row.isRemainingRow && (row.details.trim() || row.total !== 0);
+      const wasPurchase = previous && !previous.isSeparator && !previous.isPaymentRow && !previous.isRemainingRow && (previous.details.trim() || previous.total !== 0);
+      if (wasPurchase && previous.createdAt) return { ...row, createdAt: previous.createdAt };
+      return isPurchase && !wasPurchase ? { ...row, createdAt: previous ? savedAt : (row.createdAt || savedAt) } : row;
+    });
     let grandTotal = 0;
     let totalPaid = 0;
     latestItems.forEach((it) => {
@@ -536,6 +544,7 @@ export default function VerticalLedgerSheet({
     try {
       await onUpdateInvoice(updatedInvoice);
       originalInvoiceRef.current = updatedInvoice;
+      setItems(latestItems);
       const finalPendingLogs = [...consolidatedPending.values()];
       const pendingAdditionIds = new Set(
         finalPendingLogs

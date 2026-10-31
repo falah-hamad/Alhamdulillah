@@ -12,6 +12,7 @@ export interface CustomerFolder {
 }
 
 export interface AccountingSheetRow {
+  createdAt?: string; // Original purchase-row timestamp; preserved on edits.
   productId?: string;
   unitCost?: number;
   id: string;

@@ -806,7 +806,15 @@ ${folderCustomers
     }
     if (!selectedCustomer || !updateCustomer) throw new Error("تحديث بيانات الزبون غير متاح.");
     const previousRows = (accountingOriginalRowsRef.current || []) as AccountingSheetRow[];
-    const nextRows = accountingDraftRows;
+    const previousByIdForDates = new Map(previousRows.map(row => [row.id, row]));
+    const savedAt = new Date().toISOString();
+    const nextRows = accountingDraftRows.map(row => {
+      const previous = previousByIdForDates.get(row.id);
+      const isPurchase = !row.isSeparator && (row.details.trim() || row.total !== 0);
+      const wasPurchase = previous && !previous.isSeparator && (previous.details.trim() || previous.total !== 0);
+      if (wasPurchase && previous.createdAt) return { ...row, createdAt: previous.createdAt };
+      return isPurchase && !wasPurchase ? { ...row, createdAt: previous ? savedAt : (row.createdAt || savedAt) } : row;
+    });
     await Promise.resolve(updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows }));
 
     // Write accounting-list history independently from invoice/debt-sheet history.
@@ -1707,6 +1715,7 @@ ${folderCustomers
         const total = quantity * unitPrice;
 
         const itemObj: any = {
+          createdAt: item.createdAt || (editingInvoice?.items.some(row => row.id === item.id) ? undefined : new Date().toISOString()),
           id: item.id || `item-${Date.now()}-${idx}`,
           details: item.details,
           productId: item.productId,
@@ -2020,6 +2029,7 @@ ${folderCustomers
         const quantity = Number(productCartQuantities[product.id]) || 0;
         const unitPrice = Number(product.salePrice) || 0;
         return {
+          createdAt: new Date(now).toISOString(),
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
           details: product.name + " (" + quantity + " " + (product.unitName || "قطعة") + ")",
           productId: product.id,
@@ -5192,7 +5202,7 @@ ${folderCustomers
 
 
       {profileCustomerId && selectedCustomer?.id === profileCustomerId && (
-        <CustomerProfileModal customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} onSave={updateCustomer} onClose={() => setProfileCustomerId(null)} />
+        <CustomerProfileModal folders={folders} customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} onSave={updateCustomer} onClose={() => setProfileCustomerId(null)} />
       )}
 
       {/* PRODUCT CART — Add inventory items directly to the selected customer's debt ledger */}
