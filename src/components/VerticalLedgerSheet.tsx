@@ -32,6 +32,7 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   History,
   ShoppingCart,
   HandCoins,
@@ -55,6 +56,111 @@ const BG_COLOR_PRESETS = [
   { id: "parchment", name: "أصفر خفيف", color: "#fef9e7" },
   { id: "ice", name: "أزرق فاتح", color: "#f0f7ff" },
 ];
+
+
+interface LedgerComboBoxProps {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  numeric?: boolean;
+}
+
+function LedgerComboBox({ label, value, options, onChange, onBlur, numeric = false }: LedgerComboBoxProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 160, maxHeight: 220 });
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const listId = React.useId();
+  const choices = query ? options.filter(option => option.toLocaleLowerCase().includes(query.toLocaleLowerCase())) : options;
+  const placeMenu = () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const viewport = window.visualViewport;
+    const visibleTop = viewport?.offsetTop ?? 0;
+    const visibleLeft = viewport?.offsetLeft ?? 0;
+    const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
+    const visibleRight = visibleLeft + (viewport?.width ?? window.innerWidth);
+    const width = Math.min(Math.max(rect.width, 160), visibleRight - visibleLeft - 16);
+    const below = visibleBottom - rect.bottom - 8;
+    const above = rect.top - visibleTop - 8;
+    const desiredHeight = Math.min(220, Math.max(40, choices.length * 36 + 8));
+    const upwards = below < desiredHeight && above > below;
+    const maxHeight = Math.max(40, Math.min(220, upwards ? above : below));
+    setPosition({
+      top: upwards ? Math.max(visibleTop + 8, rect.top - Math.min(desiredHeight, maxHeight) - 4) : rect.bottom + 4,
+      left: Math.max(visibleLeft + 8, Math.min(rect.right - width, visibleRight - width - 8)),
+      width, maxHeight,
+    });
+  };
+  const openMenu = () => { setQuery(""); setActiveIndex(0); placeMenu(); setOpen(true); };
+  const choose = (option: string) => { onChange(option); setQuery(""); setOpen(false); };
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const scroll = (event: Event) => { if (!menuRef.current?.contains(event.target as Node)) setOpen(false); };
+    const resize = () => placeMenu();
+    document.addEventListener("pointerdown", outside);
+    window.addEventListener("scroll", scroll, true);
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("scroll", scroll, true);
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
+  }, [open, choices.length]);
+  useEffect(() => { if (open) optionRefs.current[activeIndex]?.scrollIntoView?.({ block: "nearest" }); }, [open, activeIndex]);
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape") { event.preventDefault(); setOpen(false); }
+    else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!open) openMenu();
+      else setActiveIndex(index => Math.max(0, Math.min(choices.length - 1, index + (event.key === "ArrowDown" ? 1 : -1))));
+    } else if (event.key === "Enter" && open && choices[activeIndex]) {
+      event.preventDefault(); choose(choices[activeIndex]);
+    } else if (event.key === "Tab") setOpen(false);
+  };
+  return (
+    <div ref={rootRef} className="inline-flex min-w-0 items-center rounded border border-slate-200 bg-white/70 focus-within:ring-1 focus-within:ring-blue-500"
+      style={numeric ? { width: `calc(${Math.max(4, value.length + 1)}ch + 1.25rem)`, minWidth: "calc(4ch + 1.25rem)", flexShrink: 0 } : { width: `${Math.max(5.5, value.length * 0.8 + 2)}em`, minWidth: "4em", flexShrink: 1 }}>
+      <input type="text" role="combobox" aria-label={label} aria-autocomplete="list" aria-expanded={open}
+        aria-controls={listId} aria-activedescendant={open && choices[activeIndex] ? `${listId}-${activeIndex}` : undefined}
+        inputMode={numeric ? "decimal" : "text"} dir={numeric ? "ltr" : "rtl"} autoComplete="off" value={value} placeholder={numeric ? "0" : "الوحدة"}
+        onChange={event => { onChange(event.target.value); setQuery(event.target.value); setActiveIndex(0); }}
+        onKeyDown={onKeyDown} onBlur={event => {
+          onBlur?.();
+          if (!rootRef.current?.contains(event.relatedTarget as Node) && !menuRef.current?.contains(event.relatedTarget as Node)) setOpen(false);
+        }}
+        className="w-full min-w-0 flex-1 rounded border-0 bg-transparent px-0.5 py-0.5 text-center outline-none" />
+      <button type="button" aria-label={`فتح قائمة ${label}`} aria-expanded={open} aria-controls={listId} aria-haspopup="listbox"
+        onMouseDown={event => event.preventDefault()}
+        onClick={() => { if (open) setOpen(false); else openMenu(); }}
+        onKeyDown={onKeyDown} className="flex h-6 w-5 shrink-0 items-center justify-center rounded text-slate-600 hover:bg-blue-50">
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+      {open && createPortal(
+        <div ref={menuRef} id={listId} role="listbox" aria-label={`خيارات ${label}`} dir="rtl"
+          className="fixed z-[10030] flex flex-col overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl no-print"
+          style={position}>
+          {choices.length ? choices.map((option, index) =>
+            <button key={option} ref={element => { optionRefs.current[index] = element; }} id={`${listId}-${index}`} type="button"
+              role="option" aria-selected={value === option} tabIndex={-1}
+              onMouseDown={event => event.preventDefault()} onClick={() => choose(option)}
+              className={`w-full shrink-0 px-3 py-2 text-right text-sm leading-5 ${index === activeIndex ? "bg-blue-50 text-blue-800" : "text-slate-800 hover:bg-slate-50"}`}>{option}</button>
+          ) : <span className="px-3 py-2 text-xs text-slate-500">اكتب قيمة مخصصة في الحقل</span>}
+        </div>, document.body
+      )}
+    </div>
+  );
+}
 
 interface VerticalLedgerSheetProps {
   key?: React.Key;
@@ -349,9 +455,6 @@ export default function VerticalLedgerSheet({
   // Local draft text for amounts currently being typed by the user to avoid cursor jumping or value replacement
   const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
   const [editingQuantities, setEditingQuantities] = useState<Record<string, string>>({});
-  const comboId = React.useId();
-  const quantityOptionsId = `${comboId}-quantities`;
-  const unitOptionsId = `${comboId}-units`;
   const unitSuggestions = [...new Set(["قطعة", "رولة", "متر", "باكيت", "درجة", "كرتون", "علبة", "كيس", "كيلوغرام", "لتر", "زوج", "طقم", ...productUnits, ...items.map(item => String(item.unit || ""))].map(unit => unit.trim()).filter(Boolean))];
 
   // Save feedback state
@@ -1454,7 +1557,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(0,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
@@ -1776,18 +1879,13 @@ export default function VerticalLedgerSheet({
                             </span>
                           ) : (
                             <div className="flex w-full min-w-0 items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
-                              <input type="text" inputMode="decimal" aria-label="الكمية" list={quantityOptionsId} autoComplete="off"
-                                title="اختر العدد من القائمة أو اكتبه يدويًا"
-                                value={editingQuantities[item.id] ?? String(item.quantity ?? 1)} placeholder="0"
-                                onChange={event => handleUpdateQuantity(item.id, event.target.value)}
-                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })}
-                                className="min-w-0 rounded border border-slate-200 bg-white/70 px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(6, String(editingQuantities[item.id] ?? item.quantity ?? "").length + 3)}ch`, minWidth: "6ch", flexShrink: 0 }} dir="ltr" />
-                              <input type="text" aria-label="وحدة الكمية" list={unitOptionsId} autoComplete="off"
-                                title={item.unit || "اختر الوحدة من القائمة أو اكتبها يدويًا"} value={item.unit ?? ""} placeholder="الوحدة"
-                                onChange={event => handleUpdateUnit(item.id, event.target.value)}
-                                className="min-w-0 rounded border border-slate-200 bg-white/70 px-0 py-0.5 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                style={{ width: `${Math.max(4.5, String(item.unit || "الوحدة").length * 0.8 + 1.75)}em`, flexShrink: 1 }} />
+                              <LedgerComboBox label="الكمية" numeric
+                                value={editingQuantities[item.id] ?? String(item.quantity ?? 1)}
+                                options={Array.from({ length: 10 }, (_, index) => String(index + 1))}
+                                onChange={value => handleUpdateQuantity(item.id, value)}
+                                onBlur={() => setEditingQuantities(previous => { const next = { ...previous }; delete next[item.id]; return next; })} />
+                              <LedgerComboBox label="وحدة الكمية" value={item.unit ?? ""} options={unitSuggestions}
+                                onChange={value => handleUpdateUnit(item.id, value)} />
                             </div>
                           )}
                         </div>
@@ -2148,14 +2246,6 @@ export default function VerticalLedgerSheet({
         )}
       </div>
 
-      {sheetMode === "edit" && <>
-        <datalist id={quantityOptionsId}>
-          {Array.from({ length: 10 }, (_, index) => <option key={index + 1} value={String(index + 1)} />)}
-        </datalist>
-        <datalist id={unitOptionsId}>
-          {unitSuggestions.map(unit => <option key={unit} value={unit} />)}
-        </datalist>
-      </>}
       {detailRowId && (() => {
         const detailRow = items.find(item => item.id === detailRowId);
         if (!detailRow) return null;
