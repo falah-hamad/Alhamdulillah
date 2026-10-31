@@ -3775,6 +3775,7 @@ ${folderCustomers
                       </div>
                     ) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
+                        productUnits={products.filter(product => !product.isDeleted).map(product => product.unitName || "قطعة")}
                         key={currentInvoice.id}
                         invoice={currentInvoice}
                         customer={selectedCustomer}
