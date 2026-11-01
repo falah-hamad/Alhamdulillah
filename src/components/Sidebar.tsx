@@ -70,7 +70,7 @@ export default function Sidebar({
     { id: "products", label: "البضائع", icon: Package },
     { id: "payments", label: "الدفعات", icon: DollarSign },
     { id: "invoices", label: "الفواتير", icon: FileText },
-    { id: "stats", label: "الحسابات", icon: BarChart3 },
+    { id: "stats", label: "الإحصائيات", icon: BarChart3 },
     { id: "reports", label: "التقارير", icon: TrendingUp },
     { id: "downloads", label: "التنزيلات", icon: Download },
     { id: "notes", label: "سجل الملاحظات", icon: StickyNote },

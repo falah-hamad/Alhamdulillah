@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Customer, Product, Invoice, Payment, SystemSettings } from "../types";
 import { BalanceDonut, MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
+import CustomerAnalyticsPanel from "./CustomerAnalyticsPanel";
 
 interface StatsViewProps {
   customers: Customer[];
@@ -24,6 +25,9 @@ const isFinancialItem = (item: Invoice["items"][number]) =>
 
 export default function StatsView({ customers, products, invoices, payments, settings }: StatsViewProps) {
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
+  const [section, setSection] = useState<"general" | "customers">("general");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
   const activeInvoices = useMemo(() => invoices.filter((invoice) => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter((payment) => !payment.isDeleted), [payments]);
   const totalSales = activeInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0);
@@ -64,6 +68,21 @@ export default function StatsView({ customers, products, invoices, payments, set
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 pb-6 sm:space-y-6" dir="rtl">
+      <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" role="tablist" aria-label="نطاق الإحصائيات">
+        {([ ["general", "إحصائيات عامة"], ["customers", "إحصائيات العملاء"] ] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${section === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
+      </div>
+      {section === "customers" ? <section className="space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <label className="block text-sm font-bold text-slate-800">اختَر العميل
+            <select value={selectedCustomerId} onChange={event => setSelectedCustomerId(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium sm:max-w-lg">
+              <option value="">اختر عميلاً لعرض إحصائياته</option>
+              {customers.map(customer => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+            </select>
+          </label>
+        </div>
+        {selectedCustomer ? <CustomerAnalyticsPanel customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} />
+          : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">اختَر عميلاً من القائمة حتى تظهر أقسام التعامل التجاري والملخص الحسابي والمستحقات والتحليل.</div>}
+      </section> : <>
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-l from-indigo-50 via-white to-white p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><BarChart3 className="h-5 w-5" /></span>
@@ -104,6 +123,7 @@ export default function StatsView({ customers, products, invoices, payments, set
         <RankingChart title="العملاء الأعلى رصيداً" description="ترتيب حسب المتبقي في كشوف الديون النشطة." items={topDebtors} currency={settings.currency} color="rose" />
         <RankingChart title="الأصناف الأعلى قيمةً في السجلات" description="ترتيب حسب مجموع قيمة البنود، دون خلط الوحدات المختلفة." items={topProducts} currency={settings.currency} color="indigo" />
       </div>
+      </>}
     </div>
   );
 }
