@@ -751,7 +751,7 @@ export default function App() {
                 {currentTab === "products" && "جرد البضائع والمستودع"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
                 {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
-                {currentTab === "stats" && "التقارير البيانية والحسابات"}
+                {currentTab === "stats" && "التقارير البيانية والإحصائيات"}
                 {currentTab === "reports" && "تصدير التقارير المعتمدة"}
                 {currentTab === "downloads" && "التنزيلات"}
                 {currentTab === "settings" && "الإعدادات وتأمين البيانات"}
@@ -1045,6 +1045,8 @@ export default function App() {
 
           {currentTab === "stats" && (
             <StatsView
+              folders={folders}
+              onSaveCustomer={updateCustomer}
               customers={activeCustomers}
               products={products}
               invoices={activeInvoices}
