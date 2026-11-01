@@ -49,6 +49,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [selectedAnalysisKeys, setSelectedAnalysisKeys] = useState<string[]>([]);
+  const selectionPressTimer = useRef<number | null>(null);
   const pageTitle = useRef<HTMLHeadingElement>(null);
   const requestClose = () => { if (!saving && (!editing || window.confirm("الرجوع إلى العملاء وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
   useEffect(() => { pageTitle.current?.focus(); }, []);
@@ -168,6 +169,20 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   metricValues["إجمالي عدد البضائع المشتراة"] = number(purchases.totalQuantity);
   const analysisRowKey = (item: (typeof saleItems)[number]) => source + ":" + item.id;
   const selectedAnalysisItems = saleItems.filter(item => selectedAnalysisKeys.includes(analysisRowKey(item)));
+  const startAnalysisRowLongPress = (item: (typeof saleItems)[number]) => {
+    if (selectionPressTimer.current !== null) window.clearTimeout(selectionPressTimer.current);
+    const key = analysisRowKey(item);
+    selectionPressTimer.current = window.setTimeout(() => {
+      setSelectedAnalysisKeys(current => current.includes(key) ? current : [...current, key]);
+      selectionPressTimer.current = null;
+    }, 500);
+  };
+  const cancelAnalysisRowLongPress = () => {
+    if (selectionPressTimer.current !== null) {
+      window.clearTimeout(selectionPressTimer.current);
+      selectionPressTimer.current = null;
+    }
+  };
   const formatAnalysisQuantityTotals = (rows: typeof saleItems) => {
     const totals = new Map<string, number>();
     rows.forEach(item => {
@@ -217,7 +232,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         const originalIndex = saleItems.findIndex(candidate => analysisRowKey(candidate) === key);
         return <tr key={key} className={selectedAnalysisKeys.includes(key) ? "bg-blue-100" : index % 2 ? "bg-slate-50" : "bg-white"}>
           {selectable && <td className="border p-2"><input type="checkbox" aria-label={"تحديد صف " + (originalIndex + 1)} checked={selectedAnalysisKeys.includes(key)} onChange={() => setSelectedAnalysisKeys(current => current.includes(key) ? current.filter(rowKey => rowKey !== key) : [...current, key])} className="h-5 w-5 accent-blue-600" /></td>}
-          <td className="border p-2">{originalIndex + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
+          <td className="border p-2 select-none" onPointerDown={event => { if (event.pointerType === "mouse" && event.button !== 0) return; startAnalysisRowLongPress(item); }} onPointerUp={cancelAnalysisRowLongPress} onPointerLeave={cancelAnalysisRowLongPress} onPointerCancel={cancelAnalysisRowLongPress} onContextMenu={event => event.preventDefault()}>{originalIndex + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
           <td className="border p-2">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
           <td className="analysis-pair-divider border p-2">{unitCost === null ? "غير مسجل" : number(unitCost)}</td>
           <td className="analysis-pair-join border p-2">{unitCost === null ? "غير مسجل" : number(unitCost * quantity)}</td>
@@ -261,7 +276,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
             {saleItems.length ? <><div className="overflow-x-auto rounded-lg border">
-              {renderAnalysisTable(saleItems, true)}
+              {renderAnalysisTable(saleItems, selectedAnalysisKeys.length > 0)}
                 <style>{`
                   .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
                     border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
