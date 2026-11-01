@@ -218,20 +218,20 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   return <tr key={item.id || index} className="odd:bg-white even:bg-slate-50">
                     <td className="border p-2 text-center">{index + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
                     <td className="border p-2 text-center">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
-                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost) + " " + currency}</td>
-                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost * quantity) + " " + currency}</td>
-                    <td className="border p-2 text-center">{profitUnit === null ? "غير متاح" : number(profitUnit) + " " + currency}</td>
-                    <td className="border p-2 text-center">{profitTotal === null ? "غير متاح" : number(profitTotal) + " " + currency}</td>
-                    <td className="border p-2 text-center">{number(saleUnit)} {currency}</td><td className="border p-2 text-center">{number(saleTotal)} {currency}</td>
+                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost)}</td>
+                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost * quantity)}</td>
+                    <td className="border p-2 text-center">{profitUnit === null ? "غير متاح" : number(profitUnit)}</td>
+                    <td className="border p-2 text-center">{profitTotal === null ? "غير متاح" : number(profitTotal)}</td>
+                    <td className="border p-2 text-center">{number(saleUnit)}</td><td className="border p-2 text-center">{number(saleTotal)}</td>
                     <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{stamp.weekday}</span><span>—</span><span dir="ltr">{stamp.time}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td><td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
                   </tr>;
                 })}</tbody>
                 <tfoot className="bg-amber-50 font-bold"><tr>
                   <td className="border p-2 text-center">—</td><td className="border p-2 text-center">المجموع</td>
                   <td className="border p-2 text-center">مجموع العدد: {number(saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0))}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر الشراء: {costsComplete ? number(cost ?? 0) + " " + currency : "غير مكتمل"}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع الربح: {profit === null ? "غير متاح بالكامل" : number(profit) + " " + currency}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر البيع: {number(itemSales)} {currency}</td>
+                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر الشراء: {costsComplete ? number(cost ?? 0) : "غير مكتمل"}</td>
+                  <td className="border p-2 text-center" colSpan={2}>مجموع الربح: {profit === null ? "غير متاح بالكامل" : number(profit)}</td>
+                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر البيع: {number(itemSales)}</td>
                   <td className="border p-2 text-center">—</td><td className="border p-2 text-center">—</td>
                 </tr></tfoot>
               </table>
