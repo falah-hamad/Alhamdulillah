@@ -13,6 +13,28 @@ const groups: [string, [string,string,string?][]][] = [
 ];
 const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 const validDate = (value: string) => Number.isFinite(Date.parse(value));
+const formatLedgerTimestamp = (value: string) => {
+  const raw = value?.trim();
+  if (!raw) return "غير محدد";
+  const dateOnly = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(raw);
+  const parsed = dateOnly
+    ? new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 12))
+    : new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) return raw;
+  const dateParts = new Intl.DateTimeFormat("ar-IQ-u-nu-latn", {
+    timeZone: dateOnly ? "UTC" : "Asia/Baghdad",
+    weekday: "long", year: "numeric", month: "numeric", day: "numeric",
+  }).formatToParts(parsed);
+  const part = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(entry => entry.type === type)?.value || "";
+  const date = `${part(dateParts, "year")}/${part(dateParts, "month")}/${part(dateParts, "day")}`;
+  const weekday = part(dateParts, "weekday");
+  if (dateOnly) return `${weekday} — غير محدد — ${date}`;
+  const timeParts = new Intl.DateTimeFormat("ar-IQ-u-nu-latn", {
+    timeZone: "Asia/Baghdad", hour: "numeric", minute: "2-digit", hour12: true,
+  }).formatToParts(parsed);
+  return `${weekday} — ${part(timeParts, "hour")}:${part(timeParts, "minute")} ${part(timeParts, "dayPeriod")} — ${date}`;
+};
 
 export default function CustomerStatisticsProfile({ customer, invoices, payments, currency, folders = [], onSave, onClose }: {
   folders?: CustomerFolder[]; customer: Customer; invoices: Invoice[]; payments: Payment[]; currency: string;
@@ -188,8 +210,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   const unitCost = typeof item.unitCost === "number" && Number.isFinite(item.unitCost) ? item.unitCost : null;
                   const profitUnit = unitCost === null ? null : saleUnit - unitCost;
                   const profitTotal = unitCost === null ? null : saleTotal - unitCost * quantity;
-                  const invoiceDate = customerInvoices.find(inv => inv.items.some(invoiceItem => invoiceItem.id === item.id))?.date;
-                  const stamp = ("createdAt" in item ? item.createdAt : undefined) || invoiceDate || customer.accountingSheetDate || "غير محدد";
+                  const relatedInvoice = customerInvoices.find(inv => inv.items.some(invoiceItem => invoiceItem.id === item.id));
+                  const stampValue = ("createdAt" in item ? item.createdAt : undefined) || relatedInvoice?.createdAt || relatedInvoice?.date || customer.accountingSheetDate || "";
+                  const stamp = formatLedgerTimestamp(stampValue);
                   return <tr key={item.id || index} className="odd:bg-white even:bg-slate-50">
                     <td className="border p-2 text-center">{index + 1}</td><td className="border p-2 text-right">{item.details || "بضاعة غير مسماة"}</td>
                     <td className="border p-2 text-center">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
