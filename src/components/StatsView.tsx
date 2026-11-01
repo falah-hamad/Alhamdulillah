@@ -82,6 +82,10 @@ export default function StatsView({ customers, products, invoices, payments, set
     { label: "المتبقي في الكشوف", value: `${formatAmount(totalRemaining)} ${settings.currency}`, icon: AlertCircle, color: "text-rose-600", tone: "bg-rose-50" },
   ];
 
+  if (section === "customers" && selectedCustomer) {
+    return <CustomerStatisticsProfile key={selectedCustomer.id} customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => setSelectedCustomerId("")} />;
+  }
+
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 pb-6 sm:space-y-6" dir="rtl">
       <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" role="tablist" aria-label="نطاق الإحصائيات">
@@ -143,7 +147,6 @@ export default function StatsView({ customers, products, invoices, payments, set
         <RankingChart title="الأصناف الأعلى قيمةً في السجلات" description="ترتيب حسب مجموع قيمة البنود، دون خلط الوحدات المختلفة." items={topProducts} currency={settings.currency} color="indigo" />
       </div>
       </>}
-      {section === "customers" && selectedCustomer && <CustomerStatisticsProfile customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => setSelectedCustomerId("")} />}
     </div>
   );
 }

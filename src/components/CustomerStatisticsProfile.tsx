@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ContactRound, X } from "lucide-react";
+import { ArrowRight, ContactRound } from "lucide-react";
 import { Customer, CustomerProfile, CustomerFolder, Invoice, Payment } from "../types";
 import { MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 
@@ -26,14 +25,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const dialog = useRef<HTMLDivElement>(null);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const requestClose = () => { if (!saving && (!editing || window.confirm("إغلاق ملف العميل وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    closeButton.current?.focus();
-    return () => previous?.focus();
-  }, []);
+  const pageTitle = useRef<HTMLHeadingElement>(null);
+  const requestClose = () => { if (!saving && (!editing || window.confirm("الرجوع إلى العملاء وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
+  useEffect(() => { pageTitle.current?.focus(); }, []);
   const purchases = customerPurchaseStats(customer, invoices);
   const folderPath = customerFolderPath(customer.folderId, folders);
   const customerInvoices = invoices.filter(inv => inv.customerId === customer.id && !inv.isDeleted);
@@ -157,14 +151,11 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     catch { setError("تعذر حفظ البيانات. حاول مرة أخرى."); }
     finally { setSaving(false); }
   };
-  return createPortal(<div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 p-2 sm:p-4" onClick={event => { if (event.target === event.currentTarget) requestClose(); }}>
-    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="customer-profile-title" dir="rtl" className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onKeyDown={event => {
-      if (event.key === "Escape") { event.stopPropagation(); requestClose(); }
-      if (event.key === "Tab") { const nodes = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select, a[href]'); if (!nodes?.length) return; const first = nodes[0], last = nodes[nodes.length-1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
-    }}>
-      <header className="flex items-center justify-between gap-2 border-b bg-violet-50 p-4"><div className="min-w-0"><h2 id="customer-profile-title" className="flex items-center gap-2 font-bold text-slate-900"><ContactRound className="h-5 w-5 shrink-0" />ملف العميل</h2><p className="break-words text-sm text-slate-600">{customer.name}</p></div><button ref={closeButton} type="button" disabled={saving} aria-label="إغلاق ملف العميل" onClick={requestClose} className="rounded-lg p-2 hover:bg-white"><X className="h-5 w-5" /></button></header>
+  return (
+    <section aria-labelledby="customer-profile-title" dir="rtl" className="min-w-0 w-full space-y-4 pb-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3 sm:p-4"><div className="min-w-0"><h2 ref={pageTitle} tabIndex={-1} id="customer-profile-title" className="flex items-center gap-2 font-bold text-slate-900"><ContactRound className="h-5 w-5 shrink-0" />إحصائيات العميل</h2><p className="break-words text-sm text-slate-600">{customer.name}</p></div><button type="button" disabled={saving} aria-label="الرجوع إلى قائمة العملاء" onClick={requestClose} className="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm font-bold text-violet-800 disabled:opacity-50"><ArrowRight className="h-4 w-4" />الرجوع إلى العملاء</button></header>
       <div className="flex gap-2 overflow-x-auto border-b p-2" role="tablist" aria-label="أقسام ملف العميل">{([['personal','أ. المعلومات الشخصية'],['business','ب. التعامل التجاري'],['financial','ج. الملخص الحسابي'],['due','د. المستحقات والتأخير'],['analytics','هـ. تحليل سلوك العميل'],['summary','و. ملخص الحساب والمخططات']] as const).map(([value,label]) => <button type="button" key={value} role="tab" aria-selected={tab === value} aria-controls="customer-profile-panel" onClick={() => { setTab(value); setExpanded(false); }} className={`shrink-0 rounded-lg p-2 text-xs sm:text-sm font-bold ${tab === value ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>)}</div>
-      <div id="customer-profile-panel" role="tabpanel" className="min-h-0 overflow-y-auto p-3 sm:p-5 space-y-4">
+      <div id="customer-profile-panel" role="tabpanel" className="min-w-0 space-y-4">
         {tab === "personal" ? <>
           {groups.map(([title,fields]) => <section key={title}><h3 className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-right text-sm font-bold text-violet-900">{title}</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (type === 'image' ? <div className="mt-2 space-y-2">{draft.photo && <img src={draft.photo} alt="صورة العميل" className="h-24 w-24 rounded-xl object-cover" />}<input type="file" accept="image/*" disabled={saving} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith('image/')||f.size>250000){setError('الصورة يجب أن تكون أقل من 250 كيلوبايت');return;}const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==='string')setDraft(old=>({...old,photo:reader.result as string}));};reader.readAsDataURL(f);}} className="w-full text-xs" /></div> : type === 'readonly' ? <span className="mt-1 block">{field==='folderId' ? folderPath : String(customer.sequence??'غير محدد')}</span> : type === 'saleType' || type === 'yesNo' ? <select value={draft[field]||''} onChange={e=>setDraft(old=>({...old,[field]:e.target.value}))} className="mt-1 w-full rounded-lg border p-2">{(type==='saleType'?['','نقدي','آجل','أقساط']:['','نعم','لا']).map(v=><option key={v} value={v}>{v||'غير محدد'}</option>)}</select> : field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type === 'image' || type === 'saleType' || type === 'yesNo' || type === 'readonly' ? 'text' : (type || 'text')} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : type === 'image' ? (draft.photo ? <img src={draft.photo} alt="صورة العميل" className="mt-2 h-24 w-24 rounded-xl object-cover" /> : <span>غير مضاف</span>) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{(field === 'folderId' ? folderPath : field === 'sequence' ? String(customer.sequence ?? '') : draft[field]) || 'غير مضاف'}</span>}</label>)}</div></section>)}
         </> : <>
@@ -186,7 +177,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         </>}
       </div>
       <footer className="border-t p-3">{error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}{editing ? <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? 'جاري الحفظ...' : 'حفظ'}</button><button type="button" disabled={saving} onClick={() => { setDraft({...customer.profile,name:customer.name,phone:customer.phone,address:customer.address || '',salaryType:customer.salaryType || ''}); setEditing(false); setError(''); }} className="rounded-lg border px-4 py-2 text-sm">إلغاء</button></div> : <button type="button" disabled={!onSave} onClick={() => {setEditing(true);setTab('personal');}} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">تعديل المعلومات الشخصية</button>}</footer>
-    </div>
-  </div>, document.body);
+    </section>
+  );
 }
 
