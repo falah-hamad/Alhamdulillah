@@ -183,14 +183,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
       selectionPressTimer.current = null;
     }
   };
-  const formatAnalysisQuantityTotals = (rows: typeof saleItems) => {
-    const totals = new Map<string, number>();
-    rows.forEach(item => {
-      const unit = (("unit" in item && item.unit) || ("unitName" in item && item.unitName) || "بدون وحدة").trim();
-      totals.set(unit, (totals.get(unit) || 0) + (Number(item.quantity) || 0));
-    });
-    return [...totals.entries()].map(([unit, quantity]) => number(quantity) + " " + unit).join("، ") || "0";
-  };
+  const formatAnalysisQuantityTotals = (rows: typeof saleItems) =>
+    number(rows.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0));
   const toggleAllAnalysisRows = () => setSelectedAnalysisKeys(
     selectedAnalysisItems.length === saleItems.length && saleItems.length > 0
       ? []
@@ -205,9 +199,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
       ? rows.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (item.unitCost || 0), 0)
       : null;
     const rowsProfit = rowsCost === null ? null : rowsSale - rowsCost;
-    return <table className="customer-analysis-table min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+    return <table className={"customer-analysis-table w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center " + (selectable ? "min-w-[1692px]" : "min-w-[1650px]")}>
       <thead className="bg-violet-50 text-violet-950"><tr>
-        {selectable && <th rowSpan={2} className="border p-2">تحديد</th>}
+        {selectable && <th rowSpan={2} className="w-[42px] border p-2">تحديد</th>}
         <th rowSpan={2} className="border p-2">ت</th><th rowSpan={2} className="border p-2">البضاعة</th>
         <th rowSpan={2} className="border p-2">العدد</th>
         <th colSpan={2} className="border p-2">سعر الشراء</th><th colSpan={2} className="border p-2">الربح</th>
@@ -231,7 +225,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         const key = analysisRowKey(item);
         const originalIndex = saleItems.findIndex(candidate => analysisRowKey(candidate) === key);
         return <tr key={key} className={selectedAnalysisKeys.includes(key) ? "bg-blue-100" : index % 2 ? "bg-slate-50" : "bg-white"}>
-          {selectable && <td className="border p-2"><input type="checkbox" aria-label={"تحديد صف " + (originalIndex + 1)} checked={selectedAnalysisKeys.includes(key)} onChange={() => setSelectedAnalysisKeys(current => current.includes(key) ? current.filter(rowKey => rowKey !== key) : [...current, key])} className="h-5 w-5 accent-blue-600" /></td>}
+          {selectable && <td className="w-[42px] border p-2"><input type="checkbox" aria-label={"تحديد صف " + (originalIndex + 1)} checked={selectedAnalysisKeys.includes(key)} onChange={() => setSelectedAnalysisKeys(current => current.includes(key) ? current.filter(rowKey => rowKey !== key) : [...current, key])} className="h-5 w-5 accent-blue-600" /></td>}
           <td className="border p-2 select-none" onPointerDown={event => { if (event.pointerType === "mouse" && event.button !== 0) return; startAnalysisRowLongPress(item); }} onPointerUp={cancelAnalysisRowLongPress} onPointerLeave={cancelAnalysisRowLongPress} onPointerCancel={cancelAnalysisRowLongPress} onContextMenu={event => event.preventDefault()}>{originalIndex + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
           <td className="border p-2">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
           <td className="analysis-pair-divider border p-2">{unitCost === null ? "غير مسجل" : number(unitCost)}</td>
@@ -289,6 +283,22 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   }
                   .customer-analysis-table .analysis-pair-join {
                     border-right: 0 !important;
+                  }
+                  .customer-analysis-table tbody tr,
+                  .customer-analysis-table tbody td {
+                    height: 42px !important;
+                    box-sizing: border-box;
+                  }
+                  .customer-analysis-table tbody td {
+                    padding-top: 6px !important;
+                    padding-bottom: 6px !important;
+                    line-height: 20px !important;
+                  }
+                  .customer-analysis-table tbody td input[type="checkbox"] {
+                    display: block;
+                    width: 20px;
+                    height: 20px;
+                    margin: 0 auto;
                   }
                 `}</style>
             </div>
