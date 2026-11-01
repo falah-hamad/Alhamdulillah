@@ -260,7 +260,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p></>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
-            {saleItems.length ? <div className="overflow-x-auto rounded-lg border">
+            {saleItems.length ? <><div className="overflow-x-auto rounded-lg border">
               {renderAnalysisTable(saleItems, true)}
                 <style>{`
                   .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
