@@ -15,25 +15,26 @@ const number = (value: number) => value.toLocaleString("en-US", { maximumFractio
 const validDate = (value: string) => Number.isFinite(Date.parse(value));
 const formatLedgerTimestamp = (value: string) => {
   const raw = value?.trim();
-  if (!raw) return "غير محدد";
+  if (!raw) return { weekday: "", time: "غير محدد", date: "غير محدد" };
   const dateOnly = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(raw);
   const parsed = dateOnly
     ? new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 12))
     : new Date(raw);
-  if (!Number.isFinite(parsed.getTime())) return raw;
+  if (!Number.isFinite(parsed.getTime())) return { weekday: "", time: "غير محدد", date: raw };
   const dateParts = new Intl.DateTimeFormat("ar-IQ-u-nu-latn", {
     timeZone: dateOnly ? "UTC" : "Asia/Baghdad",
     weekday: "long", year: "numeric", month: "numeric", day: "numeric",
   }).formatToParts(parsed);
   const part = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
     parts.find(entry => entry.type === type)?.value || "";
-  const date = `${part(dateParts, "year")}/${part(dateParts, "month")}/${part(dateParts, "day")}`;
+  const date = part(dateParts, "year") + "/" + part(dateParts, "month") + "/" + part(dateParts, "day");
   const weekday = part(dateParts, "weekday");
-  if (dateOnly) return `${weekday} — غير محدد — ${date}`;
+  if (dateOnly) return { weekday, time: "غير محدد", date };
   const timeParts = new Intl.DateTimeFormat("ar-IQ-u-nu-latn", {
     timeZone: "Asia/Baghdad", hour: "numeric", minute: "2-digit", hour12: true,
   }).formatToParts(parsed);
-  return `${weekday} — ${part(timeParts, "hour")}:${part(timeParts, "minute")} ${part(timeParts, "dayPeriod")} — ${date}`;
+  const time = part(timeParts, "hour") + ":" + part(timeParts, "minute") + " " + part(timeParts, "dayPeriod");
+  return { weekday, time, date };
 };
 
 export default function CustomerStatisticsProfile({ customer, invoices, payments, currency, folders = [], onSave, onClose }: {
@@ -195,7 +196,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                     <th colSpan={2} className="border p-2">سعر الشراء</th>
                     <th colSpan={2} className="border p-2">الربح</th>
                     <th colSpan={2} className="border p-2">سعر البيع</th>
-                    <th rowSpan={2} className="border p-2">الطابع الزمني</th>\n                    <th rowSpan={2} className="border p-2">اسم البائع</th>
+                    <th rowSpan={2} className="border p-2">الطابع الزمني</th>
+                    <th rowSpan={2} className="border p-2">اسم البائع</th>
                   </tr>
                   <tr className="bg-emerald-100">
                     <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
@@ -221,7 +223,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                     <td className="border p-2 text-center">{profitUnit === null ? "غير متاح" : number(profitUnit) + " " + currency}</td>
                     <td className="border p-2 text-center">{profitTotal === null ? "غير متاح" : number(profitTotal) + " " + currency}</td>
                     <td className="border p-2 text-center">{number(saleUnit)} {currency}</td><td className="border p-2 text-center">{number(saleTotal)} {currency}</td>
-                    <td className="border p-2">{stamp}</td><td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
+                    <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{stamp.weekday}</span><span>—</span><span dir="ltr">{stamp.time}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td><td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
                   </tr>;
                 })}</tbody>
                 <tfoot className="bg-amber-50 font-bold"><tr>
