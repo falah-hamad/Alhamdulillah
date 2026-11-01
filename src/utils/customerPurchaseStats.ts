@@ -35,7 +35,7 @@ export function customerPurchaseStats(customer: Customer, invoices: Invoice[]) {
   const ranked = [...counts].sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0], "ar"));
   const mostFrequent = ranked.filter(([,count]) => count === ranked[0]?.[1]);
   return { rows, first: dates[0], last: dates.at(-1), missingDates: rows.length - dates.length,
-    totalQuantity: rows.reduce((sum,row) => sum + quantity(row), 0), mostFrequent, rowCount: rows.length };
+    topThree: ranked.slice(0, 3), totalQuantity: rows.reduce((sum,row) => sum + quantity(row), 0), mostFrequent, rowCount: rows.length };
 }
 export function purchaseDate(value: string | undefined): string {
   if (!value) return "غير مسجل";
