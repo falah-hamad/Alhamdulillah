@@ -187,7 +187,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
             {saleItems.length ? <div className="overflow-x-auto rounded-lg border">
-              <table className="min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+              <table className="customer-analysis-table min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
                 <thead className="bg-violet-50 text-violet-950">
                   <tr>
                     <th rowSpan={2} className="border p-2">ت</th>
@@ -235,6 +235,24 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   <td className="border p-2 text-center">—</td><td className="border p-2 text-center">—</td>
                 </tr></tfoot>
               </table>
+                <style>{`
+                  .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
+                    border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
+                  }
+                  .customer-analysis-table thead tr:nth-child(2) th:nth-child(even) {
+                    border-right: 0 !important;
+                  }
+                  .customer-analysis-table tbody td:nth-child(4),
+                  .customer-analysis-table tbody td:nth-child(6),
+                  .customer-analysis-table tbody td:nth-child(8) {
+                    border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
+                  }
+                  .customer-analysis-table tbody td:nth-child(5),
+                  .customer-analysis-table tbody td:nth-child(7),
+                  .customer-analysis-table tbody td:nth-child(9) {
+                    border-right: 0 !important;
+                  }
+                `}</style>
             </div> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
           </section>}
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
