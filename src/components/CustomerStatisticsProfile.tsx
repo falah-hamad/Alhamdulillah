@@ -48,6 +48,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [selectedAnalysisKeys, setSelectedAnalysisKeys] = useState<string[]>([]);
   const pageTitle = useRef<HTMLHeadingElement>(null);
   const requestClose = () => { if (!saving && (!editing || window.confirm("الرجوع إلى العملاء وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
   useEffect(() => { pageTitle.current?.focus(); }, []);
@@ -165,6 +166,79 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   metricValues["مدة التعامل بالأيام والأشهر والسنوات"] = purchaseDuration(purchases.first, purchases.last);
   metricValues["أكثر الأصناف التي يشتريها"] = purchases.topThree.length ? purchases.topThree.map(([name, count]) => `${name} (${number(count)})`).join("، ") : "لا توجد أصناف مسجلة";
   metricValues["إجمالي عدد البضائع المشتراة"] = number(purchases.totalQuantity);
+  const analysisRowKey = (item: (typeof saleItems)[number]) => source + ":" + item.id;
+  const selectedAnalysisItems = saleItems.filter(item => selectedAnalysisKeys.includes(analysisRowKey(item)));
+  const formatAnalysisQuantityTotals = (rows: typeof saleItems) => {
+    const totals = new Map<string, number>();
+    rows.forEach(item => {
+      const unit = (("unit" in item && item.unit) || ("unitName" in item && item.unitName) || "بدون وحدة").trim();
+      totals.set(unit, (totals.get(unit) || 0) + (Number(item.quantity) || 0));
+    });
+    return [...totals.entries()].map(([unit, quantity]) => number(quantity) + " " + unit).join("، ") || "0";
+  };
+  const toggleAllAnalysisRows = () => setSelectedAnalysisKeys(
+    selectedAnalysisItems.length === saleItems.length && saleItems.length > 0
+      ? []
+      : saleItems.map(analysisRowKey)
+  );
+  const renderAnalysisTable = (rows: typeof saleItems, selectable = false) => {
+    const rowsSale = rows.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    const rowsCostsComplete = rows.length > 0 && rows.every(item =>
+      typeof item.unitCost === "number" && Number.isFinite(item.unitCost) && item.unitCost >= 0
+    );
+    const rowsCost = rowsCostsComplete
+      ? rows.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (item.unitCost || 0), 0)
+      : null;
+    const rowsProfit = rowsCost === null ? null : rowsSale - rowsCost;
+    return <table className="customer-analysis-table min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+      <thead className="bg-violet-50 text-violet-950"><tr>
+        {selectable && <th rowSpan={2} className="border p-2">تحديد</th>}
+        <th rowSpan={2} className="border p-2">ت</th><th rowSpan={2} className="border p-2">البضاعة</th>
+        <th rowSpan={2} className="border p-2">العدد</th>
+        <th colSpan={2} className="border p-2">سعر الشراء</th><th colSpan={2} className="border p-2">الربح</th>
+        <th colSpan={2} className="border p-2">سعر البيع</th><th rowSpan={2} className="border p-2">الطابع الزمني</th>
+        <th rowSpan={2} className="border p-2">اسم البائع</th>
+      </tr><tr className="bg-emerald-100">
+        <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
+        <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
+        <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
+      </tr></thead>
+      <tbody>{rows.map((item, index) => {
+        const quantity = Number(item.quantity) || 0;
+        const saleUnit = Number(item.unitPrice) || (quantity ? (Number(item.total) || 0) / quantity : 0);
+        const saleTotal = Number(item.total) || 0;
+        const unitCost = typeof item.unitCost === "number" && Number.isFinite(item.unitCost) ? item.unitCost : null;
+        const profitUnit = unitCost === null ? null : saleUnit - unitCost;
+        const profitTotal = unitCost === null ? null : saleTotal - unitCost * quantity;
+        const relatedInvoice = customerInvoices.find(inv => inv.items.some(invoiceItem => invoiceItem.id === item.id));
+        const stampValue = ("createdAt" in item ? item.createdAt : undefined) || relatedInvoice?.createdAt || relatedInvoice?.date || customer.accountingSheetDate || "";
+        const stamp = formatLedgerTimestamp(stampValue);
+        const key = analysisRowKey(item);
+        const originalIndex = saleItems.findIndex(candidate => analysisRowKey(candidate) === key);
+        return <tr key={key} className={selectedAnalysisKeys.includes(key) ? "bg-blue-100" : index % 2 ? "bg-slate-50" : "bg-white"}>
+          {selectable && <td className="border p-2"><input type="checkbox" aria-label={"تحديد صف " + (originalIndex + 1)} checked={selectedAnalysisKeys.includes(key)} onChange={() => setSelectedAnalysisKeys(current => current.includes(key) ? current.filter(rowKey => rowKey !== key) : [...current, key])} className="h-5 w-5 accent-blue-600" /></td>}
+          <td className="border p-2">{originalIndex + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
+          <td className="border p-2">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
+          <td className="analysis-pair-divider border p-2">{unitCost === null ? "غير مسجل" : number(unitCost)}</td>
+          <td className="analysis-pair-join border p-2">{unitCost === null ? "غير مسجل" : number(unitCost * quantity)}</td>
+          <td className="analysis-pair-divider border p-2">{profitUnit === null ? "غير متاح" : number(profitUnit)}</td>
+          <td className="analysis-pair-join border p-2">{profitTotal === null ? "غير متاح" : number(profitTotal)}</td>
+          <td className="analysis-pair-divider border p-2">{number(saleUnit)}</td><td className="analysis-pair-join border p-2">{number(saleTotal)}</td>
+          <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{stamp.weekday}</span><span>—</span><span dir="ltr">{stamp.time}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td>
+          <td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
+        </tr>;
+      })}</tbody>
+      <tfoot className="bg-amber-50 font-bold"><tr>
+        {selectable && <td className="border p-2">—</td>}
+        <td className="border p-2">—</td><td className="border p-2">المجموع</td>
+        <td className="border p-2">مجموع العدد: {formatAnalysisQuantityTotals(rows)}</td>
+        <td className="border p-2" colSpan={2}>مجموع سعر الشراء: {rowsCost === null ? "غير مكتمل" : number(rowsCost)}</td>
+        <td className="border p-2" colSpan={2}>مجموع الربح: {rowsProfit === null ? "غير متاح بالكامل" : number(rowsProfit)}</td>
+        <td className="border p-2" colSpan={2}>مجموع سعر البيع: {number(rowsSale)}</td>
+        <td className="border p-2">—</td><td className="border p-2">—</td>
+      </tr></tfoot>
+    </table>;
+  };
   const save = async () => {
     if (!onSave || saving) return;
     if (!draft.name?.trim()) { setError("اسم العميل مطلوب."); return; }
@@ -182,59 +256,12 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         {tab === "personal" ? <>
           {groups.map(([title,fields]) => <section key={title}><h3 className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-right text-sm font-bold text-violet-900">{title}</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (type === 'image' ? <div className="mt-2 space-y-2">{draft.photo && <img src={draft.photo} alt="صورة العميل" className="h-24 w-24 rounded-xl object-cover" />}<input type="file" accept="image/*" disabled={saving} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith('image/')||f.size>250000){setError('الصورة يجب أن تكون أقل من 250 كيلوبايت');return;}const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==='string')setDraft(old=>({...old,photo:reader.result as string}));};reader.readAsDataURL(f);}} className="w-full text-xs" /></div> : type === 'readonly' ? <span className="mt-1 block">{field==='folderId' ? folderPath : String(customer.sequence??'غير محدد')}</span> : type === 'saleType' || type === 'yesNo' ? <select value={draft[field]||''} onChange={e=>setDraft(old=>({...old,[field]:e.target.value}))} className="mt-1 w-full rounded-lg border p-2">{(type==='saleType'?['','نقدي','آجل','أقساط']:['','نعم','لا']).map(v=><option key={v} value={v}>{v||'غير محدد'}</option>)}</select> : field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type === 'image' || type === 'saleType' || type === 'yesNo' || type === 'readonly' ? 'text' : (type || 'text')} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : type === 'image' ? (draft.photo ? <img src={draft.photo} alt="صورة العميل" className="mt-2 h-24 w-24 rounded-xl object-cover" /> : <span>غير مضاف</span>) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{(field === 'folderId' ? folderPath : field === 'sequence' ? String(customer.sequence ?? '') : draft[field]) || 'غير مضاف'}</span>}</label>)}</div></section>)}
         </> : <>
-          {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { setSource(e.target.value as typeof source); setExpanded(false); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
+          {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { setSource(e.target.value as typeof source); setExpanded(false); setSelectedAnalysisKeys([]); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p></>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
             {saleItems.length ? <div className="overflow-x-auto rounded-lg border">
-              <table className="customer-analysis-table min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
-                <thead className="bg-violet-50 text-violet-950">
-                  <tr>
-                    <th rowSpan={2} className="border p-2">ت</th>
-                    <th rowSpan={2} className="border p-2">البضاعة</th>
-                    <th rowSpan={2} className="border p-2">العدد</th>
-                    <th colSpan={2} className="border p-2">سعر الشراء</th>
-                    <th colSpan={2} className="border p-2">الربح</th>
-                    <th colSpan={2} className="border p-2">سعر البيع</th>
-                    <th rowSpan={2} className="border p-2">الطابع الزمني</th>
-                    <th rowSpan={2} className="border p-2">اسم البائع</th>
-                  </tr>
-                  <tr className="bg-emerald-100">
-                    <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
-                    <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
-                    <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
-                  </tr>
-                </thead>
-                <tbody>{saleItems.map((item, index) => {
-                  const quantity = Number(item.quantity) || 0;
-                  const saleUnit = Number(item.unitPrice) || (quantity ? (Number(item.total) || 0) / quantity : 0);
-                  const saleTotal = Number(item.total) || 0;
-                  const unitCost = typeof item.unitCost === "number" && Number.isFinite(item.unitCost) ? item.unitCost : null;
-                  const profitUnit = unitCost === null ? null : saleUnit - unitCost;
-                  const profitTotal = unitCost === null ? null : saleTotal - unitCost * quantity;
-                  const relatedInvoice = customerInvoices.find(inv => inv.items.some(invoiceItem => invoiceItem.id === item.id));
-                  const stampValue = ("createdAt" in item ? item.createdAt : undefined) || relatedInvoice?.createdAt || relatedInvoice?.date || customer.accountingSheetDate || "";
-                  const stamp = formatLedgerTimestamp(stampValue);
-                  return <tr key={item.id || index} className="odd:bg-white even:bg-slate-50">
-                    <td className="border p-2 text-center">{index + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
-                    <td className="border p-2 text-center">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
-                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost)}</td>
-                    <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost * quantity)}</td>
-                    <td className="border p-2 text-center">{profitUnit === null ? "غير متاح" : number(profitUnit)}</td>
-                    <td className="border p-2 text-center">{profitTotal === null ? "غير متاح" : number(profitTotal)}</td>
-                    <td className="border p-2 text-center">{number(saleUnit)}</td><td className="border p-2 text-center">{number(saleTotal)}</td>
-                    <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{stamp.weekday}</span><span>—</span><span dir="ltr">{stamp.time}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td><td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
-                  </tr>;
-                })}</tbody>
-                <tfoot className="bg-amber-50 font-bold"><tr>
-                  <td className="border p-2 text-center">—</td><td className="border p-2 text-center">المجموع</td>
-                  <td className="border p-2 text-center">مجموع العدد: {number(saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0))}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر الشراء: {costsComplete ? number(cost ?? 0) : "غير مكتمل"}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع الربح: {profit === null ? "غير متاح بالكامل" : number(profit)}</td>
-                  <td className="border p-2 text-center" colSpan={2}>مجموع سعر البيع: {number(itemSales)}</td>
-                  <td className="border p-2 text-center">—</td><td className="border p-2 text-center">—</td>
-                </tr></tfoot>
-              </table>
+              {renderAnalysisTable(saleItems, true)}
                 <style>{`
                   .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
                     border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
@@ -242,18 +269,29 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   .customer-analysis-table thead tr:nth-child(2) th:nth-child(even) {
                     border-right: 0 !important;
                   }
-                  .customer-analysis-table tbody td:nth-child(4),
-                  .customer-analysis-table tbody td:nth-child(6),
-                  .customer-analysis-table tbody td:nth-child(8) {
+                  .customer-analysis-table .analysis-pair-divider {
                     border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
                   }
-                  .customer-analysis-table tbody td:nth-child(5),
-                  .customer-analysis-table tbody td:nth-child(7),
-                  .customer-analysis-table tbody td:nth-child(9) {
+                  .customer-analysis-table .analysis-pair-join {
                     border-right: 0 !important;
                   }
                 `}</style>
-            </div> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
+            </div>
+              {selectedAnalysisItems.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm">
+                <strong className="text-blue-900">تم تحديد {number(selectedAnalysisItems.length)} صفوف</strong>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={toggleAllAnalysisRows} className="rounded-lg border border-blue-200 bg-white px-3 py-2 font-bold text-blue-800">{selectedAnalysisItems.length === saleItems.length ? "إلغاء تحديد الكل" : "تحديد الكل"}</button>
+                  <button type="button" aria-label="إلغاء تحديد الصفوف" onClick={() => setSelectedAnalysisKeys([])} className="rounded-lg px-3 py-2 text-slate-600">×</button>
+                </div>
+              </div>}
+              {selectedAnalysisItems.length > 0 && <section className="mt-4 space-y-3 rounded-xl border border-violet-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-violet-50 p-3">
+                  <div><h4 className="font-bold text-violet-900">إحصائية صفوف محددة</h4><p className="mt-1 text-xs text-slate-600">تم تحديد {number(selectedAnalysisItems.length)} صفوف — المجاميع تخص هذه الصفوف فقط.</p></div>
+                  
+                </div>
+                <div className="overflow-x-auto rounded-lg border">{renderAnalysisTable(selectedAnalysisItems)}</div>
+              </section>}
+            </> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
           </section>}
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
           {financialGroups.filter(([title])=>(tab==="business"&&title === "تفاصيل التعامل التجاري")||(tab==="financial"&&title === "الملخص الحسابي")||(tab==="due"&&title === "المستحقات والتأخير")||(tab==="analytics"&&title === "تحليل سلوك العميل (Customer Analytics)")).map(([title,subgroups])=><section key={title} className="space-y-3 rounded-xl border p-3"><h3 className="rounded-lg bg-violet-100 px-3 py-2 text-sm font-bold text-violet-900">{title}</h3>{subgroups.map(([subtitle,labels])=><div key={subtitle}><h4 className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold">{subtitle}</h4><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{labels.map(label=><div key={label} className={`min-w-0 rounded-lg border border-violet-100 p-3 ${label === "أكثر الأصناف التي يشتريها" || label === "إجمالي عدد البضائع المشتراة" ? "sm:col-span-2" : ""}`}><span className="block text-xs text-slate-600">{label}</span>{label === "أكثر الأصناف التي يشتريها" && purchases.topThree.length > 0 ? <div className="mt-2 overflow-hidden rounded-lg border border-violet-100"><table className="w-full table-fixed border-collapse text-sm text-violet-900"><thead className="bg-violet-50"><tr><th scope="col" className="w-10 border-b border-violet-100 p-2 text-center">ت</th><th scope="col" className="border-b border-violet-100 p-2 text-right">البضاعة</th><th scope="col" className="w-24 border-b border-violet-100 p-2 text-center">العدد</th></tr></thead><tbody>{purchases.topThree.map(([name, count], index) => <tr key={name} className="border-b border-violet-100 last:border-b-0"><td className="p-2 text-center">{index + 1}</td><td className="break-words p-2 font-medium">{name}</td><td className="break-words p-2 text-center font-bold">{number(count)}</td></tr>)}</tbody></table></div> : <strong className="mt-2 block text-sm text-violet-900">{metricValues[label]||"غير متوفر — بيانات غير مسجلة"}</strong>}</div>)}</div></div>)}</section>)}
