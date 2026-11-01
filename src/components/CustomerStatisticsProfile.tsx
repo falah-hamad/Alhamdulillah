@@ -186,7 +186,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
             {saleItems.length ? <div className="overflow-x-auto rounded-lg border">
-              <table className="min-w-[1450px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+              <table className="min-w-[1650px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
                 <thead className="bg-violet-50 text-violet-950">
                   <tr>
                     <th rowSpan={2} className="border p-2">ت</th>
@@ -195,7 +195,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                     <th colSpan={2} className="border p-2">سعر الشراء</th>
                     <th colSpan={2} className="border p-2">الربح</th>
                     <th colSpan={2} className="border p-2">سعر البيع</th>
-                    <th rowSpan={2} className="border p-2">الطابع الزمني</th>
+                    <th rowSpan={2} className="border p-2">الطابع الزمني</th>\n                    <th rowSpan={2} className="border p-2">اسم البائع</th>
                   </tr>
                   <tr className="bg-emerald-100">
                     <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
@@ -214,14 +214,14 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   const stampValue = ("createdAt" in item ? item.createdAt : undefined) || relatedInvoice?.createdAt || relatedInvoice?.date || customer.accountingSheetDate || "";
                   const stamp = formatLedgerTimestamp(stampValue);
                   return <tr key={item.id || index} className="odd:bg-white even:bg-slate-50">
-                    <td className="border p-2 text-center">{index + 1}</td><td className="border p-2 text-right">{item.details || "بضاعة غير مسماة"}</td>
+                    <td className="border p-2 text-center">{index + 1}</td><td className="border p-2">{item.details || "بضاعة غير مسماة"}</td>
                     <td className="border p-2 text-center">{number(quantity)} {("unit" in item && item.unit) || ("unitName" in item && item.unitName) || ""}</td>
                     <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost) + " " + currency}</td>
                     <td className="border p-2 text-center">{unitCost === null ? "غير مسجل" : number(unitCost * quantity) + " " + currency}</td>
                     <td className="border p-2 text-center">{profitUnit === null ? "غير متاح" : number(profitUnit) + " " + currency}</td>
                     <td className="border p-2 text-center">{profitTotal === null ? "غير متاح" : number(profitTotal) + " " + currency}</td>
                     <td className="border p-2 text-center">{number(saleUnit)} {currency}</td><td className="border p-2 text-center">{number(saleTotal)} {currency}</td>
-                    <td className="border p-2 text-center">{stamp}</td>
+                    <td className="border p-2">{stamp}</td><td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
                   </tr>;
                 })}</tbody>
                 <tfoot className="bg-amber-50 font-bold"><tr>
@@ -230,7 +230,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   <td className="border p-2 text-center" colSpan={2}>مجموع سعر الشراء: {costsComplete ? number(cost ?? 0) + " " + currency : "غير مكتمل"}</td>
                   <td className="border p-2 text-center" colSpan={2}>مجموع الربح: {profit === null ? "غير متاح بالكامل" : number(profit) + " " + currency}</td>
                   <td className="border p-2 text-center" colSpan={2}>مجموع سعر البيع: {number(itemSales)} {currency}</td>
-                  <td className="border p-2 text-center">—</td>
+                  <td className="border p-2 text-center">—</td><td className="border p-2 text-center">—</td>
                 </tr></tfoot>
               </table>
             </div> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
