@@ -42,6 +42,10 @@ const formatShortLedgerTime = (value: string) => value
   .replace(/\s*(AM|PM)\s*/gi, (_match, period: string) => period.toUpperCase() === "AM" ? " ص " : " م ")
   .replace(/\s+/g, " ")
   .trim();
+const paymentOrdinalLabel = (index: number) => {
+  const ordinals = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+  return "التسديد " + (ordinals[index] || number(index + 1));
+};
 
 export default function CustomerStatisticsProfile({ customer, invoices, payments, currency, folders = [], onSave, onClose }: {
   folders?: CustomerFolder[]; customer: Customer; invoices: Invoice[]; payments: Payment[]; currency: string;
@@ -69,7 +73,6 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const sales = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0) : saleItems.reduce((sum, row) => sum + row.total, 0);
   const paymentRows = source === "vertical"
     ? customerInvoices.flatMap(invoice => {
-      let carriedBalance = 0;
       let currentSectionTotal = 0;
       const rows: {
         id: string; total: number; payment: number; remaining: number;
@@ -81,7 +84,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
       orderedItems.forEach(({ item }) => {
         if (item.isSeparator) {
           const paidAmount = Number(item.paidAmount) || 0;
-          const totalAmount = carriedBalance + currentSectionTotal;
+          const totalAmount = currentSectionTotal;
           const remainingAmount = Math.max(0, totalAmount - paidAmount);
           if (paidAmount > 0) {
             const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
@@ -96,7 +99,6 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
               recipient: item.sellerName || "غير مسجل",
             });
           }
-          carriedBalance = remainingAmount;
           currentSectionTotal = 0;
         } else if (!item.isPaymentRow && !item.isRemainingRow) {
           currentSectionTotal += Number(item.total || item.unitPrice || 0);
@@ -383,14 +385,14 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">سجل التسديدات</h3><p className="mt-1 text-xs text-slate-500">التسديدات المعروضة مأخوذة من سجل ديون العميل، مع المجموع والمتبقي المسجلين لكل حركة.</p></div>
             <div className="overflow-x-auto rounded-lg border">
-              {paymentRows.length ? <table className="min-w-[760px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
-                <thead className="bg-violet-50 text-violet-950"><tr>
-                  <th className="border p-2">ت</th><th className="border p-2">المجموع</th><th className="border p-2">التسديد</th><th className="border p-2">المتبقي</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">المستلم</th>
+              {paymentRows.length ? <table className="min-w-[1000px] w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+                <thead className="bg-[#91abd5] text-slate-950"><tr>
+                  <th className="border border-slate-400 p-2">ت</th><th className="border border-slate-400 p-2">المجموع الكلي</th><th className="border border-slate-400 p-2">مبلغ التسديد</th><th className="border border-slate-400 p-2">المبلغ المتبقي</th><th className="border border-slate-400 p-2">الطابع الزمني</th><th className="border border-slate-400 p-2">المستلم</th>
                 </tr></thead>
-                <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className={index % 2 ? "bg-slate-50" : "bg-white"}>
-                  <td className="border p-2">{number(index + 1)}</td><td className="border p-2">{number(payment.total)}</td><td className="border p-2">{number(payment.payment)}</td><td className="border p-2">{number(payment.remaining)}</td>
-                  <td className="border p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{payment.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(payment.time)}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
-                  <td className="border p-2">{payment.recipient}</td>
+                <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className="bg-white">
+                  <td className="border border-slate-300 p-2">{paymentOrdinalLabel(index)}</td><td className="border border-slate-300 p-2">{number(payment.total)}</td><td className="border border-slate-300 p-2">{number(payment.payment)}</td><td className="border border-slate-300 p-2">{number(payment.remaining)}</td>
+                  <td className="border border-slate-300 p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{payment.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(payment.time)}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
+                  <td className="border border-slate-300 p-2">{payment.recipient}</td>
                 </tr>)}</tbody>
               </table> : <p className="p-4 text-center text-sm text-slate-600">لا توجد تسديدات مسجلة في مصدر الحساب المحدد.</p>}
             </div>
