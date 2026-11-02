@@ -73,6 +73,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const sales = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0) : saleItems.reduce((sum, row) => sum + row.total, 0);
   const paymentRows = source === "vertical"
     ? customerInvoices.flatMap(invoice => {
+      let carriedBalance = 0;
       let currentSectionTotal = 0;
       const rows: {
         id: string; total: number; payment: number; remaining: number;
@@ -84,7 +85,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
       orderedItems.forEach(({ item }) => {
         if (item.isSeparator) {
           const paidAmount = Number(item.paidAmount) || 0;
-          const totalAmount = currentSectionTotal;
+          const totalAmount = carriedBalance + currentSectionTotal;
           const remainingAmount = Math.max(0, totalAmount - paidAmount);
           if (paidAmount > 0) {
             const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
@@ -99,6 +100,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
               recipient: item.sellerName || "غير مسجل",
             });
           }
+          carriedBalance = remainingAmount;
           currentSectionTotal = 0;
         } else if (!item.isPaymentRow && !item.isRemainingRow) {
           currentSectionTotal += Number(item.total || item.unitPrice || 0);
