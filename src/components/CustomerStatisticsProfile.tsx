@@ -69,9 +69,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         const remainingAmount = typeof item.remainingAmount === "number"
           ? item.remainingAmount
           : Math.max(0, (Number(item.subtotal) || paidAmount) - paidAmount);
-        const totalAmount = typeof item.subtotal === "number"
-          ? item.subtotal
-          : paidAmount + remainingAmount;
+        const totalAmount = paidAmount + remainingAmount;
         const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
         return {
           id: invoice.id + ":" + item.id,
@@ -366,10 +364,10 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
             <div className="overflow-x-auto rounded-lg border">
               {paymentRows.length ? <table className="min-w-[760px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
                 <thead className="bg-violet-50 text-violet-950"><tr>
-                  <th className="border p-2">المجموع</th><th className="border p-2">التسديد</th><th className="border p-2">المتبقي</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">المستلم</th>
+                  <th className="border p-2">ت</th><th className="border p-2">المجموع</th><th className="border p-2">التسديد</th><th className="border p-2">المتبقي</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">المستلم</th>
                 </tr></thead>
                 <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className={index % 2 ? "bg-slate-50" : "bg-white"}>
-                  <td className="border p-2">{number(payment.total)}</td><td className="border p-2">{number(payment.payment)}</td><td className="border p-2">{number(payment.remaining)}</td>
+                  <td className="border p-2">{number(index + 1)}</td><td className="border p-2">{number(payment.total)}</td><td className="border p-2">{number(payment.payment)}</td><td className="border p-2">{number(payment.remaining)}</td>
                   <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{payment.weekday}</span><span>—</span><span dir="ltr">{payment.time}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
                   <td className="border p-2">{payment.recipient}</td>
                 </tr>)}</tbody>
