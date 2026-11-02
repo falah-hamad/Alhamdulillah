@@ -36,6 +36,12 @@ const formatLedgerTimestamp = (value: string) => {
   const time = part(timeParts, "hour") + ":" + part(timeParts, "minute") + " " + part(timeParts, "dayPeriod");
   return { weekday, time, date };
 };
+const formatShortLedgerTime = (value: string) => value
+  .replace(/صباحاً|صباحًا|صباحا/g, "ص")
+  .replace(/مساءً|مساءًا|مساءا/g, "م")
+  .replace(/\s*(AM|PM)\s*/gi, (_match, period: string) => period.toUpperCase() === "AM" ? " ص " : " م ")
+  .replace(/\s+/g, " ")
+  .trim();
 
 export default function CustomerStatisticsProfile({ customer, invoices, payments, currency, folders = [], onSave, onClose }: {
   folders?: CustomerFolder[]; customer: Customer; invoices: Invoice[]; payments: Payment[]; currency: string;
@@ -289,7 +295,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           <td className="analysis-pair-divider border p-2">{profitUnit === null ? "غير متاح" : number(profitUnit)}</td>
           <td className="analysis-pair-join border p-2">{profitTotal === null ? "غير متاح" : number(profitTotal)}</td>
           <td className="analysis-pair-divider border p-2">{number(saleUnit)}</td><td className="analysis-pair-join border p-2">{number(saleTotal)}</td>
-          <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{stamp.weekday}</span><span>—</span><span dir="ltr">{stamp.time}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td>
+          <td className="border p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{stamp.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(stamp.time)}</span><span>—</span><span dir="ltr">{stamp.date}</span></div></td>
           <td className="border p-2">{("sellerName" in item ? item.sellerName : undefined) || relatedInvoice?.employeeName || "غير مسجل"}</td>
         </tr>;
       })}</tbody>
@@ -383,7 +389,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                 </tr></thead>
                 <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className={index % 2 ? "bg-slate-50" : "bg-white"}>
                   <td className="border p-2">{number(index + 1)}</td><td className="border p-2">{number(payment.total)}</td><td className="border p-2">{number(payment.payment)}</td><td className="border p-2">{number(payment.remaining)}</td>
-                  <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{payment.weekday}</span><span>—</span><span dir="ltr">{payment.time}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
+                  <td className="border p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{payment.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(payment.time)}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
                   <td className="border p-2">{payment.recipient}</td>
                 </tr>)}</tbody>
               </table> : <p className="p-4 text-center text-sm text-slate-600">لا توجد تسديدات مسجلة في مصدر الحساب المحدد.</p>}
