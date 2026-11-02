@@ -61,6 +61,49 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     ? customerInvoices.flatMap(inv => inv.items.filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (item.details.trim() || item.total !== 0)))
     : (customer.accountingSheetRows || []).filter(row => !row.isSeparator && (row.details.trim() || row.total !== 0));
   const sales = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0) : saleItems.reduce((sum, row) => sum + row.total, 0);
+  const paymentRows = source === "vertical"
+    ? customerInvoices.flatMap(invoice => invoice.items
+      .filter(item => item.isSeparator && (Number(item.paidAmount) || 0) > 0)
+      .map(item => {
+        const paidAmount = Number(item.paidAmount) || 0;
+        const remainingAmount = typeof item.remainingAmount === "number"
+          ? item.remainingAmount
+          : Math.max(0, (Number(item.subtotal) || paidAmount) - paidAmount);
+        const totalAmount = typeof item.subtotal === "number"
+          ? item.subtotal
+          : paidAmount + remainingAmount;
+        const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
+        return {
+          id: invoice.id + ":" + item.id,
+          total: totalAmount,
+          payment: paidAmount,
+          remaining: remainingAmount,
+          weekday: item.paidDay || stamp.weekday,
+          time: item.paidTime || stamp.time,
+          date: stamp.date,
+          recipient: item.sellerName || "غير مسجل",
+        };
+      }))
+    : (() => {
+      let cumulativePayments = 0;
+      return [...(customer.accountingSheetPayments || [])]
+        .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+        .map(payment => {
+          const amount = Number(payment.amount) || 0;
+          cumulativePayments += amount;
+          const stamp = formatLedgerTimestamp(payment.date || "");
+          return {
+            id: payment.id,
+            total: sales,
+            payment: amount,
+            remaining: Math.max(0, sales - cumulativePayments),
+            weekday: stamp.weekday,
+            time: stamp.time,
+            date: stamp.date,
+            recipient: ("sellerName" in payment ? String(payment.sellerName || "") : "") || "غير مسجل",
+          };
+        });
+    })();
   // Payment records already update invoice.paidAmount; adding both would count receipts twice.
   const paid = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0) : (customer.accountingSheetPayments || []).reduce((sum, pay) => sum + pay.amount, 0);
   const remaining = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0) : Math.max(0, sales - paid);
@@ -317,6 +360,21 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                 <div className="overflow-x-auto rounded-lg border">{renderAnalysisTable(selectedAnalysisItems)}</div>
               </section>}
             </> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
+          </section>}
+          {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
+            <div><h3 className="text-base font-bold text-violet-900">سجل التسديدات</h3><p className="mt-1 text-xs text-slate-500">التسديدات المعروضة مأخوذة من سجل ديون العميل، مع المجموع والمتبقي المسجلين لكل حركة.</p></div>
+            <div className="overflow-x-auto rounded-lg border">
+              {paymentRows.length ? <table className="min-w-[760px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+                <thead className="bg-violet-50 text-violet-950"><tr>
+                  <th className="border p-2">المجموع</th><th className="border p-2">التسديد</th><th className="border p-2">المتبقي</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">المستلم</th>
+                </tr></thead>
+                <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className={index % 2 ? "bg-slate-50" : "bg-white"}>
+                  <td className="border p-2">{number(payment.total)}</td><td className="border p-2">{number(payment.payment)}</td><td className="border p-2">{number(payment.remaining)}</td>
+                  <td className="border p-2"><div dir="rtl" className="inline-flex items-center justify-center gap-1"><span>{payment.weekday}</span><span>—</span><span dir="ltr">{payment.time}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
+                  <td className="border p-2">{payment.recipient}</td>
+                </tr>)}</tbody>
+              </table> : <p className="p-4 text-center text-sm text-slate-600">لا توجد تسديدات مسجلة في مصدر الحساب المحدد.</p>}
+            </div>
           </section>}
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
           {financialGroups.filter(([title])=>(tab==="business"&&title === "تفاصيل التعامل التجاري")||(tab==="financial"&&title === "الملخص الحسابي")||(tab==="due"&&title === "المستحقات والتأخير")||(tab==="analytics"&&title === "تحليل سلوك العميل (Customer Analytics)")).map(([title,subgroups])=><section key={title} className="space-y-3 rounded-xl border p-3"><h3 className="rounded-lg bg-violet-100 px-3 py-2 text-sm font-bold text-violet-900">{title}</h3>{subgroups.map(([subtitle,labels])=><div key={subtitle}><h4 className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold">{subtitle}</h4><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{labels.map(label=><div key={label} className={`min-w-0 rounded-lg border border-violet-100 p-3 ${label === "أكثر الأصناف التي يشتريها" || label === "إجمالي عدد البضائع المشتراة" ? "sm:col-span-2" : ""}`}><span className="block text-xs text-slate-600">{label}</span>{label === "أكثر الأصناف التي يشتريها" && purchases.topThree.length > 0 ? <div className="mt-2 overflow-hidden rounded-lg border border-violet-100"><table className="w-full table-fixed border-collapse text-sm text-violet-900"><thead className="bg-violet-50"><tr><th scope="col" className="w-10 border-b border-violet-100 p-2 text-center">ت</th><th scope="col" className="border-b border-violet-100 p-2 text-right">البضاعة</th><th scope="col" className="w-24 border-b border-violet-100 p-2 text-center">العدد</th></tr></thead><tbody>{purchases.topThree.map(([name, count], index) => <tr key={name} className="border-b border-violet-100 last:border-b-0"><td className="p-2 text-center">{index + 1}</td><td className="break-words p-2 font-medium">{name}</td><td className="break-words p-2 text-center font-bold">{number(count)}</td></tr>)}</tbody></table></div> : <strong className="mt-2 block text-sm text-violet-900">{metricValues[label]||"غير متوفر — بيانات غير مسجلة"}</strong>}</div>)}</div></div>)}</section>)}
