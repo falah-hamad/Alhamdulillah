@@ -130,6 +130,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   // Payment records already update invoice.paidAmount; adding both would count receipts twice.
   const paid = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0) : (customer.accountingSheetPayments || []).reduce((sum, pay) => sum + pay.amount, 0);
   const remaining = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0) : Math.max(0, sales - paid);
+  const paidPercent = sales > 0 ? Math.min(100, Math.max(0, (paid / sales) * 100)) : 0;
+  const analysisTotalQuantity = saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
   const chartSales = source === "vertical"
     ? customerInvoices.map(inv => ({ date: inv.date, amount: Number(inv.grandTotal) || 0 }))
     : (customer.accountingSheetRows || []).filter(row => !row.isSeparator && (row.details.trim() || row.total !== 0))
@@ -397,6 +399,34 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                   <td className="border border-slate-300 p-2">{payment.recipient}</td>
                 </tr>)}</tbody>
               </table> : <p className="p-4 text-center text-sm text-slate-600">لا توجد تسديدات مسجلة في مصدر الحساب المحدد.</p>}
+            </div>
+          </section>}
+          {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
+            <div><h3 className="text-base font-bold text-violet-900">ملخص أرقام الورقة الحسابية</h3><p className="mt-1 text-xs text-slate-500">إجماليات المشتريات والتسديد والربح من مصدر الحساب المحدد.</p></div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                ["مجموع مبلغ كل ما تم شراؤه", number(sales), "border-blue-200 bg-blue-50 text-blue-900"],
+                ["مجموع مبلغ كل ما تم تسديده", number(paid), "border-emerald-200 bg-emerald-50 text-emerald-900"],
+                ["مجموع مبلغ ما تبقى عليه", number(remaining), "border-amber-200 bg-amber-50 text-amber-950"],
+              ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
+                <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
+              </article>)}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                ["مجموع مبلغ الشراء", cost === null ? "غير مكتمل" : number(cost), "border-slate-200 bg-slate-50 text-slate-800"],
+                ["مجموع مبلغ البيع", number(sales), "border-indigo-200 bg-indigo-50 text-indigo-900"],
+                ["مجموع مبلغ الربح", profit === null ? "غير متاح" : number(profit), "border-violet-200 bg-violet-50 text-violet-900"],
+              ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
+                <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
+              </article>)}
+            </div>
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+              <div className="flex items-center justify-between gap-3"><strong className="text-sm text-yellow-950">مجموع العدد</strong><strong className="text-lg font-extrabold text-yellow-950" dir="ltr">{number(analysisTotalQuantity)}</strong></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600"><span>نسبة التسديد من إجمالي المشتريات</span><span dir="ltr">{number(paidPercent)}%</span></div>
+              <div dir="rtl" className="h-3 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: paidPercent + "%" }} /></div>
             </div>
           </section>}
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
