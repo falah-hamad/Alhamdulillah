@@ -62,27 +62,42 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     : (customer.accountingSheetRows || []).filter(row => !row.isSeparator && (row.details.trim() || row.total !== 0));
   const sales = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0) : saleItems.reduce((sum, row) => sum + row.total, 0);
   const paymentRows = source === "vertical"
-    ? customerInvoices.flatMap(invoice => invoice.items
-      .filter(item => item.isSeparator && (Number(item.paidAmount) || 0) > 0)
-      .map(item => {
-        const paidAmount = Number(item.paidAmount) || 0;
-        const remainingAmount = typeof item.remainingAmount === "number"
-          ? item.remainingAmount
-          : Math.max(0, (Number(item.subtotal) || paidAmount) - paidAmount);
-        const totalAmount = paidAmount + remainingAmount;
-        const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
-        return {
-          id: invoice.id + ":" + item.id,
-          total: totalAmount,
-          payment: paidAmount,
-          remaining: remainingAmount,
-          weekday: item.paidDay || stamp.weekday,
-          time: item.paidTime || stamp.time,
-          date: stamp.date,
-          recipient: item.sellerName || "غير مسجل",
-        };
-      }))
-    : (() => {
+    ? customerInvoices.flatMap(invoice => {
+      let carriedBalance = 0;
+      let currentSectionTotal = 0;
+      const rows: {
+        id: string; total: number; payment: number; remaining: number;
+        weekday: string; time: string; date: string; recipient: string;
+      }[] = [];
+      const orderedItems = invoice.items
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => (a.item.pageNumber || 1) - (b.item.pageNumber || 1) || a.index - b.index);
+      orderedItems.forEach(({ item }) => {
+        if (item.isSeparator) {
+          const paidAmount = Number(item.paidAmount) || 0;
+          const totalAmount = carriedBalance + currentSectionTotal;
+          const remainingAmount = Math.max(0, totalAmount - paidAmount);
+          if (paidAmount > 0) {
+            const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
+            rows.push({
+              id: invoice.id + ":" + item.id,
+              total: totalAmount,
+              payment: paidAmount,
+              remaining: remainingAmount,
+              weekday: item.paidDay || stamp.weekday,
+              time: item.paidTime || stamp.time,
+              date: stamp.date,
+              recipient: item.sellerName || "غير مسجل",
+            });
+          }
+          carriedBalance = remainingAmount;
+          currentSectionTotal = 0;
+        } else if (!item.isPaymentRow && !item.isRemainingRow) {
+          currentSectionTotal += Number(item.total || item.unitPrice || 0);
+        }
+      });
+      return rows;
+    })    : (() => {
       let cumulativePayments = 0;
       return [...(customer.accountingSheetPayments || [])]
         .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
