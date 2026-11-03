@@ -12,7 +12,7 @@ export function FilterButton({ activeCount, onClick, className = "" }: {
   </button>;
 }
 
-export function FilterPanel({ open, title, activeCount, onClose, onClear, onApply, children }: {
+export function FilterPanel({ open, title, activeCount, onClose, onClear, onApply, children, clearLabel = "إعادة تعيين التصفية", applyLabel = "تطبيق التصفية" }: {
   open: boolean;
   title: string;
   activeCount: number;
@@ -20,6 +20,8 @@ export function FilterPanel({ open, title, activeCount, onClose, onClear, onAppl
   onClear: () => void;
   onApply: () => void;
   children: React.ReactNode;
+  clearLabel?: string;
+  applyLabel?: string;
 }) {
   if (!open) return null;
   return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" dir="rtl" onMouseDown={onClose}>
@@ -30,8 +32,8 @@ export function FilterPanel({ open, title, activeCount, onClose, onClear, onAppl
       </header>
       <div className="max-h-[65vh] space-y-4 overflow-y-auto p-4">{children}</div>
       <footer className="flex items-center justify-between gap-2 border-t bg-white p-3">
-        <button type="button" onClick={onClear} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"><RotateCcw className="h-4 w-4" />مسح الكل</button>
-        <button type="button" onClick={onApply} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700">عرض النتائج</button>
+        <button type="button" onClick={onClear} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"><RotateCcw className="h-4 w-4" />{clearLabel}</button>
+        <button type="button" onClick={onApply} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700">{applyLabel}</button>
       </footer>
     </section>
   </div>;
