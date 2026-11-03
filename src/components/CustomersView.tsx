@@ -570,11 +570,13 @@ export default function CustomersView({
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">6. حسب مدة التعامل مع العميل</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <label className="text-sm text-slate-700">مدة التعامل تساوي<input type="number" min="0" value={draftFilters.relationshipExact} onChange={e => updateDraftFilter("relationshipExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-2">
+                  <label className="text-sm text-slate-700">مدة التعامل تساوي<input type="number" value={draftFilters.relationshipExact} onChange={e => updateDraftFilter("relationshipExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
                   <label className="text-sm text-slate-700">الوحدة<select value={draftFilters.relationshipUnit} onChange={e => updateDraftFilter("relationshipUnit", e.target.value as CustomerFilterState["relationshipUnit"])} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="days">أيام</option><option value="months">أشهر</option><option value="years">سنوات</option></select></label>
-                  <label className="text-sm text-slate-700">مدة التعامل من<input type="number" min="0" value={draftFilters.relationshipMin} onChange={e => updateDraftFilter("relationshipMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى<input type="number" min="0" value={draftFilters.relationshipMax} onChange={e => updateDraftFilter("relationshipMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="text-sm text-slate-700">من<input type="number" value={draftFilters.relationshipMin} onChange={e => updateDraftFilter("relationshipMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <label className="text-sm text-slate-700">إلى<input type="number" value={draftFilters.relationshipMax} onChange={e => updateDraftFilter("relationshipMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">تُحسب من تاريخ أول عملية شراء مسجلة إلى اليوم.</p>
               </div>
@@ -584,35 +586,43 @@ export default function CustomersView({
               <h4 className="font-bold text-blue-900">ثانياً: التصفية حسب المشتريات</h4>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">7. حسب تاريخ الشراء</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">اشترى في تاريخ<input type="date" value={draftFilters.purchaseOn} onChange={e => updateDraftFilter("purchaseOn", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.purchaseFrom} onChange={e => updateDraftFilter("purchaseFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={e => updateDraftFilter("purchaseTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.purchaseFrom} onChange={e => updateDraftFilter("purchaseFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={e => updateDraftFilter("purchaseTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">8. حسب إجمالي عدد البضائع المشتراة</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">عدد البضائع يساوي<input type="number" min="0" step="any" value={draftFilters.quantityExact} onChange={e => updateDraftFilter("quantityExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">من<input type="number" min="0" step="any" value={draftFilters.quantityMin} onChange={e => updateDraftFilter("quantityMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى<input type="number" min="0" step="any" value={draftFilters.quantityMax} onChange={e => updateDraftFilter("quantityMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">من<input type="number" min="0" step="any" value={draftFilters.quantityMin} onChange={e => updateDraftFilter("quantityMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى<input type="number" min="0" step="any" value={draftFilters.quantityMax} onChange={e => updateDraftFilter("quantityMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">يُحسب العدد من مجموع كميات البنود الفعلية، دون صفوف التسديد والفواصل.</p>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">9. حسب إجمالي تكلفة شراء البضائع (رأس المال)</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <label className="text-sm text-slate-700">التكلفة تساوي ({settings.currency})<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">التكلفة من ({settings.currency})<input type="number" min="0" value={draftFilters.costMin} onChange={e => updateDraftFilter("costMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.costMax} onChange={e => updateDraftFilter("costMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                <div>
+                  <label className="text-sm text-slate-700">التكلفة يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">التكلفة من ({settings.currency})<input type="number" min="0" value={draftFilters.costMin} onChange={e => updateDraftFilter("costMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.costMax} onChange={e => updateDraftFilter("costMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">10. حسب إجمالي قيمة مشتريات العميل</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">الإجمالي يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.salesExact} onChange={e => updateDraftFilter("salesExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">الإجمالي من ({settings.currency})<input type="number" min="0" value={draftFilters.salesMin} onChange={e => updateDraftFilter("salesMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.salesMax} onChange={e => updateDraftFilter("salesMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">الإجمالي من ({settings.currency})<input type="number" min="0" value={draftFilters.salesMin} onChange={e => updateDraftFilter("salesMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.salesMax} onChange={e => updateDraftFilter("salesMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
               </div>
             </section>
@@ -621,27 +631,33 @@ export default function CustomersView({
               <h4 className="font-bold text-blue-900">ثالثاً: التصفية حسب الأرباح والتسديدات والديون</h4>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">11. حسب إجمالي الربح من العميل</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">الربح يساوي ({settings.currency})<input type="number" value={draftFilters.profitExact} onChange={e => updateDraftFilter("profitExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">الربح من ({settings.currency})<input type="number" value={draftFilters.profitMin} onChange={e => updateDraftFilter("profitMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" value={draftFilters.profitMax} onChange={e => updateDraftFilter("profitMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">الربح من ({settings.currency})<input type="number" value={draftFilters.profitMin} onChange={e => updateDraftFilter("profitMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" value={draftFilters.profitMax} onChange={e => updateDraftFilter("profitMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">لا يدخل في نتيجة الربح من كانت كلفة شراء أي بند لديه غير مسجلة.</p>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">12. حسب إجمالي المبالغ المسددة من العميل</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">المسدد يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.paidExact} onChange={e => updateDraftFilter("paidExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">المسدد من ({settings.currency})<input type="number" min="0" value={draftFilters.paidMin} onChange={e => updateDraftFilter("paidMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.paidMax} onChange={e => updateDraftFilter("paidMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">المسدد من ({settings.currency})<input type="number" min="0" value={draftFilters.paidMin} onChange={e => updateDraftFilter("paidMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.paidMax} onChange={e => updateDraftFilter("paidMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
               </div>
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">13. حسب إجمالي المبلغ المتبقي على العميل</h5>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
                   <label className="text-sm text-slate-700">المتبقي يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.remainingExact} onChange={e => updateDraftFilter("remainingExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">المتبقي من ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMin} onChange={e => updateDraftFilter("remainingMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-                  <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMax} onChange={e => updateDraftFilter("remainingMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm text-slate-700">المتبقي من ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMin} onChange={e => updateDraftFilter("remainingMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                    <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMax} onChange={e => updateDraftFilter("remainingMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  </div>
                 </div>
               </div>
             </section>
