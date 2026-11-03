@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Customer, Payment, SystemSettings } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
+import { FilterButton, FilterPanel } from "./FilterPanel";
 
 interface PaymentsViewProps {
   payments: Payment[];
@@ -34,6 +35,11 @@ export default function PaymentsView({
 }: PaymentsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minimumAmount, setMinimumAmount] = useState("");
+  const [maximumAmount, setMaximumAmount] = useState("");
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
   // Modal
@@ -83,10 +89,18 @@ export default function PaymentsView({
   };
 
   // Filter payments
+  const activeFilterCount = [selectedMethod !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(minimumAmount), Boolean(maximumAmount)].filter(Boolean).length;
   const filteredPayments = payments.filter((p) => {
-    const matchesSearch = p.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || [p.customerName, p.notes || "", p.method || ""].some(value => value.toLowerCase().includes(q));
     const matchesMethod = selectedMethod === "all" || p.method === selectedMethod;
-    return matchesSearch && matchesMethod;
+    const paymentDate = (p.date || "").slice(0, 10);
+    const matchesFrom = !dateFrom || paymentDate >= dateFrom;
+    const matchesTo = !dateTo || paymentDate <= dateTo;
+    const amountValue = Number(p.amount) || 0;
+    const matchesMinimum = !minimumAmount || amountValue >= Number(minimumAmount);
+    const matchesMaximum = !maximumAmount || amountValue <= Number(maximumAmount);
+    return matchesSearch && matchesMethod && matchesFrom && matchesTo && matchesMinimum && matchesMaximum;
   });
 
   const selectedReceipt = payments.find((p) => p.id === selectedReceiptId);
@@ -124,7 +138,7 @@ export default function PaymentsView({
         {/* Payments History List */}
         <div className={`lg:col-span-7 space-y-4 no-print`}>
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div className="relative sm:col-span-2">
                 <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input
@@ -149,7 +163,13 @@ export default function PaymentsView({
                   <option value="مدى">💳 بطاقة مدى / الكتروني</option>
                 </select>
               </div>
+              <div className="flex items-center justify-start"><FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} /></div>
             </div>
+            <FilterPanel open={filtersOpen} title="تصفية التسديدات" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedMethod("all"); setDateFrom(""); setDateTo(""); setMinimumAmount(""); setMaximumAmount(""); setSearchQuery(""); }}>
+              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل مبلغ<input type="number" min="0" value={minimumAmount} onChange={e => setMinimumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى مبلغ<input type="number" min="0" value={maximumAmount} onChange={e => setMaximumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+              <p className="text-xs text-slate-500">استخدم البحث و«طريقة التسديد» بجانب زر التصفية لاختيار العميل والطريقة.</p>
+            </FilterPanel>
 
             {filteredPayments.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">
