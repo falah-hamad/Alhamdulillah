@@ -1011,6 +1011,11 @@ export default function App() {
               addCustomer={addCustomer}
               updateCustomer={updateCustomer}
               deleteCustomer={deleteCustomer}
+              onOpenLedger={(customerId) => {
+                setCurrentTab("ledger");
+                setLedgerTargetCustomerId(customerId);
+                setLedgerTargetInvoiceId(null);
+              }}
             />
           )}
 
