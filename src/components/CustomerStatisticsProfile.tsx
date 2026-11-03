@@ -243,7 +243,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   metricValues["إجمالي عدد البضائع المشتراة"] = number(purchases.totalQuantity);
   const analysisFilterCount = [analysisProductFilter.trim(), analysisSellerFilter.trim(), Boolean(analysisDateFrom), Boolean(analysisDateTo)].filter(Boolean).length;
   const dateFilterKey = (value: string) => {
-    const match = /^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/.exec(value || "");
+    const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(value || "");
     if (match) return match[1] + "-" + match[2].padStart(2, "0") + "-" + match[3].padStart(2, "0");
     const parsed = Date.parse(value || "");
     return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }) : "";
