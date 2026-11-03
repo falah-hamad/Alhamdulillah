@@ -38,6 +38,7 @@ interface CustomersViewProps {
   addCustomer: (customer: Omit<Customer, "id" | "createdAt">) => Customer;
   updateCustomer: (customer: Customer) => void;
   deleteCustomer: (id: string) => void;
+  onOpenLedger: (customerId: string) => void;
 }
 interface CustomerFilterState {
   folderId: string;
@@ -100,6 +101,7 @@ export default function CustomersView({
   addCustomer,
   updateCustomer,
   deleteCustomer,
+  onOpenLedger,
 }: CustomersViewProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments" | "accounting">("statement");
@@ -760,7 +762,7 @@ export default function CustomersView({
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <span
-                              onClick={() => setSelectedCustomerId(c.id)}
+                              onClick={(event) => { event.stopPropagation(); onOpenLedger(c.id); }}
                               className="px-3 py-1 bg-blue-50 group-hover:bg-blue-600 text-blue-700 group-hover:text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                             >
                               كشف الحساب <ChevronLeft className="w-3.5 h-3.5" />
@@ -821,7 +823,7 @@ export default function CustomersView({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedCustomerId(c.id);
+                                    onOpenLedger(c.id);
                                   }}
                                   className="px-3.5 py-1.5 bg-blue-50 group-hover:bg-blue-600 text-blue-700 group-hover:text-white rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                 >
