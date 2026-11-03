@@ -146,12 +146,12 @@ export default function CustomersView({
 
   // Calculations for a customer
   const getCustomerMetrics = (custId: string) => {
-    const custInvoices = invoices.filter((inv) => inv.customerId === custId);
-    const custPayments = payments.filter((p) => p.customerId === custId);
+    const custInvoices = invoices.filter((inv) => inv.customerId === custId && !inv.isDeleted);
+    const custPayments = payments.filter((p) => p.customerId === custId && !p.isDeleted);
 
     const customerRecord = customers.find((c) => c.id === custId);
-    const sheetRows = customerRecord?.accountingSheetRows || [];
-    const sheetPayments = customerRecord?.accountingSheetPayments || [];
+    const sheetRows = (customerRecord?.accountingSheetRows || []).filter(row => !row.isSeparator);
+    const sheetPayments = (customerRecord?.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted);
     const sheetDebt = sheetRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
     const sheetPaid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     const totalDebts = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0) + sheetDebt;
@@ -300,14 +300,15 @@ export default function CustomersView({
       .filter(item => item.isSeparator && Number(item.paidAmount) > 0)
       .map(item => (item as typeof item & { sellerName?: string }).sellerName)),
   ]);
-  const activeFilterCount = Object.values(customerFilters).filter(value =>
-    typeof value === "boolean" ? value : value !== "" && value !== "all" && value !== "days"
-  ).length;
+  const activeFilterCount = Object.entries(customerFilters).filter(([key, value]) => {
+    if (key === "relationshipUnit") return Boolean(customerFilters.relationshipExact || customerFilters.relationshipMin || customerFilters.relationshipMax);
+    return typeof value === "boolean" ? value : value !== "" && value !== "all";
+  }).length;
   const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
   const dateKey = (value?: string) => {
     if (!value) return "";
     const raw = value.trim();
-    const dateOnly = /^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/.exec(raw);
+    const dateOnly = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(raw);
     if (dateOnly) return dateOnly[1] + "-" + dateOnly[2].padStart(2, "0") + "-" + dateOnly[3].padStart(2, "0");
     const parsed = new Date(raw);
     return Number.isFinite(parsed.getTime()) ? parsed.toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }) : "";
@@ -437,7 +438,7 @@ export default function CustomersView({
     return true;
   });
 
-  const updateDraftFilter = <K extends keyof CustomerFilterState>(key: K, value: CustomerFilterState[K]) => {
+  const updateDraftFilter = <K extends keyof CustomerFilterState,>(key: K, value: CustomerFilterState[K]) => {
     setDraftFilters(previous => ({ ...previous, [key]: value }));
   };
 
