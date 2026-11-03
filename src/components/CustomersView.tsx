@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Users,
   Search,
+  SlidersHorizontal,
   PlusCircle,
   Phone,
   MapPin,
@@ -25,13 +26,15 @@ import {
   User,
   Loader2
 } from "lucide-react";
-import { Customer, Invoice, Payment, SystemSettings } from "../types";
+import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
+import { FilterButton, FilterPanel } from "./FilterPanel";
 import { printElement } from "../utils/printUtils";
 
 interface CustomersViewProps {
   customers: Customer[];
   invoices: Invoice[];
   payments: Payment[];
+  folders?: CustomerFolder[];
   settings: SystemSettings;
   addCustomer: (customer: Omit<Customer, "id" | "createdAt">) => Customer;
   updateCustomer: (customer: Customer) => void;
@@ -42,6 +45,7 @@ export default function CustomersView({
   customers,
   invoices,
   payments,
+  folders = [],
   settings,
   addCustomer,
   updateCustomer,
@@ -50,6 +54,14 @@ export default function CustomersView({
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments" | "accounting">("statement");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [folderFilter, setFolderFilter] = useState("all");
+  const [balanceFilter, setBalanceFilter] = useState("all");
+  const [minimumBalance, setMinimumBalance] = useState("");
+  const [maximumBalance, setMaximumBalance] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [activityFrom, setActivityFrom] = useState("");
+  const [activityTo, setActivityTo] = useState("");
   const [isPrintingCustomer, setIsPrintingCustomer] = useState(false);
   const [sheetDetails, setSheetDetails] = useState("");
   const [sheetQuantity, setSheetQuantity] = useState("1");
@@ -218,12 +230,25 @@ export default function CustomersView({
   };
 
   // Filter customers
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phone.includes(searchQuery) ||
-      (c.address && c.address.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const activeFilterCount = [folderFilter !== "all", balanceFilter !== "all", Boolean(minimumBalance), Boolean(maximumBalance), overdueOnly, Boolean(activityFrom), Boolean(activityTo)].filter(Boolean).length;
+  const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
+  const filteredCustomers = customers.filter(c => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || [c.name, c.phone, c.address || ""].some(value => value.toLowerCase().includes(q));
+    if (!matchesSearch || (folderFilter !== "all" && (c.folderId || "") !== folderFilter)) return false;
+    const metrics = getCustomerMetrics(c.id);
+    const balance = Number(metrics.totalRemaining) || 0;
+    if (balanceFilter === "owing" && balance <= 0) return false;
+    if (balanceFilter === "settled" && balance > 0) return false;
+    if (minimumBalance && balance < Number(minimumBalance)) return false;
+    if (maximumBalance && balance > Number(maximumBalance)) return false;
+    if (overdueOnly && !metrics.invoices.some(inv => Number(inv.remainingAmount) > 0 && inv.dueDate && inv.dueDate < todayDate)) return false;
+    const activityDates = metrics.ledger.map(entry => entry.date).filter(Boolean).sort();
+    const latestActivity = activityDates[activityDates.length - 1] || "";
+    if (activityFrom && (!latestActivity || latestActivity < activityFrom)) return false;
+    if (activityTo && (!latestActivity || latestActivity > activityTo)) return false;
+    return true;
+  });
 
   return (
     <div className="customers-view space-y-6 min-w-0">
@@ -269,6 +294,7 @@ export default function CustomersView({
                 className="w-full pr-10 pl-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-2xs"
               />
             </div>
+            <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
 
             {/* View Mode Switcher Buttons */}
             <div
@@ -332,6 +358,13 @@ export default function CustomersView({
             </div>
           </div>
 
+          <FilterPanel open={filtersOpen} title="تصفية العملاء" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setFolderFilter("all"); setBalanceFilter("all"); setMinimumBalance(""); setMaximumBalance(""); setOverdueOnly(false); setActivityFrom(""); setActivityTo(""); }}>
+            <label className="block text-sm font-semibold text-slate-700">المجلد<select value={folderFilter} onChange={e => setFolderFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل المجلدات</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+            <label className="block text-sm font-semibold text-slate-700">حالة الحساب<select value={balanceFilter} onChange={e => setBalanceFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="owing">عليه مبلغ</option><option value="settled">مسدد بالكامل</option></select></label>
+            <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل متبقي<input type="number" min="0" value={minimumBalance} onChange={e => setMinimumBalance(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى متبقي<input type="number" min="0" value={maximumBalance} onChange={e => setMaximumBalance(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)} className="h-4 w-4 accent-blue-600" />عليه مستحقات متأخرة</label>
+            <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">آخر تعامل من<input type="date" value={activityFrom} onChange={e => setActivityFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى<input type="date" value={activityTo} onChange={e => setActivityTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          </FilterPanel>
           {/* Customers Table/Grid */}
           {filteredCustomers.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-100 py-12 text-center text-slate-400 text-xs shadow-sm">
