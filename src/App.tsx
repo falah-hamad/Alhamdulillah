@@ -1006,6 +1006,7 @@ export default function App() {
               customers={activeCustomers}
               invoices={activeInvoices}
               payments={activePayments}
+              folders={folders}
               settings={settings}
               addCustomer={addCustomer}
               updateCustomer={updateCustomer}
