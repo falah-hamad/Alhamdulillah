@@ -304,12 +304,26 @@ export default function CustomersView({
     if (today.getUTCDate() < firstDate.getUTCDate()) months -= 1;
     return unit === "months" ? Math.max(0, months) : Math.max(0, Math.floor(months / 12));
   };
+  const parseFilterNumber = (input: string) => {
+    const normalized = input.trim()
+      .replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - 1632))
+      .replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 1776))
+      .replace(/[٬،,]/g, "")
+      .replace(/٫/g, ".")
+      .replace(/\s/g, "");
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   const inNumberRange = (value: number | null, exact: string, min: string, max: string) => {
     if (!exact && !min && !max) return true;
     if (value === null || !Number.isFinite(value)) return false;
-    if (exact && value !== Number(exact)) return false;
-    if (min && value < Number(min)) return false;
-    if (max && value > Number(max)) return false;
+    const exactValue = exact ? parseFilterNumber(exact) : null;
+    const minValue = min ? parseFilterNumber(min) : null;
+    const maxValue = max ? parseFilterNumber(max) : null;
+    if (exact && (exactValue === null || Math.abs(value - exactValue) > 0.01)) return false;
+    if (min && (minValue === null || value < minValue)) return false;
+    if (max && (maxValue === null || value > maxValue)) return false;
     return true;
   };
   const filteredCustomers = customers.filter(customer => {
@@ -328,8 +342,7 @@ export default function CustomersView({
     const balance = Number(metrics.totalRemaining) || 0;
     if (filters.balanceStatus === "owing" && balance <= 0) return false;
     if (filters.balanceStatus === "settled" && balance > 0) return false;
-    if (filters.minBalance && balance < Number(filters.minBalance)) return false;
-    if (filters.maxBalance && balance > Number(filters.maxBalance)) return false;
+    if (!inNumberRange(balance, "", filters.minBalance, filters.maxBalance)) return false;
     if (filters.overdueOnly && !metrics.invoices.some(invoice => !invoice.isDeleted && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < todayDate)) return false;
     const activityDates = metrics.ledger.map(entry => dateKey(entry.date)).filter(Boolean).sort();
     const latestActivity = activityDates[activityDates.length - 1] || "";
@@ -380,7 +393,17 @@ export default function CustomersView({
       + (customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
         .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     if (!inNumberRange(paidTotal, filters.paidExact, filters.paidMin, filters.paidMax)) return false;
-    if (!inNumberRange(balance, filters.remainingExact, filters.remainingMin, filters.remainingMax)) return false;
+    const verticalRemaining = metrics.invoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
+    const sheetRowsForBalance = (customer.accountingSheetRows || []).filter(row => !row.isSeparator);
+    const sheetDebtForBalance = sheetRowsForBalance.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const sheetPaidForBalance = (customer.accountingSheetPayments || [])
+      .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+      .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const accountingRemaining = Math.max(0, sheetDebtForBalance - sheetPaidForBalance);
+    // A customer may have parallel vertical and accounting sheets. Match the entered
+    // balance against the combined balance and each sheet's own displayed balance.
+    const remainingBalances = [balance, verticalRemaining, accountingRemaining];
+    if (!remainingBalances.some(value => inNumberRange(value, filters.remainingExact, filters.remainingMin, filters.remainingMax))) return false;
 
     const sellers = distinctOptions([
       ...customerInvoices.flatMap(invoice => [
