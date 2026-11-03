@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, ContactRound } from "lucide-react";
+import { FilterButton, FilterPanel } from "./FilterPanel";
 import { Customer, CustomerProfile, CustomerFolder, Invoice, Payment } from "../types";
 import { MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 
@@ -59,6 +60,11 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [selectedAnalysisKeys, setSelectedAnalysisKeys] = useState<string[]>([]);
+  const [analysisFiltersOpen, setAnalysisFiltersOpen] = useState(false);
+  const [analysisProductFilter, setAnalysisProductFilter] = useState("");
+  const [analysisSellerFilter, setAnalysisSellerFilter] = useState("");
+  const [analysisDateFrom, setAnalysisDateFrom] = useState("");
+  const [analysisDateTo, setAnalysisDateTo] = useState("");
   const selectionPressTimer = useRef<number | null>(null);
   const pageTitle = useRef<HTMLHeadingElement>(null);
   const requestClose = () => { if (!saving && (!editing || window.confirm("الرجوع إلى العملاء وإلغاء التعديلات غير المحفوظة؟"))) onClose(); };
@@ -235,8 +241,31 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   metricValues["مدة التعامل بالأيام والأشهر والسنوات"] = purchaseDuration(purchases.first, purchases.last);
   metricValues["أكثر الأصناف التي يشتريها"] = purchases.topThree.length ? purchases.topThree.map(([name, count]) => `${name} (${number(count)})`).join("، ") : "لا توجد أصناف مسجلة";
   metricValues["إجمالي عدد البضائع المشتراة"] = number(purchases.totalQuantity);
+  const analysisFilterCount = [analysisProductFilter.trim(), analysisSellerFilter.trim(), Boolean(analysisDateFrom), Boolean(analysisDateTo)].filter(Boolean).length;
+  const dateFilterKey = (value: string) => {
+    const match = /^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/.exec(value || "");
+    if (match) return match[1] + "-" + match[2].padStart(2, "0") + "-" + match[3].padStart(2, "0");
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }) : "";
+  };
+  const matchesAnalysisDate = (value: string) => {
+    const key = dateFilterKey(value);
+    return (!analysisDateFrom || Boolean(key && key >= analysisDateFrom)) && (!analysisDateTo || Boolean(key && key <= analysisDateTo));
+  };
+  const analysisItems = saleItems.filter(item => {
+    const relatedInvoice = source === "vertical" ? customerInvoices.find(invoice => invoice.items.some(invoiceItem => invoiceItem.id === item.id)) : undefined;
+    const itemSeller = (("sellerName" in item ? String(item.sellerName || "") : "") || relatedInvoice?.employeeName || "").toLocaleLowerCase();
+    const itemDate = ("createdAt" in item && typeof item.createdAt === "string" ? item.createdAt : "") || relatedInvoice?.date || relatedInvoice?.createdAt || customer.accountingSheetDate || "";
+    const matchesProduct = !analysisProductFilter.trim() || (item.details || "").toLocaleLowerCase().includes(analysisProductFilter.trim().toLocaleLowerCase());
+    const matchesSeller = !analysisSellerFilter.trim() || itemSeller.includes(analysisSellerFilter.trim().toLocaleLowerCase());
+    return matchesProduct && matchesSeller && matchesAnalysisDate(itemDate);
+  });
+  const analysisPaymentRows = paymentRows.filter(payment =>
+    (!analysisSellerFilter.trim() || payment.recipient.toLocaleLowerCase().includes(analysisSellerFilter.trim().toLocaleLowerCase())) &&
+    matchesAnalysisDate(payment.date)
+  );
   const analysisRowKey = (item: (typeof saleItems)[number]) => source + ":" + item.id;
-  const selectedAnalysisItems = saleItems.filter(item => selectedAnalysisKeys.includes(analysisRowKey(item)));
+  const selectedAnalysisItems = analysisItems.filter(item => selectedAnalysisKeys.includes(analysisRowKey(item)));
   const startAnalysisRowLongPress = (item: (typeof saleItems)[number]) => {
     if (selectionPressTimer.current !== null) window.clearTimeout(selectionPressTimer.current);
     const key = analysisRowKey(item);
@@ -254,9 +283,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const formatAnalysisQuantityTotals = (rows: typeof saleItems) =>
     number(rows.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0));
   const toggleAllAnalysisRows = () => setSelectedAnalysisKeys(
-    selectedAnalysisItems.length === saleItems.length && saleItems.length > 0
+    selectedAnalysisItems.length === analysisItems.length && analysisItems.length > 0
       ? []
-      : saleItems.map(analysisRowKey)
+      : analysisItems.map(analysisRowKey)
   );
   const renderAnalysisTable = (rows: typeof saleItems, selectable = false) => {
     const rowsSale = rows.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
@@ -336,9 +365,15 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { setSource(e.target.value as typeof source); setExpanded(false); setSelectedAnalysisKeys([]); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p></>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
-            <div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div>
-            {saleItems.length ? <><div className="overflow-x-auto rounded-lg border">
-              {renderAnalysisTable(saleItems, selectedAnalysisKeys.length > 0)}
+            <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div><FilterButton activeCount={analysisFilterCount} onClick={() => setAnalysisFiltersOpen(true)} /></div>
+            <FilterPanel open={analysisFiltersOpen} title="تصفية تحليل العميل" activeCount={analysisFilterCount} onClose={() => setAnalysisFiltersOpen(false)} onApply={() => setAnalysisFiltersOpen(false)} onClear={() => { setAnalysisProductFilter(""); setAnalysisSellerFilter(""); setAnalysisDateFrom(""); setAnalysisDateTo(""); }}>
+              <label className="block text-sm font-semibold text-slate-700">البضاعة<input value={analysisProductFilter} onChange={e => setAnalysisProductFilter(e.target.value)} placeholder="اسم البضاعة أو جزء منه" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+              <label className="block text-sm font-semibold text-slate-700">اسم البائع أو المستلم<input value={analysisSellerFilter} onChange={e => setAnalysisSellerFilter(e.target.value)} placeholder="اكتب الاسم" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={analysisDateFrom} onChange={e => setAnalysisDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={analysisDateTo} onChange={e => setAnalysisDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+            </FilterPanel>
+            {analysisFilterCount > 0 && <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">تمت تصفية الصفوف. بطاقات الملخص أدناه تعرض إجمالي حساب العميل كاملاً.</p>}
+            {analysisItems.length ? <><p className="text-xs text-slate-500">المعروض {number(analysisItems.length)} من {number(saleItems.length)} بنداً</p><div className="overflow-x-auto rounded-lg border">
+              {renderAnalysisTable(analysisItems, selectedAnalysisItems.length > 0)}
                 <style>{`
                   .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
                     border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
@@ -384,16 +419,16 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
                 </div>
                 <div className="overflow-x-auto rounded-lg border">{renderAnalysisTable(selectedAnalysisItems)}</div>
               </section>}
-            </> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">لا توجد بنود محفوظة في مصدر الحساب المحدد.</p>}
+            </> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">{analysisFilterCount ? "لا توجد بنود تطابق شروط التصفية." : "لا توجد بنود محفوظة في مصدر الحساب المحدد."}</p>}
           </section>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div><h3 className="text-base font-bold text-violet-900">سجل التسديدات</h3><p className="mt-1 text-xs text-slate-500">التسديدات المعروضة مأخوذة من سجل ديون العميل، مع المجموع والمتبقي المسجلين لكل حركة.</p></div>
             <div className="overflow-x-auto rounded-lg border">
-              {paymentRows.length ? <table className="min-w-[1000px] w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+              {analysisPaymentRows.length ? <table className="min-w-[1000px] w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
                 <thead className="bg-[#91abd5] text-slate-950"><tr>
                   <th className="border border-slate-400 p-2">ت</th><th className="border border-slate-400 p-2">المجموع الكلي</th><th className="border border-slate-400 p-2">مبلغ التسديد</th><th className="border border-slate-400 p-2">المبلغ المتبقي</th><th className="border border-slate-400 p-2">الطابع الزمني</th><th className="border border-slate-400 p-2">المستلم</th>
                 </tr></thead>
-                <tbody>{paymentRows.map((payment, index) => <tr key={payment.id} className="bg-white">
+                <tbody>{analysisPaymentRows.map((payment, index) => <tr key={payment.id} className="bg-white">
                   <td className="border border-slate-300 p-2">{paymentOrdinalLabel(index)}</td><td className="border border-slate-300 p-2">{number(payment.total)}</td><td className="border border-slate-300 p-2">{number(payment.payment)}</td><td className="border border-slate-300 p-2">{number(payment.remaining)}</td>
                   <td className="border border-slate-300 p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{payment.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(payment.time)}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
                   <td className="border border-slate-300 p-2">{payment.recipient}</td>
