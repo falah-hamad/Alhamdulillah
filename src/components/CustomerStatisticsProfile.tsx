@@ -54,9 +54,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
 }) {
   const [tab, setTab] = useState<"personal" | "paper" | "business" | "financial" | "due" | "analytics" | "summary">("personal");
   const sourceStorageKey = "customer-statistics-account-source";
-  const [source, setSource] = useState<"vertical" | "accounting">(() => {
+  const [source, setSource] = useState<"vertical" | "accounting" | "all">(() => {
     const savedSource = window.localStorage.getItem(sourceStorageKey);
-    return savedSource === "accounting" ? "accounting" : "vertical";
+    return savedSource === "vertical" || savedSource === "accounting" ? savedSource : "all";
   });
   const [draft, setDraft] = useState<CustomerProfile>(() => ({ ...customer.profile, name: customer.name, phone: customer.phone, address: customer.address || "", salaryType: customer.salaryType || "" }));
   const [editing, setEditing] = useState(false);
@@ -77,78 +77,103 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const folderPath = customerFolderPath(customer.folderId, folders);
   const customerInvoices = invoices.filter(inv => inv.customerId === customer.id && !inv.isDeleted);
   const customerPayments = payments.filter(pay => pay.customerId === customer.id && !pay.isDeleted);
+  const verticalSaleItems = customerInvoices.flatMap(inv => inv.items.filter(item =>
+    !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (item.details.trim() || item.total !== 0)
+  ));
+  const accountingSaleItems = (customer.accountingSheetRows || []).filter(row =>
+    !row.isSeparator && (row.details.trim() || row.total !== 0)
+  );
   const saleItems = source === "vertical"
-    ? customerInvoices.flatMap(inv => inv.items.filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (item.details.trim() || item.total !== 0)))
-    : (customer.accountingSheetRows || []).filter(row => !row.isSeparator && (row.details.trim() || row.total !== 0));
-  const sales = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0) : saleItems.reduce((sum, row) => sum + row.total, 0);
-  const paymentRows = source === "vertical"
-    ? customerInvoices.flatMap(invoice => {
-      let carriedBalance = 0;
-      let currentSectionTotal = 0;
-      const rows: {
-        id: string; total: number; payment: number; remaining: number;
-        weekday: string; time: string; date: string; recipient: string;
-      }[] = [];
-      const orderedItems = invoice.items
-        .map((item, index) => ({ item, index }))
-        .sort((a, b) => (a.item.pageNumber || 1) - (b.item.pageNumber || 1) || a.index - b.index);
-      orderedItems.forEach(({ item }) => {
-        if (item.isSeparator) {
-          const paidAmount = Number(item.paidAmount) || 0;
-          const totalAmount = carriedBalance + currentSectionTotal;
-          const remainingAmount = Math.max(0, totalAmount - paidAmount);
-          if (paidAmount > 0) {
-            const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
-            rows.push({
-              id: invoice.id + ":" + item.id,
-              total: totalAmount,
-              payment: paidAmount,
-              remaining: remainingAmount,
-              weekday: item.paidDay || stamp.weekday,
-              time: item.paidTime || stamp.time,
-              date: stamp.date,
-              recipient: item.sellerName || "غير مسجل",
-            });
-          }
-          carriedBalance = remainingAmount;
-          currentSectionTotal = 0;
-        } else if (!item.isPaymentRow && !item.isRemainingRow) {
-          currentSectionTotal += Number(item.total || item.unitPrice || 0);
-        }
-      });
-      return rows;
-    })    : (() => {
-      let cumulativePayments = 0;
-      return [...(customer.accountingSheetPayments || [])]
-        .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
-        .map(payment => {
-          const amount = Number(payment.amount) || 0;
-          cumulativePayments += amount;
-          const stamp = formatLedgerTimestamp(payment.date || "");
-          return {
-            id: payment.id,
-            total: sales,
-            payment: amount,
-            remaining: Math.max(0, sales - cumulativePayments),
-            weekday: stamp.weekday,
-            time: stamp.time,
+    ? verticalSaleItems
+    : source === "accounting"
+      ? accountingSaleItems
+      : [...verticalSaleItems, ...accountingSaleItems];
+  const verticalSales = customerInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+  const accountingSales = accountingSaleItems.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+  const sales = source === "vertical" ? verticalSales : source === "accounting" ? accountingSales : verticalSales + accountingSales;
+  const verticalPaymentRows = customerInvoices.flatMap(invoice => {
+    let carriedBalance = 0;
+    let currentSectionTotal = 0;
+    const rows: {
+      id: string; total: number; payment: number; remaining: number;
+      weekday: string; time: string; date: string; recipient: string;
+    }[] = [];
+    const orderedItems = invoice.items
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => (a.item.pageNumber || 1) - (b.item.pageNumber || 1) || a.index - b.index);
+    orderedItems.forEach(({ item }) => {
+      if (item.isSeparator) {
+        const paidAmount = Number(item.paidAmount) || 0;
+        const totalAmount = carriedBalance + currentSectionTotal;
+        const remainingAmount = Math.max(0, totalAmount - paidAmount);
+        if (paidAmount > 0) {
+          const stamp = formatLedgerTimestamp(item.paidDate || invoice.date || invoice.createdAt || "");
+          rows.push({
+            id: invoice.id + ":" + item.id,
+            total: totalAmount,
+            payment: paidAmount,
+            remaining: remainingAmount,
+            weekday: item.paidDay || stamp.weekday,
+            time: item.paidTime || stamp.time,
             date: stamp.date,
-            recipient: ("sellerName" in payment ? String(payment.sellerName || "") : "") || "غير مسجل",
-          };
-        });
-    })();
-  // Payment records already update invoice.paidAmount; adding both would count receipts twice.
-  const paid = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0) : (customer.accountingSheetPayments || []).reduce((sum, pay) => sum + pay.amount, 0);
-  const remaining = source === "vertical" ? customerInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0) : Math.max(0, sales - paid);
+            recipient: item.sellerName || "غير مسجل",
+          });
+        }
+        carriedBalance = remainingAmount;
+        currentSectionTotal = 0;
+      } else if (!item.isPaymentRow && !item.isRemainingRow) {
+        currentSectionTotal += Number(item.total || item.unitPrice || 0);
+      }
+    });
+    return rows;
+  });
+  const accountingPayments = (customer.accountingSheetPayments || [])
+    .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted);
+  let accountingPaymentRunningTotal = 0;
+  const accountingPaymentRows = [...accountingPayments]
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+    .map(payment => {
+      const amount = Number(payment.amount) || 0;
+      accountingPaymentRunningTotal += amount;
+      const stamp = formatLedgerTimestamp(payment.date || "");
+      return {
+        id: payment.id,
+        total: accountingSales,
+        payment: amount,
+        remaining: Math.max(0, accountingSales - accountingPaymentRunningTotal),
+        weekday: stamp.weekday,
+        time: stamp.time,
+        date: stamp.date,
+        recipient: ("sellerName" in payment ? String(payment.sellerName || "") : "") || "غير مسجل",
+      };
+    });
+  const paymentRows = source === "vertical"
+    ? verticalPaymentRows
+    : source === "accounting"
+      ? accountingPaymentRows
+      : [...verticalPaymentRows, ...accountingPaymentRows];
+  const verticalPaid = customerInvoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
+  const accountingPaid = accountingPayments.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
+  const verticalRemaining = customerInvoices.reduce((sum, inv) => sum + (Number(inv.remainingAmount) || 0), 0);
+  const accountingRemaining = Math.max(0, accountingSales - accountingPaid);
+  const paid = source === "vertical" ? verticalPaid : source === "accounting" ? accountingPaid : verticalPaid + accountingPaid;
+  const remaining = source === "vertical" ? verticalRemaining : source === "accounting" ? accountingRemaining : verticalRemaining + accountingRemaining;
   const paidPercent = sales > 0 ? Math.min(100, Math.max(0, (paid / sales) * 100)) : 0;
   const analysisTotalQuantity = saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const verticalChartSales = customerInvoices.map(inv => ({ date: inv.date || inv.createdAt || "", amount: Number(inv.grandTotal) || 0 }));
+  const accountingChartSales = accountingSaleItems.map(row => ({ date: row.createdAt || customer.accountingSheetDate || "", amount: Number(row.total) || 0 }));
+  const verticalChartCollections = customerPayments.map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }));
+  const accountingChartCollections = accountingPayments.map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }));
   const chartSales = source === "vertical"
-    ? customerInvoices.map(inv => ({ date: inv.date, amount: Number(inv.grandTotal) || 0 }))
-    : (customer.accountingSheetRows || []).filter(row => !row.isSeparator && (row.details.trim() || row.total !== 0))
-      .map(row => ({ date: row.createdAt || "", amount: Number(row.total) || 0 }));
+    ? verticalChartSales
+    : source === "accounting"
+      ? accountingChartSales
+      : [...verticalChartSales, ...accountingChartSales];
   const chartCollections = source === "vertical"
-    ? customerPayments.map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }))
-    : (customer.accountingSheetPayments || []).map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }));
+    ? verticalChartCollections
+    : source === "accounting"
+      ? accountingChartCollections
+      : [...verticalChartCollections, ...accountingChartCollections];
   const topCustomerItems = [...saleItems.reduce((map, item) => {
     const name = item.details?.trim() || item.productId || "صنف غير مسمى";
     map.set(name, (map.get(name) || 0) + (Number(item.total) || 0));
@@ -158,7 +183,10 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const itemSales = saleItems.reduce((sum, item) => sum + item.total, 0);
   const cost = costsComplete ? saleItems.reduce((sum, item) => sum + item.quantity * (item.unitCost ?? 0), 0) : null;
   const profit = cost !== null && Math.abs(itemSales - sales) < 0.01 ? sales - cost : null;
-  const dates = customerInvoices.map(inv => inv.date).filter(validDate).sort((a,b) => Date.parse(a)-Date.parse(b));
+  const dates = [
+    ...(source !== "accounting" ? customerInvoices.map(inv => inv.date || inv.createdAt || "") : []),
+    ...(source !== "vertical" ? accountingSaleItems.map(row => row.createdAt || customer.accountingSheetDate || "") : []),
+  ].filter(validDate).sort((a,b) => Date.parse(a)-Date.parse(b));
   const overdue = customerInvoices.filter(inv => inv.remainingAmount > 0 && inv.dueDate && validDate(inv.dueDate) && inv.dueDate < new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }));
   const stats: [string, string][] = [
     ["إجمالي المبيعات المسجلة", `${number(sales)} ${currency}`], ["إجمالي التسديدات", `${number(paid)} ${currency}`],
@@ -166,7 +194,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     ["تكلفة البضاعة وقت البيع", cost === null ? "غير متاحة بالكامل" : `${number(cost)} ${currency}`], ["هامش الربح", profit !== null && sales > 0 ? `${number(profit / sales * 100)}٪` : "غير متاح"],
     ["القطع المسجلة", number(saleItems.reduce((sum,item) => sum + item.quantity, 0))],
   ];
-  if (source === "vertical") stats.push(
+  if (source !== "accounting") stats.push(
     ["أول / آخر تاريخ سجل", dates.length ? `${dates[0]} / ${dates[dates.length - 1]}` : "لا توجد سجلات"],
     ["مدة التعامل المسجلة", dates.length ? `${number(Math.max(0, Math.floor((Date.now()-Date.parse(dates[0]))/86400000)))} يوم` : "غير متاحة"],
     ["كشوف مفتوحة / مغلقة", `${customerInvoices.filter(inv => inv.remainingAmount > 0).length} / ${customerInvoices.filter(inv => inv.grandTotal > 0 && inv.remainingAmount <= 0).length}`],
@@ -177,7 +205,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   saleItems.forEach(item => itemQuantities.set(item.details, (itemQuantities.get(item.details) || 0) + item.quantity));
   const topItem = [...itemQuantities.entries()].sort((a,b) => b[1]-a[1])[0];
   if (topItem) stats.push(["أكثر بند مسجل بالكمية", `${topItem[0]} · ${number(topItem[1])}`]);
-  if (source === "vertical" && customerInvoices.length) {
+  if (source !== "accounting" && customerInvoices.length) {
     const values = customerInvoices.map(inv => inv.grandTotal);
     stats.push(["أكبر / أصغر كشف", `${number(Math.max(...values))} / ${number(Math.min(...values))} ${currency}`], ["متوسط قيمة الكشف", `${number(sales/customerInvoices.length)} ${currency}`]);
     const lastPayment = [...customerPayments].filter(pay => validDate(pay.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
@@ -192,8 +220,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const countType = (type: string) => classified.filter(inv => salesType(inv) === type).length;
   const amountType = (type: string) => classified.filter(inv => salesType(inv) === type).reduce((sum, inv) => sum + inv.grandTotal, 0);
   const unknown = "غير متوفر — البيانات غير مسجلة";
-  const sourceRows = source === "vertical" ? customerInvoices : [];
-  const dueKnown = source === "vertical" && sourceRows.length > 0 && sourceRows.every(inv => inv.remainingAmount <= 0 || (inv.dueDate && validDate(inv.dueDate)));
+  const sourceRows = source !== "accounting" ? customerInvoices : [];
+  const dueKnown = source !== "accounting" && sourceRows.length > 0 && sourceRows.every(inv => inv.remainingAmount <= 0 || (inv.dueDate && validDate(inv.dueDate)));
   const currentDay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
   const dueOpen = dueKnown ? sourceRows.filter(inv => inv.remainingAmount > 0 && inv.dueDate && inv.dueDate < currentDay) : [];
   const oldestDue = dueOpen.map(inv => inv.dueDate!).sort()[0];
@@ -206,7 +234,11 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   }, new Map<string, number>()).entries()].sort((a,b) => b[1] - a[1])[0] : undefined;
   const lastAccountingPayment = [...(customer.accountingSheetPayments || [])].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
   const lastVerticalPayment = [...customerPayments].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
-  const lastPaid = source === "vertical" ? lastVerticalPayment : lastAccountingPayment;
+  const lastPaid = source === "vertical"
+    ? lastVerticalPayment
+    : source === "accounting"
+      ? lastAccountingPayment
+      : [lastVerticalPayment, lastAccountingPayment].filter(Boolean).sort((a, b) => Date.parse(b!.date) - Date.parse(a!.date))[0];
   const extraStats: Record<string, string> = {
     "نوع التعامل": draft.transactionType || "غير محدد",
     "عدد عمليات الشراء النقدية": source === "vertical" && saleTypeKnown ? number(countType("cash")) : unknown,
@@ -366,7 +398,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         {tab === "personal" ? <>
           {groups.map(([title,fields]) => <section key={title}><h3 className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-right text-sm font-bold text-violet-900">{title}</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{fields.map(([field,label,type]) => <label key={field} className="block min-w-0 text-xs text-slate-600"><span>{label}</span>{editing ? (type === 'image' ? <div className="mt-2 space-y-2">{draft.photo && <img src={draft.photo} alt="صورة العميل" className="h-24 w-24 rounded-xl object-cover" />}<input type="file" accept="image/*" disabled={saving} onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith('image/')||f.size>250000){setError('الصورة يجب أن تكون أقل من 250 كيلوبايت');return;}const reader=new FileReader();reader.onload=()=>{if(typeof reader.result==='string')setDraft(old=>({...old,photo:reader.result as string}));};reader.readAsDataURL(f);}} className="w-full text-xs" /></div> : type === 'readonly' ? <span className="mt-1 block">{field==='folderId' ? folderPath : String(customer.sequence??'غير محدد')}</span> : type === 'saleType' || type === 'yesNo' ? <select value={draft[field]||''} onChange={e=>setDraft(old=>({...old,[field]:e.target.value}))} className="mt-1 w-full rounded-lg border p-2">{(type==='saleType'?['','نقدي','آجل','أقساط']:['','نعم','لا']).map(v=><option key={v} value={v}>{v||'غير محدد'}</option>)}</select> : field === 'notes' || field === 'documents' ? <textarea value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" /> : <input type={type === 'image' || type === 'saleType' || type === 'yesNo' || type === 'readonly' ? 'text' : (type || 'text')} min={type === 'number' ? 0 : undefined} value={draft[field] || ''} onChange={e => setDraft({...draft,[field]:e.target.value})} disabled={saving} className="mt-1 w-full rounded-lg border p-2 text-sm" />) : type === 'image' ? (draft.photo ? <img src={draft.photo} alt="صورة العميل" className="mt-2 h-24 w-24 rounded-xl object-cover" /> : <span>غير مضاف</span>) : <span className="mt-1 block whitespace-pre-wrap break-words text-sm font-medium text-slate-900">{(field === 'folderId' ? folderPath : field === 'sequence' ? String(customer.sequence ?? '') : draft[field]) || 'غير مضاف'}</span>}</label>)}</div></section>)}
         </> : <>
-          {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { const nextSource = e.target.value as typeof source; setSource(nextSource); window.localStorage.setItem(sourceStorageKey, nextSource); setExpanded(false); setSelectedAnalysisKeys([]); }} className="mt-2 w-full rounded-lg border p-2"><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
+          {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { const nextSource = e.target.value as typeof source; setSource(nextSource); window.localStorage.setItem(sourceStorageKey, nextSource); setExpanded(false); setSelectedAnalysisKeys([]); }} className="mt-2 w-full rounded-lg border p-2"><option value="all">الكل — المصدران معاً</option><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p></>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
             <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div><FilterButton activeCount={analysisFilterCount} onClick={() => setAnalysisFiltersOpen(true)} /></div>
@@ -471,7 +503,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
           {financialGroups.filter(([title])=>(tab==="business"&&title === "تفاصيل التعامل التجاري")||(tab==="financial"&&title === "الملخص الحسابي")||(tab==="due"&&title === "المستحقات والتأخير")||(tab==="analytics"&&title === "تحليل سلوك العميل (Customer Analytics)")).map(([title,subgroups])=><section key={title} className="space-y-3 rounded-xl border p-3"><h3 className="rounded-lg bg-violet-100 px-3 py-2 text-sm font-bold text-violet-900">{title}</h3>{subgroups.map(([subtitle,labels])=><div key={subtitle}><h4 className="mb-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold">{subtitle}</h4><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{labels.map(label=><div key={label} className={`min-w-0 rounded-lg border border-violet-100 p-3 ${label === "أكثر الأصناف التي يشتريها" || label === "إجمالي عدد البضائع المشتراة" ? "sm:col-span-2" : ""}`}><span className="block text-xs text-slate-600">{label}</span>{label === "أكثر الأصناف التي يشتريها" && purchases.topThree.length > 0 ? <div className="mt-2 overflow-hidden rounded-lg border border-violet-100"><table className="w-full table-fixed border-collapse text-sm text-violet-900"><thead className="bg-violet-50"><tr><th scope="col" className="w-10 border-b border-violet-100 p-2 text-center">ت</th><th scope="col" className="border-b border-violet-100 p-2 text-right">البضاعة</th><th scope="col" className="w-24 border-b border-violet-100 p-2 text-center">العدد</th></tr></thead><tbody>{purchases.topThree.map(([name, count], index) => <tr key={name} className="border-b border-violet-100 last:border-b-0"><td className="p-2 text-center">{index + 1}</td><td className="break-words p-2 font-medium">{name}</td><td className="break-words p-2 text-center font-bold">{number(count)}</td></tr>)}</tbody></table></div> : <strong className="mt-2 block text-sm text-violet-900">{metricValues[label]||"غير متوفر — بيانات غير مسجلة"}</strong>}</div>)}</div></div>)}</section>)}
           {tab === "summary" && <>
-            <p className="text-xs leading-5 text-slate-500">هذه الإحصائيات تخص {source === "vertical" ? "سجل الحساب العمودي" : "القائمة الحسابية المستقلة"} فقط. التسديدات في المخطط تُعرض من سنداتها المسجلة، ولا تُضاف مرة ثانية إلى إجمالي الحساب.</p>
+            <p className="text-xs leading-5 text-slate-500">هذه الإحصائيات تخص {source === "vertical" ? "سجل الحساب العمودي" : source === "accounting" ? "القائمة الحسابية المستقلة" : "سجل الحساب العمودي والقائمة الحسابية المستقلة"}{source === "all" ? " معاً" : " فقط"}. التسديدات في المخطط تُعرض من سنداتها المسجلة، ولا تُضاف مرة ثانية إلى إجمالي الحساب.</p>
             <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[["المبالغ المسجلة", sales], ["التسديدات", paid], ["المتبقي", remaining], [source === "vertical" ? "عدد الكشوف" : "عدد البنود", source === "vertical" ? customerInvoices.length : saleItems.length]].map(([label, value]) => <article key={String(label)} className="min-w-0 rounded-xl border border-violet-100 bg-white p-3"><span className="block text-[10px] text-slate-500">{label}</span><strong className="mt-1 block break-words text-sm font-extrabold text-violet-900">{typeof value === "number" ? number(value) : value}{label !== "عدد الكشوف" && label !== "عدد البنود" ? ` ${currency}` : ""}</strong></article>)}
             </section>
