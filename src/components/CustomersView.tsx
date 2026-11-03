@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Users,
   Search,
-  SlidersHorizontal,
   PlusCircle,
   Phone,
   MapPin,
