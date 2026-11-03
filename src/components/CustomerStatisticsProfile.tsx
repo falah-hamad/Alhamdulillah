@@ -207,7 +207,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   if (topItem) stats.push(["أكثر بند مسجل بالكمية", `${topItem[0]} · ${number(topItem[1])}`]);
   if (source !== "accounting" && customerInvoices.length) {
     const values = customerInvoices.map(inv => inv.grandTotal);
-    stats.push(["أكبر / أصغر كشف", `${number(Math.max(...values))} / ${number(Math.min(...values))} ${currency}`], ["متوسط قيمة الكشف", `${number(sales/customerInvoices.length)} ${currency}`]);
+    stats.push(["أكبر / أصغر كشف", `${number(Math.max(...values))} / ${number(Math.min(...values))} ${currency}`], ["متوسط قيمة الكشف", `${number(verticalSales/customerInvoices.length)} ${currency}`]);
     const lastPayment = [...customerPayments].filter(pay => validDate(pay.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
     stats.push(["عدد سندات القبض المستقلة", number(customerPayments.length)]);
     if (lastPayment) stats.push(["آخر سند قبض مستقل", `${lastPayment.date} · ${number(lastPayment.amount)} ${currency}`]);
@@ -232,13 +232,19 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     map.set(name, (map.get(name) || 0) + item.total - item.quantity * (item.unitCost || 0));
     return map;
   }, new Map<string, number>()).entries()].sort((a,b) => b[1] - a[1])[0] : undefined;
-  const lastAccountingPayment = [...(customer.accountingSheetPayments || [])].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
+  const lastAccountingPayment = [...accountingPayments].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
   const lastVerticalPayment = [...customerPayments].filter(p => validDate(p.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
   const lastPaid = source === "vertical"
     ? lastVerticalPayment
     : source === "accounting"
       ? lastAccountingPayment
-      : [lastVerticalPayment, lastAccountingPayment].filter(Boolean).sort((a, b) => Date.parse(b!.date) - Date.parse(a!.date))[0];
+      : !lastVerticalPayment
+        ? lastAccountingPayment
+        : !lastAccountingPayment
+          ? lastVerticalPayment
+          : Date.parse(lastVerticalPayment.date) >= Date.parse(lastAccountingPayment.date)
+            ? lastVerticalPayment
+            : lastAccountingPayment;
   const extraStats: Record<string, string> = {
     "نوع التعامل": draft.transactionType || "غير محدد",
     "عدد عمليات الشراء النقدية": source === "vertical" && saleTypeKnown ? number(countType("cash")) : unknown,
