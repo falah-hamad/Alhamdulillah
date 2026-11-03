@@ -103,20 +103,10 @@ export default function CustomersView({
   deleteCustomer,
   onOpenLedger,
 }: CustomersViewProps) {
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments" | "accounting">("statement");
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
   const [draftFilters, setDraftFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
-  const [isPrintingCustomer, setIsPrintingCustomer] = useState(false);
-  const [sheetDetails, setSheetDetails] = useState("");
-  const [sheetQuantity, setSheetQuantity] = useState("1");
-  const [sheetUnit, setSheetUnit] = useState("قطعة");
-  const [sheetUnitPrice, setSheetUnitPrice] = useState("");
-  const [sheetPaymentAmount, setSheetPaymentAmount] = useState("");
-  const [sheetPaymentDate, setSheetPaymentDate] = useState(new Date().toISOString().split("T")[0]);
-  const [sheetPaymentNotes, setSheetPaymentNotes] = useState("");
 
   // Modals for Customer Management
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -143,8 +133,6 @@ export default function CustomersView({
       localStorage.setItem("ledger_customer_view_mode", mode);
     } catch {}
   };
-
-  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
 
   // Calculations for a customer
   const getCustomerMetrics = (custId: string) => {
@@ -272,7 +260,6 @@ export default function CustomersView({
   const handleDelete = (id: string, cName: string) => {
     if (confirm(`تحذير: هل أنت متأكد من حذف العميل "${cName}"؟ سيؤدي ذلك لحذف جميع فواتيره ودفعاته من النظام ولا يمكن التراجع عن هذا الإجراء.`)) {
       deleteCustomer(id);
-      setSelectedCustomerId(null);
     }
   };
 
@@ -446,7 +433,7 @@ export default function CustomersView({
   return (
     <div className="customers-view space-y-6 min-w-0">
       {/* Search & Actions Top Header */}
-      {!selectedCustomerId && (
+      {(
         <div className="space-y-4">
           <div className="customers-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
             <div className="space-y-1">
@@ -699,7 +686,7 @@ export default function CustomersView({
                     return (
                       <div
                         key={c.id}
-                        onClick={() => setSelectedCustomerId(c.id)}
+                        onClick={() => onOpenLedger(c.id)}
                         className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-all p-5 flex flex-col justify-between cursor-pointer group hover:border-blue-300"
                       >
                         <div className="space-y-3">
@@ -792,7 +779,7 @@ export default function CustomersView({
                           return (
                             <tr
                               key={c.id}
-                              onClick={() => setSelectedCustomerId(c.id)}
+                              onClick={() => onOpenLedger(c.id)}
                               className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
                             >
                               {/* الاسم فقط مع أيقونة الزبون / الشخص */}
@@ -848,7 +835,7 @@ export default function CustomersView({
                     return (
                       <div
                         key={c.id}
-                        onClick={() => setSelectedCustomerId(c.id)}
+                        onClick={() => onOpenLedger(c.id)}
                         className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition-all p-3.5 flex flex-col items-center text-center cursor-pointer group hover:border-blue-400 relative"
                       >
                         {/* Customer Avatar Graphic */}
@@ -897,7 +884,7 @@ export default function CustomersView({
                     return (
                       <div
                         key={c.id}
-                        onClick={() => setSelectedCustomerId(c.id)}
+                        onClick={() => onOpenLedger(c.id)}
                         className="bg-white rounded-xl border border-slate-200/80 hover:border-blue-400 shadow-2xs hover:shadow-xs transition-all p-2.5 flex items-center justify-between gap-2.5 cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 min-w-0">
@@ -930,434 +917,6 @@ export default function CustomersView({
               )}
             </>
           )}
-        </div>
-      )}
-
-      {/* 2. CUSTOMER COMPREHENSIVE STATEMENT PROFILE SCREEN */}
-      {selectedCustomerId && selectedCustomer && (
-        <div className="space-y-6">
-          
-          {/* Header Return button & info */}
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm no-print">
-            <button
-              onClick={() => setSelectedCustomerId(null)}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-xs font-bold cursor-pointer"
-            >
-              <ArrowRight className="w-4 h-4" /> العودة لإدارة العملاء
-            </button>
-
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  if (isPrintingCustomer) return;
-                  setIsPrintingCustomer(true);
-                  try {
-                    await printElement("customer-statement-card", {
-                      title: `كشف_حساب_${selectedCustomer.name}`,
-                      onComplete: () => setIsPrintingCustomer(false),
-                    });
-                  } catch (err) {
-                    console.error("Print error", err);
-                    setIsPrintingCustomer(false);
-                  } finally {
-                    setTimeout(() => setIsPrintingCustomer(false), 1500);
-                  }
-                }}
-                disabled={isPrintingCustomer}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                title="طباعة كشف حساب العميل كاملاً"
-              >
-                {isPrintingCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-                <span>{isPrintingCustomer ? "جاري تجهيز الكشف..." : "طباعة كشف الحساب"}</span>
-              </button>
-              <button
-                onClick={() => openEditModal(selectedCustomer)}
-                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Edit className="w-4 h-4" /> تعديل بيانات العميل
-              </button>
-            </div>
-          </div>
-
-          {/* Customer profile card summary */}
-          <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              <div className="space-y-2 md:col-span-2">
-                <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-bold border border-blue-100 uppercase">
-                  ملف العميل المالي
-                </span>
-                <h2 className="text-xl font-black text-slate-900 leading-tight">
-                  {selectedCustomer.name}
-                </h2>
-                <div className="flex flex-wrap gap-4 text-xs text-slate-400 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-300" /> {selectedCustomer.phone}
-                  </span>
-                  {selectedCustomer.address && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-300" /> {selectedCustomer.address}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-300" /> تسجيل: {new Date(selectedCustomer.createdAt).toLocaleDateString("ar-SA")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Dynamic metrics card */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-mono text-right grid grid-cols-3 gap-2">
-                <div>
-                  <span className="text-[9px] text-slate-400 font-sans font-semibold">إجمالي الديون</span>
-                  <p className="text-sm font-bold text-slate-800 mt-1">
-                    {getCustomerMetrics(selectedCustomer.id).totalDebts.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 font-sans font-semibold">إجمالي المسدد</span>
-                  <p className="text-sm font-bold text-blue-600 mt-1">
-                    {getCustomerMetrics(selectedCustomer.id).totalPaid.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 font-sans font-semibold">الرصيد المطلوب</span>
-                  <p className="text-sm font-bold text-rose-600 mt-1">
-                    {getCustomerMetrics(selectedCustomer.id).totalRemaining.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tab Selection */}
-          <div className="flex border-b border-slate-200 no-print">
-            <button
-              onClick={() => setCustomerTab("statement")}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-                customerTab === "statement"
-                  ? "border-blue-600 text-blue-700 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <ClipboardList className="w-4 h-4" /> كشف حساب مالي تفصيلي
-            </button>
-            <button
-              onClick={() => setCustomerTab("invoices")}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-                customerTab === "invoices"
-                  ? "border-blue-600 text-blue-700 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <FileText className="w-4 h-4" /> قوائم الحساب والفواتير ({getCustomerMetrics(selectedCustomer.id).invoiceCount})
-            </button>
-            <button
-              onClick={() => setCustomerTab("purchases")}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-                customerTab === "purchases"
-                  ? "border-blue-600 text-blue-700 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <ClipboardList className="w-4 h-4" /> البنود والمشتريات
-            </button>
-            <button
-              onClick={() => setCustomerTab("payments")}
-              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-                customerTab === "payments"
-                  ? "border-blue-600 text-blue-700 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <DollarSign className="w-4 h-4" /> عمليات التسديد ({getCustomerMetrics(selectedCustomer.id).paymentCount})
-            </button>
-            <button onClick={() => setCustomerTab("accounting")} className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${customerTab === "accounting" ? "border-blue-600 text-blue-700 font-black" : "border-transparent text-slate-500 hover:text-slate-800"}`}><FileText className="w-4 h-4" /> {selectedCustomer.accountingSheetRows?.length ? "الورقة الحسابية" : "إضافة ورقة حسابية"}</button>
-          </div>
-
-          {customerTab === "accounting" && (() => {
-            const rows = selectedCustomer.accountingSheetRows || [];
-            const sheetPayments = selectedCustomer.accountingSheetPayments || [];
-            const debt = rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-            const paid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-            const remaining = Math.max(0, debt - paid);
-            const persist = (nextRows: typeof rows, nextPayments: typeof sheetPayments) => updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows, accountingSheetPayments: nextPayments });
-            const addRow = () => {
-              const quantity = Number(sheetQuantity), unitPrice = Number(sheetUnitPrice);
-              if (!sheetDetails.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) { alert("أدخل التفاصيل والكمية وسعر الوحدة بشكل صحيح."); return; }
-              persist([...rows, { id: "asr-" + Date.now(), details: sheetDetails.trim(), quantity, unit: sheetUnit.trim() || "قطعة", unitPrice, total: quantity * unitPrice }], sheetPayments);
-              setSheetDetails(""); setSheetQuantity("1"); setSheetUnitPrice("");
-            };
-            const addSheetPayment = () => {
-              const amount = Number(sheetPaymentAmount);
-              if (!Number.isFinite(amount) || amount <= 0 || amount > remaining) { alert("أدخل دفعة صحيحة لا تتجاوز رصيد الورقة الحسابية."); return; }
-              persist(rows, [...sheetPayments, { id: "asp-" + Date.now(), amount, date: sheetPaymentDate, notes: sheetPaymentNotes.trim() || undefined }]);
-              setSheetPaymentAmount(""); setSheetPaymentNotes("");
-            };
-            return <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div><h3 className="text-base font-black text-slate-800">الورقة الحسابية الإضافية</h3><p className="text-xs text-slate-500 mt-1">منفصلة عن ورقة الدفتر الحالية، وبيانات الدفتر لا تتغير.</p></div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-lg bg-slate-50 p-2"><div className="text-slate-500">الدين</div><b>{debt.toLocaleString()} {settings.currency}</b></div>
-                  <div className="rounded-lg bg-blue-50 p-2"><div className="text-blue-600">المسدّد</div><b>{paid.toLocaleString()} {settings.currency}</b></div>
-                  <div className="rounded-lg bg-rose-50 p-2"><div className="text-rose-600">المتبقي</div><b>{remaining.toLocaleString()} {settings.currency}</b></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                <input value={sheetDetails} onChange={e => setSheetDetails(e.target.value)} placeholder="التفاصيل" className="min-w-0 border rounded-lg p-2 text-sm" />
-                <input type="number" min="0.001" step="any" value={sheetQuantity} onChange={e => setSheetQuantity(e.target.value)} placeholder="الكمية" className="min-w-0 border rounded-lg p-2 text-sm" />
-                <input value={sheetUnit} onChange={e => setSheetUnit(e.target.value)} placeholder="الوحدة" className="min-w-0 border rounded-lg p-2 text-sm" />
-                <input type="number" min="0" step="any" value={sheetUnitPrice} onChange={e => setSheetUnitPrice(e.target.value)} placeholder="سعر الوحدة" className="min-w-0 border rounded-lg p-2 text-sm" />
-                <button onClick={addRow} className="rounded-lg bg-blue-600 text-white p-2 text-sm font-bold">إضافة بند</button>
-              </div>
-              <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm text-right">
-                <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">التسلسل</th><th className="p-2">التفاصيل</th><th className="p-2">الكمية</th><th className="p-2">الوحدة</th><th className="p-2">سعر الوحدة</th><th className="p-2">المبلغ الكلي</th><th className="p-2">حذف</th></tr></thead>
-                <tbody>{rows.map((row, index) => <tr key={row.id} className="border-b"><td className="p-2">{index + 1}</td><td className="p-2">{row.details}</td><td className="p-2">{row.quantity}</td><td className="p-2">{row.unit}</td><td className="p-2">{row.unitPrice.toLocaleString()}</td><td className="p-2 font-bold">{row.total.toLocaleString()}</td><td className="p-2"><button onClick={() => { if (confirm("حذف هذا البند؟")) persist(rows.filter(item => item.id !== row.id), sheetPayments); }} className="text-rose-600 font-bold">حذف</button></td></tr>)}</tbody>
-                <tfoot><tr className="font-black bg-slate-50"><td className="p-2" colSpan={5}>المجموع</td><td className="p-2">{debt.toLocaleString()} {settings.currency}</td><td /></tr></tfoot>
-              </table></div>
-              <div className="border-t pt-4 space-y-3"><h4 className="font-bold text-sm">دفعة مخصصة لهذه الورقة فقط</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                  <input type="number" min="0.01" step="any" max={remaining} value={sheetPaymentAmount} onChange={e => setSheetPaymentAmount(e.target.value)} placeholder="مبلغ الدفعة" className="min-w-0 border rounded-lg p-2 text-sm" />
-                  <input type="date" value={sheetPaymentDate} onChange={e => setSheetPaymentDate(e.target.value)} className="min-w-0 border rounded-lg p-2 text-sm" />
-                  <input value={sheetPaymentNotes} onChange={e => setSheetPaymentNotes(e.target.value)} placeholder="ملاحظات (اختياري)" className="min-w-0 border rounded-lg p-2 text-sm" />
-                  <button onClick={addSheetPayment} disabled={remaining <= 0} className="rounded-lg bg-emerald-600 text-white p-2 text-sm font-bold disabled:opacity-50">تسجيل الدفعة</button>
-                </div>
-                {sheetPayments.map(payment => <div key={payment.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-emerald-50 p-3 text-xs"><span>{payment.date} — {payment.notes || "دفعة للورقة الحسابية"}</span><b>{payment.amount.toLocaleString()} {settings.currency}</b><button onClick={() => { if (confirm("حذف تسجيل هذه الدفعة؟")) persist(rows, sheetPayments.filter(item => item.id !== payment.id)); }} className="text-rose-600 font-bold">حذف</button></div>)}
-              </div>
-          </div>;
-          })()}
-
-          {/* Tab Content 1: Unified Statement of Account (كشف حساب مالي تفصيلي) */}
-          {customerTab === "statement" && (
-            <div id="customer-statement-card" className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4 print-container">
-              
-              {/* Header inside print area */}
-              <div className="hidden print:block text-center border-b pb-4 space-y-1 mb-4">
-                <h1 className="text-lg font-bold">{settings.companyName}</h1>
-                <p className="text-xs">كشف حساب عميل مفصل ومصدّق</p>
-                <div className="text-[10px] text-slate-500 flex justify-center gap-4 mt-2">
-                  <span>اسم العميل: {selectedCustomer.name}</span>
-                  <span>رقم الهاتف: {selectedCustomer.phone}</span>
-                  <span>تاريخ الطباعة: {new Date().toLocaleDateString("ar-SA")}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center no-print">
-                <h3 className="text-xs font-bold text-slate-500 uppercase">حركة القيود والعمليات المالية للعميل</h3>
-                <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-                  {getCustomerMetrics(selectedCustomer.id).ledger.length} قيود
-                </span>
-              </div>
-
-              {getCustomerMetrics(selectedCustomer.id).ledger.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 text-xs">
-                  لا توجد أي قيود أو عمليات مالية مسجلة للعميل حتى الآن.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                        <th className="p-3">التاريخ</th>
-                        <th className="p-3 text-right">البيان / تفاصيل العملية</th>
-                        <th className="p-3 text-left">مدين (قيمة الفاتورة)</th>
-                        <th className="p-3 text-left">دائن (تسديد العميل)</th>
-                        <th className="p-3 text-left font-sans">الرصيد الجاري المستحق</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-mono">
-                      {getCustomerMetrics(selectedCustomer.id).ledger.map((entry) => (
-                        <tr key={entry.id} className="hover:bg-slate-50/40 transition-colors">
-                          <td className="p-3 font-sans text-slate-500 whitespace-nowrap">
-                            {entry.date}
-                          </td>
-                          <td className="p-3 text-right text-slate-800 font-sans font-medium">
-                            {entry.description}
-                          </td>
-                          <td className="p-3 text-left font-bold text-rose-600">
-                            {entry.debit > 0 ? `${entry.debit.toLocaleString()} ${settings.currency}` : "-"}
-                          </td>
-                          <td className="p-3 text-left font-bold text-blue-600">
-                            {entry.credit > 0 ? `${entry.credit.toLocaleString()} ${settings.currency}` : "-"}
-                          </td>
-                          <td className="p-3 text-left font-bold text-slate-900 bg-slate-50/30">
-                            {entry.runningBalance.toLocaleString()} {settings.currency}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Account statement sign off (Print only) */}
-              <div className="hidden print:grid grid-cols-2 gap-4 pt-10 text-xs text-slate-600 text-center">
-                <div>
-                  <p className="font-semibold">توقيع المحاسب / مسؤول الخزينة</p>
-                  <p className="mt-8 border-t border-dashed w-48 mx-auto pt-1 text-[11px] text-slate-400">عبدالرحمن الحربي</p>
-                </div>
-                <div>
-                  <p className="font-semibold">توقيع / مصادقة العميل المدين</p>
-                  <p className="mt-8 border-t border-dashed w-48 mx-auto pt-1 text-[11px] text-slate-400">{selectedCustomer.name}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Content 2: Ledgers / Invoices list */}
-          {customerTab === "invoices" && (
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase">قوائم فواتير الديون المسجلة</h3>
-              {getCustomerMetrics(selectedCustomer.id).invoices.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  لم يتم إصدار أي فواتير أو قوائم حساب لهذا العميل.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {getCustomerMetrics(selectedCustomer.id).invoices.map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="border border-slate-100 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900 font-mono">
-                            {inv.invoiceNumber}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {inv.date}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          بند السجل: {inv.items.map((item) => item.details).join("، ")}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-4 justify-between font-mono">
-                        <div className="text-right">
-                          <span className="block text-[9px] text-slate-400 font-sans">القيمة الكلية</span>
-                          <span className="font-bold text-slate-800 text-xs">
-                            {inv.grandTotal.toLocaleString()} {settings.currency}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="block text-[9px] text-slate-400 font-sans">المتبقي المطلوب</span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              inv.remainingAmount === 0
-                                ? "bg-blue-50 text-blue-700"
-                                : "bg-rose-50 text-rose-700"
-                            }`}
-                          >
-                            {inv.remainingAmount.toLocaleString()} {settings.currency}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab Content 3: Purchases/Items summary */}
-          {customerTab === "purchases" && (
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase">جميع بنود ومواد الشراء التفصيلية للعميل</h3>
-              {getCustomerMetrics(selectedCustomer.id).purchases.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  لا توجد أي مشتريات مسجلة للعميل.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold">
-                        <th className="p-3">التاريخ</th>
-                        <th className="p-3">رقم الفاتورة</th>
-                        <th className="p-3">تفاصيل المادة</th>
-                        <th className="p-3 text-center">العدد</th>
-                        <th className="p-3 text-left">سعر المفرد</th>
-                        <th className="p-3 text-left">الإجمالي</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {getCustomerMetrics(selectedCustomer.id).purchases.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
-                          <td className="p-3 font-mono text-slate-500 whitespace-nowrap">
-                            {item.date}
-                          </td>
-                          <td className="p-3 font-mono font-semibold text-slate-700">
-                            {item.invoiceNumber}
-                          </td>
-                          <td className="p-3 font-bold text-slate-800">
-                            {item.details}
-                          </td>
-                          <td className="p-3 text-center font-mono font-bold text-slate-700">
-                            {item.quantity}
-                          </td>
-                          <td className="p-3 text-left font-mono font-semibold text-slate-600">
-                            {item.unitPrice.toLocaleString()} {settings.currency}
-                          </td>
-                          <td className="p-3 text-left font-mono font-bold text-slate-900">
-                            {item.total.toLocaleString()} {settings.currency}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab Content 4: Repayments / Payments list */}
-          {customerTab === "payments" && (
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase">سجل إيصالات التسديد المالي المستلمة</h3>
-              {getCustomerMetrics(selectedCustomer.id).payments.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  لا توجد أي سندات تسديد أو دفعات مستلمة حتى الآن.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {getCustomerMetrics(selectedCustomer.id).payments.map((p) => (
-                    <div
-                      key={p.id}
-                      className="border border-slate-100 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 text-blue-700 rounded shrink-0">
-                          <ArrowDownLeft className="w-4 h-4" />
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-slate-800 font-mono">
-                            قسيمة دفعة ID: {p.id.slice(-6)}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-mono">
-                            تاريخ السند: {p.date} • طريقة الدفع: {p.method}
-                          </p>
-                          {p.notes && (
-                            <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                              ملاحظة: {p.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-left font-mono shrink-0">
-                        <p className="text-base font-extrabold text-blue-600">
-                          +{p.amount.toLocaleString()} {settings.currency}
-                        </p>
-                        <span className="text-[9px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold font-sans uppercase">
-                          مستلم ومعتمد
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
         </div>
       )}
 
