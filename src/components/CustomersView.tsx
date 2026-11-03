@@ -339,7 +339,18 @@ export default function CustomersView({
     if (filters.salaryType !== "all" && (customer.salaryType || "").trim() !== filters.salaryType) return false;
 
     const metrics = getCustomerMetrics(customer.id);
-    const balance = Number(metrics.totalRemaining) || 0;
+    const verticalRemaining = metrics.invoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
+    const accountingRowsForBalance = (customer.accountingSheetRows || []).filter(row =>
+      !row.isSeparator && (String(row.details || "").trim() || Number(row.total) !== 0)
+    );
+    const accountingSalesForBalance = accountingRowsForBalance.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const accountingPaidForBalance = (customer.accountingSheetPayments || [])
+      .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const accountingRemaining = Math.max(0, accountingSalesForBalance - accountingPaidForBalance);
+    const statsSource = window.localStorage.getItem("customer-statistics-account-source") === "accounting"
+      ? "accounting"
+      : "vertical";
+    const balance = statsSource === "accounting" ? accountingRemaining : verticalRemaining;
     if (filters.balanceStatus === "owing" && balance <= 0) return false;
     if (filters.balanceStatus === "settled" && balance > 0) return false;
     if (!inNumberRange(balance, "", filters.minBalance, filters.maxBalance)) return false;
@@ -393,17 +404,7 @@ export default function CustomersView({
       + (customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
         .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     if (!inNumberRange(paidTotal, filters.paidExact, filters.paidMin, filters.paidMax)) return false;
-    const verticalRemaining = metrics.invoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
-    const sheetRowsForBalance = (customer.accountingSheetRows || []).filter(row => !row.isSeparator);
-    const sheetDebtForBalance = sheetRowsForBalance.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-    const sheetPaidForBalance = (customer.accountingSheetPayments || [])
-      .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
-      .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const accountingRemaining = Math.max(0, sheetDebtForBalance - sheetPaidForBalance);
-    // A customer may have parallel vertical and accounting sheets. Match the entered
-    // balance against the combined balance and each sheet's own displayed balance.
-    const remainingBalances = [balance, verticalRemaining, accountingRemaining];
-    if (!remainingBalances.some(value => inNumberRange(value, filters.remainingExact, filters.remainingMin, filters.remainingMax))) return false;
+    if (!inNumberRange(balance, filters.remainingExact, filters.remainingMin, filters.remainingMax)) return false;
 
     const sellers = distinctOptions([
       ...customerInvoices.flatMap(invoice => [
