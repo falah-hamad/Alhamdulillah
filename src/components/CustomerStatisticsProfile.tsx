@@ -289,7 +289,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     return (!analysisDateFrom || Boolean(key && key >= analysisDateFrom)) && (!analysisDateTo || Boolean(key && key <= analysisDateTo));
   };
   const analysisItems = saleItems.filter(item => {
-    const relatedInvoice = source === "vertical" ? customerInvoices.find(invoice => invoice.items.some(invoiceItem => invoiceItem.id === item.id)) : undefined;
+    const relatedInvoice = source !== "accounting" ? customerInvoices.find(invoice => invoice.items.some(invoiceItem => invoiceItem.id === item.id)) : undefined;
     const itemSeller = (("sellerName" in item ? String(item.sellerName || "") : "") || relatedInvoice?.employeeName || "").toLocaleLowerCase();
     const itemDate = ("createdAt" in item && typeof item.createdAt === "string" ? item.createdAt : "") || relatedInvoice?.date || relatedInvoice?.createdAt || customer.accountingSheetDate || "";
     const matchesProduct = !analysisProductFilter.trim() || (item.details || "").toLocaleLowerCase().includes(analysisProductFilter.trim().toLocaleLowerCase());
@@ -505,14 +505,27 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab === "summary" && <>
             <p className="text-xs leading-5 text-slate-500">هذه الإحصائيات تخص {source === "vertical" ? "سجل الحساب العمودي" : source === "accounting" ? "القائمة الحسابية المستقلة" : "سجل الحساب العمودي والقائمة الحسابية المستقلة"}{source === "all" ? " معاً" : " فقط"}. التسديدات في المخطط تُعرض من سنداتها المسجلة، ولا تُضاف مرة ثانية إلى إجمالي الحساب.</p>
             <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[["المبالغ المسجلة", sales], ["التسديدات", paid], ["المتبقي", remaining], [source === "vertical" ? "عدد الكشوف" : "عدد البنود", source === "vertical" ? customerInvoices.length : saleItems.length]].map(([label, value]) => <article key={String(label)} className="min-w-0 rounded-xl border border-violet-100 bg-white p-3"><span className="block text-[10px] text-slate-500">{label}</span><strong className="mt-1 block break-words text-sm font-extrabold text-violet-900">{typeof value === "number" ? number(value) : value}{label !== "عدد الكشوف" && label !== "عدد البنود" ? ` ${currency}` : ""}</strong></article>)}
+              {[["المبالغ المسجلة", sales], ["التسديدات", paid], ["المتبقي", remaining], [source === "vertical" ? "عدد الكشوف" : source === "accounting" ? "عدد البنود" : "عدد السجلات", source === "vertical" ? customerInvoices.length : source === "accounting" ? accountingSaleItems.length : customerInvoices.length + accountingSaleItems.length]].map(([label, value]) => <article key={String(label)} className="min-w-0 rounded-xl border border-violet-100 bg-white p-3"><span className="block text-[10px] text-slate-500">{label}</span><strong className="mt-1 block break-words text-sm font-extrabold text-violet-900">{typeof value === "number" ? number(value) : value}{String(label).startsWith("عدد ") ? "" : ` ${currency}`}</strong></article>)}
             </section>
             <MonthlyFinanceChart sales={chartSales} collections={chartCollections} title="حركة حساب العميل" currency={currency} description="المبالغ حسب تاريخ الكشف أو البند، والتسديدات حسب تاريخ سند القبض." />
             <RankingChart title="أعلى البنود قيمةً لهذا العميل" description="ترتيب حسب مجموع قيمة البنود المسجلة، دون خلط الكميات ووحداتها." items={topCustomerItems} currency={currency} color="indigo" />
             {chartSales.every(record => !validDate(record.date)) && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">لا تظهر أعمدة المبالغ الشهرية لأن سجلات هذا المصدر لا تحتوي على تواريخ صالحة. أضف تواريخ للعمليات حتى يمكن ترتيبها زمنياً.</p>}
           </>}
           {tab !== "analytics" && <button type="button" onClick={() => setExpanded(!expanded)} className="rounded-lg border px-3 py-2 text-sm font-bold">{expanded ? 'إخفاء' : 'عرض'} العمليات المكوّنة للأرقام</button>}
-          {tab !== "analytics" && expanded && <div className="space-y-2 text-sm">{tab === 'business' ? <>{purchases.rows.map((row, index) => <p key={index} className="rounded-lg border p-2">{row.details || 'بضاعة غير مسماة'} · {purchaseDate(row.createdAt)}</p>)}</> : source === 'vertical' ? <>{customerInvoices.map(inv => <div key={inv.id} className="rounded-lg border p-3"><b>{inv.invoiceNumber}</b> · {inv.date}<p>المبيعات: {number(inv.grandTotal)} · المسدد: {number(inv.paidAmount)} · المتبقي: {number(inv.remainingAmount)} {currency}</p></div>)}<p className="text-xs text-slate-500">سندات القبض التالية للتدقيق؛ مبالغها مدرجة في مسدد الكشوف ولا تضاف إليه مرة ثانية.</p>{customerPayments.map(pay => <p key={pay.id}>{pay.date} · {number(pay.amount)} {currency} · {pay.method}</p>)}</> : <>{saleItems.map(row => <p key={row.id} className="rounded-lg border p-2">{row.details} · {number(row.quantity)} × {number(row.unitPrice)} = {number(row.total)} {currency}</p>)}{(customer.accountingSheetPayments || []).map(pay => <p key={pay.id}>{pay.date} · تسديد {number(pay.amount)} {currency}</p>)}</>}{saleItems.length === 0 && <p>لا توجد بنود بيع محفوظة.</p>}</div>}
+          {tab !== "analytics" && expanded && <div className="space-y-2 text-sm">
+            {tab === "business" ? <>{purchases.rows.map((row, index) => <p key={index} className="rounded-lg border p-2">{row.details || "بضاعة غير مسماة"} · {purchaseDate(row.createdAt)}</p>)}</> : <>
+              {source !== "accounting" && <>
+                {customerInvoices.map(inv => <div key={inv.id} className="rounded-lg border p-3"><b>{inv.invoiceNumber}</b> · {inv.date}<p>المبيعات: {number(inv.grandTotal)} · المسدد: {number(inv.paidAmount)} · المتبقي: {number(inv.remainingAmount)} {currency}</p></div>)}
+                <p className="text-xs text-slate-500">سندات القبض المستقلة للتدقيق؛ لا تُضاف مرة ثانية إلى مجموع تسديد الكشوف.</p>
+                {customerPayments.map(pay => <p key={pay.id}>{pay.date} · {number(pay.amount)} {currency} · {pay.method}</p>)}
+              </>}
+              {source !== "vertical" && <>
+                {accountingSaleItems.map(row => <p key={row.id} className="rounded-lg border p-2">{row.details} · {number(row.quantity)} × {number(row.unitPrice)} = {number(row.total)} {currency}</p>)}
+                {accountingPayments.map(pay => <p key={pay.id}>{pay.date} · تسديد {number(pay.amount)} {currency}</p>)}
+              </>}
+              {saleItems.length === 0 && <p>لا توجد بنود بيع محفوظة.</p>}
+            </>}
+          </div>}
         </>}
       </div>
       <footer className="border-t p-3">{error && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}{editing ? <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? 'جاري الحفظ...' : 'حفظ'}</button><button type="button" disabled={saving} onClick={() => { setDraft({...customer.profile,name:customer.name,phone:customer.phone,address:customer.address || '',salaryType:customer.salaryType || ''}); setEditing(false); setError(''); }} className="rounded-lg border px-4 py-2 text-sm">إلغاء</button></div> : <button type="button" disabled={!onSave} onClick={() => {setEditing(true);setTab('personal');}} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">تعديل المعلومات الشخصية</button>}</footer>
