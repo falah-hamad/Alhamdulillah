@@ -39,6 +39,57 @@ interface CustomersViewProps {
   updateCustomer: (customer: Customer) => void;
   deleteCustomer: (id: string) => void;
 }
+interface CustomerFilterState {
+  folderId: string;
+  address: string;
+  occupation: string;
+  salaryStatus: "all" | "yes" | "no";
+  salaryType: string;
+  balanceStatus: "all" | "owing" | "settled";
+  minBalance: string;
+  maxBalance: string;
+  overdueOnly: boolean;
+  activityFrom: string;
+  activityTo: string;
+  relationshipExact: string;
+  relationshipMin: string;
+  relationshipMax: string;
+  relationshipUnit: "days" | "months" | "years";
+  purchaseOn: string;
+  purchaseFrom: string;
+  purchaseTo: string;
+  quantityExact: string;
+  quantityMin: string;
+  quantityMax: string;
+  costExact: string;
+  costMin: string;
+  costMax: string;
+  salesExact: string;
+  salesMin: string;
+  salesMax: string;
+  profitExact: string;
+  profitMin: string;
+  profitMax: string;
+  paidExact: string;
+  paidMin: string;
+  paidMax: string;
+  remainingExact: string;
+  remainingMin: string;
+  remainingMax: string;
+  sellerName: string;
+  paymentRecipient: string;
+}
+
+const emptyCustomerFilters = (): CustomerFilterState => ({
+  folderId: "all", address: "all", occupation: "all", salaryStatus: "all", salaryType: "all",
+  balanceStatus: "all", minBalance: "", maxBalance: "", overdueOnly: false, activityFrom: "", activityTo: "",
+  relationshipExact: "", relationshipMin: "", relationshipMax: "", relationshipUnit: "days",
+  purchaseOn: "", purchaseFrom: "", purchaseTo: "", quantityExact: "", quantityMin: "", quantityMax: "",
+  costExact: "", costMin: "", costMax: "", salesExact: "", salesMin: "", salesMax: "",
+  profitExact: "", profitMin: "", profitMax: "", paidExact: "", paidMin: "", paidMax: "",
+  remainingExact: "", remainingMin: "", remainingMax: "", sellerName: "all", paymentRecipient: "all",
+});
+
 
 export default function CustomersView({
   customers,
@@ -54,13 +105,8 @@ export default function CustomersView({
   const [customerTab, setCustomerTab] = useState<"statement" | "invoices" | "purchases" | "payments" | "accounting">("statement");
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [folderFilter, setFolderFilter] = useState("all");
-  const [balanceFilter, setBalanceFilter] = useState("all");
-  const [minimumBalance, setMinimumBalance] = useState("");
-  const [maximumBalance, setMaximumBalance] = useState("");
-  const [overdueOnly, setOverdueOnly] = useState(false);
-  const [activityFrom, setActivityFrom] = useState("");
-  const [activityTo, setActivityTo] = useState("");
+  const [customerFilters, setCustomerFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
+  const [draftFilters, setDraftFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
   const [isPrintingCustomer, setIsPrintingCustomer] = useState(false);
   const [sheetDetails, setSheetDetails] = useState("");
   const [sheetQuantity, setSheetQuantity] = useState("1");
@@ -228,26 +274,172 @@ export default function CustomersView({
     }
   };
 
-  // Filter customers
-  const activeFilterCount = [folderFilter !== "all", balanceFilter !== "all", Boolean(minimumBalance), Boolean(maximumBalance), overdueOnly, Boolean(activityFrom), Boolean(activityTo)].filter(Boolean).length;
+  // Filter customers using the saved customer, invoice, accounting-sheet, and payment records.
+  const distinctOptions = (values: (string | undefined)[]) => [...new Set(values.map(value => (value || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "ar"));
+  const addressOptions = distinctOptions(customers.map(customer => customer.address));
+  const occupationOptions = distinctOptions(customers.map(customer => customer.profile?.occupation || customer.profile?.profession));
+  const salaryTypeOptions = distinctOptions(customers.map(customer => customer.salaryType));
+  const sellerOptions = distinctOptions(invoices.filter(invoice => !invoice.isDeleted).flatMap(invoice => [
+    invoice.employeeName,
+    ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName),
+  ]).concat(customers.flatMap(customer => (customer.accountingSheetRows || []).map(row => (row as typeof row & { sellerName?: string }).sellerName))));
+  const recipientOptions = distinctOptions([
+    ...payments.filter(payment => !payment.isDeleted).flatMap(payment => {
+      const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+      return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+    }),
+    ...customers.flatMap(customer => [
+      ...(customer.accountingSheetPayments || []).flatMap(payment => {
+        const extra = payment as typeof payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+      }),
+      ...(customer.accountingSheetRows || []).flatMap(row => (row as typeof row & { sellerName?: string }).sellerName ? [(row as typeof row & { sellerName?: string }).sellerName] : []),
+    ]),
+    ...invoices.filter(invoice => !invoice.isDeleted).flatMap(invoice => invoice.items
+      .filter(item => item.isSeparator && Number(item.paidAmount) > 0)
+      .map(item => (item as typeof item & { sellerName?: string }).sellerName)),
+  ]);
+  const activeFilterCount = Object.values(customerFilters).filter(value =>
+    typeof value === "boolean" ? value : value !== "" && value !== "all" && value !== "days"
+  ).length;
   const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
-  const filteredCustomers = customers.filter(c => {
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q || [c.name, c.phone, c.address || ""].some(value => value.toLowerCase().includes(q));
-    if (!matchesSearch || (folderFilter !== "all" && (c.folderId || "") !== folderFilter)) return false;
-    const metrics = getCustomerMetrics(c.id);
+  const dateKey = (value?: string) => {
+    if (!value) return "";
+    const raw = value.trim();
+    const dateOnly = /^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/.exec(raw);
+    if (dateOnly) return dateOnly[1] + "-" + dateOnly[2].padStart(2, "0") + "-" + dateOnly[3].padStart(2, "0");
+    const parsed = new Date(raw);
+    return Number.isFinite(parsed.getTime()) ? parsed.toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }) : "";
+  };
+  const parsedDate = (value?: string) => {
+    const key = dateKey(value);
+    if (!key) return null;
+    const [year, month, day] = key.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  };
+  const durationValue = (firstDate: Date, unit: CustomerFilterState["relationshipUnit"]) => {
+    const today = parsedDate(todayDate)!;
+    if (unit === "days") return Math.max(0, Math.floor((today.getTime() - firstDate.getTime()) / 86400000));
+    let months = (today.getUTCFullYear() - firstDate.getUTCFullYear()) * 12 + today.getUTCMonth() - firstDate.getUTCMonth();
+    if (today.getUTCDate() < firstDate.getUTCDate()) months -= 1;
+    return unit === "months" ? Math.max(0, months) : Math.max(0, Math.floor(months / 12));
+  };
+  const inNumberRange = (value: number | null, exact: string, min: string, max: string) => {
+    if (!exact && !min && !max) return true;
+    if (value === null || !Number.isFinite(value)) return false;
+    if (exact && value !== Number(exact)) return false;
+    if (min && value < Number(min)) return false;
+    if (max && value > Number(max)) return false;
+    return true;
+  };
+  const filteredCustomers = customers.filter(customer => {
+    const q = searchQuery.trim().toLocaleLowerCase();
+    const matchesSearch = !q || [customer.name, customer.phone, customer.address || ""].some(value => value.toLocaleLowerCase().includes(q));
+    const filters = customerFilters;
+    if (!matchesSearch || (filters.folderId !== "all" && (customer.folderId || "") !== filters.folderId)) return false;
+    if (filters.address !== "all" && (customer.address || "").trim() !== filters.address) return false;
+    const occupation = (customer.profile?.occupation || customer.profile?.profession || "").trim();
+    if (filters.occupation !== "all" && occupation !== filters.occupation) return false;
+    if (filters.salaryStatus === "yes" && customer.hasSalary !== true) return false;
+    if (filters.salaryStatus === "no" && customer.hasSalary !== false) return false;
+    if (filters.salaryType !== "all" && (customer.salaryType || "").trim() !== filters.salaryType) return false;
+
+    const metrics = getCustomerMetrics(customer.id);
     const balance = Number(metrics.totalRemaining) || 0;
-    if (balanceFilter === "owing" && balance <= 0) return false;
-    if (balanceFilter === "settled" && balance > 0) return false;
-    if (minimumBalance && balance < Number(minimumBalance)) return false;
-    if (maximumBalance && balance > Number(maximumBalance)) return false;
-    if (overdueOnly && !metrics.invoices.some(inv => Number(inv.remainingAmount) > 0 && inv.dueDate && inv.dueDate < todayDate)) return false;
-    const activityDates = metrics.ledger.map(entry => entry.date).filter(Boolean).sort();
+    if (filters.balanceStatus === "owing" && balance <= 0) return false;
+    if (filters.balanceStatus === "settled" && balance > 0) return false;
+    if (filters.minBalance && balance < Number(filters.minBalance)) return false;
+    if (filters.maxBalance && balance > Number(filters.maxBalance)) return false;
+    if (filters.overdueOnly && !metrics.invoices.some(invoice => !invoice.isDeleted && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < todayDate)) return false;
+    const activityDates = metrics.ledger.map(entry => dateKey(entry.date)).filter(Boolean).sort();
     const latestActivity = activityDates[activityDates.length - 1] || "";
-    if (activityFrom && (!latestActivity || latestActivity < activityFrom)) return false;
-    if (activityTo && (!latestActivity || latestActivity > activityTo)) return false;
+    if (filters.activityFrom && (!latestActivity || latestActivity < filters.activityFrom)) return false;
+    if (filters.activityTo && (!latestActivity || latestActivity > filters.activityTo)) return false;
+
+    const customerInvoices = invoices.filter(invoice => invoice.customerId === customer.id && !invoice.isDeleted);
+    const invoiceItems = customerInvoices.flatMap(invoice => invoice.items.filter(item =>
+      !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (String(item.details || "").trim() || Number(item.total) !== 0)
+    ));
+    const accountingRows = (customer.accountingSheetRows || []).filter(row =>
+      !row.isSeparator && (String(row.details || "").trim() || Number(row.total) !== 0)
+    );
+    const purchaseDates = [
+      ...customerInvoices.map(invoice => invoice.date || invoice.createdAt),
+      ...accountingRows.map(row => row.createdAt || customer.accountingSheetDate || ""),
+    ].map(value => dateKey(value)).filter(Boolean).sort();
+    if (filters.purchaseOn && !purchaseDates.includes(filters.purchaseOn)) return false;
+    if (filters.purchaseFrom && !purchaseDates.some(value => value >= filters.purchaseFrom)) return false;
+    if (filters.purchaseTo && !purchaseDates.some(value => value <= filters.purchaseTo)) return false;
+    if (filters.purchaseFrom && filters.purchaseTo && !purchaseDates.some(value => value >= filters.purchaseFrom && value <= filters.purchaseTo)) return false;
+
+    const purchaseRows = [
+      ...invoiceItems.map(item => ({ quantity: Number(item.quantity) || 0, total: Number(item.total) || 0, unitCost: item.unitCost })),
+      ...accountingRows.map(row => ({ quantity: Number(row.quantity) || 0, total: Number(row.total) || 0, unitCost: row.unitCost })),
+    ];
+    const totalQuantity = purchaseRows.reduce((sum, row) => sum + row.quantity, 0);
+    if (!inNumberRange(totalQuantity, filters.quantityExact, filters.quantityMin, filters.quantityMax)) return false;
+    const purchaseCost = purchaseRows.length && purchaseRows.every(row => typeof row.unitCost === "number" && Number.isFinite(row.unitCost) && row.unitCost >= 0)
+      ? purchaseRows.reduce((sum, row) => sum + row.quantity * (row.unitCost as number), 0)
+      : null;
+    if (!inNumberRange(purchaseCost, filters.costExact, filters.costMin, filters.costMax)) return false;
+    const salesTotal = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0)
+      + accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    if (!inNumberRange(salesTotal, filters.salesExact, filters.salesMin, filters.salesMax)) return false;
+    const invoiceRowsTotal = customerInvoices.reduce((sum, invoice) => sum + invoice.items
+      .filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
+      .reduce((itemSum, item) => itemSum + (Number(item.total) || 0), 0), 0);
+    const accountingRowsTotal = accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const costsComplete = purchaseRows.length > 0 && purchaseRows.every(row => typeof row.unitCost === "number" && Number.isFinite(row.unitCost) && row.unitCost >= 0);
+    const salesConsistent = Math.abs(invoiceRowsTotal - customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0)) < 0.01
+      && Math.abs(accountingRowsTotal - accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0)) < 0.01;
+    const profit = costsComplete && salesConsistent ? salesTotal - (purchaseCost || 0) : null;
+    if (!inNumberRange(profit, filters.profitExact, filters.profitMin, filters.profitMax)) return false;
+
+    // Invoice paidAmount already includes its recorded receipts; do not add Payment rows again.
+    const paidTotal = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.paidAmount) || 0), 0)
+      + (customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    if (!inNumberRange(paidTotal, filters.paidExact, filters.paidMin, filters.paidMax)) return false;
+    if (!inNumberRange(balance, filters.remainingExact, filters.remainingMin, filters.remainingMax)) return false;
+
+    const sellers = distinctOptions([
+      ...customerInvoices.flatMap(invoice => [
+        invoice.employeeName,
+        ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName),
+      ]),
+      ...accountingRows.map(row => (row as typeof row & { sellerName?: string }).sellerName),
+    ]);
+    if (filters.sellerName !== "all" && !sellers.includes(filters.sellerName)) return false;
+    const recipients = distinctOptions([
+      ...customerInvoices.flatMap(invoice => invoice.items
+        .filter(item => item.isSeparator && Number(item.paidAmount) > 0)
+        .map(item => {
+          const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+          return extra.recipient || extra.recipientName || extra.receivedBy || extra.sellerName;
+        })),
+      ...(customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+        .flatMap(payment => {
+          const extra = payment as typeof payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+          return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+        }),
+      ...payments.filter(payment => payment.customerId === customer.id && !payment.isDeleted).flatMap(payment => {
+        const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+      }),
+    ]);
+    if (filters.paymentRecipient !== "all" && !recipients.includes(filters.paymentRecipient)) return false;
+
+    const firstPurchase = purchaseDates.length ? parsedDate(purchaseDates[0]) : null;
+    const duration = firstPurchase ? durationValue(firstPurchase, filters.relationshipUnit) : null;
+    if (!inNumberRange(duration, filters.relationshipExact, filters.relationshipMin, filters.relationshipMax)) return false;
     return true;
   });
+
+  const updateDraftFilter = <K extends keyof CustomerFilterState>(key: K, value: CustomerFilterState[K]) => {
+    setDraftFilters(previous => ({ ...previous, [key]: value }));
+  };
 
   return (
     <div className="customers-view space-y-6 min-w-0">
@@ -293,7 +485,7 @@ export default function CustomersView({
                 className="w-full pr-10 pl-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-2xs"
               />
             </div>
-            <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
+            <FilterButton activeCount={activeFilterCount} onClick={() => { setDraftFilters(customerFilters); setFiltersOpen(true); }} />
 
             {/* View Mode Switcher Buttons */}
             <div
@@ -357,12 +549,85 @@ export default function CustomersView({
             </div>
           </div>
 
-          <FilterPanel open={filtersOpen} title="تصفية العملاء" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setFolderFilter("all"); setBalanceFilter("all"); setMinimumBalance(""); setMaximumBalance(""); setOverdueOnly(false); setActivityFrom(""); setActivityTo(""); }}>
-            <label className="block text-sm font-semibold text-slate-700">المجلد<select value={folderFilter} onChange={e => setFolderFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل المجلدات</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
-            <label className="block text-sm font-semibold text-slate-700">حالة الحساب<select value={balanceFilter} onChange={e => setBalanceFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="owing">عليه مبلغ</option><option value="settled">مسدد بالكامل</option></select></label>
-            <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل متبقي<input type="number" min="0" value={minimumBalance} onChange={e => setMinimumBalance(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى متبقي<input type="number" min="0" value={maximumBalance} onChange={e => setMaximumBalance(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)} className="h-4 w-4 accent-blue-600" />عليه مستحقات متأخرة</label>
-            <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">آخر تعامل من<input type="date" value={activityFrom} onChange={e => setActivityFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى<input type="date" value={activityTo} onChange={e => setActivityTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          <FilterPanel
+            open={filtersOpen}
+            title="تصفية العملاء"
+            activeCount={activeFilterCount}
+            onClose={() => { setDraftFilters(customerFilters); setFiltersOpen(false); }}
+            onApply={() => { setCustomerFilters(draftFilters); setFiltersOpen(false); }}
+            onClear={() => { const empty = emptyCustomerFilters(); setDraftFilters(empty); setCustomerFilters(empty); setFiltersOpen(false); }}
+            clearLabel="إعادة تعيين التصفية"
+            applyLabel="تطبيق التصفية"
+          >
+            <section className="space-y-3 rounded-xl border border-slate-200 p-3">
+              <h4 className="font-bold text-slate-800">المعلومات الشخصية</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">المجلد<select value={draftFilters.folderId} onChange={e => updateDraftFilter("folderId", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل المجلدات</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+                <label className="text-sm font-semibold text-slate-700">عنوان السكن<select value={draftFilters.address} onChange={e => updateDraftFilter("address", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل العناوين</option>{addressOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                <label className="text-sm font-semibold text-slate-700">المهنة أو الوظيفة<select value={draftFilters.occupation} onChange={e => updateDraftFilter("occupation", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل المهن</option>{occupationOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                <label className="text-sm font-semibold text-slate-700">هل لديه راتب؟<select value={draftFilters.salaryStatus} onChange={e => updateDraftFilter("salaryStatus", e.target.value as CustomerFilterState["salaryStatus"])} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">الكل</option><option value="yes">نعم</option><option value="no">لا</option></select></label>
+                <label className="text-sm font-semibold text-slate-700">نوع الراتب<select value={draftFilters.salaryType} onChange={e => updateDraftFilter("salaryType", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الأنواع</option>{salaryTypeOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                <label className="flex items-center gap-2 self-end pb-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={draftFilters.overdueOnly} onChange={e => updateDraftFilter("overdueOnly", e.target.checked)} className="h-4 w-4 accent-blue-600" />عليه مستحقات متأخرة</label>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-xl border border-slate-200 p-3">
+              <h4 className="font-bold text-slate-800">مدة التعامل وتاريخ الشراء</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">مدة التعامل تساوي<input type="number" min="0" value={draftFilters.relationshipExact} onChange={e => updateDraftFilter("relationshipExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">الوحدة<select value={draftFilters.relationshipUnit} onChange={e => updateDraftFilter("relationshipUnit", e.target.value as CustomerFilterState["relationshipUnit"])} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="days">أيام</option><option value="months">أشهر</option><option value="years">سنوات</option></select></label>
+                <label className="text-sm font-semibold text-slate-700">مدة التعامل من<input type="number" min="0" value={draftFilters.relationshipMin} onChange={e => updateDraftFilter("relationshipMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى<input type="number" min="0" value={draftFilters.relationshipMax} onChange={e => updateDraftFilter("relationshipMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">اشترى في تاريخ<input type="date" value={draftFilters.purchaseOn} onChange={e => updateDraftFilter("purchaseOn", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">تاريخ الشراء من<input type="date" value={draftFilters.purchaseFrom} onChange={e => updateDraftFilter("purchaseFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={e => updateDraftFilter("purchaseTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+              </div>
+              <p className="text-xs text-slate-500">مدة التعامل محسوبة من أول تاريخ شراء مسجل إلى اليوم، ويُقبل الشراء النقدي والآجل المسجلان.</p>
+            </section>
+
+            <section className="space-y-3 rounded-xl border border-slate-200 p-3">
+              <h4 className="font-bold text-slate-800">إحصاءات المشتريات</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">عدد البضائع يساوي<input type="number" min="0" step="any" value={draftFilters.quantityExact} onChange={e => updateDraftFilter("quantityExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">العدد من<input type="number" min="0" step="any" value={draftFilters.quantityMin} onChange={e => updateDraftFilter("quantityMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى عدد<input type="number" min="0" step="any" value={draftFilters.quantityMax} onChange={e => updateDraftFilter("quantityMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">تكلفة الشراء تساوي<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">تكلفة الشراء من<input type="number" min="0" value={draftFilters.costMin} onChange={e => updateDraftFilter("costMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى تكلفة<input type="number" min="0" value={draftFilters.costMax} onChange={e => updateDraftFilter("costMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إجمالي المشتريات يساوي<input type="number" min="0" value={draftFilters.salesExact} onChange={e => updateDraftFilter("salesExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إجمالي المشتريات من<input type="number" min="0" value={draftFilters.salesMin} onChange={e => updateDraftFilter("salesMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى إجمالي المشتريات<input type="number" min="0" value={draftFilters.salesMax} onChange={e => updateDraftFilter("salesMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-xl border border-slate-200 p-3">
+              <h4 className="font-bold text-slate-800">الأرباح والتسديدات والديون</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">إجمالي الربح يساوي<input type="number" value={draftFilters.profitExact} onChange={e => updateDraftFilter("profitExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">الربح من<input type="number" value={draftFilters.profitMin} onChange={e => updateDraftFilter("profitMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى ربح<input type="number" value={draftFilters.profitMax} onChange={e => updateDraftFilter("profitMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إجمالي المسدد يساوي<input type="number" min="0" value={draftFilters.paidExact} onChange={e => updateDraftFilter("paidExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">المسدد من<input type="number" min="0" value={draftFilters.paidMin} onChange={e => updateDraftFilter("paidMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى مبلغ مسدد<input type="number" min="0" value={draftFilters.paidMax} onChange={e => updateDraftFilter("paidMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">المتبقي يساوي<input type="number" min="0" value={draftFilters.remainingExact} onChange={e => updateDraftFilter("remainingExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">المتبقي من<input type="number" min="0" value={draftFilters.remainingMin} onChange={e => updateDraftFilter("remainingMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى مبلغ متبقٍ<input type="number" min="0" value={draftFilters.remainingMax} onChange={e => updateDraftFilter("remainingMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">حالة الحساب<select value={draftFilters.balanceStatus} onChange={e => updateDraftFilter("balanceStatus", e.target.value as CustomerFilterState["balanceStatus"])} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="owing">عليه مبلغ</option><option value="settled">مسدد بالكامل</option></select></label>
+                <label className="text-sm font-semibold text-slate-700">آخر تعامل من<input type="date" value={draftFilters.activityFrom} onChange={e => updateDraftFilter("activityFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">إلى تاريخ آخر تعامل<input type="date" value={draftFilters.activityTo} onChange={e => updateDraftFilter("activityTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">أقل متبقي<input type="number" min="0" value={draftFilters.minBalance} onChange={e => updateDraftFilter("minBalance", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">أعلى متبقي<input type="number" min="0" value={draftFilters.maxBalance} onChange={e => updateDraftFilter("maxBalance", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+              </div>
+              <p className="text-xs text-slate-500">الربح يظهر فقط عندما تكون تكلفة الشراء التاريخية مسجلة لكل البنود، حتى لا تظهر نتيجة تقديرية.</p>
+            </section>
+
+            <section className="space-y-3 rounded-xl border border-slate-200 p-3">
+              <h4 className="font-bold text-slate-800">الموظفون</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">اسم البائع<select value={draftFilters.sellerName} onChange={e => updateDraftFilter("sellerName", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل البائعين</option>{sellerOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                <label className="text-sm font-semibold text-slate-700">مستلم التسديد<select value={draftFilters.paymentRecipient} onChange={e => updateDraftFilter("paymentRecipient", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل المستلمين</option>{recipientOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+              </div>
+            </section>
           </FilterPanel>
           {/* Customers Table/Grid */}
           {filteredCustomers.length === 0 ? (
