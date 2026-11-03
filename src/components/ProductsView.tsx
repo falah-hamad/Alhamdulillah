@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import PriceLabelsModal from "./PriceLabelsModal";
 import BarcodeScannerModal from "./BarcodeScannerModal";
+import { FilterButton, FilterPanel } from "./FilterPanel";
 import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
@@ -89,6 +90,13 @@ function ProductsViewContent({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "favorites" | "recent" | "low">("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [supplierFilter, setSupplierFilter] = useState("");
+  const [minimumSalePrice, setMinimumSalePrice] = useState("");
+  const [maximumSalePrice, setMaximumSalePrice] = useState("");
+  const [minimumQuantity, setMinimumQuantity] = useState("");
+  const [maximumQuantity, setMaximumQuantity] = useState("");
+  const [stockStatus, setStockStatus] = useState<"all" | "available" | "low" | "out">("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -191,17 +199,28 @@ function ProductsViewContent({
         .filter(Boolean).join(" ").toLocaleLowerCase();
       const matchesQuery = !q || searchable.includes(q);
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
+      const quantity = Number(p.quantity) || 0;
+      const salePrice = Number(p.salePrice) || 0;
       const matchesQuick = quickFilter === "all"
         || (quickFilter === "favorites" && Boolean(p.isFavorite))
         || (quickFilter === "recent" && Boolean(p.lastViewedAt))
-        || (quickFilter === "low" && (Number(p.quantity) || 0) <= (Number(p.minStock ?? 5) || 0));
-      return matchesQuery && matchesCategory && matchesQuick;
+        || (quickFilter === "low" && quantity <= (Number(p.minStock ?? 5) || 0));
+      const matchesSupplier = !supplierFilter || (p.supplierName || "").toLocaleLowerCase().includes(supplierFilter.trim().toLocaleLowerCase());
+      const matchesMinimumPrice = !minimumSalePrice || salePrice >= Number(minimumSalePrice);
+      const matchesMaximumPrice = !maximumSalePrice || salePrice <= Number(maximumSalePrice);
+      const matchesMinimumQuantity = !minimumQuantity || quantity >= Number(minimumQuantity);
+      const matchesMaximumQuantity = !maximumQuantity || quantity <= Number(maximumQuantity);
+      const matchesStockStatus = stockStatus === "all"
+        || (stockStatus === "available" && quantity > 0)
+        || (stockStatus === "low" && quantity > 0 && quantity <= (Number(p.minStock ?? 5) || 0))
+        || (stockStatus === "out" && quantity <= 0);
+      return matchesQuery && matchesCategory && matchesQuick && matchesSupplier && matchesMinimumPrice && matchesMaximumPrice && matchesMinimumQuantity && matchesMaximumQuantity && matchesStockStatus;
     }).sort((a, b) => {
       if (quickFilter === "recent") return (b.lastViewedAt || "").localeCompare(a.lastViewedAt || "");
       if (quickFilter === "favorites") return Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite)) || a.name.localeCompare(b.name, "ar");
       return a.name.localeCompare(b.name, "ar");
     });
-  }, [activeProducts, searchQuery, selectedCategory, quickFilter]);
+  }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus]);
 
   const groupedProducts = useMemo(() => {
     const groups = new Map<string, Product[]>();
@@ -583,6 +602,13 @@ function ProductsViewContent({
             <option value="low">مخزون منخفض</option>
           </select>
         </div>
+        <div className="flex justify-end"><FilterButton activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} /></div>
+        <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
+          <label className="block text-sm font-semibold text-slate-700">المجهّز<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المجهّز" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<input type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<input type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل كمية<input type="number" min="0" value={minimumQuantity} onChange={e => setMinimumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى كمية<input type="number" min="0" value={maximumQuantity} onChange={e => setMaximumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          <label className="block text-sm font-semibold text-slate-700">حالة المخزون<select value={stockStatus} onChange={e => setStockStatus(e.target.value as typeof stockStatus)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></label>
+        </FilterPanel>
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
