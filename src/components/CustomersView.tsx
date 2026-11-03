@@ -326,6 +326,8 @@ export default function CustomersView({
     if (max && (maxValue === null || value > maxValue)) return false;
     return true;
   };
+  const savedStatisticsSource = window.localStorage.getItem("customer-statistics-account-source");
+  const statisticsSource = savedStatisticsSource === "vertical" || savedStatisticsSource === "accounting" ? savedStatisticsSource : "all";
   const filteredCustomers = customers.filter(customer => {
     const q = searchQuery.trim().toLocaleLowerCase();
     const matchesSearch = !q || [customer.name, customer.phone, customer.address || ""].some(value => value.toLocaleLowerCase().includes(q));
@@ -339,10 +341,8 @@ export default function CustomersView({
     if (filters.salaryType !== "all" && (customer.salaryType || "").trim() !== filters.salaryType) return false;
 
     const metrics = getCustomerMetrics(customer.id);
-    const savedStatsSource = window.localStorage.getItem("customer-statistics-account-source");
-    const statsSource = savedStatsSource === "vertical" || savedStatsSource === "accounting" ? savedStatsSource : "all";
-    const includeVertical = statsSource !== "accounting";
-    const includeAccounting = statsSource !== "vertical";
+    const includeVertical = statisticsSource !== "accounting";
+    const includeAccounting = statisticsSource !== "vertical";
     const verticalRemaining = metrics.invoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
     const accountingRowsForBalance = (customer.accountingSheetRows || []).filter(row =>
       !row.isSeparator && (String(row.details || "").trim() || Number(row.total) !== 0)
@@ -571,6 +571,9 @@ export default function CustomersView({
             clearLabel="إعادة تعيين التصفية"
             applyLabel="تطبيق التصفية"
           >
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
+              التصفية المالية والشرائية تعتمد على مصدر الإحصائيات المحدد: {statisticsSource === "all" ? "الكل — سجل الحساب العمودي والقائمة الحسابية معاً" : statisticsSource === "vertical" ? "سجل الحساب العمودي / كشوف الديون" : "القائمة الحسابية المستقلة"}.
+            </p>
             <section className="space-y-3 rounded-xl border border-slate-200 p-3">
               <h4 className="font-bold text-blue-900">أولاً: التصفية حسب المعلومات الشخصية وتاريخ التعامل</h4>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
