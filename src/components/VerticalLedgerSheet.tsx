@@ -40,6 +40,7 @@ import {
   Paperclip,
   ImagePlus,
 } from "lucide-react";
+import { FilterButton, FilterPanel } from "./FilterPanel";
 import { Invoice, InvoiceItem, Customer, SystemSettings, CustomerChangeLogItem } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import CustomerChangeLogTable from "./CustomerChangeLogTable";
@@ -202,6 +203,12 @@ export default function VerticalLedgerSheet({
 
   // Main view tab: "sheet" (ورقة حساب الدين) or "changelog" (سجل التغييرات)
   const [activeViewTab, setActiveViewTab] = useState<"sheet" | "changelog">("sheet");
+  const [ledgerFiltersOpen, setLedgerFiltersOpen] = useState(false);
+  const [ledgerProductFilter, setLedgerProductFilter] = useState("");
+  const [ledgerSellerFilter, setLedgerSellerFilter] = useState("");
+  const [ledgerDateFrom, setLedgerDateFrom] = useState("");
+  const [ledgerDateTo, setLedgerDateTo] = useState("");
+  const [ledgerTypeFilter, setLedgerTypeFilter] = useState<"all" | "debt" | "payment">("all");
 
   // Mode: "view" (عرض علامة عين) or "edit" (تعديل علامة قلم) - الافتراضي هو وضع العرض
   const [sheetMode, setSheetMode] = useState<"edit" | "view">("view");
@@ -2230,6 +2237,22 @@ export default function VerticalLedgerSheet({
     );
   };
 
+  const ledgerFilterCount = [ledgerProductFilter.trim(), ledgerSellerFilter.trim(), Boolean(ledgerDateFrom), Boolean(ledgerDateTo), ledgerTypeFilter !== "all"].filter(Boolean).length;
+  const filteredLedgerRows = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      const isPayment = Boolean(item.isSeparator || item.isPaymentRow);
+      const hasContent = !item.isRemainingRow && (isPayment || Boolean(item.details?.trim()) || Number(item.total || item.unitPrice || 0) !== 0);
+      const query = ledgerProductFilter.trim().toLocaleLowerCase();
+      const seller = (item.sellerName || "").toLocaleLowerCase();
+      const rowDate = String((isPayment && item.paidDate) || item.createdAt || invoice.date || "").slice(0, 10);
+      return hasContent &&
+        (ledgerTypeFilter === "all" || (ledgerTypeFilter === "payment" ? isPayment : !isPayment)) &&
+        (!query || (item.details || "").toLocaleLowerCase().includes(query)) &&
+        (!ledgerSellerFilter.trim() || seller.includes(ledgerSellerFilter.trim().toLocaleLowerCase())) &&
+        (!ledgerDateFrom || Boolean(rowDate && rowDate >= ledgerDateFrom)) &&
+        (!ledgerDateTo || Boolean(rowDate && rowDate <= ledgerDateTo));
+    });
   const customerLogs = (changeLogs || []).filter((l) => l.customerId === customer.id && l.invoiceId === invoice.id);
 
   useEffect(() => {
@@ -2279,6 +2302,7 @@ export default function VerticalLedgerSheet({
           >
             <Pencil className="h-4 w-4" /> تعديل
           </button>
+          <FilterButton activeCount={ledgerFilterCount} onClick={() => setLedgerFiltersOpen(true)} />
         </div>
         {sheetMode === "edit" && (
           <div className="flex flex-wrap items-center gap-2">
@@ -2379,6 +2403,22 @@ export default function VerticalLedgerSheet({
         </div>
       ) : (
         <>
+          <FilterPanel open={ledgerFiltersOpen} title="تصفية سجل ديون العميل" activeCount={ledgerFilterCount} onClose={() => setLedgerFiltersOpen(false)} onApply={() => setLedgerFiltersOpen(false)} onClear={() => { setLedgerProductFilter(""); setLedgerSellerFilter(""); setLedgerDateFrom(""); setLedgerDateTo(""); setLedgerTypeFilter("all"); }}>
+            <label className="block text-sm font-semibold text-slate-700">البضاعة أو التفاصيل<input value={ledgerProductFilter} onChange={e => setLedgerProductFilter(e.target.value)} placeholder="اكتب اسم البضاعة أو جزءاً منه" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+            <label className="block text-sm font-semibold text-slate-700">البائع أو المستلم<input value={ledgerSellerFilter} onChange={e => setLedgerSellerFilter(e.target.value)} placeholder="اسم مسجل في تفاصيل الصف" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+            <label className="block text-sm font-semibold text-slate-700">نوع الحركة<select value={ledgerTypeFilter} onChange={e => setLedgerTypeFilter(e.target.value as typeof ledgerTypeFilter)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">الديون والتسديدات</option><option value="debt">الديون فقط</option><option value="payment">التسديدات فقط</option></select></label>
+            <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={ledgerDateFrom} onChange={e => setLedgerDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={ledgerDateTo} onChange={e => setLedgerDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          </FilterPanel>
+          {ledgerFilterCount > 0 && <section className="space-y-3 rounded-xl border border-blue-200 bg-white p-3 shadow-sm no-print" dir="rtl">
+            <div className="flex items-center justify-between gap-2"><h3 className="font-bold text-blue-900">نتائج التصفية</h3><span className="text-xs text-slate-500">{filteredLedgerRows.length} صف</span></div>
+            {filteredLedgerRows.length ? <div className="overflow-x-auto"><table className="min-w-[760px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
+              <thead className="bg-blue-50"><tr><th className="border p-2">ت</th><th className="border p-2">نوع الحركة</th><th className="border p-2">المبلغ</th><th className="border p-2">التفاصيل والبيان</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">البائع / المستلم</th></tr></thead>
+              <tbody>{filteredLedgerRows.map(({ item, index }) => <tr key={item.id || index} className={index % 2 ? "bg-slate-50" : "bg-white"}>
+                <td className="border p-2">{index + 1}</td><td className="border p-2">{item.isSeparator || item.isPaymentRow ? "تسديد" : "دين"}</td><td className="border p-2">{Number(item.isSeparator ? item.paidAmount : item.total || item.unitPrice || 0).toLocaleString("en-US")}</td><td className="border p-2">{item.details || "—"}</td>
+                <td className="border p-2">{item.isSeparator ? [item.paidDay, item.paidTime, item.paidDate].filter(Boolean).join(" — ") : item.createdAt || invoice.date || "غير مسجل"}</td><td className="border p-2">{item.sellerName || "غير مسجل"}</td>
+              </tr>)}</tbody>
+            </table></div> : <p className="text-center text-sm text-slate-500">ماكو صفوف تطابق شروط التصفية.</p>}
+          </section>}
           {/* أدوات السجل مرتبة ضمن تبويبات قصيرة، وحالتها مستقلة عن القائمة الحسابية */}
           <div className="bg-white/95 backdrop-blur-xs p-2 rounded-xl border border-slate-200/90 shadow-sm no-print space-y-2">
             <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات سجل الحساب العمودي">
