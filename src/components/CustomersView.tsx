@@ -608,7 +608,7 @@ export default function CustomersView({
               <div className="rounded-lg bg-slate-50 p-3">
                 <h5 className="mb-2 text-sm font-semibold text-slate-700">9. حسب إجمالي تكلفة شراء البضائع (رأس المال)</h5>
                 <div>
-                  <label className="text-sm text-slate-700">التكلفة يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+                  <label className="text-sm text-slate-700">التكلفة تساوي ({settings.currency})<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <label className="text-sm text-slate-700">التكلفة من ({settings.currency})<input type="number" min="0" value={draftFilters.costMin} onChange={e => updateDraftFilter("costMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
                     <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.costMax} onChange={e => updateDraftFilter("costMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
