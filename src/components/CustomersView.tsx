@@ -5,25 +5,14 @@ import {
   PlusCircle,
   Phone,
   MapPin,
-  FileText,
-  DollarSign,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Printer,
-  Trash2,
-  Calendar,
   X,
-  CreditCard,
   Edit,
-  ClipboardList,
   ChevronLeft,
-  ArrowRight,
   LayoutGrid,
   List,
   Folder,
   FolderOpen,
-  User,
-  Loader2
+  User
 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
 import { FilterButton, FilterPanel, FilterSelect } from "./FilterPanel";
