@@ -109,7 +109,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(rows.length)}</p>
     <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
-      <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-fixed">
+      <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
         <thead className="bg-[#94acd1] text-slate-950">
           <tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{h}</th>)}</tr>
         </thead>
@@ -117,7 +117,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
           {sorted.map((r,i)=><React.Fragment key={r.id}>
             {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
             <tr className="hover:bg-blue-50/40">
-              {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className={`border border-slate-300 px-1 py-2 text-center align-middle ${[1,2,3].includes(j)?"w-[115px] min-w-[85px] max-w-[115px] whitespace-normal break-words":"whitespace-nowrap"}`}>{[1,2,3].includes(j) ? wordLines(String(v)).map((line,k)=><span key={k} className="block leading-5">{line}</span>) : typeof v==="number"?format(v):v}</td>)}
+              {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className={`border border-slate-300 px-1 py-2 text-center align-middle ${[1,2,3].includes(j)?"whitespace-normal":"whitespace-nowrap"}`}>{[1,2,3].includes(j) ? wordLines(String(v)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>) : typeof v==="number"?format(v):v}</td>)}
             </tr>
           </React.Fragment>)}
         </tbody>
