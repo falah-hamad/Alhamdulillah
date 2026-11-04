@@ -455,7 +455,7 @@ export default function CustomersView({
     setDraftFilters(previous => ({ ...previous, [key]: value }));
   };
 
-  if (showCustomerData) return <CustomerDataTable customers={customers} invoices={invoices} payments={payments} onBack={() => setShowCustomerData(false)} />;
+  if (showCustomerData) return <CustomerDataTable customers={customers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} />;
 
   return (
     <div className="customers-view space-y-6 min-w-0">
