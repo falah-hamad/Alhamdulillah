@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, Download, GripVertical, Printer, RotateCcw, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
@@ -174,11 +174,11 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   });
   const group = (r:Entry) => JSON.stringify(visible.map(x=>value(r,x.key,x.dateMode)));
   const update = (i:number,patch:Partial<Rule>) => setRules(old=>old.map((r,j)=>i===j?{...r,...patch}:r));
-  const moveColumn = (source:ColumnId,target:ColumnId) => setColumnOrder(old=>{
+  const moveColumn = useCallback((source:ColumnId,target:ColumnId) => setColumnOrder(old=>{
     const from=old.indexOf(source),to=old.indexOf(target);
     if(from<0||to<0||from===to)return old;
     const next=[...old];const [moved]=next.splice(from,1);next.splice(to,0,moved);return next;
-  });
+  }),[]);
   useEffect(()=>{
     if(!draggedColumnId)return;
     const handlePointerMove=(event:PointerEvent)=>{
@@ -195,7 +195,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       window.removeEventListener("pointerup",stopDragging);
       window.removeEventListener("pointercancel",stopDragging);
     };
-  },[draggedColumnId]);
+  },[draggedColumnId,moveColumn]);
   const visibleColumnOrder = columnOrder.filter(id=>visibleColumns.includes(id));
   const cellValue = (row:Entry,index:number,id:ColumnId):string|number => {
     switch(id) {
@@ -271,7 +271,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     </div>}
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <p className="text-sm font-bold text-slate-700">أعمدة الجدول</p>
-      <p className="mt-1 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة.</p>
+      <p className="mt-1 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة، ويجب إبقاء عمود واحد ظاهر على الأقل.</p>
       <div className="mt-3 flex flex-nowrap gap-2 overflow-x-auto pb-2 [touch-action:pan-x]">
         {columnOrder.map(id=><div key={id} data-column-id={id} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${draggedColumnId===id?"border-blue-500 bg-blue-50 shadow-sm":"border-slate-300 bg-[#eef3fa]"}`}>
           <button type="button" aria-label={`اسحب لترتيب عمود ${columnLabel(id)}`} onPointerDown={event=>{if(!event.isPrimary)return;event.preventDefault();setDraggedColumnId(id);}} className="touch-none cursor-grab rounded text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={17}/></button>
