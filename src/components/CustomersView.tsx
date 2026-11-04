@@ -438,7 +438,7 @@ export default function CustomersView({
   };
 
   const customerSearchControl = (
-      <div className="relative flex-1">
+      <div className="relative w-full min-w-0 flex-1 sm:w-64">
         <Search className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
         <input
           id="customers-search-input"
