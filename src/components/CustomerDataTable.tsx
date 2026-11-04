@@ -59,7 +59,12 @@ function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; col
   }
 }
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
-const format = (n: number) => n.toLocaleString("ar-IQ", {maximumFractionDigits:2});
+const toEnglishDigits = (value: string) => value.replace(/[٠-٩۰-۹]/g,digit=>{
+  const arabic="٠١٢٣٤٥٦٧٨٩",persian="۰۱۲۳۴۵۶۷۸۹";
+  const arabicIndex=arabic.indexOf(digit);
+  return String(arabicIndex>=0?arabicIndex:persian.indexOf(digit));
+});
+const format = (n: number) => n.toLocaleString("en-US", {maximumFractionDigits:2});
 const label = (key: Key) => fields.find(f => f.key === key)?.label || key;
 const textValue = (v: string | number | null) => v === null ? "غير مسجل" : typeof v === "number" ? format(v) : (v || "غير مسجل");
 const value = (row: Entry, key: Key, dateMode: Rule["dateMode"] = "first"): string | number | null =>
@@ -68,7 +73,7 @@ const formatPurchaseTimestamp = (timestamp: number | null) => {
   if (timestamp === null) return "غير مسجل";
   const date = new Date(timestamp);
   const weekday = new Intl.DateTimeFormat("ar-IQ", {weekday:"long",timeZone:"Asia/Baghdad"}).format(date);
-  const time = new Intl.DateTimeFormat("ar-IQ", {hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Baghdad"}).format(date);
+  const time = toEnglishDigits(new Intl.DateTimeFormat("ar-IQ", {hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Baghdad"}).format(date));
   const parts = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"numeric",day:"numeric",timeZone:"Asia/Baghdad"}).formatToParts(date);
   const part = (type: string) => parts.find(item=>item.type===type)?.value || "";
   return `${weekday} — ${time} — ${part("year")}/${part("month")}/${part("day")}`;
