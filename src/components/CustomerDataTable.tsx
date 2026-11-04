@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, RotateCcw } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, Printer, RotateCcw } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
+import { printElement, exportElementToPDF } from "../utils/printUtils";
 
 type Key = "none" | "folder" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
 type Rule = { key: Key; direction: "asc" | "desc"; show: boolean };
@@ -32,6 +33,17 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
 }) {
   const [rules,setRules] = useState<Rule[]>(defaults);
   const [openMenu,setOpenMenu] = useState<string | null>(null);
+  const [exporting,setExporting] = useState(false);
+  const handleExport = async (download: boolean) => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (download) await exportElementToPDF("customer-data-export", {filename:"بيانات العملاء",title:"بيانات العملاء"});
+      else await printElement("customer-data-export", {title:"بيانات العملاء"});
+    } catch (error) {
+      alert("تعذر " + (download?"تنزيل PDF":"الطباعة") + ": " + (error instanceof Error ? error.message : String(error)));
+    } finally { setExporting(false); }
+  };
   const folderName = (id?: string) => {
     if (!id) return "المجلد الرئيسي";
     const folder = folders.find(f => f.id === id);
@@ -68,7 +80,11 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   return <section dir="rtl" className="w-full min-w-0 space-y-4 p-3 sm:p-5">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-bold text-slate-800">بيانات العملاء</h2>
-      <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={exporting} onClick={()=>void handleExport(false)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer size={16}/> طباعة</button>
+        <button type="button" disabled={exporting} onClick={()=>void handleExport(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download size={16}/> تنزيل PDF</button>
+        <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
+      </div>
     </header>
     <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
       <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
@@ -121,6 +137,18 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
             </tr>
           </React.Fragment>)}
         </tbody>
+      </table>
+    </div>
+    {/* Separate full-width print source: exports every column and row, not the scrolled viewport. */}
+    <div id="customer-data-export" dir="rtl" aria-hidden="true" style={{position:"fixed",left:"-20000px",top:0,width:"1100px",background:"#fff",padding:"12px",fontFamily:"Cairo, Arial, sans-serif",color:"#0f172a"}}>
+      <h2 style={{textAlign:"center",fontSize:"18px",fontWeight:700,marginBottom:"8px"}}>بيانات العملاء</h2>
+      <p style={{textAlign:"right",fontSize:"12px",marginBottom:"10px"}}>عدد العملاء: {format(sorted.length)} — المبالغ بالدينار العراقي</p>
+      <table dir="rtl" style={{width:"100%",borderCollapse:"collapse",tableLayout:"auto",fontSize:"11px",textAlign:"center"}}>
+        <thead><tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} style={{border:"1px solid #94a3b8",background:"#94acd1",padding:"5px 3px",fontWeight:700}}>{h}</th>)}</tr></thead>
+        <tbody>{sorted.map((r,i)=><React.Fragment key={r.id}>
+          {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} style={{border:"1px solid #cbd5e1",background:"#e7eef9",padding:"5px",fontWeight:700}}>{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
+          <tr>{[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} style={{border:"1px solid #cbd5e1",padding:"5px 3px",verticalAlign:"middle",overflowWrap:"anywhere"}}>{[1,2,3].includes(j)?wordLines(String(v)).map((line,k)=><span key={k} style={{display:"block"}}>{line}</span>):typeof v==="number"?format(v):v}</td>)}</tr>
+        </React.Fragment>)}</tbody>
       </table>
     </div>
     <p className="text-xs text-slate-500">المبالغ بالدينار العراقي. رأس المال والربح يُحسبان من تكاليف البضاعة المسجلة؛ عند غياب تكلفة الشراء قد تكون النتائج غير مكتملة. يُعرض مجموع السجل العمودي والقائمة الحسابية.</p>
