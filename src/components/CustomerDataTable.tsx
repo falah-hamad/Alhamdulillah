@@ -4,12 +4,12 @@ import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
 
-type Key = "none" | "folder" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
-type Rule = { key: Key; direction: "asc" | "desc"; show: boolean };
-type Entry = { id: string; folder: string; name: string; address: string; salary: string; phone: string; capital: number; sales: number; profit: number; paid: number; remaining: number; quantity: number };
+type Key = "none" | "folder" | "name" | "address" | "salary" | "purchaseDate" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
+type Rule = { key: Key; direction: "asc" | "desc"; show: boolean; dateMode?: "first" | "last" };
+type Entry = { id: string; folder: string; name: string; address: string; salary: string; phone: string; firstPurchase: number | null; lastPurchase: number | null; capital: number; sales: number; profit: number; paid: number; remaining: number; quantity: number };
 const fields: { key: Key; label: string }[] = [
   {key:"none",label:"بدون فرز"},{key:"folder",label:"المجلد"},{key:"name",label:"الاسم"},{key:"address",label:"العنوان"},
-  {key:"salary",label:"نوع الراتب"},{key:"phone",label:"رقم الهاتف"},{key:"capital",label:"مبلغ رأس المال"},
+  {key:"salary",label:"نوع الراتب"},{key:"purchaseDate",label:"التاريخ والوقت"},{key:"capital",label:"مبلغ رأس المال"},
   {key:"sales",label:"مبلغ البيع"},{key:"profit",label:"مبلغ الربح"},{key:"paid",label:"المبلغ المسدد"},
   {key:"remaining",label:"المبلغ المتبقي"},{key:"quantity",label:"عدد البضائع"}
 ];
@@ -37,9 +37,26 @@ function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean } {
 }
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
 const format = (n: number) => n.toLocaleString("ar-IQ", {maximumFractionDigits:2});
-const value = (row: Entry, key: Key): string | number => key === "none" ? "" : row[key];
 const label = (key: Key) => fields.find(f => f.key === key)?.label || key;
-const textValue = (v: string | number) => typeof v === "number" ? format(v) : (v || "غير مسجل");
+const textValue = (v: string | number | null) => v === null ? "غير مسجل" : typeof v === "number" ? format(v) : (v || "غير مسجل");
+const value = (row: Entry, key: Key, dateMode: Rule["dateMode"] = "first"): string | number | null =>
+  key === "none" ? "" : key === "purchaseDate" ? row[dateMode === "last" ? "lastPurchase" : "firstPurchase"] : row[key];
+const formatPurchaseTimestamp = (timestamp: number | null) => {
+  if (timestamp === null) return "غير مسجل";
+  const date = new Date(timestamp);
+  const weekday = new Intl.DateTimeFormat("ar-IQ", {weekday:"long",timeZone:"Asia/Baghdad"}).format(date);
+  const time = new Intl.DateTimeFormat("ar-IQ", {hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Baghdad"}).format(date);
+  const parts = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"numeric",day:"numeric",timeZone:"Asia/Baghdad"}).formatToParts(date);
+  const part = (type: string) => parts.find(item=>item.type===type)?.value || "";
+  return `${weekday} — ${time} — ${part("year")}/${part("month")}/${part("day")}`;
+};
+const ruleLabel = (rule: Rule) => rule.key === "purchaseDate"
+  ? `التاريخ والوقت — ${rule.dateMode === "last" ? "تاريخ آخر شراء" : "تاريخ أول شراء"}`
+  : label(rule.key);
+const ruleValueLabel = (row: Entry, rule: Rule) => {
+  const result = value(row,rule.key,rule.dateMode);
+  return rule.key === "purchaseDate" ? formatPurchaseTimestamp(typeof result === "number" ? result : null) : textValue(result);
+};
 const wordLines = (text: string) => {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -91,6 +108,16 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     const sheet = (c.accountingSheetRows || []).filter(x => !x.isSeparator && !("isPaymentRow" in x && x.isPaymentRow) && !("isRemainingRow" in x && x.isRemainingRow));
     const sheetPayments = (c.accountingSheetPayments || []).filter(x => !(x as typeof x & {isDeleted?:boolean}).isDeleted);
     const items = inv.flatMap(x => x.items).filter(x => !x.isSeparator && !x.isPaymentRow && !x.isRemainingRow);
+    const purchaseTimestamps = [
+      ...inv.flatMap(invoice => {
+        const fallback = invoice.date || invoice.createdAt || "";
+        const purchaseItems = invoice.items.filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow
+          && (String(item.details || "").trim() || num(item.total) !== 0));
+        return purchaseItems.length ? purchaseItems.map(item => item.createdAt || fallback) : [fallback];
+      }),
+      ...sheet.filter(row => String(row.details || "").trim() || num(row.total) !== 0)
+        .map(row => row.createdAt || c.accountingSheetDate || ""),
+    ].map(date => Date.parse(date)).filter(timestamp => Number.isFinite(timestamp)).sort((a,b)=>a-b);
     const sales = items.reduce((s,x) => s+num(x.total),0) + sheet.reduce((s,x) => s+num(x.total),0);
     const capital = [...items,...sheet].reduce((s,x) => s+num(x.unitCost)*num(x.quantity),0);
     const paid = externalPayments.reduce((s,x)=>s+num(x.amount),0)
@@ -99,19 +126,23 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     const quantity = [...items,...sheet].reduce((s,x)=>s+num(x.quantity),0);
     return {id:c.id,folder:folderName(c.folderId),name:c.name,address:c.address?.trim()||"غير مسجل",
       salary:c.salaryType?.trim() || (c.hasSalary === false ? "بدون راتب" : "غير مسجل"),
-      phone:c.phone,capital,sales,profit:sales-capital,paid,remaining:sales-paid,quantity};
+      phone:c.phone,firstPurchase:purchaseTimestamps[0] ?? null,lastPurchase:purchaseTimestamps.at(-1) ?? null,
+      capital,sales,profit:sales-capital,paid,remaining:sales-paid,quantity};
   }),[customers,invoices,payments,folders]);
   const active = rules.filter(r => r.key !== "none");
   const visible = active.filter(r => r.show);
   const sorted = [...rows].sort((a,b) => {
     for(const r of active) {
-      const av=value(a,r.key),bv=value(b,r.key);
+      const av=value(a,r.key,r.dateMode),bv=value(b,r.key,r.dateMode);
+      if (av === null && bv === null) continue;
+      if (av === null) return 1;
+      if (bv === null) return -1;
       const delta=typeof av==="number" && typeof bv==="number" ? av-bv : String(av).localeCompare(String(bv),"ar",{numeric:true});
       if(delta) return r.direction==="asc" ? delta : -delta;
     }
     return rows.findIndex(x=>x.id===a.id)-rows.findIndex(x=>x.id===b.id);
   });
-  const group = (r:Entry) => JSON.stringify(visible.map(x=>value(r,x.key)));
+  const group = (r:Entry) => JSON.stringify(visible.map(x=>value(r,x.key,x.dateMode)));
   const update = (i:number,patch:Partial<Rule>) => setRules(old=>old.map((r,j)=>i===j?{...r,...patch}:r));
   return <section dir="rtl" className="w-full min-w-0 space-y-4 p-3 sm:p-5">
     <header className="flex flex-wrap items-center justify-between gap-3">
@@ -146,7 +177,15 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
                 <span className="truncate">{label(r.key)}</span><ChevronDown size={14} className="shrink-0"/>
               </button>
               {openMenu===`key-${i}` && <div className="absolute top-full right-0 z-30 mt-1 max-h-60 w-max min-w-full max-w-[85vw] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                {fields.map(f=><button key={f.key} type="button" onClick={()=>{update(i,{key:f.key});setOpenMenu(null);}} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${r.key===f.key?"bg-blue-50 font-bold text-blue-700":""}`}>{f.label}</button>)}
+                {fields.map(f=><button key={f.key} type="button" onClick={()=>{update(i,{key:f.key,dateMode:f.key==="purchaseDate"?(r.dateMode||"first"):undefined});setOpenMenu(null);}} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${r.key===f.key?"bg-blue-50 font-bold text-blue-700":""}`}>{f.label}</button>)}
+              </div>}
+              {r.key === "purchaseDate" && <div className="relative mt-2 min-w-0">
+                <button type="button" aria-label={`نوع تاريخ الشراء للفرز ${i+1}`} aria-expanded={openMenu===`date-${i}`} onClick={()=>setOpenMenu(openMenu===`date-${i}`?null:`date-${i}`)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs flex items-center justify-between gap-1 text-right">
+                  <span>{r.dateMode==="last"?"تاريخ آخر شراء":"تاريخ أول شراء"}</span><ChevronDown size={14} className="shrink-0"/>
+                </button>
+                {openMenu===`date-${i}` && <div className="absolute top-full right-0 z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                  {([{value:"first",label:"تاريخ أول شراء"},{value:"last",label:"تاريخ آخر شراء"}] as const).map(option=><button key={option.value} type="button" onClick={()=>{update(i,{dateMode:option.value});setOpenMenu(null);}} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${(r.dateMode||"first")===option.value?"bg-blue-50 font-bold text-blue-700":""}`}>{option.label}</button>)}
+                </div>}
               </div>}
             </div>
             <div className="relative min-w-0">
@@ -176,7 +215,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </thead>
         <tbody>
           {sorted.map((r,i)=><React.Fragment key={r.id}>
-            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
+            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
             <tr className="hover:bg-blue-50/40">
               {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className={`border border-slate-300 px-1 py-2 text-center align-middle ${[1,2,3].includes(j)?"whitespace-normal":"whitespace-nowrap"}`}>{[1,2,3].includes(j) ? wordLines(String(v)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>) : typeof v==="number"?format(v):v}</td>)}
             </tr>
@@ -191,7 +230,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       <table dir="rtl" style={{width:"100%",borderCollapse:"collapse",tableLayout:"auto",fontSize:"11px",textAlign:"center"}}>
         <thead><tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} style={{border:"1px solid #94a3b8",background:"#94acd1",padding:"5px 3px",fontWeight:700}}>{h}</th>)}</tr></thead>
         <tbody>{sorted.map((r,i)=><React.Fragment key={r.id}>
-          {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} style={{border:"1px solid #cbd5e1",background:"#e7eef9",padding:"5px",fontWeight:700}}>{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
+          {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} style={{border:"1px solid #cbd5e1",background:"#e7eef9",padding:"5px",fontWeight:700}}>{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
           <tr>{[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} style={{border:"1px solid #cbd5e1",padding:"5px 3px",verticalAlign:"middle",overflowWrap:"anywhere"}}>{[1,2,3].includes(j)?wordLines(String(v)).map((line,k)=><span key={k} style={{display:"block"}}>{line}</span>):typeof v==="number"?format(v):v}</td>)}</tr>
         </React.Fragment>)}</tbody>
       </table>
