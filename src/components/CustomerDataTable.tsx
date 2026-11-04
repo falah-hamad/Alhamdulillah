@@ -102,16 +102,16 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       </div>
     </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(rows.length)}</p>
-    <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
-      <table className="min-w-max w-full border-collapse text-xs text-right">
-        <thead className="bg-slate-100">
-          <tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} className="border-b border-slate-200 px-3 py-3 whitespace-nowrap">{h}</th>)}</tr>
+    <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
+      <table className="min-w-max w-full border-collapse text-xs text-center text-slate-800">
+        <thead className="bg-[#94acd1] text-slate-950">
+          <tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} className="border border-slate-400/70 px-3 py-2.5 whitespace-nowrap font-bold text-center">{h}</th>)}</tr>
         </thead>
         <tbody>
           {sorted.map((r,i)=><React.Fragment key={r.id}>
-            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="bg-blue-50 px-3 py-2 font-bold text-blue-900 whitespace-nowrap">{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
-            <tr className="border-b border-slate-100 hover:bg-slate-50">
-              {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className="px-3 py-2 whitespace-nowrap">{typeof v==="number"?format(v):v}</td>)}
+            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="border border-slate-300 bg-[#e7eef9] px-3 py-2 font-bold text-slate-800 text-center whitespace-nowrap">{visible.map(x=>`${label(x.key)}: ${textValue(value(r,x.key))}`).join(" — ")}</td></tr>}
+            <tr className="hover:bg-blue-50/40">
+              {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className="border border-slate-300 px-3 py-2.5 whitespace-nowrap text-center">{typeof v==="number"?format(v):v}</td>)}
             </tr>
           </React.Fragment>)}
         </tbody>
