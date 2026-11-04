@@ -288,8 +288,8 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
             <span>{columnLabel(id)}</span>
             <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.length===1&&visibleColumns.includes(id)} onChange={event=>setVisibleColumns(old=>event.target.checked?[...old,id]:old.filter(column=>column!==id))} className="h-4 w-4 shrink-0"/>
           </label>
-          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليمين`} title="تحريك إلى اليمين" disabled={index===0} onClick={()=>moveColumn(id,columnOrder[index-1])} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
-          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليسار`} title="تحريك إلى اليسار" disabled={index===columnOrder.length-1} onClick={()=>moveColumn(id,columnOrder[index+1])} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
+          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليمين`} title="تحريك إلى اليمين" disabled={index===0} onClick={()=>{const target=columnOrder[index-1];if(target)moveColumn(id,target);}} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
+          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليسار`} title="تحريك إلى اليسار" disabled={index===columnOrder.length-1} onClick={()=>{const target=columnOrder[index+1];if(target)moveColumn(id,target);}} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
         </div>)}
       </div>
       </div>}
