@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
@@ -100,6 +100,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   const [columnsPanelOpen,setColumnsPanelOpen] = useState(initialSortSettings.columnsPanelOpen);
   const [loadedSortSettingsKey,setLoadedSortSettingsKey] = useState(currentSortSettingsKey);
   const [draggedColumnId,setDraggedColumnId] = useState<ColumnId | null>(null);
+  const draggedColumnRef = useRef<ColumnId | null>(null);
   useEffect(()=>{
     const saved = readSortSettings(currentSortSettingsKey);
     setRules(saved.rules);
@@ -183,22 +184,17 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     const next=[...old];const [moved]=next.splice(from,1);next.splice(to,0,moved);return next;
   }),[]);
   useEffect(()=>{
-    if(!draggedColumnId)return;
-    const handlePointerMove=(event:PointerEvent)=>{
-      const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("[data-column-id]");
-      const targetId=target?.dataset.columnId as ColumnId|undefined;
-      if(targetId&&targetId!==draggedColumnId)moveColumn(draggedColumnId,targetId);
+    const stopDragging=()=>{
+      draggedColumnRef.current=null;
+      setDraggedColumnId(null);
     };
-    const stopDragging=()=>setDraggedColumnId(null);
-    window.addEventListener("pointermove",handlePointerMove);
     window.addEventListener("pointerup",stopDragging);
     window.addEventListener("pointercancel",stopDragging);
     return ()=>{
-      window.removeEventListener("pointermove",handlePointerMove);
       window.removeEventListener("pointerup",stopDragging);
       window.removeEventListener("pointercancel",stopDragging);
     };
-  },[draggedColumnId,moveColumn]);
+  },[]);
   const visibleColumnOrder = columnOrder.filter(id=>visibleColumns.includes(id));
   const cellValue = (row:Entry,index:number,id:ColumnId):string|number => {
     switch(id) {
@@ -286,12 +282,14 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       {columnsPanelOpen && <div id="customer-column-options" className="mt-3">
         <p className="mb-2 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة، ويجب إبقاء عمود واحد ظاهر على الأقل.</p>
       <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 [touch-action:pan-x]">
-        {columnOrder.map(id=><div key={id} data-column-id={id} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${draggedColumnId===id?"border-blue-500 bg-blue-50 shadow-sm":"border-slate-300 bg-[#eef3fa]"}`}>
-          <button type="button" aria-label={`اسحب لترتيب عمود ${columnLabel(id)}`} onPointerDown={event=>{if(!event.isPrimary)return;event.preventDefault();setDraggedColumnId(id);}} className="touch-none cursor-grab rounded text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={17}/></button>
+        {columnOrder.map((id,index)=><div key={id} data-column-id={id} onPointerEnter={()=>{const source=draggedColumnRef.current;if(source&&source!==id)moveColumn(source,id);}} onDragOver={event=>{event.preventDefault();const source=draggedColumnRef.current;if(source&&source!==id)moveColumn(source,id);}} onDrop={event=>{event.preventDefault();draggedColumnRef.current=null;setDraggedColumnId(null);}} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-2 transition-colors ${draggedColumnId===id?"border-blue-500 bg-blue-50 shadow-sm":"border-slate-300 bg-[#eef3fa]"}`}>
+          <button type="button" draggable aria-label={`اسحب لترتيب عمود ${columnLabel(id)}`} onDragStart={event=>{draggedColumnRef.current=id;setDraggedColumnId(id);event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",id);}} onDragEnd={()=>{draggedColumnRef.current=null;setDraggedColumnId(null);}} onPointerDown={event=>{if(!event.isPrimary)return;if(event.pointerType==="touch"||event.pointerType==="pen"){event.preventDefault();draggedColumnRef.current=id;setDraggedColumnId(id);}}} className="touch-none cursor-grab rounded text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={17}/></button>
           <label className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-slate-700">
             <span>{columnLabel(id)}</span>
             <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.length===1&&visibleColumns.includes(id)} onChange={event=>setVisibleColumns(old=>event.target.checked?[...old,id]:old.filter(column=>column!==id))} className="h-4 w-4 shrink-0"/>
           </label>
+          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليمين`} title="تحريك إلى اليمين" disabled={index===0} onClick={()=>moveColumn(id,columnOrder[index-1])} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
+          <button type="button" aria-label={`تحريك ${columnLabel(id)} إلى اليسار`} title="تحريك إلى اليسار" disabled={index===columnOrder.length-1} onClick={()=>moveColumn(id,columnOrder[index+1])} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
         </div>)}
       </div>
       </div>}
