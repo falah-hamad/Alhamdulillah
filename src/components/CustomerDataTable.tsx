@@ -214,21 +214,26 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-bold text-slate-800">بيانات العملاء</h2>
       <div className="flex flex-wrap gap-2">
-        {!sortPanelOpen && <button type="button" onClick={()=>setSortPanelOpen(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"><ChevronDown size={16}/> إظهار لوحة الفرز</button>}
+        
         <button type="button" disabled={exporting} onClick={()=>void handleExport(false)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer size={16}/> طباعة</button>
         <button type="button" disabled={exporting} onClick={()=>void handleExport(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download size={16}/> تنزيل PDF</button>
         <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
       </div>
     </header>
-    {sortPanelOpen && <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
-          <p className="mt-1 text-xs text-slate-500">الفرز يغيّر ترتيب الصفوف فقط ولا يخفي أي عميل. كل مستوى يُطبّق عند تساوي المستويات السابقة.</p>
+          <p className="mt-1 text-xs text-slate-500">{format(active.length)} مستويات فرز فعّالة</p>
         </div>
-        <button type="button" aria-label="إغلاق لوحة الفرز" title="إغلاق لوحة الفرز" onClick={()=>{setSortPanelOpen(false);setOpenMenu(null);}} className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100"><X size={18}/></button>
+        <button type="button" onClick={()=>{setSortPanelOpen(open=>!open);setOpenMenu(null);}} aria-expanded={sortPanelOpen} aria-controls="customer-sort-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <SlidersHorizontal size={17}/><span>تخصيص الفرز</span>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${sortPanelOpen?"rotate-180":""}`}/>
+        </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {sortPanelOpen && <div id="customer-sort-options" className="mt-3 space-y-3">
+        <p className="text-xs text-slate-500">الفرز يغيّر ترتيب الصفوف فقط ولا يخفي أي عميل. كل مستوى يُطبّق عند تساوي المستويات السابقة.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {rules.map((r,i)=><div key={i} className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold">الفرز {(["الأول","الثاني","الثالث","الرابع"][i] || `رقم ${i+1}`)}</span>
@@ -271,8 +276,9 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         <button type="button" onClick={()=>setRules(old=>old.map(r=>({...r,show:true})))} className="rounded-lg border px-3 py-2 text-xs">إظهار الكل بالفاصل</button>
         <button type="button" onClick={()=>setRules(old=>old.map(r=>({...r,show:false})))} className="rounded-lg border px-3 py-2 text-xs">إخفاء الفواصل</button>
         <button type="button" onClick={()=>setRules(defaults())} className="rounded-lg border px-3 py-2 text-xs flex items-center gap-1"><RotateCcw size={14}/> إعادة ضبط</button>
-      </div>
-    </div>}
+        </div>
+      </div>}
+    </div>
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
