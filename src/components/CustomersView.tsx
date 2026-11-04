@@ -8,10 +8,6 @@ import {
   X,
   Edit,
   ChevronLeft,
-  LayoutGrid,
-  List,
-  Folder,
-  FolderOpen,
   User
 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
@@ -109,21 +105,7 @@ export default function CustomersView({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  // Customer View Mode: "grid" | "list" | "large_icons" | "small_icons"
-  const [customerViewMode, setCustomerViewMode] = useState<"grid" | "list" | "large_icons" | "small_icons">(() => {
-    try {
-      return (localStorage.getItem("ledger_customer_view_mode") as any) || "list";
-    } catch {
-      return "list";
-    }
-  });
-
-  const handleSetCustomerViewMode = (mode: "grid" | "list" | "large_icons" | "small_icons") => {
-    setCustomerViewMode(mode);
-    try {
-      localStorage.setItem("ledger_customer_view_mode", mode);
-    } catch {}
-  };
+  const customerViewMode = "list";
 
   // Calculations for a customer
   const getCustomerMetrics = (custId: string) => {
