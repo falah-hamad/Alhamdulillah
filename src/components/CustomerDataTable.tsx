@@ -55,7 +55,7 @@ const ruleValueLabel = (row: Entry, rule: Rule) => {
   return rule.key === "purchaseDate" ? formatPurchaseTimestamp(typeof result === "number" ? result : null) : textValue(result);
 };
 const label = (key: Key) => fields.find(f => f.key === key)?.label || key;
-const textValue = (v: string | number) => typeof v === "number" ? format(v) : (v || "غير مسجل");
+const textValue = (v: string | number | null) => v === null ? "غير مسجل" : typeof v === "number" ? format(v) : (v || "غير مسجل");
 const wordLines = (text: string) => {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
