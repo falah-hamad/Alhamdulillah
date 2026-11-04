@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, RotateCcw } from "lucide-react";
-import type { Customer, Invoice, Payment } from "../types";
+import { ArrowRight, ChevronDown, RotateCcw } from "lucide-react";
+import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 
-type Key = "none" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
+type Key = "none" | "folder" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
 type Rule = { key: Key; direction: "asc" | "desc"; show: boolean };
-type Entry = { id: string; name: string; address: string; salary: string; phone: string; capital: number; sales: number; profit: number; paid: number; remaining: number; quantity: number };
+type Entry = { id: string; folder: string; name: string; address: string; salary: string; phone: string; capital: number; sales: number; profit: number; paid: number; remaining: number; quantity: number };
 const fields: { key: Key; label: string }[] = [
-  {key:"none",label:"بدون فرز"},{key:"name",label:"الاسم"},{key:"address",label:"العنوان"},
+  {key:"none",label:"بدون فرز"},{key:"folder",label:"المجلد"},{key:"name",label:"الاسم"},{key:"address",label:"العنوان"},
   {key:"salary",label:"نوع الراتب"},{key:"phone",label:"رقم الهاتف"},{key:"capital",label:"مبلغ رأس المال"},
   {key:"sales",label:"مبلغ البيع"},{key:"profit",label:"مبلغ الربح"},{key:"paid",label:"المبلغ المسدد"},
   {key:"remaining",label:"المبلغ المتبقي"},{key:"quantity",label:"عدد البضائع"}
@@ -21,10 +21,16 @@ const value = (row: Entry, key: Key): string | number => key === "none" ? "" : r
 const label = (key: Key) => fields.find(f => f.key === key)?.label || key;
 const textValue = (v: string | number) => typeof v === "number" ? format(v) : (v || "غير مسجل");
 
-export default function CustomerDataTable({customers,invoices,payments,onBack}: {
-  customers: Customer[]; invoices: Invoice[]; payments: Payment[]; onBack: () => void;
+export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack}: {
+  customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
 }) {
   const [rules,setRules] = useState<Rule[]>(defaults);
+  const [openMenu,setOpenMenu] = useState<string | null>(null);
+  const folderName = (id?: string) => {
+    if (!id) return "المجلد الرئيسي";
+    const folder = folders.find(f => f.id === id);
+    return folder?.name || "مجلد غير متاح";
+  };
   const rows = useMemo<Entry[]>(() => customers.filter(c => !c.isDeleted).map(c => {
     const inv = invoices.filter(x => x.customerId === c.id && !x.isDeleted);
     const externalPayments = payments.filter(x => x.customerId === c.id && !x.isDeleted);
@@ -37,10 +43,10 @@ export default function CustomerDataTable({customers,invoices,payments,onBack}: 
       + sheetPayments.reduce((s,x)=>s+num(x.amount),0)
       + inv.reduce((s,x)=>s+num(x.paidAmount),0);
     const quantity = [...items,...sheet].reduce((s,x)=>s+num(x.quantity),0);
-    return {id:c.id,name:c.name,address:c.address?.trim()||"غير مسجل",
+    return {id:c.id,folder:folderName(c.folderId),name:c.name,address:c.address?.trim()||"غير مسجل",
       salary:c.salaryType?.trim() || (c.hasSalary === false ? "بدون راتب" : "غير مسجل"),
       phone:c.phone,capital,sales,profit:sales-capital,paid,remaining:sales-paid,quantity};
-  }),[customers,invoices,payments]);
+  }),[customers,invoices,payments,folders]);
   const active = rules.filter(r => r.key !== "none");
   const visible = active.filter(r => r.show);
   const sorted = [...rows].sort((a,b) => {
@@ -68,12 +74,22 @@ export default function CustomerDataTable({customers,invoices,payments,onBack}: 
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={r.show} onChange={e=>update(i,{show:e.target.checked})} className="h-4 w-4"/> إظهار بالفاصل</label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select aria-label={`خاصية الفرز ${i+1}`} value={r.key} onChange={e=>update(i,{key:e.target.value as Key})} className="w-full min-w-0 rounded-lg border border-slate-300 p-2 text-xs">
-              {fields.map(f=><option key={f.key} value={f.key}>{f.label}</option>)}
-            </select>
-            <select aria-label={`اتجاه الفرز ${i+1}`} value={r.direction} onChange={e=>update(i,{direction:e.target.value as Rule["direction"]})} className="w-full min-w-0 rounded-lg border border-slate-300 p-2 text-xs">
-              <option value="asc">تصاعدي ↑</option><option value="desc">تنازلي ↓</option>
-            </select>
+            <div className="relative min-w-0">
+              <button type="button" aria-label={`خاصية الفرز ${i+1}`} aria-expanded={openMenu===`key-${i}`} onClick={()=>setOpenMenu(openMenu===`key-${i}`?null:`key-${i}`)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs flex items-center justify-between gap-1 text-right">
+                <span className="truncate">{label(r.key)}</span><ChevronDown size={14} className="shrink-0"/>
+              </button>
+              {openMenu===`key-${i}` && <div className="absolute top-full right-0 z-30 mt-1 max-h-60 w-max min-w-full max-w-[85vw] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                {fields.map(f=><button key={f.key} type="button" onClick={()=>{update(i,{key:f.key});setOpenMenu(null);}} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${r.key===f.key?"bg-blue-50 font-bold text-blue-700":""}`}>{f.label}</button>)}
+              </div>}
+            </div>
+            <div className="relative min-w-0">
+              <button type="button" aria-label={`اتجاه الفرز ${i+1}`} aria-expanded={openMenu===`direction-${i}`} onClick={()=>setOpenMenu(openMenu===`direction-${i}`?null:`direction-${i}`)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs flex items-center justify-between gap-1 text-right">
+                <span>{r.direction==="asc"?"تصاعدي ↑":"تنازلي ↓"}</span><ChevronDown size={14} className="shrink-0"/>
+              </button>
+              {openMenu===`direction-${i}` && <div className="absolute top-full right-0 z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                {(["asc","desc"] as const).map(direction=><button key={direction} type="button" onClick={()=>{update(i,{direction});setOpenMenu(null);}} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${r.direction===direction?"bg-blue-50 font-bold text-blue-700":""}`}>{direction==="asc"?"تصاعدي ↑":"تنازلي ↓"}</button>)}
+              </div>}
+            </div>
           </div>
         </div>)}
       </div>
