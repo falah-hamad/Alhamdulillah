@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, UserRound, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
@@ -92,17 +92,15 @@ const wordLines = (text: string) => {
   return lines;
 };
 
-export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack,filterControls,activeFilterCount,customerViewMode,totalCustomerCount}: {
+export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
-  filterControls: React.ReactNode; activeFilterCount: number;
-  customerViewMode: "grid" | "list" | "large_icons" | "small_icons";
+  filterControls: React.ReactNode; searchControl: React.ReactNode; onOpenFilters: () => void; activeFilterCount: number;
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
   const currentSortSettingsKey = sortSettingsKey(currentUser?.uid);
   const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
   const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
-  const [filterPanelOpen,setFilterPanelOpen] = useState(false);
   const [sortPanelOpen,setSortPanelOpen] = useState(initialSortSettings.panelOpen);
   const [columnOrder,setColumnOrder] = useState<ColumnId[]>(initialSortSettings.columnOrder);
   const [visibleColumns,setVisibleColumns] = useState<ColumnId[]>(initialSortSettings.visibleColumns);
@@ -217,27 +215,28 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   return <section dir="rtl" className="w-full min-w-0 space-y-4 p-3 sm:p-5">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-bold text-slate-800">بيانات العملاء</h2>
-      <div className="flex flex-wrap gap-2">
-        
-        <button type="button" disabled={exporting} onClick={()=>void handleExport(false)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer size={16}/> طباعة</button>
-        <button type="button" disabled={exporting} onClick={()=>void handleExport(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download size={16}/> تنزيل PDF</button>
-        <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
+      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+        {searchControl}
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={exporting} onClick={()=>void handleExport(false)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer size={16}/> طباعة</button>
+          <button type="button" disabled={exporting} onClick={()=>void handleExport(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download size={16}/> تنزيل PDF</button>
+          <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
+        </div>
       </div>
     </header>
+    {filterControls}
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-slate-700">تخصيص التصفية</p>
-          <p className="mt-1 text-xs text-slate-500">{activeFilterCount ? `${format(activeFilterCount)} شروط مفعّلة` : "ابحث عن عميل أو اختر طريقة العرض وشروط التصفية"}</p>
+          <p className="mt-1 text-xs text-slate-500">{activeFilterCount ? `${format(activeFilterCount)} شروط مفعّلة` : "اضغط لعرض شروط التصفية حسب المعلومات الشخصية والتعامل والمشتريات"}</p>
         </div>
-        <button type="button" onClick={()=>setFilterPanelOpen(open=>!open)} aria-expanded={filterPanelOpen} aria-controls="customer-filter-controls" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button type="button" onClick={onOpenFilters} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <SlidersHorizontal size={17}/><span>تخصيص التصفية</span>
-          <ChevronDown size={16} className={`transition-transform duration-200 ${filterPanelOpen?"rotate-180":""}`}/>
         </button>
       </div>
-      {filterPanelOpen && <div id="customer-filter-controls" className="mt-3 border-t border-slate-100 pt-3">{filterControls}</div>}
     </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
@@ -323,7 +322,6 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       </div>}
     </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(totalCustomerCount)}</p>
-    {customerViewMode==="list" ? (
     <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
       <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
         <thead className="bg-[#94acd1] text-slate-950">
@@ -339,26 +337,6 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </tbody>
       </table>
     </div>
-    ) : (
-    <div className={`grid gap-3 ${customerViewMode==="small_icons"?"grid-cols-2 sm:grid-cols-3 lg:grid-cols-5":customerViewMode==="large_icons"?"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3":"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
-      {sorted.map((row,index)=><article key={row.id} className={`min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm ${customerViewMode==="small_icons"?"p-2":"p-4"}`}>
-        <div className="flex min-w-0 items-center gap-2 border-b border-slate-100 pb-2">
-          <span className={`flex shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 ${customerViewMode==="large_icons"?"h-11 w-11":"h-8 w-8"}`}><UserRound size={customerViewMode==="large_icons"?22:17}/></span>
-          <div className="min-w-0 flex-1">
-            <p className={`truncate font-bold text-slate-800 ${customerViewMode==="small_icons"?"text-xs":"text-sm"}`}>{row.name}</p>
-            {customerViewMode!=="small_icons" && visibleColumnOrder.includes("phone") && <p className="truncate text-xs text-slate-500">{row.phone}</p>}
-          </div>
-          {visibleColumnOrder.includes("sequence") && <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{format(index+1)}</span>}
-        </div>
-        <div className={`mt-2 grid gap-x-3 gap-y-1 ${customerViewMode==="small_icons"?"grid-cols-1 text-[10px]":"grid-cols-2 text-xs"}`}>
-          {visibleColumnOrder.filter(id=>id!=="sequence"&&id!=="name").map(id=><div key={id} className="flex min-w-0 items-start justify-between gap-1 border-b border-slate-50 py-1">
-            <span className="shrink-0 text-slate-500">{columnLabel(id)}</span>
-            <span className={`min-w-0 text-left font-medium text-slate-800 ${textualColumns.has(id)?"break-words":"whitespace-nowrap"}`}>{textValue(cellValue(row,index,id) as string|number|null)}</span>
-          </div>)}
-        </div>
-      </article>)}
-    </div>
-    )}
     {/* Separate full-width print source: exports every column and row, not the scrolled viewport. */}
     {exporting && <div id="customer-data-export" dir="rtl" aria-hidden="true" style={{position:"fixed",left:"-20000px",top:0,width:"1100px",background:"#fff",padding:"12px",fontFamily:"Cairo, Arial, sans-serif",color:"#0f172a"}}>
       <h2 style={{textAlign:"center",fontSize:"18px",fontWeight:700,marginBottom:"8px"}}>بيانات العملاء</h2>
