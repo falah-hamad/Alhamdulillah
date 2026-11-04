@@ -1,12 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, Download, Printer, RotateCcw, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, GripVertical, Printer, RotateCcw, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
 
 type Key = "none" | "folder" | "name" | "address" | "salary" | "purchaseDate" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
 type Rule = { key: Key; direction: "asc" | "desc"; show: boolean; dateMode?: "first" | "last" };
+type ColumnId = "sequence" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity" | "folder" | "firstPurchase" | "lastPurchase";
 type Entry = { id: string; folder: string; name: string; address: string; salary: string; phone: string; firstPurchase: number | null; lastPurchase: number | null; capital: number; sales: number; profit: number; paid: number; remaining: number; quantity: number };
+type ColumnDefinition = { id: ColumnId; label: string };
+const columnDefinitions: ColumnDefinition[] = [
+  {id:"sequence",label:"ت"},{id:"name",label:"الاسم"},{id:"address",label:"العنوان"},{id:"salary",label:"نوع الراتب"},
+  {id:"phone",label:"رقم الهاتف"},{id:"capital",label:"مبلغ رأس المال"},{id:"sales",label:"مبلغ البيع"},{id:"profit",label:"مبلغ الربح"},
+  {id:"paid",label:"المبلغ المسدد"},{id:"remaining",label:"المبلغ المتبقي"},{id:"quantity",label:"عدد البضائع"},
+  {id:"folder",label:"المجلد"},{id:"firstPurchase",label:"أول عملية شراء"},{id:"lastPurchase",label:"آخر عملية شراء"}
+];
+const allColumnIds = columnDefinitions.map(column=>column.id);
+const defaultColumnOrder = (): ColumnId[] => [...allColumnIds];
+const columnLabel = (id: ColumnId) => columnDefinitions.find(column=>column.id===id)?.label || id;
 const fields: { key: Key; label: string }[] = [
   {key:"none",label:"بدون فرز"},{key:"folder",label:"المجلد"},{key:"name",label:"الاسم"},{key:"address",label:"العنوان"},
   {key:"salary",label:"نوع الراتب"},{key:"purchaseDate",label:"التاريخ والوقت"},{key:"capital",label:"مبلغ رأس المال"},
@@ -15,10 +26,10 @@ const fields: { key: Key; label: string }[] = [
 ];
 const defaults = (): Rule[] => [{key:"folder",direction:"asc",show:false}];
 const sortSettingsKey = (userId?: string | null) => userId ? `acc_u_${userId}_customer_data_sort` : "acc_guest_customer_data_sort";
-function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean } {
+function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; columnOrder: ColumnId[]; visibleColumns: ColumnId[]; columnsPanelOpen: boolean } {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return {rules:defaults(),panelOpen:true};
+    if (!raw) return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder(),columnsPanelOpen:false};
     const saved = JSON.parse(raw);
     const allowedKeys = new Set(fields.map(field=>field.key));
     const rules = Array.isArray(saved.rules)
@@ -30,9 +41,21 @@ function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean } {
             && typeof candidate.show === "boolean";
         })
       : defaults();
-    return {rules,panelOpen:typeof saved.panelOpen === "boolean" ? saved.panelOpen : true};
+    const validColumn = (id: unknown): id is ColumnId => typeof id === "string" && allColumnIds.includes(id as ColumnId);
+    const storedOrder = Array.isArray(saved.columnOrder) ? saved.columnOrder.filter(validColumn) : [];
+    const columnOrder = [...new Set(storedOrder),...allColumnIds.filter(id=>!storedOrder.includes(id))];
+    const visibleColumns = Array.isArray(saved.visibleColumns)
+      ? [...new Set(saved.visibleColumns.filter(validColumn))]
+      : defaultColumnOrder();
+    return {
+      rules,
+      panelOpen:typeof saved.panelOpen === "boolean" ? saved.panelOpen : true,
+      columnOrder,
+      visibleColumns:visibleColumns.length ? visibleColumns : defaultColumnOrder(),
+      columnsPanelOpen:typeof saved.columnsPanelOpen === "boolean" ? saved.columnsPanelOpen : false
+    };
   } catch {
-    return {rules:defaults(),panelOpen:true};
+    return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder(),columnsPanelOpen:false};
   }
 }
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
@@ -72,19 +95,27 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
   const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
   const [sortPanelOpen,setSortPanelOpen] = useState(initialSortSettings.panelOpen);
+  const [columnOrder,setColumnOrder] = useState<ColumnId[]>(initialSortSettings.columnOrder);
+  const [visibleColumns,setVisibleColumns] = useState<ColumnId[]>(initialSortSettings.visibleColumns);
+  const [columnsPanelOpen,setColumnsPanelOpen] = useState(initialSortSettings.columnsPanelOpen);
   const [loadedSortSettingsKey,setLoadedSortSettingsKey] = useState(currentSortSettingsKey);
   useEffect(()=>{
     const saved = readSortSettings(currentSortSettingsKey);
     setRules(saved.rules);
     setSortPanelOpen(saved.panelOpen);
+    setColumnOrder(saved.columnOrder);
+    setVisibleColumns(saved.visibleColumns);
+    setColumnsPanelOpen(saved.columnsPanelOpen);
     setLoadedSortSettingsKey(currentSortSettingsKey);
   },[currentSortSettingsKey]);
   useEffect(()=>{
     if (loadedSortSettingsKey !== currentSortSettingsKey) return;
     try {
-      localStorage.setItem(currentSortSettingsKey,JSON.stringify({rules,panelOpen:sortPanelOpen}));
+      localStorage.setItem(currentSortSettingsKey,JSON.stringify({
+        rules,panelOpen:sortPanelOpen,columnOrder,visibleColumns,columnsPanelOpen
+      }));
     } catch {}
-  },[rules,sortPanelOpen,currentSortSettingsKey,loadedSortSettingsKey]);
+  },[rules,sortPanelOpen,columnOrder,visibleColumns,columnsPanelOpen,currentSortSettingsKey,loadedSortSettingsKey]);
   const [openMenu,setOpenMenu] = useState<string | null>(null);
   const [exporting,setExporting] = useState(false);
   const handleExport = async (download: boolean) => {
@@ -144,6 +175,22 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   });
   const group = (r:Entry) => JSON.stringify(visible.map(x=>value(r,x.key,x.dateMode)));
   const update = (i:number,patch:Partial<Rule>) => setRules(old=>old.map((r,j)=>i===j?{...r,...patch}:r));
+  const moveColumn = (source:ColumnId,target:ColumnId) => setColumnOrder(old=>{
+    const from=old.indexOf(source),to=old.indexOf(target);
+    if(from<0||to<0||from===to)return old;
+    const next=[...old];const [moved]=next.splice(from,1);next.splice(to,0,moved);return next;
+  });
+  const visibleColumnOrder = columnOrder.filter(id=>visibleColumns.includes(id));
+  const [draggedColumnId,setDraggedColumnId] = useState<ColumnId | null>(null);
+  const cellValue = (row:Entry,index:number,id:ColumnId):string|number => {
+    switch(id) {
+      case "sequence": return index+1;
+      case "firstPurchase": return formatPurchaseTimestamp(row.firstPurchase);
+      case "lastPurchase": return formatPurchaseTimestamp(row.lastPurchase);
+      default: return row[id];
+    }
+  };
+  const textualColumns = new Set<ColumnId>(["name","address","salary","phone","folder"]);
   return <section dir="rtl" className="w-full min-w-0 space-y-4 p-3 sm:p-5">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-bold text-slate-800">بيانات العملاء</h2>
@@ -207,17 +254,42 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         <button type="button" onClick={()=>setRules(defaults())} className="rounded-lg border px-3 py-2 text-xs flex items-center gap-1"><RotateCcw size={14}/> إعادة ضبط</button>
       </div>
     </div>}
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold text-slate-700">أعمدة الجدول</p>
+          <p className="mt-1 text-xs text-slate-500">فعّل المربعات لإظهار الأعمدة، واسحب ☷ لتغيير ترتيبها.</p>
+        </div>
+        <button type="button" onClick={()=>setColumnsPanelOpen(open=>!open)} aria-expanded={columnsPanelOpen} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+          {columnsPanelOpen?"إخفاء قائمة الأعمدة":"تخصيص الأعمدة"} <ChevronDown size={14} className={`inline transition-transform ${columnsPanelOpen?"rotate-180":""}`}/>
+        </button>
+      </div>
+      {columnsPanelOpen && <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2" onPointerMove={event=>{
+        if(event.pointerType!=="touch"||!draggedColumnId)return;
+        const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("[data-column-id]");
+        const targetId=target?.dataset.columnId as ColumnId|undefined;
+        if(targetId&&targetId!==draggedColumnId)moveColumn(draggedColumnId,targetId);
+      }} onPointerUp={()=>setDraggedColumnId(null)} onPointerCancel={()=>setDraggedColumnId(null)}>
+        {columnOrder.map(id=><div key={id} data-column-id={id} onDragOver={event=>{event.preventDefault();if(draggedColumnId&&draggedColumnId!==id)moveColumn(draggedColumnId,id);}} onDrop={event=>{event.preventDefault();setDraggedColumnId(null);}} className={`flex items-center gap-2 rounded-lg border px-2 py-2 ${draggedColumnId===id?"border-blue-400 bg-blue-50":"border-slate-200 bg-slate-50"}`}>
+          <button type="button" draggable aria-label={`اسحب لترتيب عمود ${columnLabel(id)}`} onDragStart={event=>{setDraggedColumnId(id);event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",id);}} onDragEnd={()=>setDraggedColumnId(null)} onPointerDown={event=>{if(event.pointerType==="touch"){event.preventDefault();setDraggedColumnId(id);event.currentTarget.setPointerCapture(event.pointerId);}}} className="touch-none cursor-grab rounded p-1 text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={18}/></button>
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+            <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.length===1&&visibleColumns.includes(id)} onChange={event=>setVisibleColumns(old=>event.target.checked?[...old,id]:old.filter(column=>column!==id))} className="h-4 w-4 shrink-0"/>
+            <span>{columnLabel(id)}</span>
+          </label>
+        </div>)}
+      </div>}
+    </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(rows.length)}</p>
     <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
       <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
         <thead className="bg-[#94acd1] text-slate-950">
-          <tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{h}</th>)}</tr>
+          <tr>{visibleColumnOrder.map(id=><th key={id} className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{columnLabel(id)}</th>)}</tr>
         </thead>
         <tbody>
           {sorted.map((r,i)=><React.Fragment key={r.id}>
-            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
+            {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={visibleColumnOrder.length} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
             <tr className="hover:bg-blue-50/40">
-              {[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} className={`border border-slate-300 px-1 py-2 text-center align-middle ${[1,2,3].includes(j)?"whitespace-normal":"whitespace-nowrap"}`}>{[1,2,3].includes(j) ? wordLines(String(v)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>) : typeof v==="number"?format(v):v}</td>)}
+              {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}
             </tr>
           </React.Fragment>)}
         </tbody>
@@ -228,10 +300,10 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       <h2 style={{textAlign:"center",fontSize:"18px",fontWeight:700,marginBottom:"8px"}}>بيانات العملاء</h2>
       <p style={{textAlign:"right",fontSize:"12px",marginBottom:"10px"}}>عدد العملاء: {format(sorted.length)} — المبالغ بالدينار العراقي</p>
       <table dir="rtl" style={{width:"100%",borderCollapse:"collapse",tableLayout:"auto",fontSize:"11px",textAlign:"center"}}>
-        <thead><tr>{["ت","الاسم","العنوان","نوع الراتب","رقم الهاتف","مبلغ رأس المال","مبلغ البيع","مبلغ الربح","المبلغ المسدد","المبلغ المتبقي","عدد البضائع"].map(h=><th key={h} style={{border:"1px solid #94a3b8",background:"#94acd1",padding:"5px 3px",fontWeight:700}}>{h}</th>)}</tr></thead>
+        <thead><tr>{visibleColumnOrder.map(id=><th key={id} style={{border:"1px solid #94a3b8",background:"#94acd1",padding:"5px 3px",fontWeight:700}}>{columnLabel(id)}</th>)}</tr></thead>
         <tbody>{sorted.map((r,i)=><React.Fragment key={r.id}>
-          {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={11} style={{border:"1px solid #cbd5e1",background:"#e7eef9",padding:"5px",fontWeight:700}}>{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
-          <tr>{[i+1,r.name,r.address,r.salary,r.phone,r.capital,r.sales,r.profit,r.paid,r.remaining,r.quantity].map((v,j)=><td key={j} style={{border:"1px solid #cbd5e1",padding:"5px 3px",verticalAlign:"middle",overflowWrap:"anywhere"}}>{[1,2,3].includes(j)?wordLines(String(v)).map((line,k)=><span key={k} style={{display:"block"}}>{line}</span>):typeof v==="number"?format(v):v}</td>)}</tr>
+          {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={visibleColumnOrder.length} style={{border:"1px solid #cbd5e1",background:"#e7eef9",padding:"5px",fontWeight:700}}>{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
+          <tr>{visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} style={{border:"1px solid #cbd5e1",padding:"5px 3px",verticalAlign:"middle",overflowWrap:"anywhere"}}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} style={{display:"block"}}>{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}</tr>
         </React.Fragment>)}</tbody>
       </table>
     </div>
