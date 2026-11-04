@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, Download, Printer, RotateCcw, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
+import { useAuth } from "../contexts/AuthContext";
 
 type Key = "none" | "folder" | "name" | "address" | "salary" | "phone" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
 type Rule = { key: Key; direction: "asc" | "desc"; show: boolean };
@@ -13,6 +14,27 @@ const fields: { key: Key; label: string }[] = [
   {key:"remaining",label:"المبلغ المتبقي"},{key:"quantity",label:"عدد البضائع"}
 ];
 const defaults = (): Rule[] => [{key:"folder",direction:"asc",show:false}];
+const sortSettingsKey = (userId?: string | null) => userId ? `acc_u_${userId}_customer_data_sort` : "acc_guest_customer_data_sort";
+function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean } {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return {rules:defaults(),panelOpen:true};
+    const saved = JSON.parse(raw);
+    const allowedKeys = new Set(fields.map(field=>field.key));
+    const rules = Array.isArray(saved.rules)
+      ? saved.rules.filter((rule: unknown): rule is Rule => {
+          if (!rule || typeof rule !== "object") return false;
+          const candidate = rule as Partial<Rule>;
+          return typeof candidate.key === "string" && allowedKeys.has(candidate.key as Key)
+            && (candidate.direction === "asc" || candidate.direction === "desc")
+            && typeof candidate.show === "boolean";
+        })
+      : defaults();
+    return {rules,panelOpen:typeof saved.panelOpen === "boolean" ? saved.panelOpen : true};
+  } catch {
+    return {rules:defaults(),panelOpen:true};
+  }
+}
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
 const format = (n: number) => n.toLocaleString("ar-IQ", {maximumFractionDigits:2});
 const value = (row: Entry, key: Key): string | number => key === "none" ? "" : row[key];
@@ -28,8 +50,24 @@ const wordLines = (text: string) => {
 export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack}: {
   customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
 }) {
-  const [rules,setRules] = useState<Rule[]>(defaults);
-  const [sortPanelOpen,setSortPanelOpen] = useState(true);
+  const { currentUser } = useAuth();
+  const currentSortSettingsKey = sortSettingsKey(currentUser?.uid);
+  const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
+  const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
+  const [sortPanelOpen,setSortPanelOpen] = useState(initialSortSettings.panelOpen);
+  const [loadedSortSettingsKey,setLoadedSortSettingsKey] = useState(currentSortSettingsKey);
+  useEffect(()=>{
+    const saved = readSortSettings(currentSortSettingsKey);
+    setRules(saved.rules);
+    setSortPanelOpen(saved.panelOpen);
+    setLoadedSortSettingsKey(currentSortSettingsKey);
+  },[currentSortSettingsKey]);
+  useEffect(()=>{
+    if (loadedSortSettingsKey !== currentSortSettingsKey) return;
+    try {
+      localStorage.setItem(currentSortSettingsKey,JSON.stringify({rules,panelOpen:sortPanelOpen}));
+    } catch {}
+  },[rules,sortPanelOpen,currentSortSettingsKey,loadedSortSettingsKey]);
   const [openMenu,setOpenMenu] = useState<string | null>(null);
   const [exporting,setExporting] = useState(false);
   const handleExport = async (download: boolean) => {
