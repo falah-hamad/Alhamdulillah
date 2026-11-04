@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, Download, GripVertical, Printer, RotateCcw, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
@@ -26,10 +26,10 @@ const fields: { key: Key; label: string }[] = [
 ];
 const defaults = (): Rule[] => [{key:"folder",direction:"asc",show:false}];
 const sortSettingsKey = (userId?: string | null) => userId ? `acc_u_${userId}_customer_data_sort` : "acc_guest_customer_data_sort";
-function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; columnOrder: ColumnId[]; visibleColumns: ColumnId[] } {
+function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; columnOrder: ColumnId[]; visibleColumns: ColumnId[]; columnsPanelOpen: boolean } {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder()};
+    if (!raw) return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder(),columnsPanelOpen:false};
     const saved = JSON.parse(raw);
     const allowedKeys = new Set(fields.map(field=>field.key));
     const rules = Array.isArray(saved.rules)
@@ -51,10 +51,11 @@ function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; col
       rules,
       panelOpen:typeof saved.panelOpen === "boolean" ? saved.panelOpen : true,
       columnOrder,
-      visibleColumns:visibleColumns.length ? visibleColumns : defaultColumnOrder()
+      visibleColumns:visibleColumns.length ? visibleColumns : defaultColumnOrder(),
+      columnsPanelOpen:typeof saved.columnsPanelOpen === "boolean" ? saved.columnsPanelOpen : false
     };
   } catch {
-    return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder()};
+    return {rules:defaults(),panelOpen:true,columnOrder:defaultColumnOrder(),visibleColumns:defaultColumnOrder(),columnsPanelOpen:false};
   }
 }
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
@@ -96,6 +97,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   const [sortPanelOpen,setSortPanelOpen] = useState(initialSortSettings.panelOpen);
   const [columnOrder,setColumnOrder] = useState<ColumnId[]>(initialSortSettings.columnOrder);
   const [visibleColumns,setVisibleColumns] = useState<ColumnId[]>(initialSortSettings.visibleColumns);
+  const [columnsPanelOpen,setColumnsPanelOpen] = useState(initialSortSettings.columnsPanelOpen);
   const [loadedSortSettingsKey,setLoadedSortSettingsKey] = useState(currentSortSettingsKey);
   const [draggedColumnId,setDraggedColumnId] = useState<ColumnId | null>(null);
   useEffect(()=>{
@@ -104,16 +106,17 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     setSortPanelOpen(saved.panelOpen);
     setColumnOrder(saved.columnOrder);
     setVisibleColumns(saved.visibleColumns);
+    setColumnsPanelOpen(saved.columnsPanelOpen);
     setLoadedSortSettingsKey(currentSortSettingsKey);
   },[currentSortSettingsKey]);
   useEffect(()=>{
     if (loadedSortSettingsKey !== currentSortSettingsKey) return;
     try {
       localStorage.setItem(currentSortSettingsKey,JSON.stringify({
-        rules,panelOpen:sortPanelOpen,columnOrder,visibleColumns
+        rules,panelOpen:sortPanelOpen,columnOrder,visibleColumns,columnsPanelOpen
       }));
     } catch {}
-  },[rules,sortPanelOpen,columnOrder,visibleColumns,currentSortSettingsKey,loadedSortSettingsKey]);
+  },[rules,sortPanelOpen,columnOrder,visibleColumns,columnsPanelOpen,currentSortSettingsKey,loadedSortSettingsKey]);
   const [openMenu,setOpenMenu] = useState<string | null>(null);
   const [exporting,setExporting] = useState(false);
   const handleExport = async (download: boolean) => {
@@ -270,9 +273,19 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       </div>
     </div>}
     <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-sm font-bold text-slate-700">أعمدة الجدول</p>
-      <p className="mt-1 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة، ويجب إبقاء عمود واحد ظاهر على الأقل.</p>
-      <div className="mt-3 flex flex-nowrap gap-2 overflow-x-auto pb-2 [touch-action:pan-x]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold text-slate-700">تخصيص أعمدة الجدول</p>
+          <p className="mt-1 text-xs text-slate-500">{visibleColumns.length} من {columnOrder.length} أعمدة ظاهرة</p>
+        </div>
+        <button type="button" onClick={()=>setColumnsPanelOpen(open=>!open)} aria-expanded={columnsPanelOpen} aria-controls="customer-column-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <SlidersHorizontal size={17}/><span>تخصيص الأعمدة</span>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${columnsPanelOpen?"rotate-180":""}`}/>
+        </button>
+      </div>
+      {columnsPanelOpen && <div id="customer-column-options" className="mt-3">
+        <p className="mb-2 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة، ويجب إبقاء عمود واحد ظاهر على الأقل.</p>
+      <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 [touch-action:pan-x]">
         {columnOrder.map(id=><div key={id} data-column-id={id} className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${draggedColumnId===id?"border-blue-500 bg-blue-50 shadow-sm":"border-slate-300 bg-[#eef3fa]"}`}>
           <button type="button" aria-label={`اسحب لترتيب عمود ${columnLabel(id)}`} onPointerDown={event=>{if(!event.isPrimary)return;event.preventDefault();setDraggedColumnId(id);}} className="touch-none cursor-grab rounded text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={17}/></button>
           <label className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-slate-700">
@@ -281,6 +294,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
           </label>
         </div>)}
       </div>
+      </div>}
     </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(rows.length)}</p>
     <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
