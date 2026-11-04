@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, Download, Printer, RotateCcw } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, Printer, RotateCcw, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 
@@ -12,10 +12,7 @@ const fields: { key: Key; label: string }[] = [
   {key:"sales",label:"مبلغ البيع"},{key:"profit",label:"مبلغ الربح"},{key:"paid",label:"المبلغ المسدد"},
   {key:"remaining",label:"المبلغ المتبقي"},{key:"quantity",label:"عدد البضائع"}
 ];
-const defaults = (): Rule[] => [
-  {key:"address",direction:"asc",show:true},{key:"salary",direction:"asc",show:true},
-  {key:"remaining",direction:"desc",show:false},{key:"quantity",direction:"desc",show:false}
-];
+const defaults = (): Rule[] => [{key:"folder",direction:"asc",show:false}];
 const num = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v : 0; };
 const format = (n: number) => n.toLocaleString("ar-IQ", {maximumFractionDigits:2});
 const value = (row: Entry, key: Key): string | number => key === "none" ? "" : row[key];
@@ -32,6 +29,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
   customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
 }) {
   const [rules,setRules] = useState<Rule[]>(defaults);
+  const [sortPanelOpen,setSortPanelOpen] = useState(true);
   const [openMenu,setOpenMenu] = useState<string | null>(null);
   const [exporting,setExporting] = useState(false);
   const handleExport = async (download: boolean) => {
@@ -81,14 +79,20 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-bold text-slate-800">بيانات العملاء</h2>
       <div className="flex flex-wrap gap-2">
+        {!sortPanelOpen && <button type="button" onClick={()=>setSortPanelOpen(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"><ChevronDown size={16}/> إظهار لوحة الفرز</button>}
         <button type="button" disabled={exporting} onClick={()=>void handleExport(false)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer size={16}/> طباعة</button>
         <button type="button" disabled={exporting} onClick={()=>void handleExport(true)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download size={16}/> تنزيل PDF</button>
         <button type="button" onClick={onBack} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><ArrowRight size={16}/> العودة للعملاء</button>
       </div>
     </header>
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
-      <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
-      <p className="text-xs text-slate-500">الفرز يغيّر ترتيب الصفوف فقط ولا يخفي أي عميل. كل مستوى يُطبّق عند تساوي المستويات السابقة.</p>
+    {sortPanelOpen && <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
+          <p className="mt-1 text-xs text-slate-500">الفرز يغيّر ترتيب الصفوف فقط ولا يخفي أي عميل. كل مستوى يُطبّق عند تساوي المستويات السابقة.</p>
+        </div>
+        <button type="button" aria-label="إغلاق لوحة الفرز" title="إغلاق لوحة الفرز" onClick={()=>{setSortPanelOpen(false);setOpenMenu(null);}} className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100"><X size={18}/></button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {rules.map((r,i)=><div key={i} className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -116,13 +120,13 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </div>)}
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={()=>setRules(old=>[...old,{key:"none",direction:"asc",show:true}])} className="rounded-lg bg-blue-600 text-white px-3 py-2 text-xs font-bold hover:bg-blue-700">+ إضافة فرز</button>
+        <button type="button" onClick={()=>setRules(old=>[...old,{key:"none",direction:"asc",show:false}])} className="rounded-lg bg-blue-600 text-white px-3 py-2 text-xs font-bold hover:bg-blue-700">+ إضافة فرز</button>
         {rules.length>4 && <button type="button" onClick={()=>setRules(old=>old.slice(0,-1))} className="rounded-lg border border-red-200 text-red-700 px-3 py-2 text-xs">حذف آخر فرز</button>}
         <button type="button" onClick={()=>setRules(old=>old.map(r=>({...r,show:true})))} className="rounded-lg border px-3 py-2 text-xs">إظهار الكل بالفاصل</button>
         <button type="button" onClick={()=>setRules(old=>old.map(r=>({...r,show:false})))} className="rounded-lg border px-3 py-2 text-xs">إخفاء الفواصل</button>
         <button type="button" onClick={()=>setRules(defaults())} className="rounded-lg border px-3 py-2 text-xs flex items-center gap-1"><RotateCcw size={14}/> إعادة ضبط</button>
       </div>
-    </div>
+    </div>}
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(rows.length)}</p>
     <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
       <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
