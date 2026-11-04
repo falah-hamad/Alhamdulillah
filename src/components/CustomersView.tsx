@@ -673,7 +673,7 @@ export default function CustomersView({
     </>
   );
 
-  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} activeFilterCount={activeFilterCount} customerViewMode={customerViewMode} onCustomerViewModeChange={handleSetCustomerViewMode} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} activeFilterCount={activeFilterCount} customerViewMode={customerViewMode} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
 
   return (
     <div className="customers-view space-y-6 min-w-0">
