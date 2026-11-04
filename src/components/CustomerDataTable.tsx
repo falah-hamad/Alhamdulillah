@@ -97,7 +97,10 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         {rules.map((r,i)=><div key={i} className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold">الفرز {(["الأول","الثاني","الثالث","الرابع"][i] || `رقم ${i+1}`)}</span>
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={r.show} onChange={e=>update(i,{show:e.target.checked})} className="h-4 w-4"/> إظهار بالفاصل</label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={r.show} onChange={e=>update(i,{show:e.target.checked})} className="h-4 w-4"/> إظهار بالفاصل</label>
+              <button type="button" aria-label={`إلغاء الفرز ${i+1}`} title="إلغاء هذا الفرز" onClick={()=>{setRules(old=>old.filter((_,j)=>j!==i));setOpenMenu(null);}} className="rounded-md border border-slate-200 bg-white p-1 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"><X size={15}/></button>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative min-w-0">
