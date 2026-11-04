@@ -17,6 +17,7 @@ import {
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
 import { FilterButton, FilterPanel, FilterSelect } from "./FilterPanel";
 import { printElement } from "../utils/printUtils";
+import CustomerDataTable from "./CustomerDataTable";
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -93,6 +94,7 @@ export default function CustomersView({
   onOpenLedger,
 }: CustomersViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCustomerData, setShowCustomerData] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
   const [draftFilters, setDraftFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
@@ -453,6 +455,8 @@ export default function CustomersView({
     setDraftFilters(previous => ({ ...previous, [key]: value }));
   };
 
+  if (showCustomerData) return <CustomerDataTable customers={customers} invoices={invoices} payments={payments} onBack={() => setShowCustomerData(false)} />;
+
   return (
     <div className="customers-view space-y-6 min-w-0">
       {/* Search & Actions Top Header */}
@@ -482,6 +486,8 @@ export default function CustomersView({
               إضافة عميل جديد
             </button>
           </div>
+
+          <button type="button" onClick={() => setShowCustomerData(true)} className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">بيانات العملاء</button>
 
           {/* Search & View Mode Switcher Bar */}
           <div className="customers-toolbar flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
