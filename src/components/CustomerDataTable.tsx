@@ -92,11 +92,10 @@ const wordLines = (text: string) => {
   return lines;
 };
 
-export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack,filterControls,activeFilterCount,customerViewMode,onCustomerViewModeChange,totalCustomerCount}: {
+export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack,filterControls,activeFilterCount,customerViewMode,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
   filterControls: React.ReactNode; activeFilterCount: number;
   customerViewMode: "grid" | "list" | "large_icons" | "small_icons";
-  onCustomerViewModeChange: (mode: "grid" | "list" | "large_icons" | "small_icons") => void;
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
@@ -347,7 +346,7 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
           <span className={`flex shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 ${customerViewMode==="large_icons"?"h-11 w-11":"h-8 w-8"}`}><UserRound size={customerViewMode==="large_icons"?22:17}/></span>
           <div className="min-w-0 flex-1">
             <p className={`truncate font-bold text-slate-800 ${customerViewMode==="small_icons"?"text-xs":"text-sm"}`}>{row.name}</p>
-            {customerViewMode!=="small_icons" && <p className="truncate text-xs text-slate-500">{row.phone}</p>}
+            {customerViewMode!=="small_icons" && visibleColumnOrder.includes("phone") && <p className="truncate text-xs text-slate-500">{row.phone}</p>}
           </div>
           {visibleColumnOrder.includes("sequence") && <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{format(index+1)}</span>}
         </div>
