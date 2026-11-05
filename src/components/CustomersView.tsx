@@ -11,7 +11,7 @@ import {
   User
 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
-import { FilterPanel, FilterSelect } from "./FilterPanel";
+import { FilterSelect } from "./FilterPanel";
 import { printElement } from "../utils/printUtils";
 import CustomerDataTable from "./CustomerDataTable";
 
@@ -543,17 +543,8 @@ export default function CustomersView({
       default: return null;
     }
   };
-  const customerDataFilterControls = (
-    <FilterPanel
-      open={filtersOpen}
-      title="تصفية العملاء"
-      activeCount={activeFilterCount}
-      onClose={() => { setDraftFilters(customerFilters); setFiltersOpen(false); }}
-      onApply={() => { setCustomerFilters(draftFilters); setFiltersOpen(false); }}
-      onClear={() => { const empty = emptyCustomerFilters(); setDraftFilters(empty); setCustomerFilters(empty); setFilterRows([]); setFiltersOpen(false); }}
-      clearLabel="إعادة تعيين التصفية"
-      applyLabel="تطبيق التصفية"
-    >
+  const customerDataFilterControls = filtersOpen ? (
+    <div className="space-y-3 rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 sm:p-4">
       <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
         التصفية المالية والشرائية تعتمد على مصدر الإحصائيات المحدد: {statisticsSource === "all" ? "الكل — سجل الحساب العمودي والقائمة الحسابية معاً" : statisticsSource === "vertical" ? "سجل الحساب العمودي / كشوف الديون" : "القائمة الحسابية المستقلة"}.
       </p>
@@ -582,10 +573,14 @@ export default function CustomersView({
           </section>;
         })}
       </div>
-    </FilterPanel>
-  );
+      <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-3">
+        <button type="button" onClick={() => setCustomerFilters(draftFilters)} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">تطبيق التصفية</button>
+        <button type="button" onClick={() => { const empty = emptyCustomerFilters(); setDraftFilters(empty); setCustomerFilters(empty); setFilterRows([]); }} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">إعادة تعيين التصفية</button>
+      </div>
+    </div>
+  ) : null;
 
-  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { setDraftFilters(customerFilters); setFiltersOpen(true); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
 
   return (
     <div className="customers-view space-y-6 min-w-0">
