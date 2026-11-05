@@ -224,18 +224,20 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </div>
       </div>
     </header>
-    {filterControls}
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className={`rounded-xl border border-slate-200 bg-white p-3 ${filterControls ? "rounded-b-none" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-slate-700">تخصيص التصفية</p>
-          <p className="mt-1 text-xs text-slate-500">{activeFilterCount ? `${format(activeFilterCount)} شروط مفعّلة` : "اضغط لعرض شروط التصفية حسب المعلومات الشخصية والتعامل والمشتريات"}</p>
+          <p className="mt-1 text-xs text-slate-500">{activeFilterCount ? `${format(activeFilterCount)} شروط مفعّلة` : "اضغط لإظهار شروط التصفية حسب المعلومات الشخصية والتعامل والمشتريات"}</p>
         </div>
-        <button type="button" onClick={onOpenFilters} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button type="button" onClick={onOpenFilters} aria-expanded={Boolean(filterControls)} aria-controls="customer-filter-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <SlidersHorizontal size={17}/><span>تخصيص التصفية</span>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${filterControls?"rotate-180":""}`}/>
         </button>
       </div>
     </div>
+    {filterControls && <div id="customer-filter-options">{filterControls}</div>}
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
