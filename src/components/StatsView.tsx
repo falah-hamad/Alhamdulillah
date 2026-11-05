@@ -83,7 +83,7 @@ export default function StatsView({ customers, products, invoices, payments, set
   ];
 
   if (section === "customers" && selectedCustomer) {
-    return <CustomerStatisticsProfile key={selectedCustomer.id} customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => setSelectedCustomerId("")} />;
+    return <CustomerStatisticsProfile customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => setSelectedCustomerId("")} />;
   }
 
   return (
