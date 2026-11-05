@@ -184,6 +184,14 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     return rows.findIndex(x=>x.id===a.id)-rows.findIndex(x=>x.id===b.id);
   });
   const group = (r:Entry) => JSON.stringify(visible.map(x=>value(r,x.key,x.dateMode)));
+  const totals = sorted.reduce((sum,row)=>({
+    capital:sum.capital+row.capital,
+    sales:sum.sales+row.sales,
+    profit:sum.profit+row.profit,
+    paid:sum.paid+row.paid,
+    remaining:sum.remaining+row.remaining,
+  }),{capital:0,sales:0,profit:0,paid:0,remaining:0});
+
   const update = (i:number,patch:Partial<Rule>) => setRules(old=>old.map((r,j)=>i===j?{...r,...patch}:r));
   const moveColumn = useCallback((source:ColumnId,target:ColumnId) => setColumnOrder(old=>{
     const from=old.indexOf(source),to=old.indexOf(target);
@@ -338,6 +346,25 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </tbody>
       </table>
     </div>
+    <section aria-label="إحصائيات العملاء المعروضة" className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-bold text-violet-900">ملخص إحصائيات العملاء الظاهرين</h3>
+        <p className="mt-1 text-xs text-slate-500">الإجماليات محسوبة من العملاء المعروضين في الجدول فقط، وتتحدث مع البحث والتصفية.</p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {[
+          ["إجمالي مبلغ رأس المال", totals.capital, "border-slate-200 bg-slate-50 text-slate-800"],
+          ["إجمالي مبلغ البيع", totals.sales, "border-indigo-200 bg-indigo-50 text-indigo-900"],
+          ["إجمالي مبلغ الربح", totals.profit, "border-violet-200 bg-violet-50 text-violet-900"],
+          ["إجمالي مبلغ المشتريات", totals.sales, "border-blue-200 bg-blue-50 text-blue-900"],
+          ["إجمالي مبلغ التسديد", totals.paid, "border-emerald-200 bg-emerald-50 text-emerald-900"],
+          ["إجمالي مبلغ المتبقي", totals.remaining, "border-amber-200 bg-amber-50 text-amber-950"],
+        ].map(([label, amount, tone]) => <article key={String(label)} className={"rounded-2xl border p-4 text-center " + tone}>
+          <span className="block text-sm font-semibold">{label}</span>
+          <strong className="mt-2 block text-2xl font-extrabold" dir="ltr">{format(Number(amount))}</strong>
+        </article>)}
+      </div>
+    </section>
     {/* Separate full-width print source: exports every column and row, not the scrolled viewport. */}
     {exporting && <div id="customer-data-export" dir="rtl" aria-hidden="true" style={{position:"fixed",left:"-20000px",top:0,width:"1100px",background:"#fff",padding:"12px",fontFamily:"Cairo, Arial, sans-serif",color:"#0f172a"}}>
       <h2 style={{textAlign:"center",fontSize:"18px",fontWeight:700,marginBottom:"8px"}}>بيانات العملاء</h2>
