@@ -472,6 +472,28 @@ export default function CustomersView({
   ];
   const updateFilterRow = (id: string, patch: Partial<{ category: string; field: string; mode: "exact" | "range" }>) =>
     setFilterRows(old => old.map(row => row.id === id ? { ...row, ...patch } : row));
+  const clearFilterField = (field: string) => {
+    switch (field) {
+      case "folderId": updateDraftFilter("folderId", "all"); break;
+      case "address": updateDraftFilter("address", "all"); break;
+      case "occupation": updateDraftFilter("occupation", "all"); break;
+      case "salaryStatus": updateDraftFilter("salaryStatus", "all"); break;
+      case "salaryType": updateDraftFilter("salaryType", "all"); break;
+      case "relationship": updateDraftFilter("relationshipExact", ""); updateDraftFilter("relationshipMin", ""); updateDraftFilter("relationshipMax", ""); break;
+      case "purchaseDate": updateDraftFilter("purchaseOn", ""); updateDraftFilter("purchaseFrom", ""); updateDraftFilter("purchaseTo", ""); break;
+      case "quantity": updateDraftFilter("quantityExact", ""); updateDraftFilter("quantityMin", ""); updateDraftFilter("quantityMax", ""); break;
+      case "cost": updateDraftFilter("costExact", ""); updateDraftFilter("costMin", ""); updateDraftFilter("costMax", ""); break;
+      case "sales": updateDraftFilter("salesExact", ""); updateDraftFilter("salesMin", ""); updateDraftFilter("salesMax", ""); break;
+      case "profit": updateDraftFilter("profitExact", ""); updateDraftFilter("profitMin", ""); updateDraftFilter("profitMax", ""); break;
+      case "paid": updateDraftFilter("paidExact", ""); updateDraftFilter("paidMin", ""); updateDraftFilter("paidMax", ""); break;
+      case "remaining": updateDraftFilter("remainingExact", ""); updateDraftFilter("remainingMin", ""); updateDraftFilter("remainingMax", ""); break;
+      case "balanceStatus": updateDraftFilter("balanceStatus", "all"); break;
+      case "overdueOnly": updateDraftFilter("overdueOnly", false); break;
+      case "activityDate": updateDraftFilter("activityFrom", ""); updateDraftFilter("activityTo", ""); break;
+      case "sellerName": updateDraftFilter("sellerName", "all"); break;
+      case "paymentRecipient": updateDraftFilter("paymentRecipient", "all"); break;
+    }
+  };
   const filterNumberInput = (label: string, value: string, onChange: (value: string) => void, min = false) => (
     <label className="min-w-0 text-sm text-slate-700">{label}<input type="number" min={min ? "0" : undefined} step="any" value={value} onChange={event => onChange(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
   );
@@ -561,20 +583,20 @@ export default function CustomersView({
               <span className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{index + 1}</span>
               <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                 <label className="text-sm font-semibold text-slate-700">العنوان الرئيسي
-                  <FilterSelect ariaLabel="العنوان الرئيسي للتصفية" value={row.category} placeholder="اختر القسم الرئيسي" onChange={value => updateFilterRow(row.id,{category:value,field:""})} options={filterCategories.map(option=>({value:option.value,label:option.label}))}/>
+                  <FilterSelect ariaLabel="العنوان الرئيسي للتصفية" value={row.category} placeholder="اختر القسم الرئيسي" onChange={value => { clearFilterField(row.field); updateFilterRow(row.id,{category:value,field:""}) }} options={filterCategories.map(option=>({value:option.value,label:option.label}))}/>
                 </label>
                 <label className="text-sm font-semibold text-slate-700">نوع التصفية
-                  <FilterSelect ariaLabel="نوع التصفية" value={row.field} placeholder="اختر نوع التصفية" disabled={!category} onChange={value=>updateFilterRow(row.id,{field:value,mode:"exact"})} options={category?.fields||[]}/>
+                  <FilterSelect ariaLabel="نوع التصفية" value={row.field} placeholder="اختر نوع التصفية" disabled={!category} onChange={value=>{ if (filterRows.some(item=>item.id!==row.id&&item.field===value)) { alert("هذا الشرط مضاف بالفعل."); return; } clearFilterField(row.field); updateFilterRow(row.id,{field:value,mode:"exact"}) }} options={category?.fields||[]}/>
                 </label>
               </div>
-              <button type="button" aria-label={`حذف شرط التصفية ${index+1}`} onClick={()=>setFilterRows(old=>old.filter(item=>item.id!==row.id))} className="mt-1 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={16}/></button>
+              <button type="button" aria-label={`حذف شرط التصفية ${index+1}`} onClick={()=>{ clearFilterField(row.field); setFilterRows(old=>old.filter(item=>item.id!==row.id)); }} className="mt-1 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={16}/></button>
             </div>
             {row.field && <div className="mr-9 space-y-2 border-t border-slate-100 pt-3"><p className="text-sm font-bold text-slate-700">{category?.fields.find(field=>field.value===row.field)?.label}</p>{renderFilterEditor(row)}</div>}
           </section>;
         })}
       </div>
     </FilterPanel>
-  );;
+  );
 
   if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { setDraftFilters(customerFilters); setFiltersOpen(true); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
 
