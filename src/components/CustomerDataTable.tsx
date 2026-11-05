@@ -238,7 +238,6 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     </div>
     {filterControls && <div id="customer-filter-options">{filterControls}</div>}
     <div className="rounded-xl border border-slate-200 bg-white p-3">
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p>
