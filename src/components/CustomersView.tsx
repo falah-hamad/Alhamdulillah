@@ -94,6 +94,7 @@ export default function CustomersView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
   const [draftFilters, setDraftFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
+  const [filterRows, setFilterRows] = useState<Array<{ id: string; category: string; field: string; mode: "exact" | "range" }>>([]);
 
   // Modals for Customer Management
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -450,144 +451,130 @@ export default function CustomersView({
         />
       </div>
   );
+  const filterCategories = [
+    { value: "personal", label: "أولاً: المعلومات الشخصية وتاريخ التعامل", fields: [
+      { value: "folderId", label: "حسب المجلد" }, { value: "address", label: "حسب عنوان السكن" },
+      { value: "occupation", label: "حسب المهنة أو الوظيفة" }, { value: "salaryStatus", label: "هل لديه راتب؟" },
+      { value: "salaryType", label: "حسب نوع الراتب" }, { value: "relationship", label: "حسب مدة التعامل" },
+    ]},
+    { value: "purchases", label: "ثانياً: المشتريات", fields: [
+      { value: "purchaseDate", label: "حسب تاريخ الشراء" }, { value: "quantity", label: "حسب إجمالي عدد البضائع" },
+      { value: "cost", label: "حسب تكلفة الشراء (رأس المال)" }, { value: "sales", label: "حسب إجمالي المشتريات" },
+    ]},
+    { value: "financial", label: "ثالثاً: الأرباح والتسديدات والديون", fields: [
+      { value: "profit", label: "حسب إجمالي الربح" }, { value: "paid", label: "حسب إجمالي التسديد" },
+      { value: "remaining", label: "حسب المبلغ المتبقي" }, { value: "balanceStatus", label: "حسب حالة الحساب" },
+      { value: "overdueOnly", label: "عليه مستحقات متأخرة" }, { value: "activityDate", label: "حسب تاريخ آخر تعامل" },
+    ]},
+    { value: "staff", label: "رابعاً: الموظفون والعمليات", fields: [
+      { value: "sellerName", label: "حسب اسم البائع" }, { value: "paymentRecipient", label: "حسب مستلم التسديد" },
+    ]},
+  ];
+  const updateFilterRow = (id: string, patch: Partial<{ category: string; field: string; mode: "exact" | "range" }>) =>
+    setFilterRows(old => old.map(row => row.id === id ? { ...row, ...patch } : row));
+  const filterNumberInput = (label: string, value: string, onChange: (value: string) => void, min = false) => (
+    <label className="min-w-0 text-sm text-slate-700">{label}<input type="number" min={min ? "0" : undefined} step="any" value={value} onChange={event => onChange(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+  );
+  const numericFilterEditor = (row: typeof filterRows[number], title: string, exact: string, min: string, max: string, setters: { exact: (value: string) => void; min: (value: string) => void; max: (value: string) => void }, currency = "") => (
+    <div className="space-y-2">
+      <FilterSelect ariaLabel={`طريقة التصفية: ${title}`} value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "يساوي" }, { value: "range", label: "من — إلى" }]} />
+      {row.mode === "range"
+        ? <div className="grid grid-cols-2 gap-2">{filterNumberInput(`من ${currency}`, min, setters.min, true)}{filterNumberInput(`إلى ${currency}`, max, setters.max, true)}</div>
+        : filterNumberInput(`${title} يساوي ${currency}`, exact, setters.exact, true)}
+    </div>
+  );
+  const renderFilterEditor = (row: typeof filterRows[number]) => {
+    const currency = settings.currency;
+    switch (row.field) {
+      case "folderId": return <FilterSelect ariaLabel="اختر المجلد" value={draftFilters.folderId} placeholder="اختر المجلد" placeholderValue="all" onChange={value => updateDraftFilter("folderId", value)} options={[{ value: "all", label: "كل المجلدات" }, ...folders.map(folder => ({ value: folder.id, label: folder.name }))]} />;
+      case "address": return <FilterSelect ariaLabel="اختر العنوان" value={draftFilters.address} placeholder="اختر العنوان" placeholderValue="all" onChange={value => updateDraftFilter("address", value)} options={[{ value: "all", label: "كل العناوين" }, ...addressOptions.map(value => ({ value, label: value }))]} />;
+      case "occupation": return <FilterSelect ariaLabel="اختر المهنة" value={draftFilters.occupation} placeholder="اختر المهنة" placeholderValue="all" onChange={value => updateDraftFilter("occupation", value)} options={[{ value: "all", label: "كل المهن" }, ...occupationOptions.map(value => ({ value, label: value }))]} />;
+      case "salaryStatus": return <FilterSelect ariaLabel="هل لديه راتب؟" value={draftFilters.salaryStatus} placeholder="الكل" onChange={value => updateDraftFilter("salaryStatus", value as CustomerFilterState["salaryStatus"])} options={[{ value: "all", label: "الكل" }, { value: "yes", label: "نعم" }, { value: "no", label: "لا" }]} />;
+      case "salaryType": return <FilterSelect ariaLabel="اختر نوع الراتب" value={draftFilters.salaryType} placeholder="اختر نوع الراتب" placeholderValue="all" onChange={value => updateDraftFilter("salaryType", value)} options={[{ value: "all", label: "كل الأنواع" }, ...salaryTypeOptions.map(value => ({ value, label: value }))]} />;
+      case "relationship": return <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <FilterSelect ariaLabel="طريقة مدة التعامل" value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "تساوي" }, { value: "range", label: "من — إلى" }]} />
+          <FilterSelect ariaLabel="وحدة مدة التعامل" value={draftFilters.relationshipUnit} placeholder="الوحدة" onChange={value => updateDraftFilter("relationshipUnit", value as CustomerFilterState["relationshipUnit"])} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} />
+        </div>
+        {row.mode === "range"
+          ? <div className="grid grid-cols-2 gap-2">{filterNumberInput("من", draftFilters.relationshipMin, value => updateDraftFilter("relationshipMin", value), true)}{filterNumberInput("إلى", draftFilters.relationshipMax, value => updateDraftFilter("relationshipMax", value), true)}</div>
+          : filterNumberInput("مدة التعامل تساوي", draftFilters.relationshipExact, value => updateDraftFilter("relationshipExact", value), true)}
+        <p className="text-xs text-slate-500">تُحسب من أول عملية شراء مسجلة إلى اليوم.</p>
+      </div>;
+      case "purchaseDate": return <div className="space-y-2">
+        <FilterSelect ariaLabel="طريقة تاريخ الشراء" value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "في تاريخ محدد" }, { value: "range", label: "خلال فترة زمنية" }]} />
+        {row.mode === "range"
+          ? <div className="grid grid-cols-2 gap-2"><label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.purchaseFrom} onChange={event => updateDraftFilter("purchaseFrom", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label><label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={event => updateDraftFilter("purchaseTo", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label></div>
+          : <label className="text-sm text-slate-700">تاريخ الشراء<input type="date" value={draftFilters.purchaseOn} onChange={event => updateDraftFilter("purchaseOn", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>}
+      </div>;
+      case "quantity": return numericFilterEditor(row,"عدد البضائع",draftFilters.quantityExact,draftFilters.quantityMin,draftFilters.quantityMax,{exact:value=>updateDraftFilter("quantityExact",value),min:value=>updateDraftFilter("quantityMin",value),max:value=>updateDraftFilter("quantityMax",value)});
+      case "cost": return numericFilterEditor(row,"التكلفة",draftFilters.costExact,draftFilters.costMin,draftFilters.costMax,{exact:value=>updateDraftFilter("costExact",value),min:value=>updateDraftFilter("costMin",value),max:value=>updateDraftFilter("costMax",value)},currency);
+      case "sales": return numericFilterEditor(row,"المشتريات",draftFilters.salesExact,draftFilters.salesMin,draftFilters.salesMax,{exact:value=>updateDraftFilter("salesExact",value),min:value=>updateDraftFilter("salesMin",value),max:value=>updateDraftFilter("salesMax",value)},currency);
+      case "profit": return numericFilterEditor(row,"الربح",draftFilters.profitExact,draftFilters.profitMin,draftFilters.profitMax,{exact:value=>updateDraftFilter("profitExact",value),min:value=>updateDraftFilter("profitMin",value),max:value=>updateDraftFilter("profitMax",value)},currency);
+      case "paid": return numericFilterEditor(row,"المسدد",draftFilters.paidExact,draftFilters.paidMin,draftFilters.paidMax,{exact:value=>updateDraftFilter("paidExact",value),min:value=>updateDraftFilter("paidMin",value),max:value=>updateDraftFilter("paidMax",value)},currency);
+      case "remaining": return numericFilterEditor(row,"المتبقي",draftFilters.remainingExact,draftFilters.remainingMin,draftFilters.remainingMax,{exact:value=>updateDraftFilter("remainingExact",value),min:value=>updateDraftFilter("remainingMin",value),max:value=>updateDraftFilter("remainingMax",value)},currency);
+      case "balanceStatus": return <FilterSelect ariaLabel="حالة الحساب" value={draftFilters.balanceStatus} placeholder="كل الحالات" onChange={value => updateDraftFilter("balanceStatus", value as CustomerFilterState["balanceStatus"])} options={[{ value: "all", label: "كل الحالات" }, { value: "owing", label: "عليه مبلغ" }, { value: "settled", label: "مسدد بالكامل" }]} />;
+      case "overdueOnly": return <label className="flex items-center gap-2 rounded-lg bg-white p-3 text-sm"><input type="checkbox" checked={draftFilters.overdueOnly} onChange={event => updateDraftFilter("overdueOnly", event.target.checked)} className="h-4 w-4 accent-blue-600"/>عليه مستحقات متأخرة</label>;
+      case "activityDate": return <div className="grid grid-cols-2 gap-2"><label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.activityFrom} onChange={event => updateDraftFilter("activityFrom", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label><label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.activityTo} onChange={event => updateDraftFilter("activityTo", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label></div>;
+      case "sellerName": return <FilterSelect ariaLabel="اختر البائع" value={draftFilters.sellerName} placeholder="اختر البائع" placeholderValue="all" onChange={value => updateDraftFilter("sellerName", value)} options={[{ value: "all", label: "كل البائعين" }, ...sellerOptions.map(value => ({ value, label: value }))]} />;
+      case "paymentRecipient": return <FilterSelect ariaLabel="اختر مستلم التسديد" value={draftFilters.paymentRecipient} placeholder="اختر المستلم" placeholderValue="all" onChange={value => updateDraftFilter("paymentRecipient", value)} options={[{ value: "all", label: "كل المستلمين" }, ...recipientOptions.map(value => ({ value, label: value }))]} />;
+      default: return null;
+    }
+  };
+  const customerSearchControl = (
+      <div className="relative w-full min-w-0 flex-1 sm:w-64">
+        <Search className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
+        <input
+          id="customers-search-input"
+          type="text"
+          placeholder="ابحث عن العميل بالاسم، رقم الهاتف أو العنوان..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pr-10 pl-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-2xs"
+        />
+      </div>
+  );
   const customerDataFilterControls = (
-      <FilterPanel
+    <FilterPanel
       open={filtersOpen}
       title="تصفية العملاء"
       activeCount={activeFilterCount}
       onClose={() => { setDraftFilters(customerFilters); setFiltersOpen(false); }}
       onApply={() => { setCustomerFilters(draftFilters); setFiltersOpen(false); }}
-      onClear={() => { const empty = emptyCustomerFilters(); setDraftFilters(empty); setCustomerFilters(empty); setFiltersOpen(false); }}
+      onClear={() => { const empty = emptyCustomerFilters(); setDraftFilters(empty); setCustomerFilters(empty); setFilterRows([]); setFiltersOpen(false); }}
       clearLabel="إعادة تعيين التصفية"
       applyLabel="تطبيق التصفية"
-                >
+    >
       <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
         التصفية المالية والشرائية تعتمد على مصدر الإحصائيات المحدد: {statisticsSource === "all" ? "الكل — سجل الحساب العمودي والقائمة الحسابية معاً" : statisticsSource === "vertical" ? "سجل الحساب العمودي / كشوف الديون" : "القائمة الحسابية المستقلة"}.
       </p>
-      <section className="space-y-3 rounded-xl border border-slate-200 p-3">
-        <h4 className="font-bold text-blue-900">أولاً: التصفية حسب المعلومات الشخصية وتاريخ التعامل</h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">1. حسب المجلد</h5><FilterSelect ariaLabel="1. حسب المجلد" value={draftFilters.folderId} placeholder="اختر المجلد" placeholderValue="all" onChange={value => updateDraftFilter("folderId", value)} options={[{ value: "all", label: "كل المجلدات" }, ...folders.map(folder => ({ value: folder.id, label: folder.name }))]} /></div>
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">2. حسب عنوان السكن</h5><FilterSelect ariaLabel="2. حسب عنوان السكن" value={draftFilters.address} placeholder="اختر العنوان" placeholderValue="all" onChange={value => updateDraftFilter("address", value)} options={[{ value: "all", label: "كل العناوين" }, ...addressOptions.map(option => ({ value: option, label: option }))]} /></div>
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">3. حسب المهنة أو الوظيفة</h5><FilterSelect ariaLabel="3. حسب المهنة أو الوظيفة" value={draftFilters.occupation} placeholder="اختر المهنة" placeholderValue="all" onChange={value => updateDraftFilter("occupation", value)} options={[{ value: "all", label: "كل المهن" }, ...occupationOptions.map(option => ({ value: option, label: option }))]} /></div>
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">4. هل لديه راتب؟</h5><FilterSelect ariaLabel="4. هل لديه راتب؟" value={draftFilters.salaryStatus} placeholder="الكل" onChange={value => updateDraftFilter("salaryStatus", value as CustomerFilterState["salaryStatus"])} options={[{ value: "all", label: "الكل" }, { value: "yes", label: "نعم" }, { value: "no", label: "لا" }]} /></div>
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">5. حسب نوع الراتب</h5><FilterSelect ariaLabel="5. حسب نوع الراتب" value={draftFilters.salaryType} placeholder="اختر نوع الراتب" placeholderValue="all" onChange={value => updateDraftFilter("salaryType", value)} options={[{ value: "all", label: "كل الأنواع" }, ...salaryTypeOptions.map(option => ({ value: option, label: option }))]} /></div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">6. حسب مدة التعامل مع العميل</h5>
-          <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-2">
-            <label className="text-sm text-slate-700">مدة التعامل تساوي<input type="number" value={draftFilters.relationshipExact} onChange={e => updateDraftFilter("relationshipExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <label className="text-sm text-slate-700">الوحدة<FilterSelect ariaLabel="وحدة مدة التعامل" value={draftFilters.relationshipUnit} placeholder="الوحدة" onChange={value => updateDraftFilter("relationshipUnit", value as CustomerFilterState["relationshipUnit"])} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} /></label>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className="text-sm text-slate-700">من<input type="number" value={draftFilters.relationshipMin} onChange={e => updateDraftFilter("relationshipMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <label className="text-sm text-slate-700">إلى<input type="number" value={draftFilters.relationshipMax} onChange={e => updateDraftFilter("relationshipMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">تُحسب من تاريخ أول عملية شراء مسجلة إلى اليوم.</p>
-        </div>
-      </section>
-      
-      <section className="space-y-3 rounded-xl border border-slate-200 p-3">
-        <h4 className="font-bold text-blue-900">ثانياً: التصفية حسب المشتريات</h4>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">7. حسب تاريخ الشراء</h5>
-          <div>
-            <label className="text-sm text-slate-700">اشترى في تاريخ<input type="date" value={draftFilters.purchaseOn} onChange={e => updateDraftFilter("purchaseOn", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.purchaseFrom} onChange={e => updateDraftFilter("purchaseFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={e => updateDraftFilter("purchaseTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-3">
+        <div><p className="text-sm font-bold text-slate-800">شروط التصفية</p><p className="text-xs text-slate-500">{filterRows.filter(row => row.field).length} شروط مضافة</p></div>
+        <button type="button" onClick={() => setFilterRows(old => [...old, { id: `${Date.now()}-${Math.random()}`, category: "", field: "", mode: "exact" }])} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white"><PlusCircle size={16}/> إضافة تصفية</button>
+      </div>
+      {filterRows.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">اضغط «إضافة تصفية»، ثم اختر العنوان الرئيسي ونوع التصفية لتظهر حقوله.</p>}
+      <div className="space-y-3">
+        {filterRows.map((row,index) => {
+          const category = filterCategories.find(option => option.value === row.category);
+          return <section key={row.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-start gap-2">
+              <span className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{index + 1}</span>
+              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">العنوان الرئيسي
+                  <FilterSelect ariaLabel="العنوان الرئيسي للتصفية" value={row.category} placeholder="اختر القسم الرئيسي" onChange={value => updateFilterRow(row.id,{category:value,field:""})} options={filterCategories.map(option=>({value:option.value,label:option.label}))}/>
+                </label>
+                <label className="text-sm font-semibold text-slate-700">نوع التصفية
+                  <FilterSelect ariaLabel="نوع التصفية" value={row.field} placeholder="اختر نوع التصفية" disabled={!category} onChange={value=>updateFilterRow(row.id,{field:value,mode:"exact"})} options={category?.fields||[]}/>
+                </label>
+              </div>
+              <button type="button" aria-label={`حذف شرط التصفية ${index+1}`} onClick={()=>setFilterRows(old=>old.filter(item=>item.id!==row.id))} className="mt-1 rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><X size={16}/></button>
             </div>
-          </div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">8. حسب إجمالي عدد البضائع المشتراة</h5>
-          <div>
-            <label className="text-sm text-slate-700">عدد البضائع يساوي<input type="number" min="0" step="any" value={draftFilters.quantityExact} onChange={e => updateDraftFilter("quantityExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">من<input type="number" min="0" step="any" value={draftFilters.quantityMin} onChange={e => updateDraftFilter("quantityMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى<input type="number" min="0" step="any" value={draftFilters.quantityMax} onChange={e => updateDraftFilter("quantityMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">يُحسب العدد من مجموع كميات البنود الفعلية، دون صفوف التسديد والفواصل.</p>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">9. حسب إجمالي تكلفة شراء البضائع (رأس المال)</h5>
-          <div>
-            <label className="text-sm text-slate-700">التكلفة تساوي ({settings.currency})<input type="number" min="0" value={draftFilters.costExact} onChange={e => updateDraftFilter("costExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">التكلفة من ({settings.currency})<input type="number" min="0" value={draftFilters.costMin} onChange={e => updateDraftFilter("costMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.costMax} onChange={e => updateDraftFilter("costMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">10. حسب إجمالي قيمة مشتريات العميل</h5>
-          <div>
-            <label className="text-sm text-slate-700">الإجمالي يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.salesExact} onChange={e => updateDraftFilter("salesExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">الإجمالي من ({settings.currency})<input type="number" min="0" value={draftFilters.salesMin} onChange={e => updateDraftFilter("salesMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.salesMax} onChange={e => updateDraftFilter("salesMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      <section className="space-y-3 rounded-xl border border-slate-200 p-3">
-        <h4 className="font-bold text-blue-900">ثالثاً: التصفية حسب الأرباح والتسديدات والديون</h4>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">11. حسب إجمالي الربح من العميل</h5>
-          <div>
-            <label className="text-sm text-slate-700">الربح يساوي ({settings.currency})<input type="number" value={draftFilters.profitExact} onChange={e => updateDraftFilter("profitExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">الربح من ({settings.currency})<input type="number" value={draftFilters.profitMin} onChange={e => updateDraftFilter("profitMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" value={draftFilters.profitMax} onChange={e => updateDraftFilter("profitMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">لا يدخل في نتيجة الربح من كانت كلفة شراء أي بند لديه غير مسجلة.</p>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">12. حسب إجمالي المبالغ المسددة من العميل</h5>
-          <div>
-            <label className="text-sm text-slate-700">المسدد يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.paidExact} onChange={e => updateDraftFilter("paidExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">المسدد من ({settings.currency})<input type="number" min="0" value={draftFilters.paidMin} onChange={e => updateDraftFilter("paidMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.paidMax} onChange={e => updateDraftFilter("paidMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <h5 className="mb-2 text-sm font-semibold text-slate-700">13. حسب إجمالي المبلغ المتبقي على العميل</h5>
-          <div>
-            <label className="text-sm text-slate-700">المتبقي يساوي ({settings.currency})<input type="number" min="0" value={draftFilters.remainingExact} onChange={e => updateDraftFilter("remainingExact", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-sm text-slate-700">المتبقي من ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMin} onChange={e => updateDraftFilter("remainingMin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-              <label className="text-sm text-slate-700">إلى ({settings.currency})<input type="number" min="0" value={draftFilters.remainingMax} onChange={e => updateDraftFilter("remainingMax", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      <section className="space-y-3 rounded-xl border border-slate-200 p-3">
-        <h4 className="font-bold text-blue-900">رابعاً: التصفية حسب الموظفين والعمليات</h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">14. حسب اسم البائع</h5><select aria-label="14. حسب اسم البائع" value={draftFilters.sellerName} onChange={e => updateDraftFilter("sellerName", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">اختر البائع — كل البائعين</option>{sellerOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
-          <div><h5 className="mb-1 text-sm font-semibold text-slate-700">15. حسب اسم مستلم التسديد</h5><select aria-label="15. حسب اسم مستلم التسديد" value={draftFilters.paymentRecipient} onChange={e => updateDraftFilter("paymentRecipient", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">اختر المستلم — كل المستلمين</option>{recipientOptions.map(option => <option key={option} value={option}>{option}</option>)}</select></div>
-        </div>
-      </section>
-      
-      <section className="space-y-3 rounded-xl border border-dashed border-slate-300 p-3">
-        <h4 className="font-semibold text-slate-700">خيارات تصفية إضافية</h4>
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={draftFilters.overdueOnly} onChange={e => updateDraftFilter("overdueOnly", e.target.checked)} className="h-4 w-4 accent-blue-600" />عليه مستحقات متأخرة</label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="text-sm text-slate-700">حالة الحساب<FilterSelect ariaLabel="حالة الحساب" value={draftFilters.balanceStatus} placeholder="كل الحالات" onChange={value => updateDraftFilter("balanceStatus", value as CustomerFilterState["balanceStatus"])} options={[{ value: "all", label: "كل الحالات" }, { value: "owing", label: "عليه مبلغ" }, { value: "settled", label: "مسدد بالكامل" }]} /></label>
-          <label className="text-sm text-slate-700">آخر تعامل من<input type="date" value={draftFilters.activityFrom} onChange={e => updateDraftFilter("activityFrom", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-          <label className="text-sm text-slate-700">إلى تاريخ آخر تعامل<input type="date" value={draftFilters.activityTo} onChange={e => updateDraftFilter("activityTo", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-          <label className="text-sm text-slate-700">أقل متبقي<input type="number" min="0" value={draftFilters.minBalance} onChange={e => updateDraftFilter("minBalance", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-          <label className="text-sm text-slate-700">أعلى متبقي<input type="number" min="0" value={draftFilters.maxBalance} onChange={e => updateDraftFilter("maxBalance", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
-        </div>
-      </section>
-                </FilterPanel>
-  );
+            {row.field && <div className="mr-9 space-y-2 border-t border-slate-100 pt-3"><p className="text-sm font-bold text-slate-700">{category?.fields.find(field=>field.value===row.field)?.label}</p>{renderFilterEditor(row)}</div>}
+          </section>;
+        })}
+      </div>
+    </FilterPanel>
+  );;
 
   if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { setDraftFilters(customerFilters); setFiltersOpen(true); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
 
