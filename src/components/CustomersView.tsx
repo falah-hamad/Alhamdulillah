@@ -477,7 +477,7 @@ export default function CustomersView({
   );
   const numericFilterEditor = (row: typeof filterRows[number], title: string, exact: string, min: string, max: string, setters: { exact: (value: string) => void; min: (value: string) => void; max: (value: string) => void }, currency = "") => (
     <div className="space-y-2">
-      <FilterSelect ariaLabel={`طريقة التصفية: ${title}`} value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "يساوي" }, { value: "range", label: "من — إلى" }]} />
+      <FilterSelect ariaLabel={`طريقة التصفية: ${title}`} value={row.mode} placeholder="طريقة التصفية" onChange={value => { updateFilterRow(row.id, { mode: value as "exact" | "range" }); setters.exact(""); setters.min(""); setters.max(""); }} options={[{ value: "exact", label: "يساوي" }, { value: "range", label: "من — إلى" }]} />
       {row.mode === "range"
         ? <div className="grid grid-cols-2 gap-2">{filterNumberInput(`من ${currency}`, min, setters.min, true)}{filterNumberInput(`إلى ${currency}`, max, setters.max, true)}</div>
         : filterNumberInput(`${title} يساوي ${currency}`, exact, setters.exact, true)}
@@ -493,7 +493,7 @@ export default function CustomersView({
       case "salaryType": return <FilterSelect ariaLabel="اختر نوع الراتب" value={draftFilters.salaryType} placeholder="اختر نوع الراتب" placeholderValue="all" onChange={value => updateDraftFilter("salaryType", value)} options={[{ value: "all", label: "كل الأنواع" }, ...salaryTypeOptions.map(value => ({ value, label: value }))]} />;
       case "relationship": return <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
-          <FilterSelect ariaLabel="طريقة مدة التعامل" value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "تساوي" }, { value: "range", label: "من — إلى" }]} />
+          <FilterSelect ariaLabel="طريقة مدة التعامل" value={row.mode} placeholder="طريقة التصفية" onChange={value => { updateFilterRow(row.id, { mode: value as "exact" | "range" }); updateDraftFilter("relationshipExact", ""); updateDraftFilter("relationshipMin", ""); updateDraftFilter("relationshipMax", ""); }} options={[{ value: "exact", label: "تساوي" }, { value: "range", label: "من — إلى" }]} />
           <FilterSelect ariaLabel="وحدة مدة التعامل" value={draftFilters.relationshipUnit} placeholder="الوحدة" onChange={value => updateDraftFilter("relationshipUnit", value as CustomerFilterState["relationshipUnit"])} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} />
         </div>
         {row.mode === "range"
@@ -502,7 +502,7 @@ export default function CustomersView({
         <p className="text-xs text-slate-500">تُحسب من أول عملية شراء مسجلة إلى اليوم.</p>
       </div>;
       case "purchaseDate": return <div className="space-y-2">
-        <FilterSelect ariaLabel="طريقة تاريخ الشراء" value={row.mode} placeholder="طريقة التصفية" onChange={value => updateFilterRow(row.id, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "في تاريخ محدد" }, { value: "range", label: "خلال فترة زمنية" }]} />
+        <FilterSelect ariaLabel="طريقة تاريخ الشراء" value={row.mode} placeholder="طريقة التصفية" onChange={value => { updateFilterRow(row.id, { mode: value as "exact" | "range" }); updateDraftFilter("purchaseOn", ""); updateDraftFilter("purchaseFrom", ""); updateDraftFilter("purchaseTo", ""); }} options={[{ value: "exact", label: "في تاريخ محدد" }, { value: "range", label: "خلال فترة زمنية" }]} />
         {row.mode === "range"
           ? <div className="grid grid-cols-2 gap-2"><label className="text-sm text-slate-700">من تاريخ<input type="date" value={draftFilters.purchaseFrom} onChange={event => updateDraftFilter("purchaseFrom", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label><label className="text-sm text-slate-700">إلى تاريخ<input type="date" value={draftFilters.purchaseTo} onChange={event => updateDraftFilter("purchaseTo", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label></div>
           : <label className="text-sm text-slate-700">تاريخ الشراء<input type="date" value={draftFilters.purchaseOn} onChange={event => updateDraftFilter("purchaseOn", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>}
