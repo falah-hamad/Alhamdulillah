@@ -407,93 +407,22 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab !== "business" && <><label className="block text-sm font-bold">مصدر الحسابات<select value={source} onChange={e => { const nextSource = e.target.value as typeof source; setSource(nextSource); window.localStorage.setItem(sourceStorageKey, nextSource); setExpanded(false); setSelectedAnalysisKeys([]); }} className="mt-2 w-full rounded-lg border p-2"><option value="all">الكل — المصدران معاً</option><option value="vertical">سجل الحساب العمودي / كشوف الديون</option><option value="accounting">القائمة الحسابية المستقلة</option></select></label>
           <p className="text-xs text-slate-500">كل سجل يُحسب بصورة مستقلة لمنع تكرار المبالغ. الأرقام من البيانات المحفوظة فقط.</p></>}
           {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-base font-bold text-violet-900">تحليل بنود الورقة الحسابية</h3><p className="mt-1 text-xs leading-5 text-slate-500">عرض موسّع للبضاعة والكميات وسعر الشراء والبيع والربح. تكلفة الشراء والربح تظهر فقط للبنود التي سُجلت لها كلفة شراء وقت البيع.</p></div><FilterButton activeCount={analysisFilterCount} onClick={() => setAnalysisFiltersOpen(true)} /></div>
-            <FilterPanel open={analysisFiltersOpen} title="تصفية تحليل العميل" activeCount={analysisFilterCount} onClose={() => setAnalysisFiltersOpen(false)} onApply={() => setAnalysisFiltersOpen(false)} onClear={() => { setAnalysisProductFilter(""); setAnalysisSellerFilter(""); setAnalysisDateFrom(""); setAnalysisDateTo(""); }}>
-              <label className="block text-sm font-semibold text-slate-700">البضاعة<input value={analysisProductFilter} onChange={e => setAnalysisProductFilter(e.target.value)} placeholder="اسم البضاعة أو جزء منه" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
-              <label className="block text-sm font-semibold text-slate-700">اسم البائع أو المستلم<input value={analysisSellerFilter} onChange={e => setAnalysisSellerFilter(e.target.value)} placeholder="اكتب الاسم" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
-              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={analysisDateFrom} onChange={e => setAnalysisDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={analysisDateTo} onChange={e => setAnalysisDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-            </FilterPanel>
-            {analysisFilterCount > 0 && <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">تمت تصفية الصفوف. بطاقات الملخص أدناه تعرض إجمالي حساب العميل كاملاً.</p>}
-            {analysisItems.length ? <><p className="text-xs text-slate-500">المعروض {number(analysisItems.length)} من {number(saleItems.length)} بنداً</p><div className="overflow-x-auto rounded-lg border">
-              {renderAnalysisTable(analysisItems, selectedAnalysisItems.length > 0)}
-                <style>{`
-                  .customer-analysis-table thead tr:nth-child(2) th:nth-child(odd) {
-                    border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
-                  }
-                  .customer-analysis-table thead tr:nth-child(2) th:nth-child(even) {
-                    border-right: 0 !important;
-                  }
-                  .customer-analysis-table .analysis-pair-divider {
-                    border-left: 0.5px solid rgba(148, 163, 184, 0.45) !important;
-                  }
-                  .customer-analysis-table .analysis-pair-join {
-                    border-right: 0 !important;
-                  }
-                  .customer-analysis-table tbody tr,
-                  .customer-analysis-table tbody td {
-                    height: 42px !important;
-                    box-sizing: border-box;
-                  }
-                  .customer-analysis-table tbody td {
-                    padding-top: 6px !important;
-                    padding-bottom: 6px !important;
-                    line-height: 20px !important;
-                  }
-                  .customer-analysis-table tbody td input[type="checkbox"] {
-                    display: block;
-                    width: 20px;
-                    height: 20px;
-                    margin: 0 auto;
-                  }
-                `}</style>
-            </div>
-              {selectedAnalysisItems.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm">
-                <strong className="text-blue-900">تم تحديد {number(selectedAnalysisItems.length)} صفوف</strong>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={toggleAllAnalysisRows} className="rounded-lg border border-blue-200 bg-white px-3 py-2 font-bold text-blue-800">{selectedAnalysisItems.length === saleItems.length ? "إلغاء تحديد الكل" : "تحديد الكل"}</button>
-                  <button type="button" aria-label="إلغاء تحديد الصفوف" onClick={() => setSelectedAnalysisKeys([])} className="rounded-lg px-3 py-2 text-slate-600">×</button>
-                </div>
-              </div>}
-              {selectedAnalysisItems.length > 0 && <section className="mt-4 space-y-3 rounded-xl border border-violet-200 bg-white p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-violet-50 p-3">
-                  <div><h4 className="font-bold text-violet-900">إحصائية صفوف محددة</h4><p className="mt-1 text-xs text-slate-600">تم تحديد {number(selectedAnalysisItems.length)} صفوف — المجاميع تخص هذه الصفوف فقط.</p></div>
-                  
-                </div>
-                <div className="overflow-x-auto rounded-lg border">{renderAnalysisTable(selectedAnalysisItems)}</div>
-              </section>}
-            </> : <p className="rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-600">{analysisFilterCount ? "لا توجد بنود تطابق شروط التصفية." : "لا توجد بنود محفوظة في مصدر الحساب المحدد."}</p>}
-          </section>}
-          {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
-            <div><h3 className="text-base font-bold text-violet-900">سجل التسديدات</h3><p className="mt-1 text-xs text-slate-500">التسديدات المعروضة مأخوذة من سجل ديون العميل، مع المجموع والمتبقي المسجلين لكل حركة.</p></div>
-            <div className="overflow-x-auto rounded-lg border">
-              {analysisPaymentRows.length ? <table className="min-w-[1000px] w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
-                <thead className="bg-[#91abd5] text-slate-950"><tr>
-                  <th className="border border-slate-400 p-2">ت</th><th className="border border-slate-400 p-2">المجموع الكلي</th><th className="border border-slate-400 p-2">مبلغ التسديد</th><th className="border border-slate-400 p-2">المبلغ المتبقي</th><th className="border border-slate-400 p-2">الطابع الزمني</th><th className="border border-slate-400 p-2">المستلم</th>
-                </tr></thead>
-                <tbody>{analysisPaymentRows.map((payment, index) => <tr key={payment.id} className="bg-white">
-                  <td className="border border-slate-300 p-2">{paymentOrdinalLabel(index)}</td><td className="border border-slate-300 p-2">{number(payment.total)}</td><td className="border border-slate-300 p-2">{number(payment.payment)}</td><td className="border border-slate-300 p-2">{number(payment.remaining)}</td>
-                  <td className="border border-slate-300 p-2"><div dir="ltr" className="inline-flex items-center justify-center gap-1"><span dir="rtl">{payment.weekday}</span><span>—</span><span dir="ltr">{formatShortLedgerTime(payment.time)}</span><span>—</span><span dir="ltr">{payment.date}</span></div></td>
-                  <td className="border border-slate-300 p-2">{payment.recipient}</td>
-                </tr>)}</tbody>
-              </table> : <p className="p-4 text-center text-sm text-slate-600">لا توجد تسديدات مسجلة في مصدر الحساب المحدد.</p>}
-            </div>
-          </section>}
-          {tab === "paper" && <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
-            <div><h3 className="text-base font-bold text-violet-900">ملخص أرقام الورقة الحسابية</h3><p className="mt-1 text-xs text-slate-500">إجماليات المشتريات والتسديد والربح من مصدر الحساب المحدد.</p></div>
+            <div><h3 className="text-base font-bold text-violet-900">ملخص أرقام الورقة الحسابية</h3><p className="mt-1 text-xs text-slate-500">رأس المال والبيع والربح، ثم المشتريات والتسديد والمتبقي من مصدر الحساب المحدد.</p></div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                ["مجموع مبلغ كل ما تم شراؤه", number(sales), "border-blue-200 bg-blue-50 text-blue-900"],
-                ["مجموع مبلغ كل ما تم تسديده", number(paid), "border-emerald-200 bg-emerald-50 text-emerald-900"],
-                ["مجموع مبلغ ما تبقى عليه", number(remaining), "border-amber-200 bg-amber-50 text-amber-950"],
+                ["إجمالي مبلغ رأس المال", cost === null ? "غير مكتمل" : number(cost), "border-slate-200 bg-slate-50 text-slate-800"],
+                ["إجمالي مبلغ البيع", number(sales), "border-indigo-200 bg-indigo-50 text-indigo-900"],
+                ["إجمالي مبلغ الربح", profit === null ? "غير متاح" : number(profit), "border-violet-200 bg-violet-50 text-violet-900"],
               ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
                 <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
               </article>)}
             </div>
+            <div aria-hidden="true" className="border-t-2 border-dashed border-slate-200 pt-3" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                ["مجموع مبلغ الشراء", cost === null ? "غير مكتمل" : number(cost), "border-slate-200 bg-slate-50 text-slate-800"],
-                ["مجموع مبلغ البيع", number(sales), "border-indigo-200 bg-indigo-50 text-indigo-900"],
-                ["مجموع مبلغ الربح", profit === null ? "غير متاح" : number(profit), "border-violet-200 bg-violet-50 text-violet-900"],
+                ["إجمالي مبلغ المشتريات", number(sales), "border-blue-200 bg-blue-50 text-blue-900"],
+                ["إجمالي مبلغ التسديد", number(paid), "border-emerald-200 bg-emerald-50 text-emerald-900"],
+                ["إجمالي مبلغ المتبقي", number(remaining), "border-amber-200 bg-amber-50 text-amber-950"],
               ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
                 <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
               </article>)}
