@@ -190,7 +190,9 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
     profit:sum.profit+row.profit,
     paid:sum.paid+row.paid,
     remaining:sum.remaining+row.remaining,
-  }),{capital:0,sales:0,profit:0,paid:0,remaining:0});
+    quantity:sum.quantity+row.quantity,
+  }),{capital:0,sales:0,profit:0,paid:0,remaining:0,quantity:0});
+  const paidPercent = totals.sales > 0 ? Math.min((totals.paid / totals.sales) * 100, 100) : 0;
 
   const update = (i:number,patch:Partial<Rule>) => setRules(old=>old.map((r,j)=>i===j?{...r,...patch}:r));
   const moveColumn = useCallback((source:ColumnId,target:ColumnId) => setColumnOrder(old=>{
@@ -346,23 +348,36 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </tbody>
       </table>
     </div>
-    <section aria-label="إحصائيات العملاء المعروضة" className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-bold text-violet-900">ملخص إحصائيات العملاء الظاهرين</h3>
-        <p className="mt-1 text-xs text-slate-500">الإجماليات محسوبة من العملاء المعروضين في الجدول فقط، وتتحدث مع البحث والتصفية.</p>
+    <section className="space-y-3 rounded-xl border border-violet-100 bg-white p-3 sm:p-4">
+      <div>
+        <h3 className="text-base font-bold text-violet-900">ملخص أرقام الورقة الحسابية</h3>
+        <p className="mt-1 text-xs text-slate-500">إجماليات رأس المال والبيع والربح والمشتريات والتسديد للعملاء المعروضين في الجدول فقط.</p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {[
           ["إجمالي مبلغ رأس المال", totals.capital, "border-slate-200 bg-slate-50 text-slate-800"],
           ["إجمالي مبلغ البيع", totals.sales, "border-indigo-200 bg-indigo-50 text-indigo-900"],
           ["إجمالي مبلغ الربح", totals.profit, "border-violet-200 bg-violet-50 text-violet-900"],
+        ].map(([label, amount, tone]) => <article key={String(label)} className={"rounded-xl border p-3 text-center " + tone}>
+          <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{format(Number(amount))}</strong>
+        </article>)}
+      </div>
+      <div aria-hidden="true" className="border-t-2 border-dashed border-slate-200 pt-3" />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {[
           ["إجمالي مبلغ المشتريات", totals.sales, "border-blue-200 bg-blue-50 text-blue-900"],
           ["إجمالي مبلغ التسديد", totals.paid, "border-emerald-200 bg-emerald-50 text-emerald-900"],
           ["إجمالي مبلغ المتبقي", totals.remaining, "border-amber-200 bg-amber-50 text-amber-950"],
-        ].map(([label, amount, tone]) => <article key={String(label)} className={"rounded-2xl border p-4 text-center " + tone}>
-          <span className="block text-sm font-semibold">{label}</span>
-          <strong className="mt-2 block text-2xl font-extrabold" dir="ltr">{format(Number(amount))}</strong>
+        ].map(([label, amount, tone]) => <article key={String(label)} className={"rounded-xl border p-3 text-center " + tone}>
+          <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{format(Number(amount))}</strong>
         </article>)}
+      </div>
+      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+        <div className="flex items-center justify-between gap-3"><strong className="text-sm text-yellow-950">مجموع العدد</strong><strong className="text-lg font-extrabold text-yellow-950" dir="ltr">{format(totals.quantity)}</strong></div>
+      </div>
+      <div className="rounded-xl border border-slate-200 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600"><span>نسبة التسديد من إجمالي المشتريات</span><span dir="ltr">{format(paidPercent)}%</span></div>
+        <div dir="rtl" className="h-3 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: paidPercent + "%" }} /></div>
       </div>
     </section>
     {/* Separate full-width print source: exports every column and row, not the scrolled viewport. */}
