@@ -497,13 +497,12 @@ export default function CustomersView({
   const filterNumberInput = (label: string, value: string, onChange: (value: string) => void, min = false) => (
     <label className="min-w-0 text-sm text-slate-700">{label}<input type="number" min={min ? "0" : undefined} step="any" value={value} onChange={event => onChange(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
   );
-  const numericFilterEditor = (_row: typeof filterRows[number], title: string, exact: string, min: string, max: string, setters: { exact: (value: string) => void; min: (value: string) => void; max: (value: string) => void }, currency = "") => (
-    <div className="space-y-3">
-      {filterNumberInput(`${title} يساوي ${currency}`, exact, setters.exact, true)}
-      <div className="grid grid-cols-2 gap-2">
-        {filterNumberInput(`من ${currency}`, min, setters.min, true)}
-        {filterNumberInput(`إلى ${currency}`, max, setters.max, true)}
-      </div>
+  const numericFilterEditor = (row: typeof filterRows[number], title: string, exact: string, min: string, max: string, setters: { exact: (value: string) => void; min: (value: string) => void; max: (value: string) => void }, currency = "") => (
+    <div className="space-y-2">
+      <FilterSelect ariaLabel={`طريقة التصفية: ${title}`} value={row.mode} placeholder="طريقة التصفية" onChange={value => { updateFilterRow(row.id, { mode: value as "exact" | "range" }); setters.exact(""); setters.min(""); setters.max(""); }} options={[{ value: "exact", label: "يساوي" }, { value: "range", label: "من — إلى" }]} />
+      {row.mode === "range"
+        ? <div className="grid grid-cols-2 gap-2">{filterNumberInput(`من ${currency}`, min, setters.min, true)}{filterNumberInput(`إلى ${currency}`, max, setters.max, true)}</div>
+        : filterNumberInput(`${title} يساوي ${currency}`, exact, setters.exact, true)}
     </div>
   );
   const renderFilterEditor = (row: typeof filterRows[number]) => {
@@ -514,10 +513,14 @@ export default function CustomersView({
       case "occupation": return <FilterSelect ariaLabel="اختر المهنة" value={draftFilters.occupation} placeholder="اختر المهنة" placeholderValue="all" onChange={value => updateDraftFilter("occupation", value)} options={[{ value: "all", label: "كل المهن" }, ...occupationOptions.map(value => ({ value, label: value }))]} />;
       case "salaryStatus": return <FilterSelect ariaLabel="هل لديه راتب؟" value={draftFilters.salaryStatus} placeholder="الكل" onChange={value => updateDraftFilter("salaryStatus", value as CustomerFilterState["salaryStatus"])} options={[{ value: "all", label: "الكل" }, { value: "yes", label: "نعم" }, { value: "no", label: "لا" }]} />;
       case "salaryType": return <FilterSelect ariaLabel="اختر نوع الراتب" value={draftFilters.salaryType} placeholder="اختر نوع الراتب" placeholderValue="all" onChange={value => updateDraftFilter("salaryType", value)} options={[{ value: "all", label: "كل الأنواع" }, ...salaryTypeOptions.map(value => ({ value, label: value }))]} />;
-      case "relationship": return <div className="space-y-3">
-        <FilterSelect ariaLabel="وحدة مدة التعامل" value={draftFilters.relationshipUnit} placeholder="الوحدة" onChange={value => updateDraftFilter("relationshipUnit", value as CustomerFilterState["relationshipUnit"])} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} />
-        {filterNumberInput("مدة التعامل تساوي", draftFilters.relationshipExact, value => updateDraftFilter("relationshipExact", value), true)}
-        <div className="grid grid-cols-2 gap-2">{filterNumberInput("من", draftFilters.relationshipMin, value => updateDraftFilter("relationshipMin", value), true)}{filterNumberInput("إلى", draftFilters.relationshipMax, value => updateDraftFilter("relationshipMax", value), true)}</div>
+      case "relationship": return <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <FilterSelect ariaLabel="طريقة مدة التعامل" value={row.mode} placeholder="طريقة التصفية" onChange={value => { updateFilterRow(row.id, { mode: value as "exact" | "range" }); updateDraftFilter("relationshipExact", ""); updateDraftFilter("relationshipMin", ""); updateDraftFilter("relationshipMax", ""); }} options={[{ value: "exact", label: "تساوي" }, { value: "range", label: "من — إلى" }]} />
+          <FilterSelect ariaLabel="وحدة مدة التعامل" value={draftFilters.relationshipUnit} placeholder="الوحدة" onChange={value => updateDraftFilter("relationshipUnit", value as CustomerFilterState["relationshipUnit"])} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} />
+        </div>
+        {row.mode === "range"
+          ? <div className="grid grid-cols-2 gap-2">{filterNumberInput("من", draftFilters.relationshipMin, value => updateDraftFilter("relationshipMin", value), true)}{filterNumberInput("إلى", draftFilters.relationshipMax, value => updateDraftFilter("relationshipMax", value), true)}</div>
+          : filterNumberInput("مدة التعامل تساوي", draftFilters.relationshipExact, value => updateDraftFilter("relationshipExact", value), true)}
         <p className="text-xs text-slate-500">تُحسب من أول عملية شراء مسجلة إلى اليوم.</p>
       </div>;
       case "purchaseDate": return <div className="space-y-2">
