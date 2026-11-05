@@ -543,19 +543,6 @@ export default function CustomersView({
       default: return null;
     }
   };
-  const customerSearchControl = (
-      <div className="relative w-full min-w-0 flex-1 sm:w-64">
-        <Search className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
-        <input
-          id="customers-search-input"
-          type="text"
-          placeholder="ابحث عن العميل بالاسم، رقم الهاتف أو العنوان..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pr-10 pl-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-2xs"
-        />
-      </div>
-  );
   const customerDataFilterControls = (
     <FilterPanel
       open={filtersOpen}
