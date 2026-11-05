@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
-export function FilterSelect({ value, options, placeholder, placeholderValue, onChange, ariaLabel }: {
+export function FilterSelect({ value, options, placeholder, placeholderValue, onChange, ariaLabel, disabled = false }: {
   value: string;
   options: { value: string; label: string }[];
   placeholder: string;
   placeholderValue?: string;
   onChange: (value: string) => void;
   ariaLabel: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [popup, setPopup] = useState<{ top: number; left: number; width: number; maxHeight: number }>({ top: 0, left: 0, width: 0, maxHeight: 240 });
@@ -58,9 +59,10 @@ export function FilterSelect({ value, options, placeholder, placeholderValue, on
       type="button"
       role="combobox"
       aria-label={ariaLabel}
-      aria-expanded={open}
-      onClick={() => setOpen(current => !current)}
-      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-sm text-slate-800 shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+      aria-expanded={open && !disabled}
+      disabled={disabled}
+      onClick={() => { if (!disabled) setOpen(current => !current); }}
+      className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-sm text-slate-800 shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
     >
       <span className={showPlaceholder || !selected ? "truncate text-slate-500" : "truncate"}>{label}</span>
       <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
