@@ -43,9 +43,9 @@ function readSortSettings(key: string): { rules: Rule[]; panelOpen: boolean; col
       : defaults();
     const validColumn = (id: unknown): id is ColumnId => typeof id === "string" && allColumnIds.includes(id as ColumnId);
     const storedOrder = Array.isArray(saved.columnOrder) ? saved.columnOrder.filter(validColumn) : [];
-    const columnOrder = [...new Set(storedOrder),...allColumnIds.filter(id=>!storedOrder.includes(id))];
+    const columnOrder: ColumnId[] = [...new Set<ColumnId>(storedOrder),...allColumnIds.filter(id=>!storedOrder.includes(id))];
     const visibleColumns = Array.isArray(saved.visibleColumns)
-      ? [...new Set(saved.visibleColumns.filter(validColumn))]
+      ? [...new Set<ColumnId>(saved.visibleColumns.filter(validColumn))]
       : defaultColumnOrder();
     return {
       rules,
