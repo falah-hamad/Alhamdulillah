@@ -343,8 +343,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         {selectable && <th rowSpan={2} className="w-[42px] border p-2">تحديد</th>}
         <th rowSpan={2} className="border p-2">ت</th><th rowSpan={2} className="border p-2">البضاعة</th>
         <th rowSpan={2} className="border p-2">العدد</th>
-        <th colSpan={2} className="border p-2">سعر الشراء</th><th colSpan={2} className="border p-2">الربح</th>
-        <th colSpan={2} className="border p-2">سعر البيع</th><th rowSpan={2} className="border p-2">الطابع الزمني</th>
+        <th colSpan={2} className="border p-2">مبلغ رأس المال</th><th colSpan={2} className="border p-2">مبلغ الربح</th>
+        <th colSpan={2} className="border p-2">مبلغ البيع</th><th rowSpan={2} className="border p-2">الطابع الزمني</th>
         <th rowSpan={2} className="border p-2">اسم البائع</th>
       </tr><tr className="bg-emerald-100">
         <th className="border p-2">للمفرد</th><th className="border p-2">للجمع</th>
@@ -380,9 +380,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
         {selectable && <td className="border p-2">—</td>}
         <td className="border p-2">—</td><td className="border p-2">المجموع</td>
         <td className="border p-2">مجموع العدد: {formatAnalysisQuantityTotals(rows)}</td>
-        <td className="border p-2" colSpan={2}>مجموع سعر الشراء: {rowsCost === null ? "غير مكتمل" : number(rowsCost)}</td>
-        <td className="border p-2" colSpan={2}>مجموع الربح: {rowsProfit === null ? "غير متاح بالكامل" : number(rowsProfit)}</td>
-        <td className="border p-2" colSpan={2}>مجموع سعر البيع: {number(rowsSale)}</td>
+        <td className="border p-2" colSpan={2}>إجمالي مبلغ رأس المال: {rowsCost === null ? "غير مكتمل" : number(rowsCost)}</td>
+        <td className="border p-2" colSpan={2}>إجمالي مبلغ الربح: {rowsProfit === null ? "غير متاح بالكامل" : number(rowsProfit)}</td>
+        <td className="border p-2" colSpan={2}>إجمالي مبلغ البيع: {number(rowsSale)}</td>
         <td className="border p-2">—</td><td className="border p-2">—</td>
       </tr></tfoot>
     </table>;
