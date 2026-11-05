@@ -106,7 +106,7 @@ export default function CustomersView({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  const customerViewMode: "list" | "grid" | "large_icons" | "small_icons" = "list";
+  const [customerViewMode] = useState<"list" | "grid" | "large_icons" | "small_icons">("list");
 
   // Calculations for a customer
   const getCustomerMetrics = (custId: string) => {
