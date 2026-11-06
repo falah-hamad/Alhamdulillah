@@ -3,16 +3,17 @@ import { Plus, Percent, Trash2 } from "lucide-react";
 import { Customer, Invoice, Payment, Product } from "../types";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
-type Category = "all" | "الرعاية الاجتماعية" | "المتقاعدون" | "الشرطة" | "الجيش" | "فئات أخرى / غير محدد";
+type Category = "all" | string;
+type Granularity = "day" | "month" | "year";
+type DateSelection = { granularity: Granularity; year: number; month: number; day: number };
 type Comparison = {
   id: string;
   metric: Metric;
   numeratorCategory: Category;
-  numeratorPeriod: string;
+  numeratorPeriod: DateSelection;
   denominatorCategory: Category;
-  denominatorPeriod: string;
+  denominatorPeriod: DateSelection;
 };
-type Period = { id: string; label: string; start: string; end: string };
 
 const metricLabels: Record<Metric, string> = {
   payments: "التسديدات",
@@ -20,25 +21,7 @@ const metricLabels: Record<Metric, string> = {
   remaining: "المتبقي",
   profit: "الربح",
 };
-const categories: Category[] = ["الرعاية الاجتماعية", "المتقاعدون", "الشرطة", "الجيش", "فئات أخرى / غير محدد"];
-const allCategories: Category[] = ["all", ...categories];
-const periods: Period[] = [
-  ...Array.from({ length: 30 }, (_, index) => {
-    const day = index + 1;
-    const date = `2025-01-${String(day).padStart(2, "0")}`;
-    return { id: `day:${date}`, label: `يوم ${day}/1/2025`, start: date, end: date };
-  }),
-  ...Array.from({ length: 11 }, (_, index) => {
-    const month = index + 2;
-    const start = `2025-${String(month).padStart(2, "0")}-01`;
-    const end = new Date(Date.UTC(2025, month, 0)).toISOString().slice(0, 10);
-    return { id: `month:${month}:2025`, label: `${month}/2025`, start, end };
-  }),
-  ...Array.from({ length: 5 }, (_, index) => {
-    const year = 2026 + index;
-    return { id: `year:${year}`, label: String(year), start: `${year}-01-01`, end: `${year}-12-31` };
-  }),
-];
+const monthLabels = ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"];
 
 const formatAmount = (value: number, currency: string) => `${Math.round(value).toLocaleString("ar-IQ")} ${currency}`;
 const normalizeArabic = (value: string) => value
@@ -61,23 +44,38 @@ function dateKey(value?: string): string {
 }
 
 function categoryFor(customer?: Customer): Category {
-  const salary = normalizeArabic(customer?.salaryType || "");
-  if (salary.includes("رعايه")) return "الرعاية الاجتماعية";
-  if (salary.includes("متقاعد") || salary.includes("تقاعد")) return "المتقاعدون";
-  if (salary.includes("شرطه") || salary.includes("شرطي")) return "الشرطة";
-  if (salary.includes("جيش") || salary.includes("عسكري") || salary.includes("دفاع")) return "الجيش";
-  return "فئات أخرى / غير محدد";
+  const salary = customer?.salaryType?.trim();
+  if (salary) return salary;
+  return customer?.hasSalary === false ? "بدون راتب" : "غير محدد";
 }
 
-function defaultComparison(id: string): Comparison {
+function defaultComparison(id: string, category: Category, date: DateSelection): Comparison {
   return {
     id,
     metric: "sales",
-    numeratorCategory: "الرعاية الاجتماعية",
-    numeratorPeriod: "day:2025-01-01",
+    numeratorCategory: category,
+    numeratorPeriod: { ...date },
     denominatorCategory: "all",
-    denominatorPeriod: "day:2025-01-01",
+    denominatorPeriod: { ...date },
   };
+}
+
+function dateSelectionRange(selection: DateSelection) {
+  const year = selection.year;
+  const month = selection.month;
+  const day = selection.day;
+  if (selection.granularity === "year") return { start: `${year}-01-01`, end: `${year}-12-31`, label: String(year) };
+  if (selection.granularity === "month") {
+    const start = `${year}-${String(month).padStart(2, "0")}-01`;
+    const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    return { start, end, label: `${month}/${year}` };
+  }
+  const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return { start: date, end: date, label: `يوم ${day}/${month}/${year}` };
+}
+
+function daysInMonth(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 function financialProfit(invoice: Invoice, productById: Map<string, Product>) {
@@ -109,15 +107,37 @@ interface PercentageCalculatorProps {
 }
 
 export default function PercentageCalculator({ customers, invoices, payments, products, currency }: PercentageCalculatorProps) {
-  const [comparisons, setComparisons] = useState<Comparison[]>([defaultComparison("ratio-1")]);
   const customerById = useMemo(() => new Map(customers.filter(customer => !customer.isDeleted).map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.filter(product => !product.isDeleted).map(product => [product.id, product])), [products]);
   const activeInvoices = useMemo(() => invoices.filter(invoice => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter(payment => !payment.isDeleted), [payments]);
+  const availableCategories = useMemo(() => {
+    const distinct = new Map<string, string>();
+    customers.filter(customer => !customer.isDeleted).forEach(customer => {
+      const label = categoryFor(customer);
+      const key = normalizeArabic(label);
+      if (!distinct.has(key)) distinct.set(key, label);
+    });
+    return [...distinct.values()].sort((a, b) => a.localeCompare(b, "ar"));
+  }, [customers]);
+  const years = useMemo(() => {
+    const dataYears = [...activeInvoices.map(item => dateKey(item.date)), ...activePayments.map(item => dateKey(item.date))]
+      .filter(Boolean).map(value => Number(value.slice(0, 4))).filter(Number.isFinite);
+    const currentYear = new Date().getFullYear();
+    const firstYear = Math.min(currentYear, ...dataYears);
+    const lastYear = Math.max(currentYear, ...dataYears);
+    return Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index);
+  }, [activeInvoices, activePayments]);
+  const defaultDate = useMemo<DateSelection>(() => {
+    const dates = [...activeInvoices.map(item => dateKey(item.date)), ...activePayments.map(item => dateKey(item.date))].filter(Boolean).sort();
+    const latest = dates.at(-1) || new Date().toISOString().slice(0, 10);
+    const [year, month, day] = latest.split("-").map(Number);
+    return { granularity: "month", year, month, day };
+  }, [activeInvoices, activePayments]);
+  const [comparisons, setComparisons] = useState<Comparison[]>(() => [defaultComparison("ratio-1", availableCategories[0] || "all", defaultDate)]);
 
-  const calculate = (metric: Metric, category: Category, periodId: string) => {
-    const period = periods.find(item => item.id === periodId);
-    if (!period) return { total: 0, missingCostItems: 0 };
+  const calculate = (metric: Metric, category: Category, selection: DateSelection) => {
+    const period = dateSelectionRange(selection);
     const matches = (customerId: string) => category === "all" || categoryFor(customerById.get(customerId)) === category;
     const inPeriod = (date?: string) => {
       const key = dateKey(date);
@@ -142,13 +162,46 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
     return { total, missingCostItems };
   };
 
-  const update = (id: string, field: keyof Comparison, value: string) => {
+  const update = (id: string, field: "metric" | "numeratorCategory" | "denominatorCategory", value: string) => {
     setComparisons(current => current.map(item => item.id === id ? { ...item, [field]: value } as Comparison : item));
   };
-  const addComparison = () => setComparisons(current => [...current, defaultComparison(`ratio-${Date.now()}-${current.length}`)]);
+  const updateDate = (id: string, side: "numerator" | "denominator", field: keyof DateSelection, value: string) => {
+    setComparisons(current => current.map(item => {
+      if (item.id !== id) return item;
+      const key = side === "numerator" ? "numeratorPeriod" : "denominatorPeriod";
+      const oldDate = item[key];
+      const nextDate = { ...oldDate, [field]: field === "granularity" ? value : Number(value) } as DateSelection;
+      nextDate.day = Math.min(nextDate.day, daysInMonth(nextDate.year, nextDate.month));
+      return { ...item, [key]: nextDate };
+    }));
+  };
+  const addComparison = () => setComparisons(current => [...current, defaultComparison(`ratio-${Date.now()}-${current.length}`, availableCategories[0] || "all", defaultDate)]);
 
-  const categoryOptions = allCategories.map(category => <option key={category} value={category}>{category === "all" ? "كل الفئات" : category}</option>);
-  const periodOptions = periods.map(period => <option key={period.id} value={period.id}>{period.label}</option>);
+  const categoryOptions = ["all", ...availableCategories].map(category => <option key={category} value={category}>{category === "all" ? "كل الفئات" : category}</option>);
+  const renderDateControls = (comparison: Comparison, side: "numerator" | "denominator", selection: DateSelection) => (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <label className="block text-xs font-semibold text-slate-600">نوع الفترة
+        <select value={selection.granularity} onChange={event => updateDate(comparison.id, side, "granularity", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          <option value="day">يوم</option><option value="month">شهر</option><option value="year">سنة</option>
+        </select>
+      </label>
+      {selection.granularity === "day" && <label className="block text-xs font-semibold text-slate-600">اليوم
+        <select value={selection.day} onChange={event => updateDate(comparison.id, side, "day", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          {Array.from({ length: daysInMonth(selection.year, selection.month) }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
+        </select>
+      </label>}
+      {selection.granularity !== "year" && <label className="block text-xs font-semibold text-slate-600">الشهر
+        <select value={selection.month} onChange={event => updateDate(comparison.id, side, "month", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          {monthLabels.map((label, index) => <option key={index + 1} value={index + 1}>{label}</option>)}
+        </select>
+      </label>}
+      <label className="block text-xs font-semibold text-slate-600">السنة
+        <select value={selection.year} onChange={event => updateDate(comparison.id, side, "year", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          {years.map(year => <option key={year} value={year}>{year}</option>)}
+        </select>
+      </label>
+    </div>
+  );
 
   return (
     <section className="space-y-4" dir="rtl">
@@ -166,8 +219,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         const numerator = calculate(comparison.metric, comparison.numeratorCategory, comparison.numeratorPeriod);
         const denominator = calculate(comparison.metric, comparison.denominatorCategory, comparison.denominatorPeriod);
         const result = denominator.total !== 0 ? numerator.total / denominator.total * 100 : null;
-        const numPeriodLabel = periods.find(period => period.id === comparison.numeratorPeriod)?.label || "";
-        const denPeriodLabel = periods.find(period => period.id === comparison.denominatorPeriod)?.label || "";
+        const numPeriodLabel = dateSelectionRange(comparison.numeratorPeriod).label;
+        const denPeriodLabel = dateSelectionRange(comparison.denominatorPeriod).label;
         return (
           <article key={comparison.id} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="flex items-center justify-between gap-2">
@@ -185,18 +238,14 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                 <label className="block text-xs font-semibold text-slate-600">الفئة
                   <select value={comparison.numeratorCategory} onChange={event => update(comparison.id, "numeratorCategory", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{categoryOptions}</select>
                 </label>
-                <label className="block text-xs font-semibold text-slate-600">الفترة
-                  <select value={comparison.numeratorPeriod} onChange={event => update(comparison.id, "numeratorPeriod", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{periodOptions}</select>
-                </label>
+                {renderDateControls(comparison, "numerator", comparison.numeratorPeriod)}
               </div>
               <div className="space-y-2 rounded-xl bg-slate-50 p-3">
                 <h4 className="text-sm font-bold text-slate-800">مقارنةً بمبلغ</h4>
                 <label className="block text-xs font-semibold text-slate-600">الفئة
                   <select value={comparison.denominatorCategory} onChange={event => update(comparison.id, "denominatorCategory", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{categoryOptions}</select>
                 </label>
-                <label className="block text-xs font-semibold text-slate-600">الفترة
-                  <select value={comparison.denominatorPeriod} onChange={event => update(comparison.id, "denominatorPeriod", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{periodOptions}</select>
-                </label>
+                {renderDateControls(comparison, "denominator", comparison.denominatorPeriod)}
               </div>
             </div>
             <div className="rounded-xl bg-indigo-50 p-3" aria-live="polite">
@@ -208,7 +257,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
           </article>
         );
       })}
-      <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">المبيعات والمتبقي محسوبان من الكشوف النشطة حسب تاريخ الكشف، والتسديدات من سندات القبض النشطة حسب تاريخها. المتبقي هنا هو مجموع الأرصدة الحالية للكشوف الصادرة خلال الفترة. تصنيف الفئات يعتمد على نوع الراتب المسجل في ملف العميل.</p>
+      <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">الفئات تُستخرج تلقائيًا من أنواع الرواتب الموجودة ببيانات هذا الحساب؛ ما تظهر فئة ما عندك. المبيعات والمتبقي من الكشوف النشطة حسب تاريخ الكشف، والتسديدات من سندات القبض النشطة حسب تاريخها. المتبقي هو مجموع الأرصدة الحالية للكشوف الصادرة خلال الفترة.</p>
     </section>
   );
 }
