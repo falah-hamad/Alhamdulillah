@@ -106,7 +106,7 @@ export default function StatsView({ customers, products, invoices, payments, set
             {customer.sequence != null && <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{customer.sequence}</span>}
           </button>)}
         </div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا يوجد عملاء في هذه الحافظة.</div>}
-      </section> : section === "percentages" ? <PercentageCalculator customers={customers} invoices={invoices} payments={payments} products={products} currency={settings.currency} /> : <>
+      </section> : section === "percentages" ? <PercentageCalculator customers={customers} invoices={invoices} payments={payments} products={products} folders={folders} currency={settings.currency} /> : <>
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-l from-indigo-50 via-white to-white p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><BarChart3 className="h-5 w-5" /></span>
