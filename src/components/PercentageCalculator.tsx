@@ -70,7 +70,6 @@ interface PercentageCalculatorProps {
 }
 
 export default function PercentageCalculator({ customers, invoices, payments, products, folders, currency }: PercentageCalculatorProps) {
-  const customerById = useMemo(() => new Map(customers.filter(customer => !customer.isDeleted).map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.filter(product => !product.isDeleted).map(product => [product.id, product])), [products]);
   const activeInvoices = useMemo(() => invoices.filter(invoice => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter(payment => !payment.isDeleted), [payments]);
@@ -104,10 +103,16 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         ...(activeInvoices.some(invoice => !(Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today)) ? [{ value: "no", label: "لا توجد مستحقات متأخرة" }] : []),
       ],
       sellerName: distinct(activeInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)])).map(value => ({ value, label: value })),
-      paymentRecipient: distinct(activePayments.flatMap(payment => {
-        const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
-        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
-      })).map(value => ({ value, label: value })),
+      paymentRecipient: distinct([
+        ...activePayments.flatMap(payment => {
+          const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+          return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+        }),
+        ...activeInvoices.flatMap(invoice => invoice.items.filter(item => item.isSeparator && Number(item.paidAmount) > 0).flatMap(item => {
+          const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+          return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+        })),
+      ]).map(value => ({ value, label: value })),
     };
   }, [customers, folders, activeInvoices, activePayments, today]);
 
@@ -138,10 +143,16 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       profit += lineTotal - Number(unitCost) * qty;
     });
     const sellers = [...new Set(customerInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)]).filter((value): value is string => Boolean(value?.trim())))];
-    const recipients = [...new Set(customerPayments.flatMap(payment => {
-      const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
-      return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
-    }).filter((value): value is string => Boolean(value?.trim())))];
+    const recipients = [...new Set([
+      ...customerPayments.flatMap(payment => {
+        const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+      }),
+      ...customerInvoices.flatMap(invoice => invoice.items.filter(item => item.isSeparator && Number(item.paidAmount) > 0).flatMap(item => {
+        const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+      })),
+    ].filter((value): value is string => Boolean(value?.trim()))];
     const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today);
     return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0, hasActivity: customerInvoices.length > 0 || customerPayments.length > 0 };
   };
