@@ -12,6 +12,7 @@ import {
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
 import { BalanceDonut, MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 import CustomerStatisticsProfile from "./CustomerStatisticsProfile";
+import PercentageCalculator from "./PercentageCalculator";
 
 interface StatsViewProps {
   customers: Customer[];
@@ -29,7 +30,7 @@ const isFinancialItem = (item: Invoice["items"][number]) =>
 
 export default function StatsView({ customers, products, invoices, payments, settings, folders, onSaveCustomer }: StatsViewProps) {
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
-  const [section, setSection] = useState<"general" | "customers">("customers");
+  const [section, setSection] = useState<"general" | "customers" | "percentages">("customers");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
@@ -89,7 +90,7 @@ export default function StatsView({ customers, products, invoices, payments, set
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 pb-6 sm:space-y-6" dir="rtl">
       <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" role="tablist" aria-label="نطاق الإحصائيات">
-        {([ ["general", "إحصائيات عامة"], ["customers", "إحصائيات العملاء"] ] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${section === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
+        {([ ["general", "إحصائيات عامة"], ["customers", "إحصائيات العملاء"], ["percentages", "حساب النسب"] ] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${section === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
       </div>
       {section === "customers" ? <section className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
@@ -105,7 +106,7 @@ export default function StatsView({ customers, products, invoices, payments, set
             {customer.sequence != null && <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{customer.sequence}</span>}
           </button>)}
         </div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا يوجد عملاء في هذه الحافظة.</div>}
-      </section> : <>
+      </section> : section === "percentages" ? <PercentageCalculator customers={customers} invoices={invoices} payments={payments} products={products} currency={settings.currency} /> : <>
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-l from-indigo-50 via-white to-white p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><BarChart3 className="h-5 w-5" /></span>
