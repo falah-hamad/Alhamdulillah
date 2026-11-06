@@ -1,36 +1,39 @@
 import { useMemo, useState } from "react";
 import { Plus, Percent, Trash2 } from "lucide-react";
-import { Customer, Invoice, Payment, Product } from "../types";
+import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
-type Category = "all" | string;
-type Granularity = "day" | "month" | "year";
-type DateSelection = { granularity: Granularity; year: number; month: number; day: number };
-type Comparison = {
-  id: string;
-  metric: Metric;
-  numeratorCategory: Category;
-  numeratorPeriod: DateSelection;
-  denominatorCategory: Category;
-  denominatorPeriod: DateSelection;
-};
+type FilterField = "all" | "folderId" | "address" | "occupation" | "salaryStatus" | "salaryType" | "relationship" | "purchaseDate" | "quantity" | "cost" | "sales" | "profit" | "paid" | "remaining" | "balanceStatus" | "overdueOnly" | "activityDate" | "sellerName" | "paymentRecipient";
+type ValueFilter = { field: FilterField; value: string; mode: "exact" | "range"; exact: string; min: string; max: string; unit: "days" | "months" | "years" };
+type PeriodFilter = { mode: "exact" | "range"; on: string; from: string; to: string };
+type Comparison = { id: string; metric: Metric; numeratorFilter: ValueFilter; numeratorPeriod: PeriodFilter; denominatorFilter: ValueFilter; denominatorPeriod: PeriodFilter };
+type CustomerTotals = { sales: number; payments: number; remaining: number; currentBalance: number; profit: number; quantity: number; cost: number | null; missingCostItems: number; sellers: string[]; recipients: string[]; overdue: boolean; hasPurchase: boolean; hasActivity: boolean };
 
-const metricLabels: Record<Metric, string> = {
-  payments: "التسديدات",
-  sales: "المبيعات",
-  remaining: "المتبقي",
-  profit: "الربح",
-};
-const monthLabels = ["كانون الثاني", "شباط", "آذار", "نيسان", "أيار", "حزيران", "تموز", "آب", "أيلول", "تشرين الأول", "تشرين الثاني", "كانون الأول"];
-
+const metricLabels: Record<Metric, string> = { payments: "التسديدات", sales: "المبيعات", remaining: "المتبقي", profit: "الربح" };
+const filterFields: Array<{ value: FilterField; label: string }> = [
+  { value: "all", label: "كل العملاء" },
+  { value: "folderId", label: "حسب المجلد" },
+  { value: "address", label: "حسب عنوان السكن" },
+  { value: "occupation", label: "حسب المهنة أو الوظيفة" },
+  { value: "salaryStatus", label: "هل لديه راتب؟" },
+  { value: "salaryType", label: "حسب نوع الراتب" },
+  { value: "relationship", label: "حسب مدة التعامل" },
+  { value: "purchaseDate", label: "حسب تاريخ الشراء" },
+  { value: "quantity", label: "حسب إجمالي عدد البضائع" },
+  { value: "cost", label: "حسب تكلفة الشراء (رأس المال)" },
+  { value: "sales", label: "حسب إجمالي المشتريات" },
+  { value: "profit", label: "حسب إجمالي الربح" },
+  { value: "paid", label: "حسب إجمالي التسديد" },
+  { value: "remaining", label: "حسب المبلغ المتبقي" },
+  { value: "balanceStatus", label: "حسب حالة الحساب" },
+  { value: "overdueOnly", label: "عليه مستحقات متأخرة" },
+  { value: "activityDate", label: "حسب تاريخ آخر تعامل" },
+  { value: "sellerName", label: "حسب اسم البائع" },
+  { value: "paymentRecipient", label: "حسب مستلم التسديد" },
+];
+const emptyValueFilter = (): ValueFilter => ({ field: "all", value: "all", mode: "exact", exact: "", min: "", max: "", unit: "days" });
+const periodFromDate = (date: string): PeriodFilter => ({ mode: "exact", on: date, from: date, to: date });
 const formatAmount = (value: number, currency: string) => `${Math.round(value).toLocaleString("ar-IQ")} ${currency}`;
-const normalizeArabic = (value: string) => value
-  .toLowerCase()
-  .replace(/[أإآ]/g, "ا")
-  .replace(/ة/g, "ه")
-  .replace(/ى/g, "ي")
-  .replace(/[ًٌٍَُِّْـ]/g, "")
-  .trim();
 
 function dateKey(value?: string): string {
   if (!value) return "";
@@ -43,59 +46,18 @@ function dateKey(value?: string): string {
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
 }
 
-function categoryFor(customer?: Customer): Category {
-  const salary = customer?.salaryType?.trim();
-  if (salary) return salary;
-  return customer?.hasSalary === false ? "بدون راتب" : "غير محدد";
+function defaultComparison(id: string, date: string): Comparison {
+  return { id, metric: "sales", numeratorFilter: emptyValueFilter(), numeratorPeriod: periodFromDate(date), denominatorFilter: emptyValueFilter(), denominatorPeriod: periodFromDate(date) };
 }
 
-function defaultComparison(id: string, category: Category, date: DateSelection): Comparison {
-  return {
-    id,
-    metric: "sales",
-    numeratorCategory: category,
-    numeratorPeriod: { ...date },
-    denominatorCategory: "all",
-    denominatorPeriod: { ...date },
-  };
+function periodBounds(period: PeriodFilter) {
+  const from = period.mode === "exact" ? period.on : period.from;
+  const to = period.mode === "exact" ? period.on : period.to;
+  return { from, to, label: period.mode === "exact" ? `في ${period.on || "تاريخ غير محدد"}` : `من ${period.from || "…"} إلى ${period.to || "…"}` };
 }
 
-function dateSelectionRange(selection: DateSelection) {
-  const year = selection.year;
-  const month = selection.month;
-  const day = selection.day;
-  if (selection.granularity === "year") return { start: `${year}-01-01`, end: `${year}-12-31`, label: String(year) };
-  if (selection.granularity === "month") {
-    const start = `${year}-${String(month).padStart(2, "0")}-01`;
-    const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    return { start, end, label: `${month}/${year}` };
-  }
-  const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  return { start: date, end: date, label: `يوم ${day}/${month}/${year}` };
-}
-
-function daysInMonth(year: number, month: number) {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-function financialProfit(invoice: Invoice, productById: Map<string, Product>) {
-  let total = 0;
-  let missingCostItems = 0;
-  for (const item of invoice.items || []) {
-    if (item.isSeparator || item.isPaymentRow || item.isRemainingRow) continue;
-    const quantity = Number(item.quantity) || 0;
-    const lineTotal = Number(item.total) || quantity * (Number(item.unitPrice) || 0);
-    const linkedProduct = item.productId ? productById.get(item.productId) : undefined;
-    const cost = item.unitCost != null && Number.isFinite(Number(item.unitCost))
-      ? Number(item.unitCost)
-      : linkedProduct?.purchasePrice;
-    if (cost == null || !Number.isFinite(Number(cost))) {
-      missingCostItems += 1;
-      continue;
-    }
-    total += lineTotal - Number(cost) * quantity;
-  }
-  return { total, missingCostItems };
+function isFinancialItem(item: Invoice["items"][number]) {
+  return !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 }
 
 interface PercentageCalculatorProps {
@@ -103,105 +65,210 @@ interface PercentageCalculatorProps {
   invoices: Invoice[];
   payments: Payment[];
   products: Product[];
+  folders: CustomerFolder[];
   currency: string;
 }
 
-export default function PercentageCalculator({ customers, invoices, payments, products, currency }: PercentageCalculatorProps) {
+export default function PercentageCalculator({ customers, invoices, payments, products, folders, currency }: PercentageCalculatorProps) {
   const customerById = useMemo(() => new Map(customers.filter(customer => !customer.isDeleted).map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.filter(product => !product.isDeleted).map(product => [product.id, product])), [products]);
   const activeInvoices = useMemo(() => invoices.filter(invoice => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter(payment => !payment.isDeleted), [payments]);
-  const availableCategories = useMemo(() => {
-    const distinct = new Map<string, string>();
-    customers.filter(customer => !customer.isDeleted).forEach(customer => {
-      const label = categoryFor(customer);
-      const key = normalizeArabic(label);
-      if (!distinct.has(key)) distinct.set(key, label);
-    });
-    return [...distinct.values()].sort((a, b) => a.localeCompare(b, "ar"));
-  }, [customers]);
-  const years = useMemo(() => {
-    const dataYears = [...activeInvoices.map(item => dateKey(item.date)), ...activePayments.map(item => dateKey(item.date))]
-      .filter(Boolean).map(value => Number(value.slice(0, 4))).filter(Number.isFinite);
-    const currentYear = new Date().getFullYear();
-    const firstYear = Math.min(currentYear, ...dataYears);
-    const lastYear = Math.max(currentYear, ...dataYears);
-    return Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index);
-  }, [activeInvoices, activePayments]);
-  const defaultDate = useMemo<DateSelection>(() => {
+  const latestDate = useMemo(() => {
     const dates = [...activeInvoices.map(item => dateKey(item.date)), ...activePayments.map(item => dateKey(item.date))].filter(Boolean).sort();
-    const latest = dates.at(-1) || new Date().toISOString().slice(0, 10);
-    const [year, month, day] = latest.split("-").map(Number);
-    return { granularity: "month", year, month, day };
+    return dates.at(-1) || new Date().toISOString().slice(0, 10);
   }, [activeInvoices, activePayments]);
-  const [comparisons, setComparisons] = useState<Comparison[]>(() => [defaultComparison("ratio-1", availableCategories[0] || "all", defaultDate)]);
+  const [comparisons, setComparisons] = useState<Comparison[]>(() => [defaultComparison("ratio-1", latestDate)]);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const calculate = (metric: Metric, category: Category, selection: DateSelection) => {
-    const period = dateSelectionRange(selection);
-    const matches = (customerId: string) => category === "all" || categoryFor(customerById.get(customerId)) === category;
-    const inPeriod = (date?: string) => {
-      const key = dateKey(date);
-      return !!key && key >= period.start && key <= period.end;
+  const availableValues = useMemo(() => {
+    const distinct = (values: Array<string | undefined>) => [...new Set(values.map(value => value?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, "ar"));
+    return {
+      folderId: [{ value: "root", label: "المجلد الرئيسي" }, ...folders.filter(folder => !folder.isDeleted).map(folder => ({ value: folder.id, label: folder.name }))],
+      address: distinct(customers.map(customer => customer.address)).map(value => ({ value, label: value })),
+      occupation: distinct(customers.map(customer => customer.profile?.occupation || customer.profile?.profession)).map(value => ({ value, label: value })),
+      salaryStatus: [
+        ...(customers.some(customer => customer.hasSalary === true) ? [{ value: "yes", label: "لديه راتب" }] : []),
+        ...(customers.some(customer => customer.hasSalary === false) ? [{ value: "no", label: "بدون راتب" }] : []),
+        ...(customers.some(customer => customer.hasSalary == null) ? [{ value: "unknown", label: "غير محدد" }] : []),
+      ],
+      salaryType: distinct(customers.filter(customer => !customer.isDeleted).map(customer => customer.salaryType)).map(value => ({ value, label: value })),
+      purchaseDate: [{ value: "yes", label: "لديه مشتريات ضمن الفترة" }, { value: "no", label: "لا توجد مشتريات ضمن الفترة" }],
+      activityDate: [{ value: "yes", label: "لديه تعامل ضمن الفترة" }, { value: "no", label: "لا يوجد تعامل ضمن الفترة" }],
+      balanceStatus: [
+        ...(customers.some(customer => activeInvoices.some(invoice => invoice.customerId === customer.id && Number(invoice.remainingAmount) > 0)) ? [{ value: "owing", label: "عليه مبلغ" }] : []),
+        ...(customers.some(customer => !activeInvoices.some(invoice => invoice.customerId === customer.id && Number(invoice.remainingAmount) > 0)) ? [{ value: "settled", label: "مسدد بالكامل" }] : []),
+      ],
+      overdueOnly: [
+        ...(activeInvoices.some(invoice => Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today) ? [{ value: "yes", label: "عليه مستحقات متأخرة" }] : []),
+        ...(activeInvoices.some(invoice => !(Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today)) ? [{ value: "no", label: "لا توجد مستحقات متأخرة" }] : []),
+      ],
+      sellerName: distinct(activeInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)])).map(value => ({ value, label: value })),
+      paymentRecipient: distinct(activePayments.flatMap(payment => {
+        const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+      })).map(value => ({ value, label: value })),
     };
-    if (metric === "payments") {
-      const total = activePayments.reduce((sum, payment) => sum + (matches(payment.customerId) && inPeriod(payment.date) ? Number(payment.amount) || 0 : 0), 0);
-      return { total, missingCostItems: 0 };
-    }
-    let total = 0;
+  }, [customers, folders, activeInvoices, activePayments, today]);
+
+  const customerTotals = (customerId: string, from: string, to: string): CustomerTotals => {
+    const inRange = (value?: string) => {
+      const date = dateKey(value);
+      return !!date && !!from && !!to && date >= from && date <= to;
+    };
+    const customerInvoices = activeInvoices.filter(invoice => invoice.customerId === customerId && inRange(invoice.date));
+    const currentBalance = activeInvoices.filter(invoice => invoice.customerId === customerId).reduce((sum, invoice) => sum + Math.max(0, Number(invoice.remainingAmount ?? ((Number(invoice.grandTotal) || 0) - (Number(invoice.paidAmount) || 0))) || 0), 0);
+    const customerPayments = activePayments.filter(payment => payment.customerId === customerId && inRange(payment.date));
+    const sales = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0);
+    const paymentsTotal = customerPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const remaining = customerInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.remainingAmount ?? ((Number(invoice.grandTotal) || 0) - (Number(invoice.paidAmount) || 0))) || 0), 0);
+    const items = customerInvoices.flatMap(invoice => invoice.items.filter(isFinancialItem).map(item => ({ item, invoice })));
+    let profit = 0;
+    let cost = 0;
+    let quantity = 0;
     let missingCostItems = 0;
-    for (const invoice of activeInvoices) {
-      if (!matches(invoice.customerId) || !inPeriod(invoice.date)) continue;
-      if (metric === "sales") total += Number(invoice.grandTotal) || 0;
-      if (metric === "remaining") total += Math.max(0, Number(invoice.remainingAmount ?? ((Number(invoice.grandTotal) || 0) - (Number(invoice.paidAmount) || 0))) || 0);
-      if (metric === "profit") {
-        const profit = financialProfit(invoice, productById);
-        total += profit.total;
-        missingCostItems += profit.missingCostItems;
+    items.forEach(({ item }) => {
+      const qty = Number(item.quantity) || 0;
+      const lineTotal = Number(item.total) || qty * (Number(item.unitPrice) || 0);
+      const product = item.productId ? productById.get(item.productId) : undefined;
+      const unitCost = item.unitCost != null && Number.isFinite(Number(item.unitCost)) ? Number(item.unitCost) : product?.purchasePrice;
+      quantity += qty;
+      if (unitCost == null || !Number.isFinite(Number(unitCost))) { missingCostItems += 1; return; }
+      cost += Number(unitCost) * qty;
+      profit += lineTotal - Number(unitCost) * qty;
+    });
+    const sellers = [...new Set(customerInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)]).filter((value): value is string => Boolean(value?.trim())))];
+    const recipients = [...new Set(customerPayments.flatMap(payment => {
+      const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
+      return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
+    }).filter((value): value is string => Boolean(value?.trim())))];
+    const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today);
+    return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0, hasActivity: customerInvoices.length > 0 || customerPayments.length > 0 };
+  };
+
+  const matchesNumber = (amount: number | null, filter: ValueFilter) => {
+    if (amount == null) return false;
+    if (filter.mode === "exact") return filter.exact !== "" && Math.abs(amount - Number(filter.exact)) < 0.01;
+    const minOk = filter.min === "" || amount >= Number(filter.min);
+    const maxOk = filter.max === "" || amount <= Number(filter.max);
+    return (filter.min !== "" || filter.max !== "") && minOk && maxOk;
+  };
+
+  const matchesFilter = (customer: Customer, filter: ValueFilter, totals: CustomerTotals) => {
+    if (filter.field === "all") return true;
+    if (filter.value === "all" && filter.field !== "quantity" && filter.field !== "cost" && filter.field !== "sales" && filter.field !== "profit" && filter.field !== "paid" && filter.field !== "remaining" && filter.field !== "relationship") return true;
+    const customerAddress = customer.address?.trim() || "";
+    const occupation = (customer.profile?.occupation || customer.profile?.profession || "").trim();
+    switch (filter.field) {
+      case "folderId": return (customer.folderId || "root") === filter.value;
+      case "address": return customerAddress === filter.value;
+      case "occupation": return occupation === filter.value;
+      case "salaryStatus": return filter.value === "yes" ? customer.hasSalary === true : filter.value === "no" ? customer.hasSalary === false : customer.hasSalary == null;
+      case "salaryType": return (customer.salaryType || "").trim() === filter.value;
+      case "purchaseDate": return filter.value === "yes" ? totals.hasPurchase : !totals.hasPurchase;
+      case "activityDate": return filter.value === "yes" ? totals.hasActivity : !totals.hasActivity;
+      case "quantity": return matchesNumber(totals.quantity, filter);
+      case "cost": return matchesNumber(totals.cost, filter);
+      case "sales": return matchesNumber(totals.sales, filter);
+      case "profit": return matchesNumber(totals.missingCostItems ? null : totals.profit, filter);
+      case "paid": return matchesNumber(totals.payments, filter);
+      case "remaining": return matchesNumber(totals.remaining, filter);
+      case "balanceStatus": return filter.value === "owing" ? totals.currentBalance > 0 : totals.currentBalance <= 0;
+      case "overdueOnly": return filter.value === "yes" ? totals.overdue : !totals.overdue;
+      case "sellerName": return totals.sellers.includes(filter.value);
+      case "paymentRecipient": return totals.recipients.includes(filter.value);
+      case "relationship": {
+        const dates = activeInvoices.filter(invoice => invoice.customerId === customer.id).map(invoice => dateKey(invoice.date)).filter(Boolean).sort();
+        if (!dates.length) return false;
+        const elapsedDays = Math.floor((Date.now() - new Date(`${dates[0]}T00:00:00`).getTime()) / 86400000);
+        const duration = filter.unit === "years" ? elapsedDays / 365.25 : filter.unit === "months" ? elapsedDays / 30.44 : elapsedDays;
+        return matchesNumber(duration, filter);
       }
+      default: return false;
     }
+  };
+
+  const calculate = (metric: Metric, filter: ValueFilter, period: PeriodFilter) => {
+    const bounds = periodBounds(period);
+    if (!bounds.from || !bounds.to || bounds.from > bounds.to) return { total: 0, missingCostItems: 0 };
+    const customersForPeriod = customers.filter(customer => !customer.isDeleted).map(customer => ({ customer, totals: customerTotals(customer.id, bounds.from, bounds.to) }));
+    const included = customersForPeriod.filter(row => matchesFilter(row.customer, filter, row.totals));
+    const total = included.reduce((sum, row) => sum + row.totals[metric], 0);
+    const missingCostItems = metric === "profit" ? included.reduce((sum, row) => sum + row.totals.missingCostItems, 0) : 0;
     return { total, missingCostItems };
   };
 
-  const update = (id: string, field: "metric" | "numeratorCategory" | "denominatorCategory", value: string) => {
-    setComparisons(current => current.map(item => item.id === id ? { ...item, [field]: value } as Comparison : item));
-  };
-  const updateDate = (id: string, side: "numerator" | "denominator", field: keyof DateSelection, value: string) => {
-    setComparisons(current => current.map(item => {
-      if (item.id !== id) return item;
-      const key = side === "numerator" ? "numeratorPeriod" : "denominatorPeriod";
-      const oldDate = item[key];
-      const nextDate = { ...oldDate, [field]: field === "granularity" ? value : Number(value) } as DateSelection;
-      nextDate.day = Math.min(nextDate.day, daysInMonth(nextDate.year, nextDate.month));
-      return { ...item, [key]: nextDate };
-    }));
-  };
-  const addComparison = () => setComparisons(current => [...current, defaultComparison(`ratio-${Date.now()}-${current.length}`, availableCategories[0] || "all", defaultDate)]);
+  const updateComparison = (id: string, patch: Partial<Comparison>) => setComparisons(current => current.map(item => item.id === id ? { ...item, ...patch } : item));
+  const updateFilter = (id: string, side: "numerator" | "denominator", patch: Partial<ValueFilter>) => setComparisons(current => current.map(item => {
+    if (item.id !== id) return item;
+    const key = side === "numerator" ? "numeratorFilter" : "denominatorFilter";
+    return { ...item, [key]: { ...item[key], ...patch } };
+  }));
+  const updatePeriod = (id: string, side: "numerator" | "denominator", patch: Partial<PeriodFilter>) => setComparisons(current => current.map(item => {
+    if (item.id !== id) return item;
+    const key = side === "numerator" ? "numeratorPeriod" : "denominatorPeriod";
+    return { ...item, [key]: { ...item[key], ...patch } };
+  }));
+  const addComparison = () => setComparisons(current => [...current, defaultComparison(`ratio-${Date.now()}-${current.length}`, latestDate)]);
 
-  const categoryOptions = ["all", ...availableCategories].map(category => <option key={category} value={category}>{category === "all" ? "كل الفئات" : category}</option>);
-  const renderDateControls = (comparison: Comparison, side: "numerator" | "denominator", selection: DateSelection) => (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="block text-xs font-semibold text-slate-600">نوع الفترة
-        <select value={selection.granularity} onChange={event => updateDate(comparison.id, side, "granularity", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          <option value="day">يوم</option><option value="month">شهر</option><option value="year">سنة</option>
+  const renderFilterEditor = (comparison: Comparison, side: "numerator" | "denominator", filter: ValueFilter) => {
+    const numeric = ["quantity", "cost", "sales", "profit", "paid", "remaining", "relationship"].includes(filter.field);
+    if (!numeric) {
+      const options = availableValues[filter.field as keyof typeof availableValues] || [];
+      return <label className="block text-xs font-semibold text-slate-600">القيمة
+        <select value={filter.value} onChange={event => updateFilter(comparison.id, side, { value: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          <option value="all">الكل</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>;
+    }
+    const label = filterFields.find(item => item.value === filter.field)?.label || "القيمة";
+    return <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="block text-xs font-semibold text-slate-600">طريقة التصفية
+          <select value={filter.mode} onChange={event => updateFilter(comparison.id, side, { mode: event.target.value as "exact" | "range", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+            <option value="exact">يساوي</option><option value="range">من — إلى</option>
+          </select>
+        </label>
+        {filter.field === "relationship" && <label className="block text-xs font-semibold text-slate-600">الوحدة
+          <select value={filter.unit} onChange={event => updateFilter(comparison.id, side, { unit: event.target.value as ValueFilter["unit"] })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+            <option value="days">أيام</option><option value="months">أشهر</option><option value="years">سنوات</option>
+          </select>
+        </label>}
+      </div>
+      {filter.mode === "range" ? <div className="grid grid-cols-2 gap-2">
+        <label className="block text-xs font-semibold text-slate-600">من<input type="number" min="0" value={filter.min} onChange={event => updateFilter(comparison.id, side, { min: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+        <label className="block text-xs font-semibold text-slate-600">إلى<input type="number" min="0" value={filter.max} onChange={event => updateFilter(comparison.id, side, { max: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+      </div> : <label className="block text-xs font-semibold text-slate-600">{label} يساوي<input type="number" min="0" value={filter.exact} onChange={event => updateFilter(comparison.id, side, { exact: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>}
+    </div>;
+  };
+
+  const renderPeriodEditor = (comparison: Comparison, side: "numerator" | "denominator", period: PeriodFilter) => (
+    <div className="space-y-2 border-t border-slate-200 pt-3">
+      <label className="block text-xs font-semibold text-slate-700">الفترة الزمنية المحددة
+        <select value={period.mode} onChange={event => updatePeriod(comparison.id, side, { mode: event.target.value as "exact" | "range" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+          <option value="exact">في تاريخ محدد</option><option value="range">خلال فترة زمنية</option>
         </select>
       </label>
-      {selection.granularity === "day" && <label className="block text-xs font-semibold text-slate-600">اليوم
-        <select value={selection.day} onChange={event => updateDate(comparison.id, side, "day", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          {Array.from({ length: daysInMonth(selection.year, selection.month) }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
-        </select>
-      </label>}
-      {selection.granularity !== "year" && <label className="block text-xs font-semibold text-slate-600">الشهر
-        <select value={selection.month} onChange={event => updateDate(comparison.id, side, "month", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          {monthLabels.map((label, index) => <option key={index + 1} value={index + 1}>{label}</option>)}
-        </select>
-      </label>}
-      <label className="block text-xs font-semibold text-slate-600">السنة
-        <select value={selection.year} onChange={event => updateDate(comparison.id, side, "year", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          {years.map(year => <option key={year} value={year}>{year}</option>)}
-        </select>
-      </label>
+      {period.mode === "exact" ? <label className="block text-xs font-semibold text-slate-600">التاريخ
+        <input type="date" value={period.on} onChange={event => updatePeriod(comparison.id, side, { on: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" />
+      </label> : <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="block text-xs font-semibold text-slate-600">من تاريخ<input type="date" value={period.from} onChange={event => updatePeriod(comparison.id, side, { from: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+        <label className="block text-xs font-semibold text-slate-600">إلى تاريخ<input type="date" value={period.to} onChange={event => updatePeriod(comparison.id, side, { to: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+      </div>}
     </div>
   );
+
+  const describeFilter = (filter: ValueFilter) => {
+    if (filter.field === "all") return "كل العملاء";
+    const label = filterFields.find(item => item.value === filter.field)?.label || "التصفية";
+    if (["quantity", "cost", "sales", "profit", "paid", "remaining", "relationship"].includes(filter.field)) {
+      const unit = filter.field === "relationship" ? ` ${filter.unit === "days" ? "يوم" : filter.unit === "months" ? "شهر" : "سنة"}` : "";
+      return filter.mode === "range" ? `${label} من ${filter.min || "…"} إلى ${filter.max || "…"}${unit}` : `${label} يساوي ${filter.exact || "…"}${unit}`;
+    }
+    const options = availableValues[filter.field as keyof typeof availableValues] || [];
+    const valueLabel = filter.value === "all" ? "الكل" : options.find(option => option.value === filter.value)?.label || filter.value;
+    return `${label}: ${valueLabel}`;
+  };
 
   return (
     <section className="space-y-4" dir="rtl">
@@ -209,18 +276,18 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><Percent className="h-5 w-5" /></span>
-            <div><h2 className="text-base font-extrabold text-slate-900 sm:text-lg">حساب النسب</h2><p className="mt-1 text-xs leading-5 text-slate-600">احسب نسبة مبلغ فئة وفترة محددتين من مبلغ فئة وفترة أخرى، باستخدام الفواتير والتسديدات المحفوظة.</p></div>
+            <div><h2 className="text-base font-extrabold text-slate-900 sm:text-lg">حساب النسب</h2><p className="mt-1 text-xs leading-5 text-slate-600">احسب نسبة مبلغ من مجموعة عملاء وفترة محددتين، مقارنةً بمجموعة وفترة أخرى.</p></div>
           </div>
           <button type="button" onClick={addComparison} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-700"><Plus className="h-4 w-4" />إضافة حساب نسبة</button>
         </div>
       </header>
 
       {comparisons.map((comparison, index) => {
-        const numerator = calculate(comparison.metric, comparison.numeratorCategory, comparison.numeratorPeriod);
-        const denominator = calculate(comparison.metric, comparison.denominatorCategory, comparison.denominatorPeriod);
+        const numeratorBounds = periodBounds(comparison.numeratorPeriod);
+        const denominatorBounds = periodBounds(comparison.denominatorPeriod);
+        const numerator = calculate(comparison.metric, comparison.numeratorFilter, comparison.numeratorPeriod);
+        const denominator = calculate(comparison.metric, comparison.denominatorFilter, comparison.denominatorPeriod);
         const result = denominator.total !== 0 ? numerator.total / denominator.total * 100 : null;
-        const numPeriodLabel = dateSelectionRange(comparison.numeratorPeriod).label;
-        const denPeriodLabel = dateSelectionRange(comparison.denominatorPeriod).label;
         return (
           <article key={comparison.id} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="flex items-center justify-between gap-2">
@@ -228,36 +295,37 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
               {comparisons.length > 1 && <button type="button" onClick={() => setComparisons(current => current.filter(item => item.id !== comparison.id))} aria-label={`حذف حساب النسبة ${index + 1}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" />حذف</button>}
             </div>
             <label className="block max-w-sm text-sm font-bold text-slate-700">نوع الحساب
-              <select value={comparison.metric} onChange={event => update(comparison.id, "metric", event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800">
+              <select value={comparison.metric} onChange={event => updateComparison(comparison.id, { metric: event.target.value as Metric })} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800">
                 {(Object.entries(metricLabels) as [Metric, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <div className="space-y-2 rounded-xl bg-slate-50 p-3">
-                <h4 className="text-sm font-bold text-slate-800">المبلغ الذي أريد معرفة نسبته</h4>
-                <label className="block text-xs font-semibold text-slate-600">الفئة
-                  <select value={comparison.numeratorCategory} onChange={event => update(comparison.id, "numeratorCategory", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{categoryOptions}</select>
-                </label>
-                {renderDateControls(comparison, "numerator", comparison.numeratorPeriod)}
-              </div>
-              <div className="space-y-2 rounded-xl bg-slate-50 p-3">
-                <h4 className="text-sm font-bold text-slate-800">مقارنةً بمبلغ</h4>
-                <label className="block text-xs font-semibold text-slate-600">الفئة
-                  <select value={comparison.denominatorCategory} onChange={event => update(comparison.id, "denominatorCategory", event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">{categoryOptions}</select>
-                </label>
-                {renderDateControls(comparison, "denominator", comparison.denominatorPeriod)}
-              </div>
+              {(["numerator", "denominator"] as const).map(side => {
+                const filter = side === "numerator" ? comparison.numeratorFilter : comparison.denominatorFilter;
+                const period = side === "numerator" ? comparison.numeratorPeriod : comparison.denominatorPeriod;
+                return <div key={side} className="space-y-3 rounded-xl bg-slate-50 p-3">
+                  <h4 className="text-sm font-bold text-slate-800">{side === "numerator" ? "المبلغ الذي أريد معرفة نسبته" : "مقارنةً بمبلغ"}</h4>
+                  <label className="block text-xs font-semibold text-slate-700">نوع التصفية
+                    <select value={filter.field} onChange={event => updateFilter(comparison.id, side, { ...emptyValueFilter(), field: event.target.value as FilterField })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
+                      {filterFields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
+                    </select>
+                  </label>
+                  {renderFilterEditor(comparison, side, filter)}
+                  {renderPeriodEditor(comparison, side, period)}
+                </div>;
+              })}
             </div>
             <div className="rounded-xl bg-indigo-50 p-3" aria-live="polite">
               <div className="text-2xl font-extrabold tabular-nums text-indigo-800">{result == null ? "—" : `${result.toLocaleString("ar-IQ", { maximumFractionDigits: 2 })}٪`}</div>
-              <p className="mt-1 break-words text-sm leading-6 text-slate-700">{metricLabels[comparison.metric]} {comparison.numeratorCategory === "all" ? "كل الفئات" : comparison.numeratorCategory} في {numPeriodLabel}: <strong>{formatAmount(numerator.total, currency)}</strong> من {metricLabels[comparison.metric]} {comparison.denominatorCategory === "all" ? "كل الفئات" : comparison.denominatorCategory} في {denPeriodLabel}: <strong>{formatAmount(denominator.total, currency)}</strong>.</p>
-              {result == null && <p className="mt-1 text-xs text-amber-800">لا توجد قيمة للمقارنة في الفترة والفئة المختارتين.</p>}
-              {comparison.metric === "profit" && (numerator.missingCostItems > 0 || denominator.missingCostItems > 0) && <p className="mt-1 text-xs text-amber-800">بعض البنود لا تحتوي على تكلفة شراء محفوظة؛ لم تدخل في حساب الربح.</p>}
+              <p className="mt-1 break-words text-sm leading-6 text-slate-700">{metricLabels[comparison.metric]} — {describeFilter(comparison.numeratorFilter)}، {numeratorBounds.label}: <strong>{formatAmount(numerator.total, currency)}</strong> من {metricLabels[comparison.metric]} — {describeFilter(comparison.denominatorFilter)}، {denominatorBounds.label}: <strong>{formatAmount(denominator.total, currency)}</strong>.</p>
+              {result == null && <p className="mt-1 text-xs text-amber-800">ماكو مبلغ للمقارنة بالفترة المحددة؛ اختَر فترة أو نوع تصفية يحتوي بيانات.</p>}
+              {comparison.metric === "profit" && (numerator.missingCostItems > 0 || denominator.missingCostItems > 0) && <p className="mt-1 text-xs text-amber-800">بعض البنود ما بيها تكلفة شراء محفوظة؛ ما دخلت بحساب الربح.</p>}
             </div>
           </article>
         );
       })}
-      <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">الفئات تُستخرج تلقائيًا من أنواع الرواتب الموجودة ببيانات هذا الحساب؛ ما تظهر فئة ما عندك. المبيعات والمتبقي من الكشوف النشطة حسب تاريخ الكشف، والتسديدات من سندات القبض النشطة حسب تاريخها. المتبقي هو مجموع الأرصدة الحالية للكشوف الصادرة خلال الفترة.</p>
+      <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">خيارات نوع التصفية والقيم تُبنى من بيانات الحساب الحالية. الفواتير والتسديدات النشطة تُجمع ضمن الفترة المختارة، والربح يعتمد على تكلفة الشراء المحفوظة أو سعر شراء الصنف.</p>
     </section>
   );
 }
+
