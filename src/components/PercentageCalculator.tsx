@@ -234,9 +234,20 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
     const numeric = ["quantity", "cost", "sales", "profit", "paid", "remaining", "relationship"].includes(filter.field);
     if (!numeric) {
       const options = availableValues[filter.field as keyof typeof availableValues] || [];
-      return <label className="block text-xs font-semibold text-slate-600">القيمة
+      const valueLabels: Partial<Record<FilterField, { label: string; all: string }>> = {
+        folderId: { label: "اختيار المجلد", all: "كل المجلدات" },
+        address: { label: "اختيار العنوان", all: "كل العناوين" },
+        occupation: { label: "اختيار المهنة أو الوظيفة", all: "كل المهن" },
+        salaryStatus: { label: "هل لديه راتب؟", all: "الكل" },
+        salaryType: { label: "اختيار نوع الراتب", all: "كل أنواع الرواتب" },
+        purchaseDate: { label: "حالة الشراء خلال الفترة", all: "الكل" },
+        sellerName: { label: "اختيار البائع", all: "كل البائعين" },
+        paymentRecipient: { label: "اختيار مستلم التسديد", all: "كل المستلمين" },
+      };
+      const valueLabel = valueLabels[filter.field] || { label: "القيمة", all: "الكل" };
+      return <label className="block text-xs font-semibold text-slate-600">{valueLabel.label}
         <select value={filter.value} onChange={event => updateFilter(comparison.id, side, { value: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          <option value="all">الكل</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="all">{valueLabel.all}</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </label>;
     }
