@@ -159,14 +159,16 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
         .map(row => row.createdAt || c.accountingSheetDate || ""),
     ].map(date => Date.parse(date)).filter(timestamp => Number.isFinite(timestamp)).sort((a,b)=>a-b);
     // Use only ledger entries: vertical invoice rows and accounting-sheet rows.
-    const sales = [...items,...sheet].reduce((sum, item) => sum + num(item.total), 0);
+    const verticalSales = items.reduce((sum, item) => sum + num(item.total), 0);
+    const accountingSales = sheet.reduce((sum, item) => sum + num(item.total), 0);
+    const sales = verticalSales + accountingSales;
     const capital = [...items,...sheet].reduce((sum, item) => sum + num(item.unitCost) * num(item.quantity), 0);
     const verticalLedgerPaid = inv.reduce((sum, invoice) =>
       sum + (Array.isArray(invoice.items) ? invoice.items : []).filter(item => item.isSeparator).reduce((itemSum, item) => itemSum + num(item.paidAmount), 0), 0);
     const accountingLedgerPaid = sheetPayments.reduce((sum, payment) => sum + num(payment.amount), 0);
     const paid = verticalLedgerPaid + accountingLedgerPaid;
     const quantity = [...items,...sheet].reduce((sum, item) => sum + num(item.quantity), 0);
-    const remaining = Math.max(0, sales - paid);
+    const remaining = Math.max(0, verticalSales - verticalLedgerPaid) + Math.max(0, accountingSales - accountingLedgerPaid);
     return {id:c.id,folder:folderName(c.folderId),name:c.name,address:c.address?.trim()||"غير مسجل",
       salary:c.salaryType?.trim() || (c.hasSalary === false ? "بدون راتب" : "غير مسجل"),
       phone:c.phone,firstPurchase:purchaseTimestamps[0] ?? null,lastPurchase:purchaseTimestamps.at(-1) ?? null,
