@@ -955,9 +955,27 @@ export function useAccountingData() {
 
   // Invoices actions
   const addInvoice = (invoice: Omit<Invoice, "id" | "createdAt">): Invoice => {
+    const invoiceId = `inv-${Date.now()}`;
+    const sourceItems = Array.isArray(invoice.items) ? invoice.items : [];
+    const recordedPaymentAmount = sourceItems.reduce((sum, item) =>
+      sum + (item.isSeparator ? Number(item.paidAmount) || 0 : item.isPaymentRow ? Number(item.total || item.unitPrice) || 0 : 0), 0);
+    const missingLedgerPayment = Math.max(0, (Number(invoice.paidAmount) || 0) - recordedPaymentAmount);
+    const ledgerItems = missingLedgerPayment > 0
+      ? [...sourceItems, {
+          id: `initial-payment-${invoiceId}`,
+          details: "التسديد",
+          quantity: 1,
+          unitPrice: missingLedgerPayment,
+          total: missingLedgerPayment,
+          isPaymentRow: true,
+          paidDate: invoice.date,
+          paidNote: "دفعة مقدمة مع الفاتورة",
+        }]
+      : sourceItems;
     const newInvoice: Invoice = {
       ...invoice,
-      id: `inv-${Date.now()}`,
+      items: ledgerItems,
+      id: invoiceId,
       createdAt: new Date().toISOString(),
       userId: currentUser?.uid,
     };
