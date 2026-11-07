@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
+import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { FilterSelect } from "./FilterPanel";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
@@ -105,8 +106,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       purchaseDate: [{ value: "yes", label: "لديه مشتريات ضمن الفترة" }, { value: "no", label: "لا توجد مشتريات ضمن الفترة" }],
       activityDate: [{ value: "yes", label: "لديه تعامل ضمن الفترة" }, { value: "no", label: "لا يوجد تعامل ضمن الفترة" }],
       balanceStatus: [
-        ...(customers.some(customer => activeInvoices.some(invoice => invoice.customerId === customer.id && Number(invoice.remainingAmount) > 0)) ? [{ value: "owing", label: "عليه مبلغ" }] : []),
-        ...(customers.some(customer => !activeInvoices.some(invoice => invoice.customerId === customer.id && Number(invoice.remainingAmount) > 0)) ? [{ value: "settled", label: "مسدد بالكامل" }] : []),
+        ...(customers.some(customer => getCustomerLedgerTotals(customer, activeInvoices).remaining > 0) ? [{ value: "owing", label: "عليه مبلغ" }] : []),
+        ...(customers.some(customer => getCustomerLedgerTotals(customer, activeInvoices).remaining <= 0) ? [{ value: "settled", label: "مسدد بالكامل" }] : []),
       ],
       overdueOnly: [
         ...(activeInvoices.some(invoice => Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today) ? [{ value: "yes", label: "عليه مستحقات متأخرة" }] : []),
@@ -131,12 +132,20 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       const date = dateKey(value);
       return !!date && !!from && !!to && date >= from && date <= to;
     };
+    const customer = customers.find(entry => entry.id === customerId);
     const customerInvoices = activeInvoices.filter(invoice => invoice.customerId === customerId && inRange(invoice.date));
-    const currentBalance = activeInvoices.filter(invoice => invoice.customerId === customerId).reduce((sum, invoice) => sum + Math.max(0, Number(invoice.remainingAmount ?? ((Number(invoice.grandTotal) || 0) - (Number(invoice.paidAmount) || 0))) || 0), 0);
+    const currentBalance = customer ? getCustomerLedgerTotals(customer, activeInvoices).remaining : 0;
     const customerPayments = activePayments.filter(payment => payment.customerId === customerId && inRange(payment.date));
-    const sales = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0);
+    const sheetRows = (Array.isArray(customer?.accountingSheetRows) ? customer.accountingSheetRows : [])
+      .filter(row => !row.isSeparator && inRange(row.createdAt || customer?.accountingSheetDate));
+    const sheetPayments = (Array.isArray(customer?.accountingSheetPayments) ? customer.accountingSheetPayments : [])
+      .filter(payment => inRange(payment.date));
+    const sales = customerInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).sales, 0)
+      + sheetRows.reduce((sum, row) => sum + (Number(row.total || row.unitPrice) || 0), 0);
     const paymentsTotal = customerPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const remaining = customerInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.remainingAmount ?? ((Number(invoice.grandTotal) || 0) - (Number(invoice.paidAmount) || 0))) || 0), 0);
+    const remaining = customerInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).remaining, 0)
+      + Math.max(0, sheetRows.reduce((sum, row) => sum + (Number(row.total || row.unitPrice) || 0), 0)
+        - sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0));
     const items = customerInvoices.flatMap(invoice => invoice.items.filter(isFinancialItem).map(item => ({ item, invoice })));
     let profit = 0;
     let cost = 0;
@@ -147,6 +156,16 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       const lineTotal = Number(item.total) || qty * (Number(item.unitPrice) || 0);
       const product = item.productId ? productById.get(item.productId) : undefined;
       const unitCost = item.unitCost != null && Number.isFinite(Number(item.unitCost)) ? Number(item.unitCost) : product?.purchasePrice;
+      quantity += qty;
+      if (unitCost == null || !Number.isFinite(Number(unitCost))) { missingCostItems += 1; return; }
+      cost += Number(unitCost) * qty;
+      profit += lineTotal - Number(unitCost) * qty;
+    });
+    sheetRows.forEach(row => {
+      const qty = Number(row.quantity) || 0;
+      const lineTotal = Number(row.total) || qty * (Number(row.unitPrice) || 0);
+      const product = row.productId ? productById.get(row.productId) : undefined;
+      const unitCost = row.unitCost != null && Number.isFinite(Number(row.unitCost)) ? Number(row.unitCost) : product?.purchasePrice;
       quantity += qty;
       if (unitCost == null || !Number.isFinite(Number(unitCost))) { missingCostItems += 1; return; }
       cost += Number(unitCost) * qty;
@@ -165,8 +184,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
     ];
     const validRecipients = recipientValues.filter((value): value is string => Boolean(value?.trim()));
     const recipients = [...new Set(validRecipients)];
-    const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today);
-    return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0, hasActivity: customerInvoices.length > 0 || customerPayments.length > 0 };
+    const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && getInvoiceLedgerTotals(invoice).remaining > 0 && invoice.dueDate && invoice.dueDate < today);
+    return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0 || sheetRows.length > 0, hasActivity: customerInvoices.length > 0 || sheetRows.length > 0 || customerPayments.length > 0 };
   };
 
   const matchesNumber = (amount: number | null, filter: ValueFilter) => {
