@@ -447,8 +447,10 @@ export default function DashboardView({
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {recentInvoices.map((inv) => {
-                      const overdue = isInvoiceOverdue(inv);
-                      const overdueDays = overdue ? getInvoiceOverdueDays(inv) : 0;
+                      const ledgerTotals = getInvoiceLedgerTotals(inv);
+                      const ledgerInvoice = { ...inv, remainingAmount: ledgerTotals.remaining };
+                      const overdue = isInvoiceOverdue(ledgerInvoice);
+                      const overdueDays = overdue ? getInvoiceOverdueDays(ledgerInvoice) : 0;
                       return (
                         <tr
                           key={inv.id}
@@ -470,19 +472,19 @@ export default function DashboardView({
                             </div>
                           </td>
                           <td className="py-3 font-bold font-mono text-slate-900 text-left">
-                            {inv.grandTotal.toLocaleString()} {settings.currency}
+                            {ledgerTotals.sales.toLocaleString()} {settings.currency}
                           </td>
                           <td className="py-3 text-left">
                             <span
                               className={`px-2 py-0.5 rounded font-mono font-semibold ${
-                                inv.remainingAmount === 0
+                                ledgerTotals.remaining === 0
                                   ? "bg-blue-50 text-blue-700"
                                   : overdue
                                   ? "bg-rose-100 text-rose-800 font-bold"
                                   : "bg-rose-50 text-rose-700"
                               }`}
                             >
-                              {inv.remainingAmount.toLocaleString()} {settings.currency}
+                              {ledgerTotals.remaining.toLocaleString()} {settings.currency}
                             </span>
                           </td>
                           <td className="py-3 text-slate-500 font-mono text-center">
