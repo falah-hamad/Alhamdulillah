@@ -159,16 +159,34 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
       ...sheet.filter(row => String(row.details || "").trim() || num(row.total) !== 0)
         .map(row => row.createdAt || c.accountingSheetDate || ""),
     ].map(date => Date.parse(date)).filter(timestamp => Number.isFinite(timestamp)).sort((a,b)=>a-b);
-    const sales = items.reduce((s,x) => s+num(x.total),0) + sheet.reduce((s,x) => s+num(x.total),0);
-    const capital = [...items,...sheet].reduce((s,x) => s+num(x.unitCost)*num(x.quantity),0);
-    const paid = externalPayments.reduce((s,x)=>s+num(x.amount),0)
-      + sheetPayments.reduce((s,x)=>s+num(x.amount),0)
-      + inv.reduce((s,x)=>s+num(x.paidAmount),0);
-    const quantity = [...items,...sheet].reduce((s,x)=>s+num(x.quantity),0);
+    // Invoice totals are the source for each invoice sale; line items supply historical cost.
+    // Linked payment records describe receipts already reflected in invoice.paidAmount,
+    // so use the larger recorded total instead of adding both sources.
+    const sales = inv.reduce((sum, invoice) => {
+      const itemTotal = invoice.items
+        .filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
+        .reduce((itemSum, item) => itemSum + num(item.total), 0);
+      return sum + (num(invoice.grandTotal) || itemTotal);
+    }, 0) + sheet.reduce((sum, row) => sum + num(row.total), 0);
+    const capital = [...items,...sheet].reduce((sum, item) => sum + num(item.unitCost) * num(item.quantity), 0);
+    const paymentsByInvoice = new Map<string, number>();
+    externalPayments.forEach(payment => {
+      if (payment.invoiceId) paymentsByInvoice.set(payment.invoiceId, (paymentsByInvoice.get(payment.invoiceId) || 0) + num(payment.amount));
+    });
+    const linkedInvoiceIds = new Set(inv.map(invoice => invoice.id));
+    const linkedPayments = inv.reduce((sum, invoice) =>
+      sum + Math.max(num(invoice.paidAmount), paymentsByInvoice.get(invoice.id) || 0), 0);
+    const unlinkedPayments = externalPayments
+      .filter(payment => !payment.invoiceId || !linkedInvoiceIds.has(payment.invoiceId))
+      .reduce((sum, payment) => sum + num(payment.amount), 0);
+    const paid = linkedPayments + unlinkedPayments
+      + sheetPayments.reduce((sum, payment) => sum + num(payment.amount), 0);
+    const quantity = [...items,...sheet].reduce((sum, item) => sum + num(item.quantity), 0);
+    const remaining = Math.max(0, sales - paid);
     return {id:c.id,folder:folderName(c.folderId),name:c.name,address:c.address?.trim()||"غير مسجل",
       salary:c.salaryType?.trim() || (c.hasSalary === false ? "بدون راتب" : "غير مسجل"),
       phone:c.phone,firstPurchase:purchaseTimestamps[0] ?? null,lastPurchase:purchaseTimestamps.at(-1) ?? null,
-      capital,sales,profit:sales-capital,paid,remaining:sales-paid,quantity};
+      capital,sales,profit:sales-capital,paid,remaining,quantity};
   }),[customers,invoices,payments,folders]);
   const active = rules.filter(r => r.key !== "none");
   const visible = active.filter(r => r.show);
