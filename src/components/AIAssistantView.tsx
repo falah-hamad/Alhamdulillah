@@ -44,6 +44,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { Customer, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import {
   ChatMessage,
   ChatConversation,
@@ -149,24 +150,17 @@ export default function AIAssistantView({
   const activePayments = useMemo(() => payments.filter((p) => !p.isDeleted), [payments]);
   const currency = settings?.currency || "د.ع";
 
-  // Pre-calculate overview numbers
-  const totalInvoiced = useMemo(
-    () => activeInvoices.reduce((acc, inv) => acc + (Number(inv.grandTotal) || 0), 0),
-    [activeInvoices]
+  // Assistant context uses the same ledger-based totals as the rest of the app.
+  const ledgerTotals = useMemo(
+    () => activeCustomers.reduce((total, customer) => {
+      const next = getCustomerLedgerTotals(customer, activeInvoices);
+      return { sales: total.sales + next.sales, paid: total.paid + next.paid, remaining: total.remaining + next.remaining };
+    }, { sales: 0, paid: 0, remaining: 0 }),
+    [activeCustomers, activeInvoices]
   );
-  const totalPaidInvoices = useMemo(
-    () => activeInvoices.reduce((acc, inv) => acc + (Number(inv.paidAmount) || 0), 0),
-    [activeInvoices]
-  );
-  const totalSeparatePayments = useMemo(
-    () => activePayments.reduce((acc, pay) => acc + (Number(pay.amount) || 0), 0),
-    [activePayments]
-  );
-  const totalCollected = totalPaidInvoices + totalSeparatePayments;
-  const totalRemaining = Math.max(
-    0,
-    activeInvoices.reduce((acc, inv) => acc + (Number(inv.remainingAmount) || 0), 0) - totalSeparatePayments
-  );
+  const totalInvoiced = ledgerTotals.sales;
+  const totalCollected = ledgerTotals.paid;
+  const totalRemaining = ledgerTotals.remaining;
 
   // Load Settings & Conversations on Mount or user change
   useEffect(() => {
