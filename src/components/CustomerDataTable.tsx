@@ -145,10 +145,9 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   };
   const rows = useMemo<Entry[]>(() => customers.filter(c => !c.isDeleted).map(c => {
     const inv = (Array.isArray(invoices) ? invoices : []).filter(x => x.customerId === c.id && !x.isDeleted);
-    const externalPayments = payments.filter(x => x.customerId === c.id && !x.isDeleted);
     const sheet = (Array.isArray(c.accountingSheetRows) ? c.accountingSheetRows : []).filter(x => !x.isSeparator && !("isPaymentRow" in x && x.isPaymentRow) && !("isRemainingRow" in x && x.isRemainingRow));
     const sheetPayments = (Array.isArray(c.accountingSheetPayments) ? c.accountingSheetPayments : []).filter(x => !(x as typeof x & {isDeleted?:boolean}).isDeleted);
-    const items = inv.flatMap(x => x.items).filter(x => !x.isSeparator && !x.isPaymentRow && !x.isRemainingRow);
+    const items = inv.flatMap(invoice => Array.isArray(invoice.items) ? invoice.items : []).filter(x => !x.isSeparator && !x.isPaymentRow && !x.isRemainingRow);
     const purchaseTimestamps = [
       ...inv.flatMap(invoice => {
         const fallback = invoice.date || invoice.createdAt || "";
