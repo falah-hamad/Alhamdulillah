@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import DeleteConfirmModal, { DeleteConfirmType } from "./DeleteConfirmModal";
 import TrashManagerView from "./TrashManagerView";
 
@@ -341,11 +342,7 @@ export default function FileManagerView({
   const customerDebtMap = useMemo(() => {
     const map = new Map<string, number>();
     activeCustomers.forEach((c) => {
-      const custInvoices = invoices.filter((inv) => inv.customerId === c.id);
-      const custPayments = payments.filter((p) => p.customerId === c.id);
-      const totalInv = custInvoices.reduce((sum, inv) => sum + (inv.remainingAmount || 0), 0);
-      const totalPay = custPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-      const net = Math.max(0, totalInv - totalPay);
+      const net = getCustomerLedgerTotals(c, invoices || []).remaining;
       map.set(c.id, net);
     });
     return map;
