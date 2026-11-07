@@ -81,7 +81,6 @@ const emptyCustomerFilters = (): CustomerFilterState => ({
 export default function CustomersView({
   customers,
   invoices,
-  payments,
   folders = [],
   settings,
   addCustomer,
@@ -341,8 +340,8 @@ export default function CustomersView({
     const activityDates = [
       ...(includeVertical ? metrics.ledger.map(entry => entry.date) : []),
       ...(includeAccounting ? [
-        ...(customer.accountingSheetRows || []).map(row => row.createdAt || customer.accountingSheetDate || ""),
-        ...(customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted).map(payment => payment.date),
+        ...(Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : []).map(row => row.createdAt || customer.accountingSheetDate || ""),
+        ...(Array.isArray(customer.accountingSheetPayments) ? customer.accountingSheetPayments : []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted).map(payment => payment.date),
       ] : []),
     ].map(value => dateKey(value)).filter(Boolean).sort();
     const latestActivity = activityDates[activityDates.length - 1] || "";
@@ -378,8 +377,6 @@ export default function CustomersView({
     const salesTotal = invoiceItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0)
       + accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
     if (!inNumberRange(salesTotal, filters.salesExact, filters.salesMin, filters.salesMax)) return false;
-    const invoiceRowsTotal = invoiceItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    const accountingRowsTotal = accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
     const costsComplete = purchaseRows.length > 0 && purchaseRows.every(row => typeof row.unitCost === "number" && Number.isFinite(row.unitCost) && row.unitCost >= 0);
     const profit = costsComplete ? salesTotal - (purchaseCost || 0) : null;
     if (!inNumberRange(profit, filters.profitExact, filters.profitMin, filters.profitMax)) return false;
@@ -564,7 +561,7 @@ export default function CustomersView({
     </div>
   ) : null;
 
-  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} payments={payments} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} folders={folders} onBack={() => setShowCustomerData(false)} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
 
   return (
     <div className="customers-view space-y-6 min-w-0">
