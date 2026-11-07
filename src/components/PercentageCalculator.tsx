@@ -283,13 +283,10 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
 
   return (
     <section className="space-y-4" dir="rtl">
-      <header className="rounded-2xl border border-indigo-100 bg-gradient-to-l from-indigo-50 via-white to-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><Percent className="h-5 w-5" /></span>
-            <div><h2 className="text-base font-extrabold text-slate-900 sm:text-lg">حساب النسب</h2><p className="mt-1 text-xs leading-5 text-slate-600">احسب نسبة مبلغ من مجموعة عملاء وفترة محددتين، مقارنةً بمجموعة وفترة أخرى.</p></div>
-          </div>
-          <button type="button" onClick={addComparison} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-700"><Plus className="h-4 w-4" />إضافة حساب نسبة</button>
+      <header className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><p className="text-sm font-bold text-slate-800">حساب النسب</p><p className="text-xs text-slate-500">{comparisons.length} حسابات نسبة</p></div>
+          <button type="button" onClick={addComparison} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4" />إضافة حساب نسبة</button>
         </div>
       </header>
 
@@ -300,16 +297,18 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         const denominator = calculate(comparison.metric, comparison.denominatorFilter, comparison.denominatorPeriod);
         const result = denominator.total !== 0 ? numerator.total / denominator.total * 100 : null;
         return (
-          <article key={comparison.id} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-extrabold text-slate-800">حساب النسبة {index + 1}</h3>
-              {comparisons.length > 1 && <button type="button" onClick={() => setComparisons(current => current.filter(item => item.id !== comparison.id))} aria-label={`حذف حساب النسبة ${index + 1}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" />حذف</button>}
+          <article key={comparison.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex items-start gap-2">
+              <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{index + 1}</span>
+              <div className="grid min-w-0 flex-1 grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="block text-sm font-semibold text-slate-700">نوع الحساب
+                  <select value={comparison.metric} onChange={event => updateComparison(comparison.id, { metric: event.target.value as Metric })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800">
+                    {(Object.entries(metricLabels) as [Metric, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                {comparisons.length > 1 && <button type="button" onClick={() => setComparisons(current => current.filter(item => item.id !== comparison.id))} aria-label={`حذف حساب النسبة ${index + 1}`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button>}
+              </div>
             </div>
-            <label className="block max-w-sm text-sm font-bold text-slate-700">نوع الحساب
-              <select value={comparison.metric} onChange={event => updateComparison(comparison.id, { metric: event.target.value as Metric })} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800">
-                {(Object.entries(metricLabels) as [Metric, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {(["numerator", "denominator"] as const).map(side => {
                 const filter = side === "numerator" ? comparison.numeratorFilter : comparison.denominatorFilter;
