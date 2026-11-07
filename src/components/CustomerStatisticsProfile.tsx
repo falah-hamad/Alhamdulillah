@@ -48,7 +48,7 @@ const paymentOrdinalLabel = (index: number) => {
   return "التسديد " + (ordinals[index] || number(index + 1));
 };
 
-export default function CustomerStatisticsProfile({ customer, invoices, payments, currency, folders = [], onSave, onClose }: {
+export default function CustomerStatisticsProfile({ customer, invoices, currency, folders = [], onSave, onClose }: {
   folders?: CustomerFolder[]; customer: Customer; invoices: Invoice[]; payments: Payment[]; currency: string;
   onSave?: (customer: Customer) => Promise<void> | void; onClose: () => void;
 }) {
@@ -76,7 +76,6 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const purchases = customerPurchaseStats(customer, invoices);
   const folderPath = customerFolderPath(customer.folderId, folders);
   const customerInvoices = invoices.filter(inv => inv.customerId === customer.id && !inv.isDeleted);
-  const customerPayments = payments.filter(pay => pay.customerId === customer.id && !pay.isDeleted);
   const verticalSaleItems = customerInvoices.flatMap(inv => inv.items.filter(item =>
     !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (item.details.trim() || item.total !== 0)
   ));
@@ -88,7 +87,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     : source === "accounting"
       ? accountingSaleItems
       : [...verticalSaleItems, ...accountingSaleItems];
-  const verticalSales = customerInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+  const verticalSales = verticalSaleItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
   const accountingSales = accountingSaleItems.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
   const sales = source === "vertical" ? verticalSales : source === "accounting" ? accountingSales : verticalSales + accountingSales;
   const verticalPaymentRows = customerInvoices.flatMap(invoice => {
@@ -127,7 +126,14 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     });
     return rows;
   });
-  const accountingPayments = (customer.accountingSheetPayments || [])
+  const verticalInvoiceBalances = customerInvoices.map(invoice => {
+    const rows = (Array.isArray(invoice.items) ? invoice.items : []).filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow);
+    const total = rows.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    const paid = (Array.isArray(invoice.items) ? invoice.items : []).filter(item => item.isSeparator).reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
+    return { invoice, total, paid, remaining: Math.max(0, total - paid) };
+  });
+  const customerPayments = verticalPaymentRows.map(payment => ({ id: payment.id, date: payment.date, amount: payment.payment, method: "تسديد من سجل الديون" }));
+  const accountingPayments = (Array.isArray(customer.accountingSheetPayments) ? customer.accountingSheetPayments : [])
     .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted);
   let accountingPaymentRunningTotal = 0;
   const accountingPaymentRows = [...accountingPayments]
@@ -152,15 +158,15 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     : source === "accounting"
       ? accountingPaymentRows
       : [...verticalPaymentRows, ...accountingPaymentRows];
-  const verticalPaid = customerInvoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
+  const verticalPaid = verticalInvoiceBalances.reduce((sum, balance) => sum + balance.paid, 0);
   const accountingPaid = accountingPayments.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
-  const verticalRemaining = customerInvoices.reduce((sum, inv) => sum + (Number(inv.remainingAmount) || 0), 0);
+  const verticalRemaining = verticalInvoiceBalances.reduce((sum, balance) => sum + balance.remaining, 0);
   const accountingRemaining = Math.max(0, accountingSales - accountingPaid);
   const paid = source === "vertical" ? verticalPaid : source === "accounting" ? accountingPaid : verticalPaid + accountingPaid;
   const remaining = source === "vertical" ? verticalRemaining : source === "accounting" ? accountingRemaining : verticalRemaining + accountingRemaining;
   const paidPercent = sales > 0 ? Math.min(100, Math.max(0, (paid / sales) * 100)) : 0;
   const analysisTotalQuantity = saleItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-  const verticalChartSales = customerInvoices.map(inv => ({ date: inv.date || inv.createdAt || "", amount: Number(inv.grandTotal) || 0 }));
+  const verticalChartSales = verticalInvoiceBalances.map(({ invoice, total }) => ({ date: invoice.date || invoice.createdAt || "", amount: total }));
   const accountingChartSales = accountingSaleItems.map(row => ({ date: row.createdAt || customer.accountingSheetDate || "", amount: Number(row.total) || 0 }));
   const verticalChartCollections = customerPayments.map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }));
   const accountingChartCollections = accountingPayments.map(pay => ({ date: pay.date, amount: Number(pay.amount) || 0 }));
@@ -187,7 +193,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     ...(source !== "accounting" ? customerInvoices.map(inv => inv.date || inv.createdAt || "") : []),
     ...(source !== "vertical" ? accountingSaleItems.map(row => row.createdAt || customer.accountingSheetDate || "") : []),
   ].filter(validDate).sort((a,b) => Date.parse(a)-Date.parse(b));
-  const overdue = customerInvoices.filter(inv => inv.remainingAmount > 0 && inv.dueDate && validDate(inv.dueDate) && inv.dueDate < new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }));
+  const overdue = verticalInvoiceBalances.filter(({ invoice, remaining }) => remaining > 0 && invoice.dueDate && validDate(invoice.dueDate) && invoice.dueDate < new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }));
   const stats: [string, string][] = [
     ["إجمالي المبيعات المسجلة", `${number(sales)} ${currency}`], ["إجمالي التسديدات", `${number(paid)} ${currency}`],
     ["المبلغ المتبقي", `${number(remaining)} ${currency}`], ["الربح الإجمالي المسجل", profit === null ? "غير متاح" : `${number(profit)} ${currency}`],
@@ -197,8 +203,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   if (source !== "accounting") stats.push(
     ["أول / آخر تاريخ سجل", dates.length ? `${dates[0]} / ${dates[dates.length - 1]}` : "لا توجد سجلات"],
     ["مدة التعامل المسجلة", dates.length ? `${number(Math.max(0, Math.floor((Date.now()-Date.parse(dates[0]))/86400000)))} يوم` : "غير متاحة"],
-    ["كشوف مفتوحة / مغلقة", `${customerInvoices.filter(inv => inv.remainingAmount > 0).length} / ${customerInvoices.filter(inv => inv.grandTotal > 0 && inv.remainingAmount <= 0).length}`],
-    ["المبالغ المتأخرة حسب استحقاق الكشف", `${number(overdue.reduce((sum, inv) => sum + inv.remainingAmount, 0))} ${currency}`],
+    ["كشوف مفتوحة / مغلقة", `${verticalInvoiceBalances.filter(balance => balance.remaining > 0).length} / ${verticalInvoiceBalances.filter(balance => balance.total > 0 && balance.remaining <= 0).length}`],
+    ["المبالغ المتأخرة حسب استحقاق الكشف", `${number(overdue.reduce((sum, balance) => sum + balance.remaining, 0))} ${currency}`],
     ["حالة الاستحقاق", overdue.length ? "توجد مبالغ متأخرة" : "لا توجد مبالغ متأخرة بتاريخ استحقاق مسجل"],
   );
   const itemQuantities = new Map<string, number>();
@@ -206,12 +212,12 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const topItem = [...itemQuantities.entries()].sort((a,b) => b[1]-a[1])[0];
   if (topItem) stats.push(["أكثر بند مسجل بالكمية", `${topItem[0]} · ${number(topItem[1])}`]);
   if (source !== "accounting" && customerInvoices.length) {
-    const values = customerInvoices.map(inv => inv.grandTotal);
+    const values = verticalInvoiceBalances.map(balance => balance.total);
     stats.push(["أكبر / أصغر كشف", `${number(Math.max(...values))} / ${number(Math.min(...values))} ${currency}`], ["متوسط قيمة الكشف", `${number(verticalSales/customerInvoices.length)} ${currency}`]);
     const lastPayment = [...customerPayments].filter(pay => validDate(pay.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
     stats.push(["عدد سندات القبض المستقلة", number(customerPayments.length)]);
     if (lastPayment) stats.push(["آخر سند قبض مستقل", `${lastPayment.date} · ${number(lastPayment.amount)} ${currency}`]);
-    const nextDue = customerInvoices.filter(inv => inv.remainingAmount > 0 && inv.dueDate && validDate(inv.dueDate)).map(inv => inv.dueDate!).sort()[0];
+    const nextDue = verticalInvoiceBalances.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && validDate(balance.invoice.dueDate)).map(balance => balance.invoice.dueDate!).sort()[0];
     stats.push(["أقرب استحقاق كشف مفتوح", nextDue || "غير محدد"]);
   }
   const salesType = (inv: Invoice) => (inv as Invoice & { saleType?: string }).saleType;
@@ -220,12 +226,12 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
   const countType = (type: string) => classified.filter(inv => salesType(inv) === type).length;
   const amountType = (type: string) => classified.filter(inv => salesType(inv) === type).reduce((sum, inv) => sum + inv.grandTotal, 0);
   const unknown = "غير متوفر — البيانات غير مسجلة";
-  const sourceRows = source !== "accounting" ? customerInvoices : [];
-  const dueKnown = source !== "accounting" && sourceRows.length > 0 && sourceRows.every(inv => inv.remainingAmount <= 0 || (inv.dueDate && validDate(inv.dueDate)));
+  const sourceRows = source !== "accounting" ? verticalInvoiceBalances : [];
+  const dueKnown = source !== "accounting" && sourceRows.length > 0 && sourceRows.every(balance => balance.remaining <= 0 || (balance.invoice.dueDate && validDate(balance.invoice.dueDate)));
   const currentDay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
-  const dueOpen = dueKnown ? sourceRows.filter(inv => inv.remainingAmount > 0 && inv.dueDate && inv.dueDate < currentDay) : [];
-  const oldestDue = dueOpen.map(inv => inv.dueDate!).sort()[0];
-  const nextDueDate = dueKnown ? sourceRows.filter(inv => inv.remainingAmount > 0 && inv.dueDate && inv.dueDate >= currentDay).map(inv => inv.dueDate!).sort()[0] : undefined;
+  const dueOpen = dueKnown ? sourceRows.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && balance.invoice.dueDate < currentDay) : [];
+  const oldestDue = dueOpen.map(balance => balance.invoice.dueDate!).sort()[0];
+  const nextDueDate = dueKnown ? sourceRows.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && balance.invoice.dueDate >= currentDay).map(balance => balance.invoice.dueDate!).sort()[0];
   const daysBetween = (start: string, end: string) => Math.max(0, Math.floor((Date.parse(end + "T12:00:00Z") - Date.parse(start + "T12:00:00Z")) / 86400000));
   const topProfit = costsComplete ? [...saleItems.reduce((map, item) => {
     const name = item.details || item.productId || "صنف غير مسمى";
@@ -258,7 +264,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     "تاريخ آخر تسديد وقيمته": lastPaid ? `${lastPaid.date} · ${number(lastPaid.amount)} ${currency}` : unknown,
     "أعلى رصيد دين تاريخي": unknown,
     "متوسط مدة تسديد الدين": unknown,
-    "إجمالي المبالغ المتأخرة": dueKnown ? `${number(dueOpen.reduce((sum, inv) => sum + inv.remainingAmount, 0))} ${currency}` : unknown,
+    "إجمالي المبالغ المتأخرة": dueKnown ? `${number(dueOpen.reduce((sum, balance) => sum + balance.remaining, 0))} ${currency}` : unknown,
     "عدد الكشوف المتأخرة": dueKnown ? number(dueOpen.length) : unknown,
     "أقدم استحقاق متأخر": dueKnown ? (oldestDue || "لا يوجد") : unknown,
     "أيام تأخير أقدم استحقاق": dueKnown ? (oldestDue ? `${number(daysBetween(oldestDue, currentDay))} يوم` : "0 يوم") : unknown,
@@ -535,8 +541,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
           {tab !== "analytics" && expanded && <div className="space-y-2 text-sm">
             {tab === "business" ? <>{purchases.rows.map((row, index) => <p key={index} className="rounded-lg border p-2">{row.details || "بضاعة غير مسماة"} · {purchaseDate(row.createdAt)}</p>)}</> : <>
               {source !== "accounting" && <>
-                {customerInvoices.map(inv => <div key={inv.id} className="rounded-lg border p-3"><b>{inv.invoiceNumber}</b> · {inv.date}<p>المبيعات: {number(inv.grandTotal)} · المسدد: {number(inv.paidAmount)} · المتبقي: {number(inv.remainingAmount)} {currency}</p></div>)}
-                <p className="text-xs text-slate-500">سندات القبض المستقلة للتدقيق؛ لا تُضاف مرة ثانية إلى مجموع تسديد الكشوف.</p>
+                {verticalInvoiceBalances.map(({ invoice, total, paid: ledgerPaid, remaining: ledgerRemaining }) => <div key={invoice.id} className="rounded-lg border p-3"><b>{invoice.invoiceNumber}</b> · {invoice.date}<p>المبيعات: {number(total)} · المسدد من سجل الديون: {number(ledgerPaid)} · المتبقي: {number(ledgerRemaining)} {currency}</p></div>)}
+                <p className="text-xs text-slate-500">التسديدات المعروضة مأخوذة من قيود سجل الديون فقط.</p>
                 {customerPayments.map(pay => <p key={pay.id}>{pay.date} · {number(pay.amount)} {currency} · {pay.method}</p>)}
               </>}
               {source !== "vertical" && <>
