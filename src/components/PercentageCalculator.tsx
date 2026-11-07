@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
+import { FilterSelect } from "./FilterPanel";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
 type FilterField = "all" | "folderId" | "address" | "occupation" | "salaryStatus" | "salaryType" | "relationship" | "purchaseDate" | "quantity" | "cost" | "sales" | "profit" | "paid" | "remaining" | "balanceStatus" | "overdueOnly" | "activityDate" | "sellerName" | "paymentRecipient";
@@ -250,23 +251,17 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       };
       const valueLabel = valueLabels[filter.field] || { label: "القيمة", all: "الكل" };
       return <label className="block text-xs font-semibold text-slate-600">{valueLabel.label}
-        <select value={filter.value} onChange={event => updateFilter(comparison.id, side, { value: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          <option value="all">{valueLabel.all}</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
+        <FilterSelect ariaLabel={valueLabel.label} value={filter.value} placeholder={valueLabel.all} placeholderValue="all" onChange={value => updateFilter(comparison.id, side, { value })} options={[{ value: "all", label: valueLabel.all }, ...options]} />
       </label>;
     }
     const label = filterFields.find(item => item.value === filter.field)?.label || "القيمة";
     return <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="block text-xs font-semibold text-slate-600">طريقة التصفية
-          <select value={filter.mode} onChange={event => updateFilter(comparison.id, side, { mode: event.target.value as "exact" | "range", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-            <option value="exact">يساوي</option><option value="range">من — إلى</option>
-          </select>
+          <FilterSelect ariaLabel="طريقة التصفية" value={filter.mode} placeholder="طريقة التصفية" onChange={value => updateFilter(comparison.id, side, { mode: value as "exact" | "range", exact: "", min: "", max: "" })} options={[{ value: "exact", label: "يساوي" }, { value: "range", label: "من — إلى" }]} />
         </label>
         {filter.field === "relationship" && <label className="block text-xs font-semibold text-slate-600">الوحدة
-          <select value={filter.unit} onChange={event => updateFilter(comparison.id, side, { unit: event.target.value as ValueFilter["unit"] })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-            <option value="days">أيام</option><option value="months">أشهر</option><option value="years">سنوات</option>
-          </select>
+          <FilterSelect ariaLabel="وحدة مدة التعامل" value={filter.unit} placeholder="الوحدة" onChange={value => updateFilter(comparison.id, side, { unit: value as ValueFilter["unit"] })} options={[{ value: "days", label: "أيام" }, { value: "months", label: "أشهر" }, { value: "years", label: "سنوات" }]} />
         </label>}
       </div>
       {filter.mode === "range" ? <div className="grid grid-cols-2 gap-2">
@@ -279,9 +274,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
   const renderPeriodEditor = (comparison: Comparison, side: "numerator" | "denominator", period: PeriodFilter) => (
     <div className="space-y-2 border-t border-slate-200 pt-3">
       <label className="block text-xs font-semibold text-slate-700">الفترة الزمنية المحددة
-        <select value={period.mode} onChange={event => updatePeriod(comparison.id, side, { mode: event.target.value as "exact" | "range" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-          <option value="exact">في تاريخ محدد</option><option value="range">خلال فترة زمنية</option>
-        </select>
+        <FilterSelect ariaLabel="الفترة الزمنية المحددة" value={period.mode} placeholder="اختر الفترة" onChange={value => updatePeriod(comparison.id, side, { mode: value as "exact" | "range" })} options={[{ value: "exact", label: "في تاريخ محدد" }, { value: "range", label: "خلال فترة زمنية" }]} />
       </label>
       {period.mode === "exact" ? <label className="block text-xs font-semibold text-slate-600">التاريخ
         <input type="date" value={period.on} onChange={event => updatePeriod(comparison.id, side, { on: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" />
@@ -326,9 +319,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
               <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{index + 1}</span>
               <div className="grid min-w-0 flex-1 grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <label className="block text-sm font-semibold text-slate-700">نوع الحساب
-                  <select value={comparison.metric} onChange={event => updateComparison(comparison.id, { metric: event.target.value as Metric })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800">
-                    {(Object.entries(metricLabels) as [Metric, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
+                  <FilterSelect ariaLabel="نوع الحساب" value={comparison.metric} placeholder="اختر نوع الحساب" onChange={value => updateComparison(comparison.id, { metric: value as Metric })} options={(Object.entries(metricLabels) as [Metric, string][]).map(([value, label]) => ({ value, label }))} />
                 </label>
                 {comparisons.length > 1 && <button type="button" onClick={() => setComparisons(current => current.filter(item => item.id !== comparison.id))} aria-label={`حذف حساب النسبة ${index + 1}`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button>}
               </div>
@@ -341,14 +332,10 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                   <h4 className="text-sm font-bold text-slate-800">{side === "numerator" ? "المبلغ الذي أريد معرفة نسبته" : "مقارنةً بمبلغ"}</h4>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="block text-xs font-semibold text-slate-700">القسم الرئيسي
-                      <select value={filter.category} onChange={event => { const category = event.target.value as FilterCategory; updateFilter(comparison.id, side, { category, field: category === "all" ? "all" : "" }); }} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800">
-                        <option value="">اختر القسم الرئيسي</option><option value="all">كل العملاء</option>{filterGroups.map(group => <option key={group.value} value={group.value}>{group.label}</option>)}
-                      </select>
+                      <FilterSelect ariaLabel="القسم الرئيسي" value={filter.category} placeholder="اختر القسم الرئيسي" placeholderValue="" onChange={value => { const category = value as FilterCategory; updateFilter(comparison.id, side, { category, field: category === "all" ? "all" : "" }); }} options={[{ value: "all", label: "كل العملاء" }, ...filterGroups.map(group => ({ value: group.value, label: group.label }))]} />
                     </label>
                     <label className="block text-xs font-semibold text-slate-700">نوع التصفية
-                      <select value={filter.field} disabled={!filter.category || filter.category === "all"} onChange={event => updateFilter(comparison.id, side, { field: event.target.value as FilterField, value: "all", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800 disabled:bg-slate-100">
-                        <option value={filter.category === "all" ? "all" : ""}>{filter.category === "all" ? "جميع العملاء" : filter.category ? "اختر نوع التصفية" : "اختر القسم أولاً"}</option>{filterGroups.find(group => group.value === filter.category)?.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
-                      </select>
+                      <FilterSelect ariaLabel="نوع التصفية" value={filter.field} disabled={!filter.category || filter.category === "all"} placeholder={filter.category === "all" ? "جميع العملاء" : filter.category ? "اختر نوع التصفية" : "اختر القسم أولاً"} placeholderValue={filter.category === "all" ? "all" : ""} onChange={value => updateFilter(comparison.id, side, { field: value as FilterField, value: "all", exact: "", min: "", max: "" })} options={filter.category === "all" ? [{ value: "all", label: "جميع العملاء" }] : filterGroups.find(group => group.value === filter.category)?.fields.map(field => ({ value: field.value, label: field.label })) || []} />
                     </label>
                   </div>
                   {renderFilterEditor(comparison, side, filter)}
