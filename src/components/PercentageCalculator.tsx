@@ -346,8 +346,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                       </select>
                     </label>
                     <label className="block text-xs font-semibold text-slate-700">نوع التصفية
-                      <select value={filter.field} disabled={!filter.category} onChange={event => updateFilter(comparison.id, side, { field: event.target.value as FilterField, value: "all", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800 disabled:bg-slate-100">
-                        <option value="">{filter.category ? "اختر نوع التصفية" : "اختر القسم أولاً"}</option>{filterGroups.find(group => group.value === filter.category)?.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
+                      <select value={filter.field} disabled={!filter.category || filter.category === "all"} onChange={event => updateFilter(comparison.id, side, { field: event.target.value as FilterField, value: "all", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800 disabled:bg-slate-100">
+                        <option value={filter.category === "all" ? "all" : ""}>{filter.category === "all" ? "جميع العملاء" : filter.category ? "اختر نوع التصفية" : "اختر القسم أولاً"}</option>{filterGroups.find(group => group.value === filter.category)?.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
                       </select>
                     </label>
                   </div>
