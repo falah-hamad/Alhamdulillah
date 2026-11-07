@@ -306,6 +306,19 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
     (!analysisSellerFilter.trim() || payment.recipient.toLocaleLowerCase().includes(analysisSellerFilter.trim().toLocaleLowerCase())) &&
     matchesAnalysisDate(payment.date)
   );
+  // The paper summary uses the exact rows shown in its two tables as its source of truth.
+  const paperSales = analysisItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  const paperCostsComplete = analysisItems.length > 0 && analysisItems.every(item =>
+    typeof item.unitCost === "number" && Number.isFinite(item.unitCost) && item.unitCost >= 0
+  );
+  const paperCost = paperCostsComplete
+    ? analysisItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (item.unitCost || 0), 0)
+    : null;
+  const paperProfit = paperCost === null ? null : paperSales - paperCost;
+  const paperPaid = analysisPaymentRows.reduce((sum, payment) => sum + (Number(payment.payment) || 0), 0);
+  const paperRemaining = Math.max(0, paperSales - paperPaid);
+  const paperPaidPercent = paperSales > 0 ? Math.min(100, Math.max(0, paperPaid / paperSales * 100)) : 0;
+  const paperQuantity = analysisItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
   const analysisRowKey = (item: (typeof saleItems)[number]) => source + ":" + item.id;
   const selectedAnalysisItems = analysisItems.filter(item => selectedAnalysisKeys.includes(analysisRowKey(item)));
   const startAnalysisRowLongPress = (item: (typeof saleItems)[number]) => {
@@ -413,7 +426,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
               <label className="block text-sm font-semibold text-slate-700">اسم البائع أو المستلم<input value={analysisSellerFilter} onChange={e => setAnalysisSellerFilter(e.target.value)} placeholder="اكتب الاسم" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
               <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={analysisDateFrom} onChange={e => setAnalysisDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={analysisDateTo} onChange={e => setAnalysisDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
             </FilterPanel>
-            {analysisFilterCount > 0 && <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">تمت تصفية الصفوف. بطاقات الملخص أدناه تعرض إجمالي حساب العميل كاملاً.</p>}
+            {analysisFilterCount > 0 && <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">تمت تصفية الصفوف. بطاقات الملخص تجمع القيم الظاهرة في جدول التحليل وسجل التسديدات بعد التصفية.</p>}
             {analysisItems.length ? <><p className="text-xs text-slate-500">المعروض {number(analysisItems.length)} من {number(saleItems.length)} بنداً</p><div className="overflow-x-auto rounded-lg border">
               {renderAnalysisTable(analysisItems, selectedAnalysisItems.length > 0)}
                 <style>{`
@@ -482,9 +495,9 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
             <div><h3 className="text-base font-bold text-violet-900">ملخص أرقام الورقة الحسابية</h3><p className="mt-1 text-xs text-slate-500">رأس المال والبيع والربح، ثم المشتريات والتسديد والمتبقي من مصدر الحساب المحدد.</p></div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                ["إجمالي مبلغ رأس المال", cost === null ? "غير مكتمل" : number(cost), "border-slate-200 bg-slate-50 text-slate-800"],
-                ["إجمالي مبلغ البيع", number(sales), "border-indigo-200 bg-indigo-50 text-indigo-900"],
-                ["إجمالي مبلغ الربح", profit === null ? "غير متاح" : number(profit), "border-violet-200 bg-violet-50 text-violet-900"],
+                ["إجمالي مبلغ رأس المال", paperCost === null ? "غير مكتمل" : number(paperCost), "border-slate-200 bg-slate-50 text-slate-800"],
+                ["إجمالي مبلغ البيع", number(paperSales), "border-indigo-200 bg-indigo-50 text-indigo-900"],
+                ["إجمالي مبلغ الربح", paperProfit === null ? "غير متاح" : number(paperProfit), "border-violet-200 bg-violet-50 text-violet-900"],
               ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
                 <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
               </article>)}
@@ -492,19 +505,19 @@ export default function CustomerStatisticsProfile({ customer, invoices, payments
             <div aria-hidden="true" className="border-t-2 border-dashed border-slate-200 pt-3" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                ["إجمالي مبلغ المشتريات", number(sales), "border-blue-200 bg-blue-50 text-blue-900"],
-                ["إجمالي مبلغ التسديد", number(paid), "border-emerald-200 bg-emerald-50 text-emerald-900"],
-                ["إجمالي مبلغ المتبقي", number(remaining), "border-amber-200 bg-amber-50 text-amber-950"],
+                ["إجمالي مبلغ المشتريات", number(paperSales), "border-blue-200 bg-blue-50 text-blue-900"],
+                ["إجمالي مبلغ التسديد", number(paperPaid), "border-emerald-200 bg-emerald-50 text-emerald-900"],
+                ["إجمالي مبلغ المتبقي", number(paperRemaining), "border-amber-200 bg-amber-50 text-amber-950"],
               ].map(([label, value, tone]) => <article key={label} className={"rounded-xl border p-3 text-center " + tone}>
                 <span className="block text-xs font-semibold">{label}</span><strong className="mt-2 block text-xl font-extrabold" dir="ltr">{value}</strong>
               </article>)}
             </div>
             <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3">
-              <div className="flex items-center justify-between gap-3"><strong className="text-sm text-yellow-950">مجموع العدد</strong><strong className="text-lg font-extrabold text-yellow-950" dir="ltr">{number(analysisTotalQuantity)}</strong></div>
+              <div className="flex items-center justify-between gap-3"><strong className="text-sm text-yellow-950">مجموع العدد</strong><strong className="text-lg font-extrabold text-yellow-950" dir="ltr">{number(paperQuantity)}</strong></div>
             </div>
             <div className="rounded-xl border border-slate-200 p-3">
-              <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600"><span>نسبة التسديد من إجمالي المشتريات</span><span dir="ltr">{number(paidPercent)}%</span></div>
-              <div dir="rtl" className="h-3 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: paidPercent + "%" }} /></div>
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600"><span>نسبة التسديد من إجمالي المشتريات</span><span dir="ltr">{number(paperPaidPercent)}%</span></div>
+              <div dir="rtl" className="h-3 overflow-hidden rounded-full bg-amber-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: paperPaidPercent + "%" }} /></div>
             </div>
           </section>}
           {tab === "business" && <p className="text-xs text-slate-500">تُحسب المشتريات من صفوف الورقة العمودية والقائمة الحسابية المحفوظة معاً، دون صفوف التسديد والفواصل والصفوف الفارغة. ترتيب أكثر الأصناف حسب مجموع عدد القطع المشتراة، والعدد بجمع الكميات مهما اختلفت وحداتها.{purchases.missingDates > 0 && ` يوجد ${number(purchases.missingDates)} صف بلا طابع زمني؛ تواريخ البداية والنهاية والمدة تخص الصفوف المؤرخة فقط.`}</p>}
