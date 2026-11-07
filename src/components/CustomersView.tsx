@@ -249,22 +249,21 @@ export default function CustomersView({
   const salaryTypeOptions = distinctOptions(customers.map(customer => customer.salaryType));
   const sellerOptions = distinctOptions(invoices.filter(invoice => !invoice.isDeleted).flatMap(invoice => [
     invoice.employeeName,
-    ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName),
-  ]).concat(customers.flatMap(customer => (customer.accountingSheetRows || []).map(row => (row as typeof row & { sellerName?: string }).sellerName))));
+    ...(Array.isArray(invoice.items) ? invoice.items : []).map(item => (item as typeof item & { sellerName?: string }).sellerName),
+  ]).concat(customers.flatMap(customer => (Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : []).map(row => (row as typeof row & { sellerName?: string }).sellerName))));
   const recipientOptions = distinctOptions([
-    ...payments.filter(payment => !payment.isDeleted).flatMap(payment => {
-      const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
-      return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
-    }),
-    ...customers.flatMap(customer => [
-      ...(customer.accountingSheetPayments || []).flatMap(payment => {
+    ...customers.flatMap(customer => (Array.isArray(customer.accountingSheetPayments) ? customer.accountingSheetPayments : [])
+      .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+      .flatMap(payment => {
         const extra = payment as typeof payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
         return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
-      }),
-    ]),
-    ...invoices.filter(invoice => !invoice.isDeleted).flatMap(invoice => invoice.items
+      })),
+    ...invoices.filter(invoice => !invoice.isDeleted).flatMap(invoice => (Array.isArray(invoice.items) ? invoice.items : [])
       .filter(item => item.isSeparator && Number(item.paidAmount) > 0)
-      .map(item => (item as typeof item & { sellerName?: string }).sellerName)),
+      .map(item => (item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string }).recipient
+        || (item as typeof item & { recipientName?: string }).recipientName
+        || (item as typeof item & { receivedBy?: string }).receivedBy
+        || (item as typeof item & { sellerName?: string }).sellerName)),
   ]);
   const activeFilterCount = Object.entries(customerFilters).filter(([key, value]) => {
     if (key === "relationshipUnit") return Boolean(customerFilters.relationshipExact || customerFilters.relationshipMin || customerFilters.relationshipMax);
@@ -332,22 +331,13 @@ export default function CustomersView({
     const metrics = getCustomerMetrics(customer.id);
     const includeVertical = statisticsSource !== "accounting";
     const includeAccounting = statisticsSource !== "vertical";
-    const verticalRemaining = metrics.invoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
-    const accountingRowsForBalance = (customer.accountingSheetRows || []).filter(row =>
-      !row.isSeparator && (String(row.details || "").trim() || Number(row.total) !== 0)
-    );
-    const accountingSalesForBalance = accountingRowsForBalance.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-    const accountingPaidForBalance = (customer.accountingSheetPayments || [])
-      .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
-      .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const accountingRemaining = Math.max(0, accountingSalesForBalance - accountingPaidForBalance);
     const balance = includeVertical && includeAccounting
-      ? verticalRemaining + accountingRemaining
-      : includeVertical ? verticalRemaining : accountingRemaining;
+      ? metrics.verticalRemaining + metrics.accountingRemaining
+      : includeVertical ? metrics.verticalRemaining : metrics.accountingRemaining;
     if (filters.balanceStatus === "owing" && balance <= 0) return false;
     if (filters.balanceStatus === "settled" && balance > 0) return false;
     if (!inNumberRange(balance, "", filters.minBalance, filters.maxBalance)) return false;
-    if (filters.overdueOnly && (!includeVertical || !metrics.invoices.some(invoice => !invoice.isDeleted && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < todayDate))) return false;
+    if (filters.overdueOnly && (!includeVertical || !metrics.invoiceBalances.some(({ invoice, remaining }) => remaining > 0 && invoice.dueDate && invoice.dueDate < todayDate))) return false;
     const activityDates = [
       ...(includeVertical ? metrics.ledger.map(entry => entry.date) : []),
       ...(includeAccounting ? [
@@ -360,10 +350,10 @@ export default function CustomersView({
     if (filters.activityTo && (!latestActivity || latestActivity > filters.activityTo)) return false;
 
     const customerInvoices = includeVertical ? invoices.filter(invoice => invoice.customerId === customer.id && !invoice.isDeleted) : [];
-    const invoiceItems = customerInvoices.flatMap(invoice => invoice.items.filter(item =>
+    const invoiceItems = customerInvoices.flatMap(invoice => (Array.isArray(invoice.items) ? invoice.items : []).filter(item =>
       !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (String(item.details || "").trim() || Number(item.total) !== 0)
     ));
-    const accountingRows = includeAccounting ? (customer.accountingSheetRows || []).filter(row =>
+    const accountingRows = includeAccounting ? (Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : []).filter(row =>
       !row.isSeparator && (String(row.details || "").trim() || Number(row.total) !== 0)
     ) : [];
     const purchaseDates = [
@@ -385,50 +375,40 @@ export default function CustomersView({
       ? purchaseRows.reduce((sum, row) => sum + row.quantity * (row.unitCost as number), 0)
       : null;
     if (!inNumberRange(purchaseCost, filters.costExact, filters.costMin, filters.costMax)) return false;
-    const salesTotal = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0)
+    const salesTotal = invoiceItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0)
       + accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
     if (!inNumberRange(salesTotal, filters.salesExact, filters.salesMin, filters.salesMax)) return false;
-    const invoiceRowsTotal = customerInvoices.reduce((sum, invoice) => sum + invoice.items
-      .filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
-      .reduce((itemSum, item) => itemSum + (Number(item.total) || 0), 0), 0);
+    const invoiceRowsTotal = invoiceItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
     const accountingRowsTotal = accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
     const costsComplete = purchaseRows.length > 0 && purchaseRows.every(row => typeof row.unitCost === "number" && Number.isFinite(row.unitCost) && row.unitCost >= 0);
-    const salesConsistent = Math.abs(invoiceRowsTotal - customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0)) < 0.01
-      && Math.abs(accountingRowsTotal - accountingRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0)) < 0.01;
-    const profit = costsComplete && salesConsistent ? salesTotal - (purchaseCost || 0) : null;
+    const profit = costsComplete ? salesTotal - (purchaseCost || 0) : null;
     if (!inNumberRange(profit, filters.profitExact, filters.profitMin, filters.profitMax)) return false;
 
-    // Invoice paidAmount already includes its recorded receipts; do not add Payment rows again.
-    const paidTotal = customerInvoices.reduce((sum, invoice) => sum + (Number(invoice.paidAmount) || 0), 0)
-      + (includeAccounting ? (customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
-        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0) : 0);
+    const paidTotal = (includeVertical ? metrics.verticalPaid : 0) + (includeAccounting ? metrics.accountingPaid : 0);
     if (!inNumberRange(paidTotal, filters.paidExact, filters.paidMin, filters.paidMax)) return false;
     if (!inNumberRange(balance, filters.remainingExact, filters.remainingMin, filters.remainingMax)) return false;
 
     const sellers = distinctOptions([
       ...customerInvoices.flatMap(invoice => [
         invoice.employeeName,
-        ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName),
+        ...(Array.isArray(invoice.items) ? invoice.items : []).map(item => (item as typeof item & { sellerName?: string }).sellerName),
       ]),
       ...accountingRows.map(row => (row as typeof row & { sellerName?: string }).sellerName),
     ]);
     if (filters.sellerName !== "all" && !sellers.includes(filters.sellerName)) return false;
     const recipients = distinctOptions([
-      ...customerInvoices.flatMap(invoice => invoice.items
+      ...customerInvoices.flatMap(invoice => (Array.isArray(invoice.items) ? invoice.items : [])
         .filter(item => item.isSeparator && Number(item.paidAmount) > 0)
         .map(item => {
           const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
           return extra.recipient || extra.recipientName || extra.receivedBy || extra.sellerName;
         })),
-      ...(includeAccounting ? (customer.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+      ...(includeAccounting ? (Array.isArray(customer.accountingSheetPayments) ? customer.accountingSheetPayments : [])
+        .filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
         .flatMap(payment => {
           const extra = payment as typeof payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
           return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
         }) : []),
-      ...(includeVertical ? payments.filter(payment => payment.customerId === customer.id && !payment.isDeleted) : []).flatMap(payment => {
-        const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
-        return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
-      }),
     ]);
     if (filters.paymentRecipient !== "all" && !recipients.includes(filters.paymentRecipient)) return false;
 
