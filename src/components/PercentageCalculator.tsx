@@ -4,14 +4,15 @@ import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
 type FilterField = "all" | "folderId" | "address" | "occupation" | "salaryStatus" | "salaryType" | "relationship" | "purchaseDate" | "quantity" | "cost" | "sales" | "profit" | "paid" | "remaining" | "balanceStatus" | "overdueOnly" | "activityDate" | "sellerName" | "paymentRecipient";
-type ValueFilter = { field: FilterField; value: string; mode: "exact" | "range"; exact: string; min: string; max: string; unit: "days" | "months" | "years" };
+type FilterCategory = "" | "personal" | "purchases" | "financial" | "operations";
+type ValueFilter = { category: FilterCategory; field: FilterField | ""; value: string; mode: "exact" | "range"; exact: string; min: string; max: string; unit: "days" | "months" | "years" };
 type PeriodFilter = { mode: "exact" | "range"; on: string; from: string; to: string };
 type Comparison = { id: string; metric: Metric; numeratorFilter: ValueFilter; numeratorPeriod: PeriodFilter; denominatorFilter: ValueFilter; denominatorPeriod: PeriodFilter };
 type CustomerTotals = { sales: number; payments: number; remaining: number; currentBalance: number; profit: number; quantity: number; cost: number | null; missingCostItems: number; sellers: string[]; recipients: string[]; overdue: boolean; hasPurchase: boolean; hasActivity: boolean };
 
 const metricLabels: Record<Metric, string> = { payments: "التسديدات", sales: "المبيعات", remaining: "المتبقي", profit: "الربح" };
-const filterGroups: Array<{ label: string; fields: Array<{ value: FilterField; label: string }> }> = [
-  { label: "أولاً: المعلومات الشخصية وتاريخ التعامل", fields: [
+const filterGroups: Array<{ value: Exclude<FilterCategory, "">; label: string; fields: Array<{ value: FilterField; label: string }> }> = [
+  { value: "personal", label: "أولاً: المعلومات الشخصية وتاريخ التعامل", fields: [
     { value: "folderId", label: "حسب المجلد" },
     { value: "address", label: "حسب عنوان السكن" },
     { value: "occupation", label: "حسب المهنة أو الوظيفة" },
@@ -19,18 +20,18 @@ const filterGroups: Array<{ label: string; fields: Array<{ value: FilterField; l
     { value: "salaryType", label: "حسب نوع الراتب" },
     { value: "relationship", label: "حسب مدة التعامل مع العميل" },
   ]},
-  { label: "ثانياً: المشتريات", fields: [
+  { value: "purchases", label: "ثانياً: المشتريات", fields: [
     { value: "purchaseDate", label: "حسب تاريخ الشراء" },
     { value: "quantity", label: "حسب إجمالي عدد البضائع المشتراة" },
     { value: "cost", label: "حسب إجمالي تكلفة شراء البضائع (رأس المال)" },
     { value: "sales", label: "حسب إجمالي قيمة مشتريات العميل" },
   ]},
-  { label: "ثالثاً: الأرباح والتسديدات والديون", fields: [
+  { value: "financial", label: "ثالثاً: الأرباح والتسديدات والديون", fields: [
     { value: "profit", label: "حسب إجمالي الربح من العميل" },
     { value: "paid", label: "حسب إجمالي المبالغ المسددة من العميل" },
     { value: "remaining", label: "حسب إجمالي المبلغ المتبقي على العميل" },
   ]},
-  { label: "رابعاً: الموظفون والعمليات", fields: [
+  { value: "operations", label: "رابعاً: الموظفون والعمليات", fields: [
     { value: "sellerName", label: "حسب اسم البائع" },
     { value: "paymentRecipient", label: "حسب اسم مستلم التسديد" },
   ]},
@@ -39,7 +40,7 @@ const filterFields: Array<{ value: FilterField; label: string }> = [
   { value: "all", label: "كل العملاء" },
   ...filterGroups.flatMap(group => group.fields),
 ];
-const emptyValueFilter = (): ValueFilter => ({ field: "all", value: "all", mode: "exact", exact: "", min: "", max: "", unit: "days" });
+const emptyValueFilter = (): ValueFilter => ({ category: "", field: "all", value: "all", mode: "exact", exact: "", min: "", max: "", unit: "days" });
 const periodFromDate = (date: string): PeriodFilter => ({ mode: "exact", on: date, from: date, to: date });
 const formatAmount = (value: number, currency: string) => `${Math.round(value).toLocaleString("ar-IQ")} ${currency}`;
 
@@ -176,7 +177,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
   };
 
   const matchesFilter = (customer: Customer, filter: ValueFilter, totals: CustomerTotals) => {
-    if (filter.field === "all") return true;
+    if (!filter.field || filter.field === "all") return true;
     if (filter.value === "all" && filter.field !== "quantity" && filter.field !== "cost" && filter.field !== "sales" && filter.field !== "profit" && filter.field !== "paid" && filter.field !== "remaining" && filter.field !== "relationship") return true;
     const customerAddress = customer.address?.trim() || "";
     const occupation = (customer.profile?.occupation || customer.profile?.profession || "").trim();
@@ -233,6 +234,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
   const addComparison = () => setComparisons(current => [...current, defaultComparison(`ratio-${Date.now()}-${current.length}`, latestDate)]);
 
   const renderFilterEditor = (comparison: Comparison, side: "numerator" | "denominator", filter: ValueFilter) => {
+    if (!filter.field || filter.field === "all") return null;
     const numeric = ["quantity", "cost", "sales", "profit", "paid", "remaining", "relationship"].includes(filter.field);
     if (!numeric) {
       const options = availableValues[filter.field as keyof typeof availableValues] || [];
@@ -291,6 +293,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
   );
 
   const describeFilter = (filter: ValueFilter) => {
+    if (!filter.field) return "اختر نوع التصفية";
     if (filter.field === "all") return "كل العملاء";
     const label = filterFields.find(item => item.value === filter.field)?.label || "التصفية";
     if (["quantity", "cost", "sales", "profit", "paid", "remaining", "relationship"].includes(filter.field)) {
@@ -336,11 +339,18 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                 const period = side === "numerator" ? comparison.numeratorPeriod : comparison.denominatorPeriod;
                 return <div key={side} className="space-y-3 rounded-xl bg-slate-50 p-3">
                   <h4 className="text-sm font-bold text-slate-800">{side === "numerator" ? "المبلغ الذي أريد معرفة نسبته" : "مقارنةً بمبلغ"}</h4>
-                  <label className="block text-xs font-semibold text-slate-700">نوع التصفية
-                    <select value={filter.field} onChange={event => updateFilter(comparison.id, side, { ...emptyValueFilter(), field: event.target.value as FilterField })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-                      <option value="all">كل العملاء</option>{filterGroups.map(group => <optgroup key={group.label} label={group.label}>{group.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}</optgroup>)}
-                    </select>
-                  </label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="block text-xs font-semibold text-slate-700">القسم الرئيسي
+                      <select value={filter.category} onChange={event => updateFilter(comparison.id, side, { category: event.target.value as FilterCategory, field: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800">
+                        <option value="">اختر القسم الرئيسي</option>{filterGroups.map(group => <option key={group.value} value={group.value}>{group.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">نوع التصفية
+                      <select value={filter.field} disabled={!filter.category} onChange={event => updateFilter(comparison.id, side, { field: event.target.value as FilterField, value: "all", exact: "", min: "", max: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800 disabled:bg-slate-100">
+                        <option value="">{filter.category ? "اختر نوع التصفية" : "اختر القسم أولاً"}</option>{filterGroups.find(group => group.value === filter.category)?.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
                   {renderFilterEditor(comparison, side, filter)}
                   {renderPeriodEditor(comparison, side, period)}
                 </div>;
