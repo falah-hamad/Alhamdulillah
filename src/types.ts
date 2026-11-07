@@ -38,6 +38,7 @@ export interface AccountingSheetPayment {
   id: string;
   amount: number;
   date: string;
+  method?: string;
   notes?: string;
 }
 
