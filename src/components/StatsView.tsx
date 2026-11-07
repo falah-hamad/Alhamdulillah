@@ -54,7 +54,12 @@ export default function StatsView({ customers, products, invoices, payments, set
   const totalRemaining = customerTotals.reduce((sum, totals) => sum + totals.remaining, 0);
   const collectionRate = totalSales > 0 ? Math.round((totalPaid / totalSales) * 100) : 0;
 
-  const monthlySales = activeInvoices.map((invoice) => ({ date: invoice.date, amount: getInvoiceLedgerTotals(invoice).sales }));
+  const monthlySales = [
+    ...activeInvoices.map((invoice) => ({ date: invoice.date, amount: getInvoiceLedgerTotals(invoice).sales })),
+    ...customers.flatMap(customer => (Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : [])
+      .filter(row => !row.isSeparator)
+      .map(row => ({ date: row.createdAt || customer.accountingSheetDate || customer.createdAt, amount: Number(row.total || row.unitPrice) || 0 }))),
+  ];
   const monthlyCollections = activePayments.map((payment) => ({ date: payment.date, amount: Number(payment.amount) || 0 }));
 
   const topDebtors = useMemo(() => customers.map((customer) => ({
@@ -65,15 +70,24 @@ export default function StatsView({ customers, products, invoices, payments, set
   const topProducts = useMemo(() => {
     const productById = new Map(products.filter((product) => !product.isDeleted).map((product) => [product.id, product]));
     const ranked = new Map<string, number>();
-    activeInvoices.forEach((invoice) => invoice.items.filter(isFinancialItem).forEach((item) => {
+    activeInvoices.forEach((invoice) => (Array.isArray(invoice.items) ? invoice.items : []).filter(isFinancialItem).forEach((item) => {
       const value = Number(item.total) || 0;
       if (value <= 0) return;
       const linkedProduct = item.productId ? productById.get(item.productId) : undefined;
       const name = linkedProduct?.name || item.details?.trim() || "صنف غير مسمى";
       ranked.set(name, (ranked.get(name) || 0) + value);
     }));
+    customers.forEach(customer => (Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : [])
+      .filter(row => !row.isSeparator)
+      .forEach(row => {
+        const value = Number(row.total || row.unitPrice) || 0;
+        if (value <= 0) return;
+        const linkedProduct = row.productId ? productById.get(row.productId) : undefined;
+        const name = linkedProduct?.name || row.details?.trim() || "صنف غير مسمى";
+        ranked.set(name, (ranked.get(name) || 0) + value);
+      }));
     return [...ranked.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
-  }, [activeInvoices, products]);
+  }, [activeInvoices, products, customers]);
 
   const kpis = [
     { label: "العملاء النشطون", value: customers.length, icon: Users, color: "text-blue-600", tone: "bg-blue-50" },
