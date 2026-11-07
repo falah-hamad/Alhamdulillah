@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
-import type { Customer, CustomerFolder, Invoice, Payment } from "../types";
+import type { Customer, CustomerFolder, Invoice } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -93,7 +93,7 @@ const wordLines = (text: string) => {
 };
 
 export default function CustomerDataTable({customers,invoices,folders = [],onBack,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
-  customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
+  customers: Customer[]; invoices: Invoice[]; folders?: CustomerFolder[]; onBack: () => void;
   filterControls: React.ReactNode; searchControl: React.ReactNode; onOpenFilters: () => void; activeFilterCount: number;
   totalCustomerCount: number;
 }) {
@@ -144,15 +144,15 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
     return folder?.name || "مجلد غير متاح";
   };
   const rows = useMemo<Entry[]>(() => customers.filter(c => !c.isDeleted).map(c => {
-    const inv = invoices.filter(x => x.customerId === c.id && !x.isDeleted);
+    const inv = (Array.isArray(invoices) ? invoices : []).filter(x => x.customerId === c.id && !x.isDeleted);
     const externalPayments = payments.filter(x => x.customerId === c.id && !x.isDeleted);
-    const sheet = (c.accountingSheetRows || []).filter(x => !x.isSeparator && !("isPaymentRow" in x && x.isPaymentRow) && !("isRemainingRow" in x && x.isRemainingRow));
-    const sheetPayments = (c.accountingSheetPayments || []).filter(x => !(x as typeof x & {isDeleted?:boolean}).isDeleted);
+    const sheet = (Array.isArray(c.accountingSheetRows) ? c.accountingSheetRows : []).filter(x => !x.isSeparator && !("isPaymentRow" in x && x.isPaymentRow) && !("isRemainingRow" in x && x.isRemainingRow));
+    const sheetPayments = (Array.isArray(c.accountingSheetPayments) ? c.accountingSheetPayments : []).filter(x => !(x as typeof x & {isDeleted?:boolean}).isDeleted);
     const items = inv.flatMap(x => x.items).filter(x => !x.isSeparator && !x.isPaymentRow && !x.isRemainingRow);
     const purchaseTimestamps = [
       ...inv.flatMap(invoice => {
         const fallback = invoice.date || invoice.createdAt || "";
-        const purchaseItems = invoice.items.filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow
+        const purchaseItems = (Array.isArray(invoice.items) ? invoice.items : []).filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow
           && (String(item.details || "").trim() || num(item.total) !== 0));
         return purchaseItems.length ? purchaseItems.map(item => item.createdAt || fallback) : [fallback];
       }),
@@ -163,7 +163,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
     const sales = [...items,...sheet].reduce((sum, item) => sum + num(item.total), 0);
     const capital = [...items,...sheet].reduce((sum, item) => sum + num(item.unitCost) * num(item.quantity), 0);
     const verticalLedgerPaid = inv.reduce((sum, invoice) =>
-      sum + invoice.items.filter(item => item.isSeparator).reduce((itemSum, item) => itemSum + num(item.paidAmount), 0), 0);
+      sum + (Array.isArray(invoice.items) ? invoice.items : []).filter(item => item.isSeparator).reduce((itemSum, item) => itemSum + num(item.paidAmount), 0), 0);
     const accountingLedgerPaid = sheetPayments.reduce((sum, payment) => sum + num(payment.amount), 0);
     const paid = verticalLedgerPaid + accountingLedgerPaid;
     const quantity = [...items,...sheet].reduce((sum, item) => sum + num(item.quantity), 0);
