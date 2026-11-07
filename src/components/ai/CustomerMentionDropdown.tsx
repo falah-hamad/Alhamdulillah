@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { User, Phone, DollarSign, AlertCircle } from "lucide-react";
 import { Customer, Invoice, Payment } from "../../types";
+import { getCustomerLedgerTotals } from "../../lib/debtLedgerSources";
 
 interface CustomerMentionDropdownProps {
   query: string;
@@ -28,12 +29,7 @@ export default function CustomerMentionDropdown({
     const activePayments = payments.filter((p) => !p.isDeleted);
 
     return activeCustomers.map((c) => {
-      const custInvoices = activeInvoices.filter((inv) => inv.customerId === c.id);
-      const custPayments = activePayments.filter((p) => p.customerId === c.id);
-      const totalInv = custInvoices.reduce((acc, inv) => acc + (Number(inv.grandTotal) || 0), 0);
-      const paidInv = custInvoices.reduce((acc, inv) => acc + (Number(inv.paidAmount) || 0), 0);
-      const sepPay = custPayments.reduce((acc, pay) => acc + (Number(pay.amount) || 0), 0);
-      const rem = Math.max(0, totalInv - (paidInv + sepPay));
+      const rem = getCustomerLedgerTotals(c, activeInvoices).remaining;
 
       return {
         customer: c,
