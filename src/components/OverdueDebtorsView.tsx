@@ -16,6 +16,7 @@ import {
   Check
 } from "lucide-react";
 import { Customer, Invoice, Payment, SystemSettings, Folder } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { openExternalUrl } from "../lib/native";
 
 interface OverdueDebtorsViewProps {
@@ -56,14 +57,10 @@ export default function OverdueDebtorsView({
       .filter((c) => !c.isDeleted)
       .map((customer) => {
         const custInvoices = invoices.filter((inv) => inv.customerId === customer.id && !inv.isDeleted);
-        const custPayments = payments.filter((p) => p.customerId === customer.id && !p.isDeleted);
-
-        const totalDebts = custInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-        const totalPaid =
-          custPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) +
-          custInvoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
-
-        const totalRemaining = Math.max(0, totalDebts - totalPaid);
+        const ledgerTotals = getCustomerLedgerTotals(customer, invoices);
+        const totalDebts = ledgerTotals.sales;
+        const totalPaid = ledgerTotals.paid;
+        const totalRemaining = ledgerTotals.remaining;
         const folder = folders.find((f) => f.id === customer.folderId);
 
         // Sort invoices by date desc
