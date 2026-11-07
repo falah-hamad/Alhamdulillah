@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Percent, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
