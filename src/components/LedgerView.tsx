@@ -82,6 +82,7 @@ import FileManagerView from "./FileManagerView";
 import BarcodeScannerModal from "./BarcodeScannerModal";
 import { auth } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
 
@@ -1089,19 +1090,19 @@ ${folderCustomers
     return () => window.removeEventListener("keydown", handleKeyDownGlobal);
   }, [isAddingInvoice, editingInvoice, historyPointer, history]);
 
-  // Calculate aggregate metrics per customer for the overview
+  // Customer summaries come from the two debt ledgers; payment view-models are only for receipt display.
   const getCustomerStats = (custId: string) => {
-    const custInvoices = invoices.filter((inv) => inv.customerId === custId);
-    const custPayments = payments.filter((p) => p.customerId === custId);
-
-    const totalDebts = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0);
-    const totalPaid = custPayments.reduce((acc, p) => acc + p.amount, 0);
-    const totalRemaining = custInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0);
+    const custInvoices = invoices.filter((inv) => !inv.isDeleted && inv.customerId === custId);
+    const customer = customers.find((entry) => entry.id === custId);
+    const custPayments = payments.filter((payment) => payment.customerId === custId);
+    const totals = customer
+      ? getCustomerLedgerTotals(customer, invoices)
+      : { sales: 0, paid: 0, remaining: 0, capital: 0, quantity: 0 };
 
     return {
-      totalDebts,
-      totalPaid,
-      totalRemaining,
+      totalDebts: totals.sales,
+      totalPaid: totals.paid,
+      totalRemaining: totals.remaining,
       invoiceCount: custInvoices.length,
       custInvoices,
       custPayments,
@@ -1864,13 +1865,25 @@ ${folderCustomers
       return;
     }
 
-    addPayment({
-      customerId: selectedCustomer.id,
-      customerName: selectedCustomer.name,
-      amount: Number(payAmount),
-      date: payDate,
-      method: payMethod,
-      notes: payNotes,
+    if (!updateCustomer) {
+      alert("تعذر تسجيل التسديد: تحديث سجل العميل غير متاح.");
+      return;
+    }
+    const existingPayments = Array.isArray(selectedCustomer.accountingSheetPayments)
+      ? selectedCustomer.accountingSheetPayments
+      : [];
+    void updateCustomer({
+      ...selectedCustomer,
+      accountingSheetPayments: [
+        ...existingPayments,
+        {
+          id: `sheet-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          amount: Number(payAmount),
+          date: payDate,
+          method: payMethod,
+          notes: payNotes.trim() || undefined,
+        },
+      ],
     });
 
     // Reset Form
