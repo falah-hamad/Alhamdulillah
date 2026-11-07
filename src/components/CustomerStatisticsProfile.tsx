@@ -76,11 +76,11 @@ export default function CustomerStatisticsProfile({ customer, invoices, currency
   const purchases = customerPurchaseStats(customer, invoices);
   const folderPath = customerFolderPath(customer.folderId, folders);
   const customerInvoices = invoices.filter(inv => inv.customerId === customer.id && !inv.isDeleted);
-  const verticalSaleItems = customerInvoices.flatMap(inv => inv.items.filter(item =>
-    !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (item.details.trim() || item.total !== 0)
+  const verticalSaleItems = customerInvoices.flatMap(inv => (Array.isArray(inv.items) ? inv.items : []).filter(item =>
+    !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow && (String(item.details || "").trim() || item.total !== 0)
   ));
-  const accountingSaleItems = (customer.accountingSheetRows || []).filter(row =>
-    !row.isSeparator && (row.details.trim() || row.total !== 0)
+  const accountingSaleItems = (Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : []).filter(row =>
+    !row.isSeparator && (String(row.details || "").trim() || row.total !== 0)
   );
   const saleItems = source === "vertical"
     ? verticalSaleItems
@@ -97,7 +97,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, currency
       id: string; total: number; payment: number; remaining: number;
       weekday: string; time: string; date: string; recipient: string;
     }[] = [];
-    const orderedItems = invoice.items
+    const orderedItems = (Array.isArray(invoice.items) ? invoice.items : [])
       .map((item, index) => ({ item, index }))
       .sort((a, b) => (a.item.pageNumber || 1) - (b.item.pageNumber || 1) || a.index - b.index);
     orderedItems.forEach(({ item }) => {
@@ -215,8 +215,8 @@ export default function CustomerStatisticsProfile({ customer, invoices, currency
     const values = verticalInvoiceBalances.map(balance => balance.total);
     stats.push(["أكبر / أصغر كشف", `${number(Math.max(...values))} / ${number(Math.min(...values))} ${currency}`], ["متوسط قيمة الكشف", `${number(verticalSales/customerInvoices.length)} ${currency}`]);
     const lastPayment = [...customerPayments].filter(pay => validDate(pay.date)).sort((a,b) => Date.parse(b.date)-Date.parse(a.date))[0];
-    stats.push(["عدد سندات القبض المستقلة", number(customerPayments.length)]);
-    if (lastPayment) stats.push(["آخر سند قبض مستقل", `${lastPayment.date} · ${number(lastPayment.amount)} ${currency}`]);
+    stats.push(["عدد التسديدات المسجلة في سجل الديون", number(customerPayments.length)]);
+    if (lastPayment) stats.push(["آخر تسديد مسجل في سجل الديون", `${lastPayment.date} · ${number(lastPayment.amount)} ${currency}`]);
     const nextDue = verticalInvoiceBalances.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && validDate(balance.invoice.dueDate)).map(balance => balance.invoice.dueDate!).sort()[0];
     stats.push(["أقرب استحقاق كشف مفتوح", nextDue || "غير محدد"]);
   }
@@ -224,7 +224,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, currency
   const classified = customerInvoices.filter(inv => ["cash", "credit", "installment"].includes(salesType(inv) || ""));
   const saleTypeKnown = classified.length === customerInvoices.length && customerInvoices.length > 0;
   const countType = (type: string) => classified.filter(inv => salesType(inv) === type).length;
-  const amountType = (type: string) => classified.filter(inv => salesType(inv) === type).reduce((sum, inv) => sum + inv.grandTotal, 0);
+  const amountType = (type: string) => classified.filter(inv => salesType(inv) === type).reduce((sum, inv) => sum + (verticalInvoiceBalances.find(balance => balance.invoice.id === inv.id)?.total || 0), 0);
   const unknown = "غير متوفر — البيانات غير مسجلة";
   const sourceRows = source !== "accounting" ? verticalInvoiceBalances : [];
   const dueKnown = source !== "accounting" && sourceRows.length > 0 && sourceRows.every(balance => balance.remaining <= 0 || (balance.invoice.dueDate && validDate(balance.invoice.dueDate)));
