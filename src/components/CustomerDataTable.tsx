@@ -92,7 +92,7 @@ const wordLines = (text: string) => {
   return lines;
 };
 
-export default function CustomerDataTable({customers,invoices,payments,folders = [],onBack,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
+export default function CustomerDataTable({customers,invoices,folders = [],onBack,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; payments: Payment[]; folders?: CustomerFolder[]; onBack: () => void;
   filterControls: React.ReactNode; searchControl: React.ReactNode; onOpenFilters: () => void; activeFilterCount: number;
   totalCustomerCount: number;
@@ -395,6 +395,6 @@ export default function CustomerDataTable({customers,invoices,payments,folders =
         </React.Fragment>)}</tbody>
       </table>
     </div>}
-    <p className="text-xs text-slate-500">المبالغ بالدينار العراقي. الإجماليات تخص العملاء المعروضين فقط، وتُحسب من فواتير البيع وسجلات الورقة العمودية والقائمة الحسابية. رأس المال والربح يعتمدان على تكلفة الشراء المسجلة.</p>
+    <p className="text-xs text-slate-500">المبالغ بالدينار العراقي. الإجماليات تخص العملاء المعروضين فقط، وتُحسب حصراً من قيود سجل الديون العمودي والقائمة الحسابية، ولا تعتمد على قسم الدفعات المستقل. رأس المال والربح يعتمدان على تكلفة الشراء المسجلة.</p>
   </section>;
 }
