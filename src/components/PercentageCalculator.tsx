@@ -152,7 +152,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
         return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
       })),
-    ].filter((value): value is string => Boolean(value?.trim()))];
+    ] .filter((value): value is string => Boolean(value?.trim())))];
     const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today);
     return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0, hasActivity: customerInvoices.length > 0 || customerPayments.length > 0 };
   };
