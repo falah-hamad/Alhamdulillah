@@ -4,7 +4,7 @@ import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
 type FilterField = "all" | "folderId" | "address" | "occupation" | "salaryStatus" | "salaryType" | "relationship" | "purchaseDate" | "quantity" | "cost" | "sales" | "profit" | "paid" | "remaining" | "balanceStatus" | "overdueOnly" | "activityDate" | "sellerName" | "paymentRecipient";
-type FilterCategory = "" | "personal" | "purchases" | "financial" | "operations";
+type FilterCategory = "" | "all" | "personal" | "purchases" | "financial" | "operations";
 type ValueFilter = { category: FilterCategory; field: FilterField | ""; value: string; mode: "exact" | "range"; exact: string; min: string; max: string; unit: "days" | "months" | "years" };
 type PeriodFilter = { mode: "exact" | "range"; on: string; from: string; to: string };
 type Comparison = { id: string; metric: Metric; numeratorFilter: ValueFilter; numeratorPeriod: PeriodFilter; denominatorFilter: ValueFilter; denominatorPeriod: PeriodFilter };
@@ -341,8 +341,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                   <h4 className="text-sm font-bold text-slate-800">{side === "numerator" ? "المبلغ الذي أريد معرفة نسبته" : "مقارنةً بمبلغ"}</h4>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="block text-xs font-semibold text-slate-700">القسم الرئيسي
-                      <select value={filter.category} onChange={event => updateFilter(comparison.id, side, { category: event.target.value as FilterCategory, field: "" })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800">
-                        <option value="">اختر القسم الرئيسي</option>{filterGroups.map(group => <option key={group.value} value={group.value}>{group.label}</option>)}
+                      <select value={filter.category} onChange={event => { const category = event.target.value as FilterCategory; updateFilter(comparison.id, side, { category, field: category === "all" ? "all" : "" }); }} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-800">
+                        <option value="">اختر القسم الرئيسي</option><option value="all">كل العملاء</option>{filterGroups.map(group => <option key={group.value} value={group.value}>{group.label}</option>)}
                       </select>
                     </label>
                     <label className="block text-xs font-semibold text-slate-700">نوع التصفية
