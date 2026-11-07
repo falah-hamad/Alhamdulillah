@@ -16,6 +16,7 @@ import {
   BookOpen
 } from "lucide-react";
 import { Customer, Product, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import OverdueInvoicesAlert from "./OverdueInvoicesAlert";
 import { isInvoiceOverdue, getInvoiceOverdueDays } from "../utils/overdueUtils";
 
@@ -48,17 +49,18 @@ export default function DashboardView({
   onSelectInvoiceForLedger,
   onUpdateInvoice,
 }: DashboardViewProps) {
-  // Calculations
-  const totalSales = invoices.reduce((acc, inv) => acc + inv.grandTotal, 0);
-  const totalPaid = payments.reduce((acc, pay) => acc + pay.amount, 0);
-  const totalRemaining = invoices.reduce((acc, inv) => acc + inv.remainingAmount, 0);
+  // Financial cards are calculated from customer debt ledgers, not independent receipt records.
+  const customerLedgerTotals = customers.map(customer => getCustomerLedgerTotals(customer, invoices));
+  const totalSales = customerLedgerTotals.reduce((sum, totals) => sum + totals.sales, 0);
+  const totalPaid = customerLedgerTotals.reduce((sum, totals) => sum + totals.paid, 0);
+  const totalRemaining = customerLedgerTotals.reduce((sum, totals) => sum + totals.remaining, 0);
   const activeCustomers = customers.length;
   const collectionRate = totalSales > 0 ? Math.min(100, Math.max(0, Math.round((totalPaid / totalSales) * 100))) : 0;
   const remainingRate = totalSales > 0 ? Math.min(100, Math.max(0, Math.round((totalRemaining / totalSales) * 100))) : 0;
 
   // Overdue calculations
-  const overdueInvoices = invoices.filter((inv) => isInvoiceOverdue(inv));
-  const totalOverdueAmount = overdueInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0);
+  const overdueInvoices = invoices.filter((inv) => !inv.isDeleted && getInvoiceLedgerTotals(inv).remaining > 0 && isInvoiceOverdue({ ...inv, remainingAmount: getInvoiceLedgerTotals(inv).remaining }));
+  const totalOverdueAmount = overdueInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).remaining, 0);
 
   // Alerts: Products with quantity <= 10
   const lowStockProducts = products.filter((p) => p.quantity <= 10);
