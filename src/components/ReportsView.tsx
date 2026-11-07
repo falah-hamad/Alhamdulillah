@@ -15,6 +15,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 
 interface ReportsViewProps {
@@ -192,9 +193,10 @@ export default function ReportsView({
     return scopedCustomers
       .map((c) => {
         const custInvoices = scopedInvoices.filter((inv) => inv.customerId === c.id);
-        const totalInvoiced = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0);
-        const totalRemaining = custInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0);
-        const totalPaid = totalInvoiced - totalRemaining;
+        const customerLedger = getCustomerLedgerTotals(c, scopedInvoices);
+        const totalInvoiced = customerLedger.sales;
+        const totalRemaining = customerLedger.remaining;
+        const totalPaid = customerLedger.paid;
 
         // Get last invoice date
         let lastActive = "لا يوجد";
