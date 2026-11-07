@@ -24,6 +24,7 @@ import {
   RotateCcw
 } from "lucide-react";
 import { Invoice, SystemSettings } from "../types";
+import { getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { isInvoiceOverdue, getInvoiceOverdueDays } from "../utils/overdueUtils";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import {
@@ -95,9 +96,11 @@ export default function InvoicesView({
     const matchesDate = !dateFilter || inv.date.includes(dateFilter);
 
     // Filter by payment status (مدفوعة / متبقية / متأخرة)
-    const isPaid = (Number(inv.remainingAmount) || 0) === 0;
-    const isRemaining = (Number(inv.remainingAmount) || 0) > 0;
-    const overdue = isInvoiceOverdue(inv);
+    const ledgerTotals = getInvoiceLedgerTotals(inv);
+    const ledgerInvoice = { ...inv, remainingAmount: ledgerTotals.remaining };
+    const isPaid = ledgerTotals.remaining === 0;
+    const isRemaining = ledgerTotals.remaining > 0;
+    const overdue = isInvoiceOverdue(ledgerInvoice);
 
     const matchesStatus =
       paymentStatus === "all" ||
@@ -109,11 +112,12 @@ export default function InvoicesView({
   });
 
   const previewInvoice = invoices.find((inv) => inv.id === previewInvoiceId);
+  const previewTotals = previewInvoice ? getInvoiceLedgerTotals(previewInvoice) : null;
 
   // Quick statistics based on filtered list
-  const totalInvoicesSum = filteredInvoices.reduce((acc, inv) => acc + (Number(inv.grandTotal) || 0), 0);
-  const totalPaidSum = filteredInvoices.reduce((acc, inv) => acc + (Number(inv.paidAmount) || 0), 0);
-  const totalRemainingSum = filteredInvoices.reduce((acc, inv) => acc + (Number(inv.remainingAmount) || 0), 0);
+  const totalInvoicesSum = filteredInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).sales, 0);
+  const totalPaidSum = filteredInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).paid, 0);
+  const totalRemainingSum = filteredInvoices.reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).remaining, 0);
 
   return (
     <div className="space-y-6">
@@ -278,9 +282,11 @@ export default function InvoicesView({
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
                 {filteredInvoices.map((inv) => {
-                  const isPaid = inv.remainingAmount === 0;
-                  const overdue = isInvoiceOverdue(inv);
-                  const overdueDays = overdue ? getInvoiceOverdueDays(inv) : 0;
+                  const ledgerTotals = getInvoiceLedgerTotals(inv);
+                  const ledgerInvoice = { ...inv, remainingAmount: ledgerTotals.remaining };
+                  const isPaid = ledgerTotals.remaining === 0;
+                  const overdue = isInvoiceOverdue(ledgerInvoice);
+                  const overdueDays = overdue ? getInvoiceOverdueDays(ledgerInvoice) : 0;
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/30 transition-colors">
                       <td className="p-3 font-bold text-slate-700">
@@ -298,13 +304,13 @@ export default function InvoicesView({
                         )}
                       </td>
                       <td className="p-3 text-left text-slate-900 font-bold">
-                        {inv.grandTotal.toLocaleString()} {settings.currency}
+                        {ledgerTotals.sales.toLocaleString()} {settings.currency}
                       </td>
                       <td className="p-3 text-left text-blue-600 font-bold">
-                        {inv.paidAmount.toLocaleString()} {settings.currency}
+                        {ledgerTotals.paid.toLocaleString()} {settings.currency}
                       </td>
                       <td className="p-3 text-left text-rose-600 font-bold">
-                        {inv.remainingAmount.toLocaleString()} {settings.currency}
+                        {ledgerTotals.remaining.toLocaleString()} {settings.currency}
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -526,7 +532,7 @@ export default function InvoicesView({
                     <span className="text-slate-500 font-semibold ml-1">حالة السداد:</span>
                     <span
                       className={`font-bold px-2 py-0.5 rounded text-[11px] ${
-                        previewInvoice.remainingAmount === 0
+                        previewTotals?.remaining === 0
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-amber-100 text-amber-800"
                       }`}
@@ -657,19 +663,19 @@ export default function InvoicesView({
                   <div className="flex justify-between items-center py-1">
                     <span className="font-sans font-semibold text-slate-600">المجموع الكلي:</span>
                     <span className="font-bold text-slate-900">
-                      {previewInvoice.grandTotal.toLocaleString()} {settings.currency}
+                      {previewTotals?.sales.toLocaleString()} {settings.currency}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-t border-dotted border-slate-200">
                     <span className="font-sans font-semibold text-emerald-700">المبلغ الواصل (المسدد):</span>
                     <span className="font-bold text-emerald-700">
-                      {previewInvoice.paidAmount.toLocaleString()} {settings.currency}
+                      {previewTotals?.paid.toLocaleString()} {settings.currency}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 bg-slate-50 px-2 rounded font-black border border-slate-200">
                     <span className="font-sans font-bold text-slate-800">المتبقي بذمة العميل:</span>
-                    <span className={`text-sm ${previewInvoice.remainingAmount > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                      {previewInvoice.remainingAmount.toLocaleString()} {settings.currency}
+                    <span className={`text-sm ${(previewTotals?.remaining || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                      {(previewTotals?.remaining || 0).toLocaleString()} {settings.currency}
                     </span>
                   </div>
                 </div>
