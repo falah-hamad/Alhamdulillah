@@ -11,6 +11,7 @@ import {
   AccountingSheetRow,
   CloudBackupItem,
 } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { formatChangeLogDateTime } from "../utils/changeLogUtils";
 import {
   sampleCustomerFolders,
@@ -1008,32 +1009,7 @@ export function useAccountingData() {
       }
     }
 
-    // If there is an initial payment, record it
-    if (newInvoice.paidAmount > 0) {
-      const newPayment: Payment = {
-        id: `pay-${Date.now()}`,
-        customerId: newInvoice.customerId,
-        customerName: newInvoice.customerName,
-        amount: newInvoice.paidAmount,
-        date: newInvoice.date,
-        method: "نقدي",
-        notes: `دفعة مقدمة مع الفاتورة ${newInvoice.invoiceNumber}`,
-        invoiceId: newInvoice.id,
-        createdAt: new Date().toISOString(),
-        userId: currentUser?.uid,
-      };
-
-      setPayments((prev) => {
-        const next = [newPayment, ...prev];
-        saveScopedStorage("payments", next);
-        return next;
-      });
-
-      if (currentUser) {
-        saveToFirestoreDoc("payments", newPayment.id, newPayment).catch((e) => console.error(e));
-      }
-    }
-
+    // Initial amounts are already represented by payment rows in the debt ledger.
     // 🔔 Trigger Notification for Event 1: إضافة دين أو قيد جديد
     if (currentUser) {
       const custName = newInvoice.customerName || "عميل";
@@ -1140,51 +1116,7 @@ export function useAccountingData() {
       return next;
     });
 
-    // Adjust associated payment
-    const linkedPayment = payments.find((p) => p.invoiceId === updated.id);
-    if (linkedPayment) {
-      if (updated.paidAmount > 0) {
-        const updatedPayment = { ...linkedPayment, amount: updated.paidAmount, date: updated.date, userId: currentUser?.uid };
-        setPayments((prev) => {
-          const next = prev.map((p) => (p.id === linkedPayment.id ? updatedPayment : p));
-          saveScopedStorage("payments", next);
-          return next;
-        });
-        if (currentUser) {
-          void saveToFirestoreDoc("payments", updatedPayment.id, updatedPayment).catch((error) => console.error("Failed to sync linked payment:", error));
-        }
-      } else {
-        setPayments((prev) => {
-          const next = prev.filter((p) => p.id !== linkedPayment.id);
-          saveScopedStorage("payments", next);
-          return next;
-        });
-        if (currentUser) {
-          void deleteFromFirestoreDoc("payments", linkedPayment.id).catch((error) => console.error("Failed to delete linked payment:", error));
-        }
-      }
-    } else if (updated.paidAmount > 0) {
-      const newPayment: Payment = {
-        id: `pay-${Date.now()}`,
-        customerId: updated.customerId,
-        customerName: updated.customerName,
-        amount: updated.paidAmount,
-        date: updated.date,
-        method: "نقدي",
-        notes: `دفعة مقدمة مع الفاتورة ${updated.invoiceNumber} (معدلة)`,
-        invoiceId: updated.id,
-        createdAt: new Date().toISOString(),
-        userId: currentUser?.uid,
-      };
-      setPayments((prev) => {
-        const next = [newPayment, ...prev];
-        saveScopedStorage("payments", next);
-        return next;
-      });
-      if (currentUser) {
-        void saveToFirestoreDoc("payments", newPayment.id, newPayment).catch((error) => console.error("Failed to sync new linked payment:", error));
-      }
-    }
+    // Payment rows remain in the debt ledger; no separate receipt document is synchronized here.
 
     if (currentUser) {
       // The debt-sheet save must know whether the invoice reached Firestore before it
@@ -1254,147 +1186,64 @@ export function useAccountingData() {
     }
   };
 
-  // Payments actions
+  // Payments actions route new entries into the customer's debt ledger.
   const addPayment = (payment: Omit<Payment, "id" | "createdAt">): Payment => {
     const newPayment: Payment = {
       ...payment,
-      id: `pay-${Date.now()}`,
+      id: `ledger-payment-${createUniqueRecordId("entry")}`,
       createdAt: new Date().toISOString(),
       userId: currentUser?.uid,
     };
-
-    setPayments((prev) => {
-      const next = [newPayment, ...prev];
-      saveScopedStorage("payments", next);
-      return next;
-    });
+    const customer = customers.find((entry) => entry.id === newPayment.customerId);
+    if (!customer) return newPayment;
+    const existingPayments = Array.isArray(customer.accountingSheetPayments) ? customer.accountingSheetPayments : [];
+    const customerWithPayment: Customer = {
+      ...customer,
+      accountingSheetPayments: [
+        ...existingPayments,
+        {
+          id: newPayment.id,
+          amount: newPayment.amount,
+          date: newPayment.date,
+          method: newPayment.method,
+          notes: newPayment.notes,
+        },
+      ],
+    };
+    void updateCustomer(customerWithPayment);
 
     if (currentUser) {
-      saveToFirestoreDoc("payments", newPayment.id, newPayment).catch((e) => console.error(e));
-    }
-
-    // Update invoice remaining amounts
-    let updatedInvoices = [...invoices];
-    if (newPayment.invoiceId) {
-      updatedInvoices = updatedInvoices.map((inv) => {
-        if (inv.id === newPayment.invoiceId) {
-          const newPaid = inv.paidAmount + newPayment.amount;
-          return {
-            ...inv,
-            paidAmount: newPaid,
-            remainingAmount: Math.max(0, inv.grandTotal - newPaid),
-          };
-        }
-        return inv;
-      });
-    } else {
-      let remainingPayment = newPayment.amount;
-      updatedInvoices = updatedInvoices.map((inv) => {
-        if (inv.customerId === newPayment.customerId && inv.remainingAmount > 0 && remainingPayment > 0) {
-          const toPay = Math.min(inv.remainingAmount, remainingPayment);
-          remainingPayment -= toPay;
-          const newPaid = inv.paidAmount + toPay;
-          return {
-            ...inv,
-            paidAmount: newPaid,
-            remainingAmount: inv.grandTotal - newPaid,
-          };
-        }
-        return inv;
-      });
-    }
-
-    setInvoices(updatedInvoices);
-    saveScopedStorage("invoices", updatedInvoices);
-    if (currentUser) {
-      for (const inv of updatedInvoices) {
-        saveToFirestoreDoc("invoices", inv.id, inv).catch((e) => console.error(e));
-      }
-
-      // 🔔 Trigger Notification for Event 2: تسجيل دفعة أو سند قبض
-      const custName = newPayment.customerName || "العميل";
-      const payAmt = Number(newPayment.amount || 0).toLocaleString();
-      const curr = settings?.currency || "د.ع";
-      const methodText = newPayment.method ? ` (${newPayment.method})` : "";
-      const notesDesc = newPayment.notes ? ` — ${newPayment.notes}` : "";
-
-      // Calculate customer remaining balance after this payment
-      const custInvoices = updatedInvoices.filter((inv) => inv.customerId === newPayment.customerId && !inv.isDeleted);
-      const custRemainingTotal = custInvoices.reduce((sum, inv) => sum + (Number(inv.remainingAmount) || 0), 0);
-      const remainingDesc = ` | المبلغ المتبقي: ${custRemainingTotal.toLocaleString()} ${curr}`;
-
+      const totalsAfterPayment = getCustomerLedgerTotals(customerWithPayment, invoices);
+      const currency = settings?.currency || "د.ع";
+      const remainingDesc = ` | المبلغ المتبقي: ${totalsAfterPayment.remaining.toLocaleString()} ${currency}`;
       dispatchAccountingNotification(currentUser.uid, {
         id: `notif_payment_${newPayment.id}`,
-        title: `سند قبض / دفعة مسجلة: ${custName}`,
-        body: `تم استلام دفعة نقدية بقيمة ${payAmt} ${curr}${methodText}${notesDesc}${remainingDesc}`.trim(),
+        title: `سند قبض / دفعة مسجلة: ${newPayment.customerName || "العميل"}`,
+        body: `تم تسجيل تسديد بقيمة ${Number(newPayment.amount || 0).toLocaleString()} ${currency} (${newPayment.method || "حسب سجل الديون"})${newPayment.notes ? ` — ${newPayment.notes}` : ""}${remainingDesc}`,
         category: "payments",
         data: {
           paymentId: newPayment.id,
           customerId: newPayment.customerId,
-          customerName: custName,
+          customerName: newPayment.customerName,
           amount: newPayment.amount,
-          remainingAmount: custRemainingTotal,
+          remainingAmount: totalsAfterPayment.remaining,
           method: newPayment.method,
           type: "payment_receipt",
         },
-      }).catch((e) => console.warn("Failed to dispatch payment notification:", e));
+      }).catch((error) => console.warn("Failed to dispatch payment notification:", error));
     }
 
     return newPayment;
   };
 
+  // Legacy payment documents can be removed from storage, but they never alter ledger balances.
   const deletePayment = async (id: string) => {
-    const payment = payments.find((p) => p.id === id);
-    if (payment) {
-      let updatedInvoices = [...invoices];
-      if (payment.invoiceId) {
-        updatedInvoices = updatedInvoices.map((inv) => {
-          if (inv.id === payment.invoiceId) {
-            const newPaid = Math.max(0, inv.paidAmount - payment.amount);
-            return {
-              ...inv,
-              paidAmount: newPaid,
-              remainingAmount: inv.grandTotal - newPaid,
-            };
-          }
-          return inv;
-        });
-      } else {
-        let remainingRevert = payment.amount;
-        updatedInvoices = [...invoices].reverse().map((inv) => {
-          if (inv.customerId === payment.customerId && inv.paidAmount > 0 && remainingRevert > 0) {
-            const toRevert = Math.min(inv.paidAmount, remainingRevert);
-            remainingRevert -= toRevert;
-            const newPaid = inv.paidAmount - toRevert;
-            return {
-              ...inv,
-              paidAmount: newPaid,
-              remainingAmount: inv.grandTotal - newPaid,
-            };
-          }
-          return inv;
-        });
-        updatedInvoices.reverse();
-      }
-
-      setInvoices(updatedInvoices);
-      saveScopedStorage("invoices", updatedInvoices);
-      if (currentUser) {
-        for (const inv of updatedInvoices) {
-          await saveToFirestoreDoc("invoices", inv.id, inv);
-        }
-      }
-    }
-
     setPayments((prev) => {
-      const next = prev.filter((p) => p.id !== id);
+      const next = prev.filter((payment) => payment.id !== id);
       saveScopedStorage("payments", next);
       return next;
     });
-
-    if (currentUser) {
-      await deleteFromFirestoreDoc("payments", id);
-    }
+    if (currentUser) await deleteFromFirestoreDoc("payments", id);
   };
 
   const updateSettings = async (newSettings: SystemSettings) => {
