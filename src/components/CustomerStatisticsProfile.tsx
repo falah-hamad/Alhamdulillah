@@ -231,7 +231,7 @@ export default function CustomerStatisticsProfile({ customer, invoices, currency
   const currentDay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
   const dueOpen = dueKnown ? sourceRows.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && balance.invoice.dueDate < currentDay) : [];
   const oldestDue = dueOpen.map(balance => balance.invoice.dueDate!).sort()[0];
-  const nextDueDate = dueKnown ? sourceRows.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && balance.invoice.dueDate >= currentDay).map(balance => balance.invoice.dueDate!).sort()[0];
+  const nextDueDate = dueKnown ? sourceRows.filter(balance => balance.remaining > 0 && balance.invoice.dueDate && balance.invoice.dueDate >= currentDay).map(balance => balance.invoice.dueDate!).sort()[0] : undefined;
   const daysBetween = (start: string, end: string) => Math.max(0, Math.floor((Date.parse(end + "T12:00:00Z") - Date.parse(start + "T12:00:00Z")) / 86400000));
   const topProfit = costsComplete ? [...saleItems.reduce((map, item) => {
     const name = item.details || item.productId || "صنف غير مسمى";
