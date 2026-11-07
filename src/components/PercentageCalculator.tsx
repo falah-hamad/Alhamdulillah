@@ -10,26 +10,34 @@ type Comparison = { id: string; metric: Metric; numeratorFilter: ValueFilter; nu
 type CustomerTotals = { sales: number; payments: number; remaining: number; currentBalance: number; profit: number; quantity: number; cost: number | null; missingCostItems: number; sellers: string[]; recipients: string[]; overdue: boolean; hasPurchase: boolean; hasActivity: boolean };
 
 const metricLabels: Record<Metric, string> = { payments: "التسديدات", sales: "المبيعات", remaining: "المتبقي", profit: "الربح" };
+const filterGroups: Array<{ label: string; fields: Array<{ value: FilterField; label: string }> }> = [
+  { label: "أولاً: المعلومات الشخصية وتاريخ التعامل", fields: [
+    { value: "folderId", label: "حسب المجلد" },
+    { value: "address", label: "حسب عنوان السكن" },
+    { value: "occupation", label: "حسب المهنة أو الوظيفة" },
+    { value: "salaryStatus", label: "هل لديه راتب؟" },
+    { value: "salaryType", label: "حسب نوع الراتب" },
+    { value: "relationship", label: "حسب مدة التعامل مع العميل" },
+  ]},
+  { label: "ثانياً: المشتريات", fields: [
+    { value: "purchaseDate", label: "حسب تاريخ الشراء" },
+    { value: "quantity", label: "حسب إجمالي عدد البضائع المشتراة" },
+    { value: "cost", label: "حسب إجمالي تكلفة شراء البضائع (رأس المال)" },
+    { value: "sales", label: "حسب إجمالي قيمة مشتريات العميل" },
+  ]},
+  { label: "ثالثاً: الأرباح والتسديدات والديون", fields: [
+    { value: "profit", label: "حسب إجمالي الربح من العميل" },
+    { value: "paid", label: "حسب إجمالي المبالغ المسددة من العميل" },
+    { value: "remaining", label: "حسب إجمالي المبلغ المتبقي على العميل" },
+  ]},
+  { label: "رابعاً: الموظفون والعمليات", fields: [
+    { value: "sellerName", label: "حسب اسم البائع" },
+    { value: "paymentRecipient", label: "حسب اسم مستلم التسديد" },
+  ]},
+];
 const filterFields: Array<{ value: FilterField; label: string }> = [
   { value: "all", label: "كل العملاء" },
-  { value: "folderId", label: "حسب المجلد" },
-  { value: "address", label: "حسب عنوان السكن" },
-  { value: "occupation", label: "حسب المهنة أو الوظيفة" },
-  { value: "salaryStatus", label: "هل لديه راتب؟" },
-  { value: "salaryType", label: "حسب نوع الراتب" },
-  { value: "relationship", label: "حسب مدة التعامل" },
-  { value: "purchaseDate", label: "حسب تاريخ الشراء" },
-  { value: "quantity", label: "حسب إجمالي عدد البضائع" },
-  { value: "cost", label: "حسب تكلفة الشراء (رأس المال)" },
-  { value: "sales", label: "حسب إجمالي المشتريات" },
-  { value: "profit", label: "حسب إجمالي الربح" },
-  { value: "paid", label: "حسب إجمالي التسديد" },
-  { value: "remaining", label: "حسب المبلغ المتبقي" },
-  { value: "balanceStatus", label: "حسب حالة الحساب" },
-  { value: "overdueOnly", label: "عليه مستحقات متأخرة" },
-  { value: "activityDate", label: "حسب تاريخ آخر تعامل" },
-  { value: "sellerName", label: "حسب اسم البائع" },
-  { value: "paymentRecipient", label: "حسب مستلم التسديد" },
+  ...filterGroups.flatMap(group => group.fields),
 ];
 const emptyValueFilter = (): ValueFilter => ({ field: "all", value: "all", mode: "exact", exact: "", min: "", max: "", unit: "days" });
 const periodFromDate = (date: string): PeriodFilter => ({ mode: "exact", on: date, from: date, to: date });
@@ -317,7 +325,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
                   <h4 className="text-sm font-bold text-slate-800">{side === "numerator" ? "المبلغ الذي أريد معرفة نسبته" : "مقارنةً بمبلغ"}</h4>
                   <label className="block text-xs font-semibold text-slate-700">نوع التصفية
                     <select value={filter.field} onChange={event => updateFilter(comparison.id, side, { ...emptyValueFilter(), field: event.target.value as FilterField })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800">
-                      {filterFields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
+                      <option value="all">كل العملاء</option>{filterGroups.map(group => <optgroup key={group.label} label={group.label}>{group.fields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}</optgroup>)}
                     </select>
                   </label>
                   {renderFilterEditor(comparison, side, filter)}
