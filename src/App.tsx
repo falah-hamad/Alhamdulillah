@@ -51,6 +51,7 @@ import ReportsView from "./components/ReportsView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
+import { deriveLedgerPayments, getCustomerLedgerTotals } from "./lib/debtLedgerSources";
 import AIAssistantView from "./components/AIAssistantView";
 
 
@@ -525,23 +526,17 @@ export default function App() {
     () => invoices.filter((inv) => !inv.isDeleted && activeCustomerIds.has(inv.customerId)),
     [invoices, activeCustomerIds]
   );
+  // Payment history is a read model of debt-ledger entries; the standalone payments collection is not authoritative.
   const activePayments = useMemo(
-    () => payments.filter((p) => !p.isDeleted && activeCustomerIds.has(p.customerId)),
-    [payments, activeCustomerIds]
+    () => deriveLedgerPayments(activeCustomers, activeInvoices),
+    [activeCustomers, activeInvoices]
   );
 
-  // Overdue debtors count: ONLY active customers who have remaining debt > 0
-  const overdueDebtorsCount = useMemo(() => {
-    return activeCustomers.filter((c) => {
-      const custInvs = activeInvoices.filter((inv) => inv.customerId === c.id);
-      const custPayments = activePayments.filter((p) => p.customerId === c.id);
-      const totalDebts = custInvs.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
-      const totalPaid =
-        custPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) +
-        custInvs.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
-      return (totalDebts - totalPaid) > 0;
-    }).length;
-  }, [activeCustomers, activeInvoices, activePayments]);
+  // Count debtors from the ledger balances; do not add payment receipts a second time.
+  const overdueDebtorsCount = useMemo(
+    () => activeCustomers.filter(customer => getCustomerLedgerTotals(customer, activeInvoices).remaining > 0).length,
+    [activeCustomers, activeInvoices]
+  );
 
   // Selection from invoices register to ledger page
   const handleSelectInvoiceForLedger = (customerId: string, invoiceId: string) => {
@@ -568,7 +563,7 @@ export default function App() {
   };
 
   const handleOpenNewPaymentDashboard = () => {
-    setCurrentTab("payments");
+    setCurrentTab("ledger");
   };
 
   const handleOpenNewCustomerDashboard = () => {
@@ -1033,10 +1028,8 @@ export default function App() {
           {currentTab === "payments" && (
             <PaymentsView
               payments={activePayments}
-              customers={activeCustomers}
               settings={settings}
-              addPayment={addPayment}
-              deletePayment={deletePayment}
+              onOpenLedger={() => setCurrentTab("ledger")}
             />
           )}
 
