@@ -2,37 +2,24 @@ import React, { useState } from "react";
 import {
   DollarSign,
   Search,
-  PlusCircle,
-  Calendar,
-  CreditCard,
   Printer,
-  Trash2,
-  X,
   FileCheck,
   Building,
   UserCheck,
   Download,
   Loader2
 } from "lucide-react";
-import { Customer, Payment, SystemSettings } from "../types";
+import { Payment, SystemSettings } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { FilterButton, FilterPanel } from "./FilterPanel";
 
 interface PaymentsViewProps {
   payments: Payment[];
-  customers: Customer[];
   settings: SystemSettings;
-  addPayment: (payment: Omit<Payment, "id" | "createdAt">) => Payment;
-  deletePayment: (id: string) => void;
+  onOpenLedger: () => void;
 }
 
-export default function PaymentsView({
-  payments,
-  customers,
-  settings,
-  addPayment,
-  deletePayment,
-}: PaymentsViewProps) {
+export default function PaymentsView({ payments, settings, onOpenLedger }: PaymentsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -42,51 +29,9 @@ export default function PaymentsView({
   const [maximumAmount, setMaximumAmount] = useState("");
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
-  // Modal
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Form State
-  const [customerId, setCustomerId] = useState("");
-  const [amount, setAmount] = useState<number>(0);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [method, setMethod] = useState("نقدي");
-  const [notes, setNotes] = useState("");
-
   // Print & PDF Export State
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
-
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customerId || amount <= 0) {
-      alert("الرجاء اختيار العميل وإدخال قيمة تسديد صالحة.");
-      return;
-    }
-
-    const cust = customers.find((c) => c.id === customerId);
-    if (!cust) return;
-
-    addPayment({
-      customerId: cust.id,
-      customerName: cust.name,
-      amount: Number(amount),
-      date,
-      method,
-      notes: notes.trim() || undefined,
-    });
-
-    setIsAddModalOpen(false);
-    setCustomerId("");
-    setAmount(0);
-    setNotes("");
-  };
-
-  const handleDelete = (id: string, amountVal: number, cName: string) => {
-    if (confirm(`هل أنت متأكد من حذف سند القبض بقيمة ${amountVal.toLocaleString()} ${settings.currency} للعميل "${cName}"؟ سيعاد احتساب الديون المستحقة.`)) {
-      deletePayment(id);
-      if (selectedReceiptId === id) setSelectedReceiptId(null);
-    }
-  };
 
   // Filter payments
   const activeFilterCount = [selectedMethod !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(minimumAmount), Boolean(maximumAmount)].filter(Boolean).length;
@@ -115,20 +60,16 @@ export default function PaymentsView({
             حركة الدفعات والتسديدات (المقبوضات)
           </h1>
           <p className="text-slate-500 text-xs">
-            تسجيل وإدارة عمليات تسديد ديون العملاء وإصدار سندات قبض رسمية قابلة للطباعة.
+            يعرض هذا القسم التسديدات المثبتة في سجل الديون فقط. سجّل أو عدّل التسديد من سجل العميل ليظهر هنا تلقائيًا.
           </p>
         </div>
         <button
-          onClick={() => {
-            setCustomerId("");
-            setAmount(0);
-            setNotes("");
-            setIsAddModalOpen(true);
-          }}
+          type="button"
+          onClick={onOpenLedger}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer transition-colors"
         >
-          <PlusCircle className="w-4 h-4" />
-          تسجيل دفعة تسديد جديدة
+          <FileCheck className="w-4 h-4" />
+          فتح سجل الديون للتسديد
         </button>
       </div>
 
@@ -212,16 +153,7 @@ export default function PaymentsView({
                           </p>
                         )}
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(p.id, p.amount, p.customerName);
-                        }}
-                        className={`p-1.5 rounded hover:bg-rose-500/10 hover:text-rose-400 ${selectedReceiptId === p.id ? "text-slate-400" : "text-slate-400 hover:text-rose-600"}`}
-                        title="حذف السند"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+
                     </div>
                   </div>
                 ))}
@@ -401,111 +333,6 @@ export default function PaymentsView({
         </div>
 
       </div>
-
-      {/* MODAL: ADD PAYMENT */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-blue-600" />
-                تسجيل سند قبض وتسديد جديد
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div>
-                <label className="block text-slate-500 text-xs font-semibold mb-1">اختر العميل *</label>
-                <select
-                  required
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-                >
-                  <option value="">-- يرجى الاختيار من قائمة العملاء --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 text-xs font-semibold mb-1">مبلغ التسديد ({settings.currency}) *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="أدخل القيمة"
-                    value={amount || ""}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-mono text-left focus:outline-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-xs font-semibold mb-1">طريقة السداد *</label>
-                  <select
-                    value={method}
-                    onChange={(e) => setMethod(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-                  >
-                    <option value="نقدي">💵 نقدي (كاش)</option>
-                    <option value="تحويل بنكي">🏦 تحويل بنكي</option>
-                    <option value="شيك">✍️ شيك</option>
-                    <option value="مدى">💳 بطاقة مدى / الكتروني</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-500 text-xs font-semibold mb-1">تاريخ العملية *</label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-mono text-center focus:outline-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-500 text-xs font-semibold mb-1">ملاحظات / تبيين السند (اختياري)</label>
-                <input
-                  type="text"
-                  placeholder="مثال: دفعة تحت الحساب لتسديد فاتورة رقم 1"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-                >
-                  تثبيت سند القبض
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );
