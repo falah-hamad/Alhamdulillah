@@ -159,12 +159,13 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
         .map(row => row.createdAt || c.accountingSheetDate || ""),
     ].map(date => Date.parse(date)).filter(timestamp => Number.isFinite(timestamp)).sort((a,b)=>a-b);
     // Use only ledger entries: vertical invoice rows and accounting-sheet rows.
-    const verticalSales = items.reduce((sum, item) => sum + num(item.total), 0);
-    const accountingSales = sheet.reduce((sum, item) => sum + num(item.total), 0);
+    const verticalSales = items.reduce((sum, item) => sum + num(item.total || item.unitPrice), 0);
+    const accountingSales = sheet.reduce((sum, item) => sum + num(item.total || item.unitPrice), 0);
     const sales = verticalSales + accountingSales;
     const capital = [...items,...sheet].reduce((sum, item) => sum + num(item.unitCost) * num(item.quantity), 0);
     const verticalLedgerPaid = inv.reduce((sum, invoice) =>
-      sum + (Array.isArray(invoice.items) ? invoice.items : []).filter(item => item.isSeparator).reduce((itemSum, item) => itemSum + num(item.paidAmount), 0), 0);
+      sum + (Array.isArray(invoice.items) ? invoice.items : []).filter(item => item.isSeparator || item.isPaymentRow)
+        .reduce((itemSum, item) => itemSum + num(item.isSeparator ? item.paidAmount : item.total || item.unitPrice), 0), 0);
     const accountingLedgerPaid = sheetPayments.reduce((sum, payment) => sum + num(payment.amount), 0);
     const paid = verticalLedgerPaid + accountingLedgerPaid;
     const quantity = [...items,...sheet].reduce((sum, item) => sum + num(item.quantity), 0);
