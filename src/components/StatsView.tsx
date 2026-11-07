@@ -10,6 +10,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { BalanceDonut, MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 import CustomerStatisticsProfile from "./CustomerStatisticsProfile";
 import PercentageCalculator from "./PercentageCalculator";
@@ -47,19 +48,18 @@ export default function StatsView({ customers, products, invoices, payments, set
     .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name, "ar"));
   const activeInvoices = useMemo(() => invoices.filter((invoice) => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter((payment) => !payment.isDeleted), [payments]);
-  const totalSales = activeInvoices.reduce((sum, invoice) => sum + (Number(invoice.grandTotal) || 0), 0);
-  const totalPaid = activePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-  const invoicePaid = activeInvoices.reduce((sum, invoice) => sum + (Number(invoice.paidAmount) || 0), 0);
-  const totalRemaining = activeInvoices.reduce((sum, invoice) => sum + (Number(invoice.remainingAmount) || 0), 0);
-  const collectionRate = totalSales > 0 ? Math.round((invoicePaid / totalSales) * 100) : 0;
+  const customerTotals = customers.map(customer => getCustomerLedgerTotals(customer, activeInvoices));
+  const totalSales = customerTotals.reduce((sum, totals) => sum + totals.sales, 0);
+  const totalPaid = customerTotals.reduce((sum, totals) => sum + totals.paid, 0);
+  const totalRemaining = customerTotals.reduce((sum, totals) => sum + totals.remaining, 0);
+  const collectionRate = totalSales > 0 ? Math.round((totalPaid / totalSales) * 100) : 0;
 
-  const monthlySales = activeInvoices.map((invoice) => ({ date: invoice.date, amount: Number(invoice.grandTotal) || 0 }));
+  const monthlySales = activeInvoices.map((invoice) => ({ date: invoice.date, amount: getInvoiceLedgerTotals(invoice).sales }));
   const monthlyCollections = activePayments.map((payment) => ({ date: payment.date, amount: Number(payment.amount) || 0 }));
 
   const topDebtors = useMemo(() => customers.map((customer) => ({
     name: customer.name,
-    value: activeInvoices.filter((invoice) => invoice.customerId === customer.id)
-      .reduce((sum, invoice) => sum + Math.max(0, Number(invoice.remainingAmount) || 0), 0),
+    value: getCustomerLedgerTotals(customer, activeInvoices).remaining,
   })).filter((customer) => customer.value > 0).sort((a, b) => b.value - a.value).slice(0, 5), [customers, activeInvoices]);
 
   const topProducts = useMemo(() => {
