@@ -108,87 +108,91 @@ export default function CustomersView({
 
   const [customerViewMode] = useState<"list" | "grid" | "large_icons" | "small_icons">("list");
 
-  // Calculations for a customer
+  // Customer metrics are derived exclusively from the customer's debt ledgers.
   const getCustomerMetrics = (custId: string) => {
-    const custInvoices = invoices.filter((inv) => inv.customerId === custId && !inv.isDeleted);
-    const custPayments = payments.filter((p) => p.customerId === custId && !p.isDeleted);
-
-    const customerRecord = customers.find((c) => c.id === custId);
-    const sheetRows = (customerRecord?.accountingSheetRows || []).filter(row => !row.isSeparator);
-    const sheetPayments = (customerRecord?.accountingSheetPayments || []).filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted);
-    const sheetDebt = sheetRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
-    const sheetPaid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const totalDebts = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0) + sheetDebt;
-    const totalPaid = custPayments.reduce((acc, p) => acc + p.amount, 0) + sheetPaid;
-    const totalRemaining = custInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0) + Math.max(0, sheetDebt - sheetPaid);
-
-    // Get all purchases (items list)
-    const purchases = custInvoices.flatMap((inv) =>
-      inv.items.map((item) => ({
-        ...item,
-        date: inv.date,
-        invoiceNumber: inv.invoiceNumber,
-      }))
+    const custInvoices = invoices.filter(invoice => invoice.customerId === custId && !invoice.isDeleted);
+    const customerRecord = customers.find(customer => customer.id === custId);
+    const sheetRows = Array.isArray(customerRecord?.accountingSheetRows)
+      ? customerRecord.accountingSheetRows.filter(row => !row.isSeparator)
+      : [];
+    const sheetPayments = Array.isArray(customerRecord?.accountingSheetPayments)
+      ? customerRecord.accountingSheetPayments.filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+      : [];
+    const invoiceRows = custInvoices.flatMap(invoice =>
+      (Array.isArray(invoice.items) ? invoice.items : []).filter(item =>
+        !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow &&
+        (String(item.details || "").trim() || Number(item.total) !== 0)
+      ).map(item => ({ ...item, date: item.createdAt || invoice.date || invoice.createdAt || "", invoiceNumber: invoice.invoiceNumber }))
     );
-
-    // Build unified chronological ledger (statement of account)
+    const verticalDebt = invoiceRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const verticalPaid = custInvoices.reduce((sum, invoice) =>
+      sum + (Array.isArray(invoice.items) ? invoice.items : [])
+        .filter(item => item.isSeparator)
+        .reduce((paidSum, item) => paidSum + (Number(item.paidAmount) || 0), 0), 0);
+    const accountingDebt = sheetRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const accountingPaid = sheetPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const invoiceBalances = custInvoices.map(invoice => {
+      const rows = (Array.isArray(invoice.items) ? invoice.items : []).filter(item =>
+        !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow
+      );
+      const total = rows.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+      const paid = (Array.isArray(invoice.items) ? invoice.items : [])
+        .filter(item => item.isSeparator)
+        .reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
+      return { invoice, total, paid, remaining: Math.max(0, total - paid) };
+    });
+    const totalDebts = verticalDebt + accountingDebt;
+    const totalPaid = verticalPaid + accountingPaid;
+    const verticalRemaining = invoiceBalances.reduce((sum, balance) => sum + balance.remaining, 0);
+    const accountingRemaining = Math.max(0, accountingDebt - accountingPaid);
+    const totalRemaining = verticalRemaining + accountingRemaining;
+    const purchases = [
+      ...invoiceRows,
+      ...sheetRows.map(row => ({ ...row, date: row.createdAt || customerRecord?.accountingSheetDate || "", invoiceNumber: "" })),
+    ];
     const ledgerEntries: {
-      date: string;
-      id: string;
-      type: "invoice" | "payment";
-      description: string;
-      debit: number; // Invoice increase debt
-      credit: number; // Payment decrease debt
+      date: string; id: string; type: "invoice" | "payment"; description: string; debit: number; credit: number;
     }[] = [];
-
-    custInvoices.forEach((inv) => {
-      ledgerEntries.push({
-        date: inv.date,
-        id: inv.id,
-        type: "invoice",
-        description: `فاتورة مبيعات ديون رقم ${inv.invoiceNumber}`,
-        debit: inv.grandTotal,
-        credit: 0,
+    custInvoices.forEach(invoice => {
+      (Array.isArray(invoice.items) ? invoice.items : []).forEach(item => {
+        if (item.isSeparator) {
+          const amount = Number(item.paidAmount) || 0;
+          if (amount > 0) ledgerEntries.push({
+            date: item.paidDate || invoice.date || invoice.createdAt || "",
+            id: invoice.id + ":" + item.id, type: "payment",
+            description: "تسديد مسجل في سجل الديون", debit: 0, credit: amount,
+          });
+        } else if (!item.isPaymentRow && !item.isRemainingRow &&
+          (String(item.details || "").trim() || Number(item.total) !== 0)) {
+          ledgerEntries.push({
+            date: item.createdAt || invoice.date || invoice.createdAt || "",
+            id: invoice.id + ":" + item.id, type: "invoice",
+            description: String(item.details || "بند دين"), debit: Number(item.total) || 0, credit: 0,
+          });
+        }
       });
     });
-
-    custPayments.forEach((p) => {
-      ledgerEntries.push({
-        date: p.date,
-        id: p.id,
-        type: "payment",
-        description: `دفعة تسديد مستلمة (${p.method}) ${p.notes ? `• ${p.notes}` : ""}`,
-        debit: 0,
-        credit: p.amount,
-      });
-    });
-
-    // Sort by date
+    sheetRows.forEach(row => ledgerEntries.push({
+      date: row.createdAt || customerRecord?.accountingSheetDate || "", id: "sheet:" + row.id,
+      type: "invoice", description: String(row.details || "بند دين"),
+      debit: Number(row.total) || 0, credit: 0,
+    }));
+    sheetPayments.forEach(payment => ledgerEntries.push({
+      date: payment.date || "", id: "sheet-payment:" + payment.id, type: "payment",
+      description: "تسديد مسجل في سجل الديون", debit: 0, credit: Number(payment.amount) || 0,
+    }));
     ledgerEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Calculate running balance
     let balance = 0;
-    const ledgerWithBalance = ledgerEntries.map((entry) => {
+    const ledgerWithBalance = ledgerEntries.map(entry => {
       balance += entry.debit - entry.credit;
-      return {
-        ...entry,
-        runningBalance: balance,
-      };
+      return { ...entry, runningBalance: balance };
     });
-
     return {
-      totalDebts,
-      totalPaid,
-      totalRemaining,
-      invoiceCount: custInvoices.length,
-      paymentCount: custPayments.length,
-      invoices: custInvoices,
-      payments: custPayments,
-      purchases,
-      ledger: ledgerWithBalance,
+      totalDebts, totalPaid, totalRemaining, verticalDebt, verticalPaid, verticalRemaining,
+      accountingDebt, accountingPaid, accountingRemaining, invoiceCount: custInvoices.length,
+      invoices: custInvoices, invoiceBalances, purchases, ledger: ledgerWithBalance,
     };
   };
-
   // Submit forms
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
