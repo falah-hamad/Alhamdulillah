@@ -17,7 +17,8 @@ export function getInvoiceLedgerTotals(invoice: Invoice): LedgerTotals {
   const items: InvoiceItem[] = Array.isArray(invoice.items) ? invoice.items : [];
   const saleItems = items.filter(item => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow);
   const sales = saleItems.reduce((sum, item) => sum + amount(item.total || item.unitPrice), 0);
-  const paid = items.filter(item => item.isSeparator).reduce((sum, item) => sum + amount(item.paidAmount), 0);
+  const paid = items.filter(item => item.isSeparator || item.isPaymentRow).reduce((sum, item) =>
+    sum + amount(item.isSeparator ? item.paidAmount : item.total || item.unitPrice), 0);
   return {
     sales,
     paid,
@@ -55,14 +56,15 @@ export function deriveLedgerPayments(customers: Customer[], invoices: Invoice[])
     const items: InvoiceItem[] = Array.isArray(invoice.items) ? invoice.items : [];
     for (const row of items) {
       const value = amount(row.paidAmount);
-      if (!row.isSeparator || value <= 0) continue;
+      const rowAmount = row.isSeparator ? value : amount(row.total || row.unitPrice);
+      if (!(row.isSeparator || row.isPaymentRow) || rowAmount <= 0) continue;
       const date = row.paidDate || row.createdAt || invoice.date || invoice.createdAt;
       result.push({
         id: `ledger-vertical-${invoice.id}-${row.id}`,
         userId: invoice.userId || customer.userId,
         customerId: customer.id,
         customerName: customer.name,
-        amount: value,
+        amount: rowAmount,
         date,
         method: row.paymentMethod || row.method || row.paidNote || "سجل الديون",
         notes: row.paidNote || row.details || `تسديد على الفاتورة ${invoice.invoiceNumber}`,
