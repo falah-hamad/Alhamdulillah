@@ -151,7 +151,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       profit += lineTotal - Number(unitCost) * qty;
     });
     const sellers = [...new Set(customerInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)]).filter((value): value is string => Boolean(value?.trim())))];
-    const recipients = [...new Set([
+    const recipientValues: Array<string | undefined> = [
       ...customerPayments.flatMap(payment => {
         const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
         return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
@@ -160,7 +160,9 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         const extra = item as typeof item & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
         return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
       })),
-    ] .filter((value): value is string => Boolean(value?.trim())))];
+    ];
+    const validRecipients = recipientValues.filter((value): value is string => Boolean(value?.trim()));
+    const recipients = [...new Set(validRecipients)];
     const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && Number(invoice.remainingAmount) > 0 && invoice.dueDate && invoice.dueDate < today);
     return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0, hasActivity: customerInvoices.length > 0 || customerPayments.length > 0 };
   };
