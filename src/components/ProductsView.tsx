@@ -51,6 +51,17 @@ const nowIso = () => new Date().toISOString();
 const movementId = () => `move-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const priceId = () => `price-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const money = (value: number) => (Number(value) || 0).toLocaleString("en-US");
+const productTableColumns = [
+  "اسم البضاعة", "التصنيف", "رأس المال / سعر الشراء", "سعر البيع للعميل",
+  "الكمية الحالية", "وحدة القياس", "الحد الأدنى للتنبيه", "الباركود / رقم الصنف",
+  "اسم المجهّز / المورد", "هاتف المجهّز",
+];
+const productTextLines = (value?: string) => {
+  const words = (value || "—").trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  for (let i = 0; i < words.length; i += 4) lines.push(words.slice(i, i + 4).join(" "));
+  return lines.map((line, index) => <span key={index} className="block leading-5 whitespace-nowrap">{line}</span>);
+};
 const getProductImages = (product?: Product | null): string[] => Array.from(new Set([
   product?.imageUrl,
   ...(Array.isArray(product?.imageUrls) ? product.imageUrls : []),
@@ -134,9 +145,7 @@ function ProductsViewContent({
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set(
-    rawProducts.filter(product => product && !product.isDeleted).map(product => product.category?.trim() || "بدون تصنيف")
-  ));
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
   const [showAiImport, setShowAiImport] = useState(false);
   const [showPriceLabels, setShowPriceLabels] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
@@ -574,7 +583,7 @@ function ProductsViewContent({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /> مستودع البضائع</h2>
-            <p className="text-xs text-slate-500 mt-1">بطاقات بالصور والأسعار والمجهّزين وسجل حركة المخزون.</p>
+            <p className="text-xs text-slate-500 mt-1">جدول بيانات البضاعة والأسعار والمخزون والمجهّزين.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setShowPriceLabels(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-semibold"><ScanBarcode className="w-4 h-4" /> طباعة ملصقات الأسعار</button>
@@ -663,24 +672,19 @@ function ProductsViewContent({
                       </div>
                     )}
                 </div>
-                {!collapsedCategories.has(category) && <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[540px] text-xs text-right">
-                    <thead className="bg-white text-slate-500 text-xs">
+                {!collapsedCategories.has(category) && <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
+                  <table aria-label={`بيانات البضاعة — ${category}`} className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
+                    <thead className="bg-[#94acd1] text-slate-950">
                       <tr>
-                                                <th scope="col" className="px-1.5 py-2 font-semibold">اسم البضاعة</th>
-                        <th scope="col" className="px-1.5 py-2 font-semibold">الصورة</th>
-                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">سعر الشراء</th>
-                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">سعر البيع</th>
-                        <th scope="col" className="px-1.5 py-2 font-semibold whitespace-nowrap">الربح / قطعة</th>
+                        {productTableColumns.map(label => <th key={label} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{label}</th>)}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody>
                       {categoryProducts.map(product => {
-                        const profit = (Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0);
                         return (
                           <tr
                             key={product.id}
-                            className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-slate-50/80"}`}
+                            className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40"}`}
                             onClick={event => {
                               if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                               if ((event.target as HTMLElement).closest("button")) return;
@@ -695,9 +699,15 @@ function ProductsViewContent({
                             onTouchCancel={clearLongPress}
                             title="اضغط مطولاً لعرض إجراءات البضاعة"
                           >
-                                                        <td className="px-1.5 py-2">
-                              <div className="max-w-[112px] truncate font-bold text-slate-800" title={product.name}>{product.name}</div>
-                              <div className="mt-0.5 max-w-[112px] truncate text-[9px] text-slate-500">المخزون: {Number(product.quantity) || 0} {product.unitName || "قطعة"}{product.barcode ? ` • ${product.barcode}` : ""}</div>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">
+                              <button type="button" onClick={() => {
+                                if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                                setOpenProductMenuId(null);
+                                setOpenCategoryMenu(null);
+                                openDetails(product);
+                              }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
+                                {productTextLines(product.name)}
+                              </button>
                               {openProductMenuId === product.id && (
                               <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
@@ -712,14 +722,15 @@ function ProductsViewContent({
                                 </div>
                               )}
                             </td>
-                            <td className="px-1.5 py-2">
-                              <button type="button" onClick={() => openDetails(product)} className="w-9 h-9 rounded-md border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center" title={`عرض صورة ${product.name}`} aria-label={`تفاصيل ${product.name}`}>
-                                {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" /> : <ImagePlus className="w-5 h-5 text-slate-300" />}
-                              </button>
-                            </td>
-                            <td className="px-1.5 py-2 whitespace-nowrap">{money(product.purchasePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className="px-1.5 py-2 whitespace-nowrap font-semibold text-blue-700">{money(product.salePrice)} <span className="text-[10px] text-slate-500">{settings.currency}</span></td>
-                            <td className={`px-1.5 py-2 whitespace-nowrap font-bold ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{money(profit)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.category || "بدون تصنيف")}</td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.purchasePrice)} <span className="text-slate-500">{settings.currency}</span></td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.salePrice)} <span className="text-slate-500">{settings.currency}</span></td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.quantity)}</td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.unitName || "قطعة")}</td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.minStock ?? 5)}</td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap"><bdi dir="ltr">{product.barcode || "—"}</bdi></td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.supplierName)}</td>
+                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap"><bdi dir="ltr">{product.supplierPhone || "—"}</bdi></td>
 
                           </tr>
                         );
