@@ -8,7 +8,7 @@ import {
   Eye, Save, Camera, ClipboardList, FileText,
   Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal
 } from "lucide-react";
-import { Customer, Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
+import { Customer, Invoice, Product, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
 import { parseProductsFromTextServer } from "../lib/cloudFunctions";
 import { useAuth } from "../contexts/AuthContext";
@@ -452,23 +452,7 @@ function ProductsViewContent({
     };
 
     if (editingProduct) {
-      const priceChanged = editingProduct.purchasePrice !== common.purchasePrice || editingProduct.salePrice !== common.salePrice;
-      const supplierChanged = (editingProduct.supplierName || "") !== (common.supplierName || "");
       const quantityDelta = common.quantity - (Number(editingProduct.quantity) || 0);
-      const priceHistory: ProductPriceHistoryEntry[] = [...(editingProduct.priceHistory || [])];
-      if (priceChanged || supplierChanged) {
-        priceHistory.unshift({
-          id: priceId(), changedAt: nowIso(),
-          previousPurchasePrice: editingProduct.purchasePrice,
-          previousSalePrice: editingProduct.salePrice,
-          purchasePrice: common.purchasePrice,
-          salePrice: common.salePrice,
-          supplierName: common.supplierName,
-          note: priceChanged
-            ? (supplierChanged ? "تحديث الأسعار والمجهّز من بطاقة البضاعة" : "تعديل سعر من بطاقة البضاعة")
-            : "تحديث المجهّز من بطاقة البضاعة",
-        });
-      }
       const stockMovements: ProductStockMovement[] = [...(editingProduct.stockMovements || [])];
       if (quantityDelta !== 0) {
         stockMovements.unshift({
@@ -476,7 +460,7 @@ function ProductsViewContent({
           createdAt: nowIso(), note: "تسوية كمية من نموذج تعديل البضاعة",
         });
       }
-      updateProduct({ ...editingProduct, ...common, priceHistory, stockMovements });
+      updateProduct({ ...editingProduct, ...common, stockMovements });
     } else {
       const createdAt = nowIso();
       addProduct({
@@ -606,6 +590,7 @@ function ProductsViewContent({
   };
 
   const currentDetailsProduct = detailsProduct ? products.find(product => product.id === detailsProduct.id) || detailsProduct : null;
+  const priceHistoryRows = (currentDetailsProduct?.priceHistory || []).slice().sort((left, right) => (Date.parse(right.changedAt) || 0) - (Date.parse(left.changedAt) || 0));
   const productSales = currentDetailsProduct ? getProductSalesHistory(currentDetailsProduct, invoices, Array.isArray(rawCustomers) ? rawCustomers : []) : [];
   const salesQuantity = productSales.reduce((sum, row) => sum + row.quantity, 0);
   const salesAmount = productSales.reduce((sum, row) => sum + row.sales, 0);
@@ -910,39 +895,39 @@ function ProductsViewContent({
         </div>
       )}
 
-      {detailsProduct && (
+      {currentDetailsProduct && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3 sm:p-5">
           <div onClick={() => { if (suppressPriceDeleteDismissClick.current) { suppressPriceDeleteDismissClick.current = false; return; } setPriceDeleteEntryId(null); }} className="bg-white w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-2xl shadow-xl p-4 sm:p-6 space-y-5">
-            <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-800">{detailsProduct.name}</h3><p className="text-xs text-slate-500 mt-1">{detailsProduct.category} {detailsProduct.barcode ? `• ${detailsProduct.barcode}` : ""}</p></div><button onClick={() => setDetailsProduct(null)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
+            <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-800">{currentDetailsProduct.name}</h3><p className="text-xs text-slate-500 mt-1">{currentDetailsProduct.category} {currentDetailsProduct.barcode ? `• ${currentDetailsProduct.barcode}` : ""}</p></div><button onClick={() => setDetailsProduct(null)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-1 space-y-2">
-                {getProductImages(detailsProduct).length > 0 ? <>
-                  <div className="relative overflow-hidden bg-slate-50 rounded-xl border touch-pan-y" onTouchStart={event => { imageTouchStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={event => { const start = imageTouchStartX.current; const end = event.changedTouches[0]?.clientX; imageTouchStartX.current = null; if (start !== null && end !== undefined && Math.abs(end - start) > 35 && getProductImages(detailsProduct).length > 1) setDetailsImageIndex(current => (current + (end < start ? 1 : -1) + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length); }}>
-                    <img src={getProductImages(detailsProduct)[detailsImageIndex % getProductImages(detailsProduct).length]} alt={`${detailsProduct.name} - الصورة ${detailsImageIndex + 1}`} className="w-full h-56 object-contain" />
-                    {getProductImages(detailsProduct).length > 1 && <>
-                      <button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة السابقة"><ChevronLeft className="w-5 h-5" /></button>
-                      <button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(detailsProduct).length)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة التالية"><ChevronRight className="w-5 h-5" /></button>
+                {getProductImages(currentDetailsProduct).length > 0 ? <>
+                  <div className="relative overflow-hidden bg-slate-50 rounded-xl border touch-pan-y" onTouchStart={event => { imageTouchStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={event => { const start = imageTouchStartX.current; const end = event.changedTouches[0]?.clientX; imageTouchStartX.current = null; if (start !== null && end !== undefined && Math.abs(end - start) > 35 && getProductImages(currentDetailsProduct).length > 1) setDetailsImageIndex(current => (current + (end < start ? 1 : -1) + getProductImages(currentDetailsProduct).length) % getProductImages(currentDetailsProduct).length); }}>
+                    <img src={getProductImages(currentDetailsProduct)[detailsImageIndex % getProductImages(currentDetailsProduct).length]} alt={`${currentDetailsProduct.name} - الصورة ${detailsImageIndex + 1}`} className="w-full h-56 object-contain" />
+                    {getProductImages(currentDetailsProduct).length > 1 && <>
+                      <button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(currentDetailsProduct).length) % getProductImages(currentDetailsProduct).length)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة السابقة"><ChevronLeft className="w-5 h-5" /></button>
+                      <button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(currentDetailsProduct).length)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border shadow p-2" aria-label="الصورة التالية"><ChevronRight className="w-5 h-5" /></button>
                     </>}
                   </div>
-                  {getProductImages(detailsProduct).length > 1 && <div className="flex items-center justify-center gap-3 text-xs text-slate-600"><button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(detailsProduct).length) % getProductImages(detailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="السابق"><ChevronRight className="w-4 h-4" /></button><span>{(detailsImageIndex % getProductImages(detailsProduct).length) + 1} / {getProductImages(detailsProduct).length}</span><button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(detailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="التالي"><ChevronLeft className="w-4 h-4" /></button></div>}
+                  {getProductImages(currentDetailsProduct).length > 1 && <div className="flex items-center justify-center gap-3 text-xs text-slate-600"><button type="button" onClick={() => setDetailsImageIndex(current => (current - 1 + getProductImages(currentDetailsProduct).length) % getProductImages(currentDetailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="السابق"><ChevronRight className="w-4 h-4" /></button><span>{(detailsImageIndex % getProductImages(currentDetailsProduct).length) + 1} / {getProductImages(currentDetailsProduct).length}</span><button type="button" onClick={() => setDetailsImageIndex(current => (current + 1) % getProductImages(currentDetailsProduct).length)} className="p-1 rounded hover:bg-slate-100" aria-label="التالي"><ChevronLeft className="w-4 h-4" /></button></div>}
                 </> : <div className="h-40 bg-slate-50 border rounded-xl flex items-center justify-center"><ImagePlus className="w-10 h-10 text-slate-300" /></div>}
               </div>
               <div className="sm:col-span-2 grid grid-cols-2 gap-3 content-start">
-                {[["سعر الشراء", detailsProduct.purchasePrice], ["سعر البيع", detailsProduct.salePrice], ["ربح القطعة المتوقع", detailsProduct.salePrice - detailsProduct.purchasePrice], ["الكمية الحالية", detailsProduct.quantity]].map(([label, value]) => <div key={String(label)} className="bg-slate-50 rounded-lg p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-bold text-slate-800 mt-1">{money(Number(value))} {label === "الكمية الحالية" ? (detailsProduct.unitName || "قطعة") : settings.currency}</div></div>)}
+                {[["سعر الشراء", currentDetailsProduct?.purchasePrice], ["سعر البيع", currentDetailsProduct?.salePrice], ["ربح القطعة المتوقع", (currentDetailsProduct?.salePrice || 0) - (currentDetailsProduct?.purchasePrice || 0)], ["الكمية الحالية", currentDetailsProduct.quantity]].map(([label, value]) => <div key={String(label)} className="bg-slate-50 rounded-lg p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-bold text-slate-800 mt-1">{money(Number(value))} {label === "الكمية الحالية" ? (currentDetailsProduct.unitName || "قطعة") : settings.currency}</div></div>)}
                 <div className="col-span-2 text-sm text-slate-700 space-y-1">
-                  {detailsProduct.location && <p className="whitespace-pre-wrap">موقع البضاعة: {detailsProduct.location}</p>}
-                  {detailsProduct.supplierName && <p className="flex items-center gap-2"><Truck className="w-4 h-4 text-slate-400" /> المجهّز: {detailsProduct.supplierName}</p>}
-                  {detailsProduct.supplierPhone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {detailsProduct.supplierPhone}</p>}
-                  {detailsProduct.description && <p className="whitespace-pre-wrap">{detailsProduct.description}</p>}
-                  {detailsProduct.notes && <p className="whitespace-pre-wrap text-slate-500">ملاحظات: {detailsProduct.notes}</p>}
+                  {currentDetailsProduct.location && <p className="whitespace-pre-wrap">موقع البضاعة: {currentDetailsProduct.location}</p>}
+                  {currentDetailsProduct.supplierName && <p className="flex items-center gap-2"><Truck className="w-4 h-4 text-slate-400" /> المجهّز: {currentDetailsProduct.supplierName}</p>}
+                  {currentDetailsProduct.supplierPhone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {currentDetailsProduct.supplierPhone}</p>}
+                  {currentDetailsProduct.description && <p className="whitespace-pre-wrap">{currentDetailsProduct.description}</p>}
+                  {currentDetailsProduct.notes && <p className="whitespace-pre-wrap text-slate-500">ملاحظات: {currentDetailsProduct.notes}</p>}
                 </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => { setDetailsProduct(null); openEdit(detailsProduct); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><SquarePen className="w-4 h-4" /> تعديل البطاقة</button>
-              <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "restock"); }} className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm inline-flex items-center gap-1"><PackagePlus className="w-4 h-4" /> توريد</button>
-              <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "return"); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> مرتجع</button>
-              <button onClick={() => { const p = detailsProduct; setDetailsProduct(null); openMovement(p, "damaged"); }} className="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm inline-flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تالف</button>
+              <button onClick={() => { setDetailsProduct(null); openEdit(currentDetailsProduct); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><SquarePen className="w-4 h-4" /> تعديل البطاقة</button>
+              <button onClick={() => { const p = currentDetailsProduct; setDetailsProduct(null); openMovement(p, "restock"); }} className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm inline-flex items-center gap-1"><PackagePlus className="w-4 h-4" /> توريد</button>
+              <button onClick={() => { const p = currentDetailsProduct; setDetailsProduct(null); openMovement(p, "return"); }} className="px-3 py-2 rounded-lg bg-slate-100 text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> مرتجع</button>
+              <button onClick={() => { const p = currentDetailsProduct; setDetailsProduct(null); openMovement(p, "damaged"); }} className="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm inline-flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> تالف</button>
             </div>
             <div className="border-t pt-3 space-y-3">
               <p className="text-xs text-slate-500">السجلات والتفاصيل الإضافية</p>
@@ -954,7 +939,32 @@ function ProductsViewContent({
             </div>
             {detailsTab === "prices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
-              {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} onTouchStart={() => startPriceLongPress(entry.id)} onTouchEnd={cancelPriceLongPress} onTouchMove={cancelPriceLongPress} onMouseDown={() => startPriceLongPress(entry.id)} onMouseUp={cancelPriceLongPress} onMouseLeave={cancelPriceLongPress} onContextMenu={event => { event.preventDefault(); setPriceDeleteEntryId(entry.id); }} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2 select-none"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}{priceDeleteEntryId === entry.id && <div className="w-full border-t pt-2 mt-1 flex items-center justify-between gap-2"><span className="text-slate-500">خيارات السجل</span><button type="button" onClick={() => { if (!window.confirm("هل تريد حذف سجل السعر هذا؟")) return; const updatedProduct = { ...detailsProduct, priceHistory: (detailsProduct.priceHistory || []).filter(item => item.id !== entry.id) }; updateProduct(updatedProduct); setDetailsProduct(updatedProduct); setPriceDeleteEntryId(null); }} className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 hover:bg-rose-100"><Trash2 className="w-4 h-4" /> حذف السجل</button></div>}</div>)}</div>}
+              <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white">
+                <table aria-label="جدول سجل الأسعار" className="w-max min-w-full border-collapse text-xs text-center text-slate-900">
+                  <thead className="bg-[#94acd1]"><tr>{["تسلسل", "مبلغ رأس المال", "مبلغ البيع", "مبلغ الربح", "المجهّز", "الطابع الزمني"].map(label => <th scope="col" key={label} className="border border-slate-400 px-2 py-2 font-bold whitespace-nowrap">{label}</th>)}</tr></thead>
+                  <tbody>
+                    {priceHistoryRows.length === 0 ? <tr><td colSpan={6} className="border border-slate-300 p-4 text-slate-500">لا توجد أسعار مسجلة بعد. يظهر هنا كل تغيير محفوظ في رأس المال أو سعر البيع.</td></tr> : priceHistoryRows.map((entry, index) => <React.Fragment key={entry.id}>
+                      <tr onTouchStart={() => startPriceLongPress(entry.id)} onTouchEnd={cancelPriceLongPress} onTouchMove={cancelPriceLongPress} onTouchCancel={cancelPriceLongPress} onMouseDown={() => startPriceLongPress(entry.id)} onMouseUp={cancelPriceLongPress} onMouseLeave={cancelPriceLongPress} onContextMenu={event => { event.preventDefault(); setPriceDeleteEntryId(entry.id); }} className="select-none hover:bg-blue-50/40" title={entry.note || "اضغط مطولاً لعرض إجراءات السجل"}>
+                        <td className="border border-slate-300 px-2 py-2">{index + 1}</td>
+                        <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{money(entry.purchasePrice)}</td>
+                        <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{money(entry.salePrice)}</td>
+                        <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{money((Number(entry.salePrice) || 0) - (Number(entry.purchasePrice) || 0))}</td>
+                        <td className="border border-slate-300 px-2 py-2">{productTextLines(entry.supplierName)}</td>
+                        <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{formatStockSaleTimestamp(entry.changedAt)}</td>
+                      </tr>
+                      {priceDeleteEntryId === entry.id && <tr><td colSpan={6} className="border border-slate-300 p-2 text-right">
+                        <button type="button" onClick={() => {
+                          if (!currentDetailsProduct || !window.confirm("هل تريد حذف سجل السعر هذا؟")) return;
+                          const updatedProduct = { ...currentDetailsProduct, priceHistory: (currentDetailsProduct.priceHistory || []).filter(item => item.id !== entry.id) };
+                          updateProduct(updatedProduct);
+                          setDetailsProduct(updatedProduct);
+                          setPriceDeleteEntryId(null);
+                        }} className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 hover:bg-rose-100"><Trash2 className="w-4 h-4" /> حذف السجل</button>
+                      </td></tr>}
+                    </React.Fragment>)}
+                  </tbody>
+                </table>
+              </div>
             </section>}
             {detailsTab === "stock" && <section className="space-y-3">
               <h4 className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4" /> حركة المخزون</h4>
@@ -975,7 +985,7 @@ function ProductsViewContent({
                     </tr>)}
                   </tbody>
                   <tfoot className="bg-[#ffd740] font-bold">
-                    <tr><td className="border border-slate-400 px-2 py-2"></td><th scope="row" className="border border-slate-400 px-2 py-2">المجموع</th><td className="border border-slate-400 px-2 py-2 whitespace-nowrap">{money(salesQuantity)} {salesUnits.length === 1 ? salesUnits[0] : salesUnits.length > 1 ? "وحدات متنوعة" : detailsProduct.unitName || "قطعة"}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesCapital)}</td><td className="border border-slate-400 px-2 py-2">{money(salesAmount)}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesAmount - salesCapital)}</td><td className="border border-slate-400 px-2 py-2"></td></tr>
+                    <tr><td className="border border-slate-400 px-2 py-2"></td><th scope="row" className="border border-slate-400 px-2 py-2">المجموع</th><td className="border border-slate-400 px-2 py-2 whitespace-nowrap">{money(salesQuantity)} {salesUnits.length === 1 ? salesUnits[0] : salesUnits.length > 1 ? "وحدات متنوعة" : currentDetailsProduct.unitName || "قطعة"}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesCapital)}</td><td className="border border-slate-400 px-2 py-2">{money(salesAmount)}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesAmount - salesCapital)}</td><td className="border border-slate-400 px-2 py-2"></td></tr>
                   </tfoot>
                 </table>
               </div>
@@ -990,10 +1000,10 @@ function ProductsViewContent({
             </section>}
             {detailsTab === "invoices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><FileText className="w-4 h-4" /> الفواتير المرتبطة</h4>
-              {invoices.filter(invoice => (invoice.items || []).some(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).length === 0
+              {invoices.filter(invoice => (invoice.items || []).some(item => item.productId === currentDetailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).length === 0
                 ? <p className="text-xs text-slate-500">لا توجد فواتير مرتبطة بهذه البضاعة بعد.</p>
-                : <div className="space-y-2">{invoices.filter(invoice => (invoice.items || []).some(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).map(invoice => {
-                  const linkedItems = (invoice.items || []).filter(item => item.productId === detailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow);
+                : <div className="space-y-2">{invoices.filter(invoice => (invoice.items || []).some(item => item.productId === currentDetailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)).map(invoice => {
+                  const linkedItems = (invoice.items || []).filter(item => item.productId === currentDetailsProduct.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow);
                   return <div key={invoice.id} className="border rounded-lg p-3 space-y-1 text-xs">
                     <div className="flex flex-wrap items-center justify-between gap-2"><b>فاتورة {invoice.invoiceNumber || invoice.id}</b><span className="text-slate-500">{invoice.date || invoice.createdAt ? new Date(invoice.date || invoice.createdAt).toLocaleString("ar-IQ") : "التاريخ غير متوفر"}</span></div>
                     {invoice.customerName && <div className="text-slate-600">العميل: {invoice.customerName}</div>}

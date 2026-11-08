@@ -12,6 +12,7 @@ import {
   CloudBackupItem,
 } from "../types";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
+import { recordProductPriceChange } from "../lib/productPriceHistory";
 import { formatChangeLogDateTime } from "../utils/changeLogUtils";
 import {
   sampleCustomerFolders,
@@ -929,7 +930,10 @@ export function useAccountingData() {
   };
 
   const updateProduct = async (updated: Product) => {
-    const prodWithUser = { ...updated, userId: currentUser?.uid };
+    const previous = latestState.current.products.find(product => product.id === updated.id);
+    const recorded = recordProductPriceChange(previous, updated, new Date().toISOString(), createUniqueRecordId("price"));
+    const prodWithUser = { ...recorded, userId: currentUser?.uid };
+    latestState.current.products = latestState.current.products.map(product => product.id === updated.id ? prodWithUser : product);
     setProducts((prev) => {
       const next = prev.map((p) => (p.id === updated.id ? prodWithUser : p));
       saveScopedStorage("products", next);
