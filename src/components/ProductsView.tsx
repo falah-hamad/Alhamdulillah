@@ -8,14 +8,16 @@ import {
   Eye, Save, Camera, ClipboardList, FileText,
   Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal
 } from "lucide-react";
-import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
+import { Customer, Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
 import { parseProductsFromTextServer } from "../lib/cloudFunctions";
 import { useAuth } from "../contexts/AuthContext";
+import { formatStockSaleTimestamp, getProductSalesHistory } from "../lib/productSalesHistory";
 
 interface ProductsViewProps {
   products: Product[];
   invoices?: Invoice[];
+  customers?: Customer[];
   settings: SystemSettings;
   addProduct: (product: Omit<Product, "id">) => Product;
   updateProduct: (product: Product) => void;
@@ -111,7 +113,7 @@ const movementLabels: Record<ProductStockMovementType, string> = {
 };
 
 function ProductsViewContent({
-  products: rawProducts, invoices: rawInvoices = [], settings, addProduct, updateProduct, deleteProduct,
+  products: rawProducts, invoices: rawInvoices = [], customers: rawCustomers = [], settings, addProduct, updateProduct, deleteProduct,
 }: ProductsViewProps) {
   // Protect this view from malformed legacy/cache records so one bad record cannot blank the page.
   const products: Product[] = Array.isArray(rawProducts)
@@ -592,19 +594,6 @@ function ProductsViewContent({
     if (selectedCategory === category) setSelectedCategory("all");
   };
 
-  const salesForProduct = (product: Product) => invoices.flatMap(invoice =>
-    (product.stockMovements || []).some(m => m.referenceId === invoice.id && m.type === "sale")
-      ? []
-      : (invoice.items || []).filter(item => item.productId === product.id && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow)
-      .map(item => ({
-        id: `sale-${invoice.id}-${item.id}`, type: "sale" as const,
-        quantity: -(Number(item.quantity) || 0), createdAt: invoice.date || invoice.createdAt,
-        note: `فاتورة ${invoice.invoiceNumber || ""}`.trim(),
-        customerName: invoice.customerName,
-        referenceId: invoice.id,
-      }))
-  );
-
   const handleBarcodeDetected = (code: string) => {
     const normalizedCode = code.trim().toLocaleLowerCase();
     setShowBarcodeScanner(false);
@@ -616,10 +605,14 @@ function ProductsViewContent({
     else alert(`لم أجد منتجاً برقم الباركود: ${code}. تأكد أن الباركود مسجل في بطاقة المنتج.`);
   };
 
-  const historyForProduct = (product: Product) => [
-    ...(product.stockMovements || []).map(m => ({ ...m, label: movementLabels[m.type] || "حركة مخزون" })),
-    ...salesForProduct(product).map(m => ({ ...m, label: movementLabels.sale })),
-  ].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 30);
+  const currentDetailsProduct = detailsProduct ? products.find(product => product.id === detailsProduct.id) || detailsProduct : null;
+  const productSales = currentDetailsProduct ? getProductSalesHistory(currentDetailsProduct, invoices, Array.isArray(rawCustomers) ? rawCustomers : []) : [];
+  const salesQuantity = productSales.reduce((sum, row) => sum + row.quantity, 0);
+  const salesAmount = productSales.reduce((sum, row) => sum + row.sales, 0);
+  const salesCostKnown = productSales.every(row => row.capital !== null);
+  const salesCapital = salesCostKnown ? productSales.reduce((sum, row) => sum + (row.capital ?? 0), 0) : null;
+  const salesUnits = [...new Set(productSales.map(row => row.unit))];
+  const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
@@ -963,9 +956,37 @@ function ProductsViewContent({
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
               {(detailsProduct.priceHistory || []).length === 0 ? <p className="text-xs text-slate-500">سيظهر سجل الأسعار عند تسجيل الأسعار أو تغييرها مستقبلاً.</p> : <div className="space-y-2">{(detailsProduct.priceHistory || []).slice(0, 12).map(entry => <div key={entry.id} onTouchStart={() => startPriceLongPress(entry.id)} onTouchEnd={cancelPriceLongPress} onTouchMove={cancelPriceLongPress} onMouseDown={() => startPriceLongPress(entry.id)} onMouseUp={cancelPriceLongPress} onMouseLeave={cancelPriceLongPress} onContextMenu={event => { event.preventDefault(); setPriceDeleteEntryId(entry.id); }} className="border rounded-lg p-3 text-xs flex flex-wrap justify-between gap-2 select-none"><span className="text-slate-500">{new Date(entry.changedAt).toLocaleString("ar-IQ")}</span><span>شراء: <b>{money(entry.purchasePrice)}</b> • بيع: <b>{money(entry.salePrice)}</b></span>{entry.supplierName && <span>المجهّز: {entry.supplierName}</span>}{entry.note && <span className="text-slate-500">{entry.note}</span>}{priceDeleteEntryId === entry.id && <div className="w-full border-t pt-2 mt-1 flex items-center justify-between gap-2"><span className="text-slate-500">خيارات السجل</span><button type="button" onClick={() => { if (!window.confirm("هل تريد حذف سجل السعر هذا؟")) return; const updatedProduct = { ...detailsProduct, priceHistory: (detailsProduct.priceHistory || []).filter(item => item.id !== entry.id) }; updateProduct(updatedProduct); setDetailsProduct(updatedProduct); setPriceDeleteEntryId(null); }} className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 hover:bg-rose-100"><Trash2 className="w-4 h-4" /> حذف السجل</button></div>}</div>)}</div>}
             </section>}
-            {detailsTab === "stock" && <section className="space-y-2">
+            {detailsTab === "stock" && <section className="space-y-3">
               <h4 className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4" /> حركة المخزون</h4>
-              {historyForProduct(detailsProduct).length === 0 ? <p className="text-xs text-slate-500">لا توجد حركات مسجلة بعد.</p> : <div className="space-y-2">{historyForProduct(detailsProduct).map((entry: any) => <div key={entry.id} className="border rounded-lg p-3 flex flex-wrap justify-between gap-2 text-xs"><div><b>{entry.label}</b><div className="text-slate-500 mt-1">{entry.note || ""}{entry.customerName ? ` • العميل: ${entry.customerName}` : ""}</div></div><div className="text-left"><b className={entry.quantity < 0 ? "text-rose-700" : "text-emerald-700"}>{entry.quantity > 0 ? "+" : ""}{entry.quantity}</b><div className="text-slate-400 mt-1">{entry.createdAt ? new Date(entry.createdAt).toLocaleString("ar-IQ") : ""}</div></div></div>)}</div>}
+              <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white">
+                <table aria-label="جدول حركة المخزون" className="w-max min-w-full border-collapse text-xs text-center text-slate-900">
+                  <thead className="bg-[#94acd1]">
+                    <tr>{["ت", "العميل", "عدد البيع", "إجمالي مبلغ رأس المال", "إجمالي مبلغ البيع", "إجمالي مبلغ الربح", "الطابع الزمني"].map(label => <th scope="col" key={label} className="border border-slate-400 px-2 py-2 font-bold whitespace-nowrap">{label}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {productSales.length === 0 ? <tr><td colSpan={7} className="border border-slate-300 p-4 text-slate-500">لا توجد عمليات بيع مسجلة لهذه البضاعة في سجل الديون.</td></tr> : productSales.map((row, index) => <tr key={row.id} className="hover:bg-blue-50/40">
+                      <td className="border border-slate-300 px-2 py-2">{index + 1}</td>
+                      <td className="border border-slate-300 px-2 py-2">{productTextLines(row.customerName)}</td>
+                      <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{money(row.quantity)} {row.unit}</td>
+                      <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{row.capital === null ? "—" : money(row.capital)}</td>
+                      <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{money(row.sales)}</td>
+                      <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{row.profit === null ? "—" : money(row.profit)}</td>
+                      <td className="border border-slate-300 px-2 py-2 whitespace-nowrap">{formatStockSaleTimestamp(row.timestamp)}</td>
+                    </tr>)}
+                  </tbody>
+                  <tfoot className="bg-[#ffd740] font-bold">
+                    <tr><td className="border border-slate-400 px-2 py-2"></td><th scope="row" className="border border-slate-400 px-2 py-2">المجموع</th><td className="border border-slate-400 px-2 py-2 whitespace-nowrap">{money(salesQuantity)} {salesUnits.length === 1 ? salesUnits[0] : salesUnits.length > 1 ? "وحدات متنوعة" : detailsProduct.unitName || "قطعة"}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesCapital)}</td><td className="border border-slate-400 px-2 py-2">{money(salesAmount)}</td><td className="border border-slate-400 px-2 py-2">{salesCapital === null ? "—" : money(salesAmount - salesCapital)}</td><td className="border border-slate-400 px-2 py-2"></td></tr>
+                  </tfoot>
+                </table>
+              </div>
+              {!salesCostKnown && <p className="text-xs text-slate-500">— تعني أن تكلفة الشراء وقت البيع غير مسجلة؛ لذلك لا يُحسب ربحها من سعر الشراء الحالي.</p>}
+              {otherStockMovements.length > 0 && <details className="rounded-lg border border-slate-200 p-3">
+                <summary className="cursor-pointer text-sm font-semibold">حركات التوريد والمرتجعات والتسوية والتالف ({otherStockMovements.length})</summary>
+                <div className="mt-3 overflow-x-auto"><table aria-label="حركات المخزون الأخرى" className="w-full border-collapse text-xs text-center">
+                  <thead className="bg-[#94acd1]"><tr>{["نوع الحركة", "الكمية", "الملاحظات", "الطابع الزمني"].map(label => <th scope="col" key={label} className="border border-slate-400 p-2 whitespace-nowrap">{label}</th>)}</tr></thead>
+                  <tbody>{otherStockMovements.map(movement => <tr key={movement.id}><td className="border border-slate-300 p-2 whitespace-nowrap">{movementLabels[movement.type]}</td><td className="border border-slate-300 p-2 whitespace-nowrap" dir="ltr">{movement.quantity > 0 ? "+" : ""}{money(movement.quantity)}</td><td className="border border-slate-300 p-2">{movement.note || "—"}</td><td className="border border-slate-300 p-2 whitespace-nowrap">{formatStockSaleTimestamp(movement.createdAt)}</td></tr>)}</tbody>
+                </table></div>
+              </details>}
             </section>}
             {detailsTab === "invoices" && <section className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2"><FileText className="w-4 h-4" /> الفواتير المرتبطة</h4>

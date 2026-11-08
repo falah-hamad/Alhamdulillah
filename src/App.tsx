@@ -1018,6 +1018,7 @@ export default function App() {
             <ProductsView
               products={products}
               invoices={invoices}
+              customers={customers}
               settings={settings}
               addProduct={addProduct}
               updateProduct={updateProduct}
