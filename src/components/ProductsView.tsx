@@ -37,6 +37,7 @@ type ProductForm = {
   notes: string;
   supplierName: string;
   supplierPhone: string;
+  location: string;
   minStock: string;
   unitName: string;
 };
@@ -44,7 +45,7 @@ type ProductForm = {
 const emptyForm: ProductForm = {
   name: "", purchasePrice: "", salePrice: "", quantity: "", category: "",
   barcode: "", imageUrl: "", imageUrls: [], description: "", notes: "", supplierName: "",
-  supplierPhone: "", minStock: "", unitName: "قطعة",
+  supplierPhone: "", location: "", minStock: "", unitName: "قطعة",
 };
 
 const nowIso = () => new Date().toISOString();
@@ -55,8 +56,12 @@ const productTableColumns = [
   { id: "name", label: "اسم البضاعة" }, { id: "category", label: "التصنيف" },
   { id: "purchasePrice", label: "رأس المال / سعر الشراء" }, { id: "salePrice", label: "سعر البيع للعميل" },
   { id: "profit", label: "الربح" },
+  { id: "totalCapital", label: "إجمالي رأس المال" },
+  { id: "totalSaleValue", label: "إجمالي قيمة البيع" },
+  { id: "totalExpectedProfit", label: "إجمالي الربح المتوقع" },
   { id: "quantity", label: "الكمية الحالية" }, { id: "unitName", label: "وحدة القياس" },
   { id: "minStock", label: "الحد الأدنى للتنبيه" }, { id: "barcode", label: "الباركود / رقم الصنف" },
+  { id: "location", label: "موقع البضاعة" },
   { id: "supplierName", label: "اسم المجهّز / المورد" }, { id: "supplierPhone", label: "هاتف المجهّز" },
 ] as const;
 type ProductColumnId = typeof productTableColumns[number]["id"];
@@ -71,12 +76,13 @@ const readProductColumns = (key: string): ProductColumnSettings => {
     const valid = (id: unknown): id is ProductColumnId => typeof id === "string" && productColumnIds.includes(id as ProductColumnId);
     const order = Array.isArray(saved.order) ? [...new Set<ProductColumnId>(saved.order.filter(valid))] : [];
     const visible = Array.isArray(saved.visible) ? [...new Set<ProductColumnId>(saved.visible.filter(valid))] : [...productColumnIds];
-    // Add the new profit column to existing layouts without resetting their choices.
-    if (order.length && !order.includes("profit")) {
-      const saleIndex = order.indexOf("salePrice");
-      order.splice(saleIndex < 0 ? order.length : saleIndex + 1, 0, "profit");
-      if (visible.length && !visible.includes("profit")) visible.push("profit");
-    }
+    // Introduce new columns beside their defaults while preserving saved visibility and order.
+    productColumnIds.forEach((id, index) => {
+      if (order.includes(id)) return;
+      const previousIndex = index > 0 ? order.indexOf(productColumnIds[index - 1]) : -1;
+      order.splice(previousIndex < 0 ? order.length : previousIndex + 1, 0, id);
+      if (visible.length && !visible.includes(id)) visible.push(id);
+    });
     return { order: [...order, ...productColumnIds.filter(id => !order.includes(id))], visible: visible.length ? visible : [...productColumnIds], panelOpen: saved.panelOpen === true };
   } catch { return defaultProductColumns(); }
 };
@@ -269,7 +275,7 @@ function ProductsViewContent({
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
     return activeProducts.filter(p => {
-      const searchable = [p.name, p.category, p.barcode, p.description, p.notes, p.supplierName, p.supplierPhone]
+      const searchable = [p.name, p.category, p.barcode, p.description, p.notes, p.supplierName, p.supplierPhone, p.location]
         .filter(Boolean).join(" ").toLocaleLowerCase();
       const matchesQuery = !q || searchable.includes(q);
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
@@ -366,6 +372,7 @@ function ProductsViewContent({
       notes: product.notes || "",
       supplierName: product.supplierName || "",
       supplierPhone: product.supplierPhone || "",
+      location: product.location || "",
       minStock: product.minStock == null ? "5" : String(product.minStock),
       unitName: product.unitName || "قطعة",
     });
@@ -437,6 +444,7 @@ function ProductsViewContent({
       notes: form.notes.trim() || undefined,
       supplierName: form.supplierName.trim() || undefined,
       supplierPhone: form.supplierPhone.trim() || undefined,
+      location: form.location.trim() || undefined,
       minStock: Number(form.minStock) || 0,
       unitName: form.unitName.trim() || "قطعة",
     };
@@ -732,7 +740,7 @@ function ProductsViewContent({
                             title="اضغط مطولاً لعرض إجراءات البضاعة"
                           >
                             {visibleProductColumns.map((id, index) => (
-                              <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${["name", "category", "unitName", "supplierName"].includes(id) ? "whitespace-normal" : "whitespace-nowrap"}`}>
+                              <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${["name", "category", "unitName", "supplierName", "location"].includes(id) ? "whitespace-normal" : "whitespace-nowrap"}`}>
                                 {id === "name" ? <button type="button" onClick={() => {
                                     if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                                     setOpenProductMenuId(null);
@@ -743,6 +751,10 @@ function ProductsViewContent({
                                   id === "category" ? productTextLines(product.category || "بدون تصنيف") :
                                   id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
                                   id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "totalCapital" ? <>{money((Number(product.purchasePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "totalSaleValue" ? <>{money((Number(product.salePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "totalExpectedProfit" ? <>{money(((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0)) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "location" ? productTextLines(product.location) :
                                   id === "quantity" ? money(product.quantity) :
                                   id === "unitName" ? productTextLines(product.unitName || "قطعة") :
                                   id === "minStock" ? money(product.minStock ?? 5) :
@@ -814,6 +826,9 @@ function ProductsViewContent({
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الباركود / رقم الصنف
                   <input value={form.barcode} onInput={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">موقع البضاعة
+                  <input value={form.location} onInput={e => setField("location", e.currentTarget.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="مثلاً: المخزن — الرف 3 — الدرج 2" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">اسم المجهّز / المورد
                   <input value={form.supplierName} onInput={e => setField("supplierName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="المحل أو الشخص الذي اشتريت منه" />
@@ -922,6 +937,7 @@ function ProductsViewContent({
               <div className="sm:col-span-2 grid grid-cols-2 gap-3 content-start">
                 {[["سعر الشراء", detailsProduct.purchasePrice], ["سعر البيع", detailsProduct.salePrice], ["ربح القطعة المتوقع", detailsProduct.salePrice - detailsProduct.purchasePrice], ["الكمية الحالية", detailsProduct.quantity]].map(([label, value]) => <div key={String(label)} className="bg-slate-50 rounded-lg p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-bold text-slate-800 mt-1">{money(Number(value))} {label === "الكمية الحالية" ? (detailsProduct.unitName || "قطعة") : settings.currency}</div></div>)}
                 <div className="col-span-2 text-sm text-slate-700 space-y-1">
+                  {detailsProduct.location && <p className="whitespace-pre-wrap">موقع البضاعة: {detailsProduct.location}</p>}
                   {detailsProduct.supplierName && <p className="flex items-center gap-2"><Truck className="w-4 h-4 text-slate-400" /> المجهّز: {detailsProduct.supplierName}</p>}
                   {detailsProduct.supplierPhone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {detailsProduct.supplierPhone}</p>}
                   {detailsProduct.description && <p className="whitespace-pre-wrap">{detailsProduct.description}</p>}

@@ -106,6 +106,7 @@ export interface Product {
   notes?: string;
   supplierName?: string;
   supplierPhone?: string;
+  location?: string;
   minStock?: number;
   unitName?: string;
   isFavorite?: boolean;
