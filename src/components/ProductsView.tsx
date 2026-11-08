@@ -6,7 +6,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList, FileText,
-  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
@@ -144,8 +144,6 @@ function ProductsViewContent({
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
-  const [openCategoryMenu, setOpenCategoryMenu] = useState<string | null>(null);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
   const [showAiImport, setShowAiImport] = useState(false);
   const [showPriceLabels, setShowPriceLabels] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
@@ -230,17 +228,6 @@ function ProductsViewContent({
       return a.name.localeCompare(b.name, "ar");
     });
   }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus]);
-
-  const groupedProducts = useMemo(() => {
-    const groups = new Map<string, Product[]>();
-    filteredProducts.forEach(product => {
-      const category = product.category?.trim() || "بدون تصنيف";
-      const current = groups.get(category) || [];
-      current.push(product);
-      groups.set(category, current);
-    });
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, "ar"));
-  }, [filteredProducts]);
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
@@ -622,65 +609,15 @@ function ProductsViewContent({
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
-          <div className="space-y-5 min-w-0">
-            {groupedProducts.map(([category, categoryProducts]) => (
-              <section key={category} className="min-w-0 border border-slate-200 rounded-xl overflow-hidden">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={!collapsedCategories.has(category)}
-                  className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b select-none cursor-pointer transition-colors duration-150 ${pressedItem === `category:${category}` ? "bg-blue-100/80 border-blue-300 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "bg-slate-50 border-slate-200"}`}
-                  onClick={event => {
-                    if (suppressNextClick.current) { suppressNextClick.current = false; return; }
-                    if ((event.target as HTMLElement).closest("button")) return;
-                    setCollapsedCategories(current => {
-                      const next = new Set(current);
-                      if (next.has(category)) next.delete(category); else next.add(category);
-                      return next;
-                    });
-                  }}
-                  onKeyDown={event => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setCollapsedCategories(current => {
-                        const next = new Set(current);
-                        if (next.has(category)) next.delete(category); else next.add(category);
-                        return next;
-                      });
-                    }
-                  }}
-                  onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 150); setOpenCategoryMenu(category); setOpenProductMenuId(null); }}
-                  onTouchStart={event => startLongPress(event, 150, `category:${category}`, () => { setOpenCategoryMenu(category); setOpenProductMenuId(null); })}
-                  onTouchEnd={clearLongPress}
-                  onTouchMove={clearLongPress}
-                  onTouchCancel={clearLongPress}
-                  title="اضغط مطولاً لعرض إجراءات التصنيف"
-                >
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600 shrink-0" /> <span className="truncate">{category}</span></h3>
-                    <span className="text-xs text-slate-500 mt-1 block">{categoryProducts.length} صنف</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="hidden sm:inline text-xs text-slate-400">اضغط مطولاً للإجراءات</span>
-                    {collapsedCategories.has(category) ? <ChevronDown className="w-5 h-5 text-slate-600" aria-hidden="true" /> : <ChevronUp className="w-5 h-5 text-slate-600" aria-hidden="true" />}
-                  </div>
-                  {openCategoryMenu === category && (
-                      <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
-                        <button type="button" onClick={() => { setOpenCategoryMenu(null); openAdd(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="w-4 h-4 text-blue-600" /> إضافة بضاعة لهذا التصنيف</button>
-                        <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); renameCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50 disabled:opacity-40"><SquarePen className="w-4 h-4" /> إعادة تسمية التصنيف</button>
-                        <button type="button" disabled={category === "بدون تصنيف"} onClick={() => { setOpenCategoryMenu(null); deleteCategory(category); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="w-4 h-4" /> حذف التصنيف</button>
-                      </div>
-                    )}
-                </div>
-                {!collapsedCategories.has(category) && <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
-                  <table aria-label={`بيانات البضاعة — ${category}`} className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
+          <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
+                  <table aria-label="بيانات البضاعة" className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
                     <thead className="bg-[#94acd1] text-slate-950">
                       <tr>
                         {productTableColumns.map(label => <th key={label} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{label}</th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {categoryProducts.map(product => {
+                      {filteredProducts.map(product => {
                         return (
                           <tr
                             key={product.id}
@@ -689,11 +626,10 @@ function ProductsViewContent({
                               if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                               if ((event.target as HTMLElement).closest("button")) return;
                               setOpenProductMenuId(null);
-                              setOpenCategoryMenu(null);
                               openDetails(product);
                             }}
-                            onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); setOpenCategoryMenu(null); }}
-                            onTouchStart={event => startLongPress(event, 360, `product:${product.id}`, () => { setOpenProductMenuId(product.id); setOpenCategoryMenu(null); })}
+                            onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); }}
+                            onTouchStart={event => startLongPress(event, 360, `product:${product.id}`, () => { setOpenProductMenuId(product.id); })}
                             onTouchEnd={clearLongPress}
                             onTouchMove={clearLongPress}
                             onTouchCancel={clearLongPress}
@@ -703,8 +639,7 @@ function ProductsViewContent({
                               <button type="button" onClick={() => {
                                 if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                                 setOpenProductMenuId(null);
-                                setOpenCategoryMenu(null);
-                                openDetails(product);
+                                  openDetails(product);
                               }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
                                 {productTextLines(product.name)}
                               </button>
@@ -737,9 +672,6 @@ function ProductsViewContent({
                       })}
                     </tbody>
                   </table>
-                </div>}
-              </section>
-            ))}
           </div>
         )}
       </section>
