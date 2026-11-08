@@ -54,6 +54,7 @@ const money = (value: number) => (Number(value) || 0).toLocaleString("en-US");
 const productTableColumns = [
   { id: "name", label: "اسم البضاعة" }, { id: "category", label: "التصنيف" },
   { id: "purchasePrice", label: "رأس المال / سعر الشراء" }, { id: "salePrice", label: "سعر البيع للعميل" },
+  { id: "profit", label: "الربح" },
   { id: "quantity", label: "الكمية الحالية" }, { id: "unitName", label: "وحدة القياس" },
   { id: "minStock", label: "الحد الأدنى للتنبيه" }, { id: "barcode", label: "الباركود / رقم الصنف" },
   { id: "supplierName", label: "اسم المجهّز / المورد" }, { id: "supplierPhone", label: "هاتف المجهّز" },
@@ -70,6 +71,12 @@ const readProductColumns = (key: string): ProductColumnSettings => {
     const valid = (id: unknown): id is ProductColumnId => typeof id === "string" && productColumnIds.includes(id as ProductColumnId);
     const order = Array.isArray(saved.order) ? [...new Set<ProductColumnId>(saved.order.filter(valid))] : [];
     const visible = Array.isArray(saved.visible) ? [...new Set<ProductColumnId>(saved.visible.filter(valid))] : [...productColumnIds];
+    // Add the new profit column to existing layouts without resetting their choices.
+    if (order.length && !order.includes("profit")) {
+      const saleIndex = order.indexOf("salePrice");
+      order.splice(saleIndex < 0 ? order.length : saleIndex + 1, 0, "profit");
+      if (visible.length && !visible.includes("profit")) visible.push("profit");
+    }
     return { order: [...order, ...productColumnIds.filter(id => !order.includes(id))], visible: visible.length ? visible : [...productColumnIds], panelOpen: saved.panelOpen === true };
   } catch { return defaultProductColumns(); }
 };
@@ -735,6 +742,7 @@ function ProductsViewContent({
                                   </button> :
                                   id === "category" ? productTextLines(product.category || "بدون تصنيف") :
                                   id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
                                   id === "quantity" ? money(product.quantity) :
                                   id === "unitName" ? productTextLines(product.unitName || "قطعة") :
                                   id === "minStock" ? money(product.minStock ?? 5) :
