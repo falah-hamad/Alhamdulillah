@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PriceLabelsModal from "./PriceLabelsModal";
 import BarcodeScannerModal from "./BarcodeScannerModal";
 import { FilterButton, FilterPanel } from "./FilterPanel";
@@ -6,7 +6,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList, FileText,
-  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal
 } from "lucide-react";
 import { Invoice, Product, ProductPriceHistoryEntry, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { uploadUserFile } from "../lib/firebase";
@@ -52,10 +52,27 @@ const movementId = () => `move-${Date.now()}-${Math.random().toString(36).slice(
 const priceId = () => `price-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const money = (value: number) => (Number(value) || 0).toLocaleString("en-US");
 const productTableColumns = [
-  "اسم البضاعة", "التصنيف", "رأس المال / سعر الشراء", "سعر البيع للعميل",
-  "الكمية الحالية", "وحدة القياس", "الحد الأدنى للتنبيه", "الباركود / رقم الصنف",
-  "اسم المجهّز / المورد", "هاتف المجهّز",
-];
+  { id: "name", label: "اسم البضاعة" }, { id: "category", label: "التصنيف" },
+  { id: "purchasePrice", label: "رأس المال / سعر الشراء" }, { id: "salePrice", label: "سعر البيع للعميل" },
+  { id: "quantity", label: "الكمية الحالية" }, { id: "unitName", label: "وحدة القياس" },
+  { id: "minStock", label: "الحد الأدنى للتنبيه" }, { id: "barcode", label: "الباركود / رقم الصنف" },
+  { id: "supplierName", label: "اسم المجهّز / المورد" }, { id: "supplierPhone", label: "هاتف المجهّز" },
+] as const;
+type ProductColumnId = typeof productTableColumns[number]["id"];
+type ProductColumnSettings = { order: ProductColumnId[]; visible: ProductColumnId[]; panelOpen: boolean };
+const productColumnIds = productTableColumns.map(column => column.id);
+const productColumnLabel = (id: ProductColumnId) => productTableColumns.find(column => column.id === id)!.label;
+const defaultProductColumns = (): ProductColumnSettings => ({ order: [...productColumnIds], visible: [...productColumnIds], panelOpen: false });
+const readProductColumns = (key: string): ProductColumnSettings => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    if (!saved || typeof saved !== "object") return defaultProductColumns();
+    const valid = (id: unknown): id is ProductColumnId => typeof id === "string" && productColumnIds.includes(id as ProductColumnId);
+    const order = Array.isArray(saved.order) ? [...new Set<ProductColumnId>(saved.order.filter(valid))] : [];
+    const visible = Array.isArray(saved.visible) ? [...new Set<ProductColumnId>(saved.visible.filter(valid))] : [...productColumnIds];
+    return { order: [...order, ...productColumnIds.filter(id => !order.includes(id))], visible: visible.length ? visible : [...productColumnIds], panelOpen: saved.panelOpen === true };
+  } catch { return defaultProductColumns(); }
+};
 const productTextLines = (value?: string) => {
   const words = (value || "—").trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -98,6 +115,49 @@ function ProductsViewContent({
         .map((invoice) => ({ ...invoice, items: Array.isArray(invoice.items) ? invoice.items : [] }))
     : [];
   const { currentUser } = useAuth();
+  const columnSettingsKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_table_columns` : "acc_guest_product_table_columns";
+  const [columnSettings, setColumnSettings] = useState(() => ({ key: columnSettingsKey, ...readProductColumns(columnSettingsKey) }));
+  const draggedColumnRef = useRef<ProductColumnId | null>(null);
+  const [draggedColumnId, setDraggedColumnId] = useState<ProductColumnId | null>(null);
+  useEffect(() => {
+    setColumnSettings({ key: columnSettingsKey, ...readProductColumns(columnSettingsKey) });
+    draggedColumnRef.current = null;
+    setDraggedColumnId(null);
+  }, [columnSettingsKey]);
+  useEffect(() => {
+    if (columnSettings.key !== columnSettingsKey) return;
+    const { order, visible, panelOpen } = columnSettings;
+    try { localStorage.setItem(columnSettingsKey, JSON.stringify({ order, visible, panelOpen })); } catch {}
+  }, [columnSettings, columnSettingsKey]);
+  const moveProductColumn = useCallback((source: ProductColumnId, target: ProductColumnId) => {
+    setColumnSettings(old => {
+      if (source === target) return old;
+      const order = [...old.order];
+      order.splice(order.indexOf(source), 1);
+      order.splice(old.order.indexOf(target), 0, source);
+      return { ...old, order };
+    });
+  }, []);
+  useEffect(() => {
+    const stop = () => { draggedColumnRef.current = null; setDraggedColumnId(null); };
+    const move = (event: PointerEvent) => {
+      const source = draggedColumnRef.current;
+      if (!source || event.pointerType === "mouse") return;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-product-column-id]")?.dataset.productColumnId;
+      if (target && productColumnIds.includes(target as ProductColumnId)) moveProductColumn(source, target as ProductColumnId);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
+    };
+  }, [moveProductColumn]);
+  const visibleProductColumns = columnSettings.order.filter(id => columnSettings.visible.includes(id));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "favorites" | "recent" | "low">("all");
@@ -606,6 +666,35 @@ function ProductsViewContent({
           <label className="block text-sm font-semibold text-slate-700">حالة المخزون<select value={stockStatus} onChange={e => setStockStatus(e.target.value as typeof stockStatus)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></label>
         </FilterPanel>
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold text-slate-700">تخصيص أعمدة الجدول</p>
+              <p className="mt-1 text-xs text-slate-500">{columnSettings.visible.length} من {columnSettings.order.length} أعمدة ظاهرة</p>
+            </div>
+            <button type="button" onClick={() => setColumnSettings(old => ({ ...old, panelOpen: !old.panelOpen }))} aria-expanded={columnSettings.panelOpen} aria-controls="product-column-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <SlidersHorizontal size={17}/><span>تخصيص الأعمدة</span>
+              <ChevronDown size={16} className={`transition-transform duration-200 ${columnSettings.panelOpen ? "rotate-180" : ""}`}/>
+            </button>
+          </div>
+          {columnSettings.panelOpen && <div id="product-column-options" className="mt-3">
+            <p className="mb-2 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه. اسحب مقبض ☷ لترتيب الأعمدة، ويجب إبقاء عمود واحد ظاهر على الأقل.</p>
+            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 [touch-action:pan-x]">
+              {columnSettings.order.map((id, index) => <div key={id} data-product-column-id={id} onDragOver={event => { event.preventDefault(); const source = draggedColumnRef.current; if (source) moveProductColumn(source, id); }} onDrop={event => { event.preventDefault(); draggedColumnRef.current = null; setDraggedColumnId(null); }} className={`flex shrink-0 items-center gap-2 rounded-lg border px-2 py-2 transition-colors ${draggedColumnId === id ? "border-blue-500 bg-blue-50 shadow-sm" : "border-slate-300 bg-[#eef3fa]"}`}>
+                <button type="button" draggable aria-label={`اسحب لترتيب عمود ${productColumnLabel(id)}`} onDragStart={event => { draggedColumnRef.current = id; setDraggedColumnId(id); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", id); }} onDragEnd={() => { draggedColumnRef.current = null; setDraggedColumnId(null); }} onPointerDown={event => { if (event.isPrimary && (event.pointerType === "touch" || event.pointerType === "pen")) { event.preventDefault(); draggedColumnRef.current = id; setDraggedColumnId(id); } }} className="touch-none cursor-grab rounded text-slate-500 active:cursor-grabbing" title="اسحب لترتيب العمود"><GripVertical size={17}/></button>
+                <label className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-slate-700">
+                  <span>{productColumnLabel(id)}</span>
+                  <input type="checkbox" checked={columnSettings.visible.includes(id)} disabled={columnSettings.visible.length === 1 && columnSettings.visible.includes(id)} onChange={event => {
+                    const checked = event.target.checked;
+                    setColumnSettings(old => ({ ...old, visible: checked ? [...old.visible, id] : old.visible.length > 1 ? old.visible.filter(column => column !== id) : old.visible }));
+                  }} className="h-4 w-4 shrink-0 aspect-square"/>
+                </label>
+                <button type="button" aria-label={`تحريك ${productColumnLabel(id)} إلى اليمين`} title="تحريك إلى اليمين" disabled={index === 0} onClick={() => { const target = columnSettings.order[index - 1]; if (target) moveProductColumn(id, target); }} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
+                <button type="button" aria-label={`تحريك ${productColumnLabel(id)} إلى اليسار`} title="تحريك إلى اليسار" disabled={index === columnSettings.order.length - 1} onClick={() => { const target = columnSettings.order[index + 1]; if (target) moveProductColumn(id, target); }} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
+              </div>)}
+            </div>
+          </div>}
+        </div>
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
@@ -613,7 +702,7 @@ function ProductsViewContent({
                   <table aria-label="بيانات البضاعة" className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
                     <thead className="bg-[#94acd1] text-slate-950">
                       <tr>
-                        {productTableColumns.map(label => <th key={label} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{label}</th>)}
+                        {visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -635,14 +724,23 @@ function ProductsViewContent({
                             onTouchCancel={clearLongPress}
                             title="اضغط مطولاً لعرض إجراءات البضاعة"
                           >
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">
-                              <button type="button" onClick={() => {
-                                if (suppressNextClick.current) { suppressNextClick.current = false; return; }
-                                setOpenProductMenuId(null);
-                                  openDetails(product);
-                              }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
-                                {productTextLines(product.name)}
-                              </button>
+                            {visibleProductColumns.map((id, index) => (
+                              <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${["name", "category", "unitName", "supplierName"].includes(id) ? "whitespace-normal" : "whitespace-nowrap"}`}>
+                                {id === "name" ? <button type="button" onClick={() => {
+                                    if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                                    setOpenProductMenuId(null);
+                                    openDetails(product);
+                                  }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
+                                    {productTextLines(product.name)}
+                                  </button> :
+                                  id === "category" ? productTextLines(product.category || "بدون تصنيف") :
+                                  id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
+                                  id === "quantity" ? money(product.quantity) :
+                                  id === "unitName" ? productTextLines(product.unitName || "قطعة") :
+                                  id === "minStock" ? money(product.minStock ?? 5) :
+                                  id === "supplierName" ? productTextLines(product.supplierName) :
+                                  <bdi dir="ltr">{product[id] || "—"}</bdi>}
+                                {index === 0 && <>
                               {openProductMenuId === product.id && (
                               <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
@@ -656,16 +754,9 @@ function ProductsViewContent({
                                 <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
                                 </div>
                               )}
-                            </td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.category || "بدون تصنيف")}</td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.purchasePrice)} <span className="text-slate-500">{settings.currency}</span></td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.salePrice)} <span className="text-slate-500">{settings.currency}</span></td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.quantity)}</td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.unitName || "قطعة")}</td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap">{money(product.minStock ?? 5)}</td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap"><bdi dir="ltr">{product.barcode || "—"}</bdi></td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-normal">{productTextLines(product.supplierName)}</td>
-                            <td className="border border-slate-300 px-1 py-2 text-center align-middle whitespace-nowrap"><bdi dir="ltr">{product.supplierPhone || "—"}</bdi></td>
+                                </>}
+                              </td>
+                            ))}
 
                           </tr>
                         );
