@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
@@ -23,17 +23,26 @@ interface StatsViewProps {
   settings: SystemSettings;
   folders: CustomerFolder[];
   onSaveCustomer?: (customer: Customer) => Promise<void> | void;
+  initialCustomerId?: string | null;
+  onCloseCustomerProfile?: () => void;
 }
 
 const formatAmount = (amount: number) => Math.round(amount).toLocaleString("ar-IQ");
 const isFinancialItem = (item: Invoice["items"][number]) =>
   !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 
-export default function StatsView({ customers, products, invoices, payments, settings, folders, onSaveCustomer }: StatsViewProps) {
+export default function StatsView({ customers, products, invoices, payments, settings, folders, onSaveCustomer, initialCustomerId, onCloseCustomerProfile }: StatsViewProps) {
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
   const [section, setSection] = useState<"general" | "customers" | "percentages">("customers");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!initialCustomerId) return;
+    if (customers.some(customer => customer.id === initialCustomerId)) {
+      setSection("customers");
+      setSelectedCustomerId(initialCustomerId);
+    }
+  }, [initialCustomerId, customers]);
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
   const activeFolders = folders.filter(folder => !folder.isDeleted);
   const folderIds = new Set(activeFolders.map(folder => folder.id));
@@ -98,7 +107,7 @@ export default function StatsView({ customers, products, invoices, payments, set
   ];
 
   if (section === "customers" && selectedCustomer) {
-    return <CustomerStatisticsProfile customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => setSelectedCustomerId("")} />;
+    return <CustomerStatisticsProfile customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => { setSelectedCustomerId(""); onCloseCustomerProfile?.(); }} />;
   }
 
   return (
