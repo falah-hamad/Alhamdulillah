@@ -99,6 +99,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
+  const [selectedCustomerRowId, setSelectedCustomerRowId] = useState<string | null>(null);
   const currentSortSettingsKey = sortSettingsKey(currentUser?.uid);
   const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
   const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
@@ -350,16 +351,18 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
             <tr
               role="button"
               tabIndex={0}
+              aria-pressed={selectedCustomerRowId === r.id}
               aria-label={`فتح إحصائيات ${r.name}`}
               title="اضغط لفتح إحصائيات العميل"
-              onClick={() => onOpenCustomerStatistics(r.id)}
+              onClick={() => { setSelectedCustomerRowId(r.id); onOpenCustomerStatistics(r.id); }}
               onKeyDown={event => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
+                  setSelectedCustomerRowId(r.id);
                   onOpenCustomerStatistics(r.id);
                 }
               }}
-              className="cursor-pointer transition-colors hover:bg-blue-50/70 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-500"
+              className={`select-none cursor-pointer transition-colors duration-150 ${selectedCustomerRowId === r.id ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-500"}`}
             >
               {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}
             </tr>
