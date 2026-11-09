@@ -109,6 +109,7 @@ export default function App() {
 
   const [currentTab, setCurrentTabRaw] = useState("home");
   const [statsTargetCustomerId, setStatsTargetCustomerId] = useState<string | null>(null);
+  const [statsReturnToCustomerTable, setStatsReturnToCustomerTable] = useState(false);
   type LedgerLeaveGuard = { source: string; dirty: boolean; label: string; save: () => Promise<boolean> | boolean; cancel: () => Promise<void> | void };
   const [ledgerLeaveGuard, setLedgerLeaveGuard] = useState<LedgerLeaveGuard | null>(null);
   const [showLedgerLeaveDialog, setShowLedgerLeaveDialog] = useState(false);
@@ -997,7 +998,8 @@ export default function App() {
             />
           )}
 
-          {currentTab === "customers" && (
+          {(currentTab === "customers" || (currentTab === "stats" && statsReturnToCustomerTable)) && (
+            <div className={currentTab === "customers" ? "contents" : "hidden"}>
             <CustomersView
               customers={activeCustomers}
               invoices={activeInvoices}
@@ -1014,9 +1016,11 @@ export default function App() {
               }}
               onOpenCustomerStatistics={(customerId) => {
                 setStatsTargetCustomerId(customerId);
+                setStatsReturnToCustomerTable(true);
                 setCurrentTab("stats");
               }}
             />
+            </div>
           )}
 
           {currentTab === "products" && (
@@ -1058,7 +1062,11 @@ export default function App() {
               payments={activePayments}
               settings={settings}
               initialCustomerId={statsTargetCustomerId}
-              onCloseCustomerProfile={() => setStatsTargetCustomerId(null)}
+              onCloseCustomerProfile={() => {
+                setStatsTargetCustomerId(null);
+                setStatsReturnToCustomerTable(false);
+                setCurrentTab("customers");
+              }}
             />
           )}
 
