@@ -171,7 +171,8 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
       cost += Number(unitCost) * qty;
       profit += lineTotal - Number(unitCost) * qty;
     });
-    const sellers = [...new Set(customerInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)]).filter((value): value is string => Boolean(value?.trim())))];
+    const sellerValues: Array<string | undefined> = customerInvoices.flatMap(invoice => [invoice.employeeName, ...invoice.items.map(item => (item as typeof item & { sellerName?: string }).sellerName)]);
+    const sellers: string[] = [...new Set(sellerValues.filter((value): value is string => Boolean(value?.trim())))];
     const recipientValues: Array<string | undefined> = [
       ...customerPayments.flatMap(payment => {
         const extra = payment as Payment & { recipient?: string; recipientName?: string; receivedBy?: string; sellerName?: string };
@@ -182,8 +183,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         return [extra.recipient, extra.recipientName, extra.receivedBy, extra.sellerName];
       })),
     ];
-    const validRecipients = recipientValues.filter((value): value is string => Boolean(value?.trim()));
-    const recipients = [...new Set(validRecipients)];
+    const recipients: string[] = [...new Set(recipientValues.filter((value): value is string => Boolean(value?.trim())))];
     const overdue = activeInvoices.some(invoice => invoice.customerId === customerId && getInvoiceLedgerTotals(invoice).remaining > 0 && invoice.dueDate && invoice.dueDate < today);
     return { sales, payments: paymentsTotal, remaining, currentBalance, profit, quantity, cost: missingCostItems ? null : cost, missingCostItems, sellers, recipients, overdue, hasPurchase: customerInvoices.length > 0 || sheetRows.length > 0, hasActivity: customerInvoices.length > 0 || sheetRows.length > 0 || customerPayments.length > 0 };
   };
