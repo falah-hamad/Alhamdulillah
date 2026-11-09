@@ -14,6 +14,7 @@ import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../t
 import { FilterSelect } from "./FilterPanel";
 import { printElement } from "../utils/printUtils";
 import CustomerDataTable from "./CustomerDataTable";
+import CustomerStatisticsProfile from "./CustomerStatisticsProfile";
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -25,7 +26,6 @@ interface CustomersViewProps {
   updateCustomer: (customer: Customer) => void;
   deleteCustomer: (id: string) => void;
   onOpenLedger: (customerId: string) => void;
-  onOpenCustomerStatistics: (customerId: string) => void;
 }
 interface CustomerFilterState {
   folderId: string;
@@ -82,16 +82,17 @@ const emptyCustomerFilters = (): CustomerFilterState => ({
 export default function CustomersView({
   customers,
   invoices,
+  payments,
   folders = [],
   settings,
   addCustomer,
   updateCustomer,
   deleteCustomer,
   onOpenLedger,
-  onOpenCustomerStatistics,
 }: CustomersViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCustomerData, setShowCustomerData] = useState(false);
+  const [selectedStatisticsCustomerId, setSelectedStatisticsCustomerId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
   const [draftFilters, setDraftFilters] = useState<CustomerFilterState>(emptyCustomerFilters);
@@ -563,7 +564,15 @@ export default function CustomersView({
     </div>
   ) : null;
 
-  if (showCustomerData) return <CustomerDataTable customers={filteredCustomers} invoices={invoices} folders={folders} onBack={() => setShowCustomerData(false)} onOpenCustomerStatistics={onOpenCustomerStatistics} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+  if (showCustomerData) {
+    const selectedStatisticsCustomer = customers.find(customer => customer.id === selectedStatisticsCustomerId);
+    return <>
+      <div className={selectedStatisticsCustomer ? "hidden" : ""}>
+        <CustomerDataTable customers={filteredCustomers} invoices={invoices} folders={folders} onBack={() => setShowCustomerData(false)} onOpenCustomerStatistics={setSelectedStatisticsCustomerId} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+      </div>
+      {selectedStatisticsCustomer && <CustomerStatisticsProfile customer={selectedStatisticsCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={updateCustomer} onClose={() => setSelectedStatisticsCustomerId(null)} />}
+    </>;
+  }
 
   return (
     <div className="customers-view space-y-6 min-w-0">
