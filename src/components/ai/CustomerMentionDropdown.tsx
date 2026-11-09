@@ -29,7 +29,8 @@ export default function CustomerMentionDropdown({
     const activePayments = payments.filter((p) => !p.isDeleted);
 
     return activeCustomers.map((c) => {
-      const rem = getCustomerLedgerTotals(c, activeInvoices).remaining;
+      const custInvoices = activeInvoices.filter((invoice) => invoice.customerId === c.id);
+      const rem = getCustomerLedgerTotals(c, custInvoices).remaining;
 
       return {
         customer: c,
