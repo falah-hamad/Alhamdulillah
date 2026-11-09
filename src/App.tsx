@@ -108,6 +108,7 @@ export default function App() {
   } = useAccountingData();
 
   const [currentTab, setCurrentTabRaw] = useState("home");
+  const [statsTargetCustomerId, setStatsTargetCustomerId] = useState<string | null>(null);
   type LedgerLeaveGuard = { source: string; dirty: boolean; label: string; save: () => Promise<boolean> | boolean; cancel: () => Promise<void> | void };
   const [ledgerLeaveGuard, setLedgerLeaveGuard] = useState<LedgerLeaveGuard | null>(null);
   const [showLedgerLeaveDialog, setShowLedgerLeaveDialog] = useState(false);
@@ -1011,6 +1012,10 @@ export default function App() {
                 setLedgerTargetCustomerId(customerId);
                 setLedgerTargetInvoiceId(null);
               }}
+              onOpenCustomerStatistics={(customerId) => {
+                setStatsTargetCustomerId(customerId);
+                setCurrentTab("stats");
+              }}
             />
           )}
 
@@ -1052,6 +1057,8 @@ export default function App() {
               invoices={activeInvoices}
               payments={activePayments}
               settings={settings}
+              initialCustomerId={statsTargetCustomerId}
+              onCloseCustomerProfile={() => setStatsTargetCustomerId(null)}
             />
           )}
 
