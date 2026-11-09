@@ -92,8 +92,9 @@ const wordLines = (text: string) => {
   return lines;
 };
 
-export default function CustomerDataTable({customers,invoices,folders = [],onBack,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
+export default function CustomerDataTable({customers,invoices,folders = [],onBack,onOpenCustomerStatistics,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; folders?: CustomerFolder[]; onBack: () => void;
+  onOpenCustomerStatistics: (customerId: string) => void;
   filterControls: React.ReactNode; searchControl: React.ReactNode; onOpenFilters: () => void; activeFilterCount: number;
   totalCustomerCount: number;
 }) {
@@ -346,7 +347,20 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
         <tbody>
           {sorted.map((r,i)=><React.Fragment key={r.id}>
             {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={visibleColumnOrder.length} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
-            <tr className="hover:bg-blue-50/40">
+            <tr
+              role="button"
+              tabIndex={0}
+              aria-label={`فتح إحصائيات ${r.name}`}
+              title="اضغط لفتح إحصائيات العميل"
+              onClick={() => onOpenCustomerStatistics(r.id)}
+              onKeyDown={event => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenCustomerStatistics(r.id);
+                }
+              }}
+              className="cursor-pointer transition-colors hover:bg-blue-50/70 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-500"
+            >
               {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}
             </tr>
           </React.Fragment>)}
