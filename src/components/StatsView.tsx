@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
@@ -6,13 +6,10 @@ import {
   Users,
   Wallet,
   Banknote,
-  ContactRound,
-  FolderOpen,
 } from "lucide-react";
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
 import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { BalanceDonut, MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
-import CustomerStatisticsProfile from "./CustomerStatisticsProfile";
 import PercentageCalculator from "./PercentageCalculator";
 
 interface StatsViewProps {
@@ -22,39 +19,15 @@ interface StatsViewProps {
   payments: Payment[];
   settings: SystemSettings;
   folders: CustomerFolder[];
-  onSaveCustomer?: (customer: Customer) => Promise<void> | void;
-  initialCustomerId?: string | null;
-  onCloseCustomerProfile?: () => void;
 }
 
 const formatAmount = (amount: number) => Math.round(amount).toLocaleString("ar-IQ");
 const isFinancialItem = (item: Invoice["items"][number]) =>
   !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 
-export default function StatsView({ customers, products, invoices, payments, settings, folders, onSaveCustomer, initialCustomerId, onCloseCustomerProfile }: StatsViewProps) {
+export default function StatsView({ customers, products, invoices, payments, settings, folders }: StatsViewProps) {
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
-  const [section, setSection] = useState<"general" | "customers" | "percentages">("customers");
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!initialCustomerId) return;
-    if (customers.some(customer => customer.id === initialCustomerId)) {
-      setSection("customers");
-      setSelectedCustomerId(initialCustomerId);
-    }
-  }, [initialCustomerId, customers]);
-  const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
-  const activeFolders = folders.filter(folder => !folder.isDeleted);
-  const folderIds = new Set(activeFolders.map(folder => folder.id));
-  const folderKey = (customer: Customer) => customer.folderId && folderIds.has(customer.folderId) ? customer.folderId : "root";
-  const folderTabs = [{ id: "root", name: "الحافظة الرئيسية" }, ...activeFolders].map(folder => ({
-    ...folder,
-    count: customers.filter(customer => folderKey(customer) === folder.id).length,
-  }));
-  const activeFolderId = selectedFolderId && folderTabs.some(folder => folder.id === selectedFolderId)
-    ? selectedFolderId : folderTabs.find(folder => folder.count > 0)?.id || "root";
-  const folderCustomers = customers.filter(customer => folderKey(customer) === activeFolderId)
-    .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name, "ar"));
+  const [section, setSection] = useState<"general" | "percentages">("general");
   const activeInvoices = useMemo(() => invoices.filter((invoice) => !invoice.isDeleted), [invoices]);
   const activePayments = useMemo(() => payments.filter((payment) => !payment.isDeleted), [payments]);
   const customerTotals = customers.map(customer => getCustomerLedgerTotals(customer, activeInvoices));
@@ -106,30 +79,12 @@ export default function StatsView({ customers, products, invoices, payments, set
     { label: "المتبقي في الكشوف", value: `${formatAmount(totalRemaining)} ${settings.currency}`, icon: AlertCircle, color: "text-rose-600", tone: "bg-rose-50" },
   ];
 
-  if (section === "customers" && selectedCustomer) {
-    return <CustomerStatisticsProfile customer={selectedCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={onSaveCustomer} onClose={() => { setSelectedCustomerId(""); onCloseCustomerProfile?.(); }} />;
-  }
-
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-4 pb-6 sm:space-y-6" dir="rtl">
       <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" role="tablist" aria-label="نطاق الإحصائيات">
-        {([ ["general", "إحصائيات عامة"], ["customers", "إحصائيات العملاء"], ["percentages", "حساب النسب"] ] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${section === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
+        {([ ["general", "إحصائيات عامة"], ["percentages", "حساب النسب"] ] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${section === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>)}
       </div>
-      {section === "customers" ? <section className="space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-800"><FolderOpen className="h-4 w-4 text-violet-600" />العملاء حسب الحافظة</h2>
-          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="حافظات العملاء">
-            {folderTabs.map(folder => <button key={folder.id} type="button" role="tab" aria-selected={activeFolderId === folder.id} onClick={() => setSelectedFolderId(folder.id)} className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold sm:text-sm ${activeFolderId === folder.id ? "border-violet-600 bg-violet-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-violet-50"}`}><FolderOpen className="h-4 w-4" />{folder.name}<span className={`rounded-md px-1.5 py-0.5 text-[10px] ${activeFolderId === folder.id ? "bg-white/20" : "bg-white"}`}>{folder.count}</span></button>)}
-          </div>
-        </div>
-        {folderCustomers.length > 0 ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {folderCustomers.map(customer => <button key={customer.id} type="button" onClick={() => setSelectedCustomerId(customer.id)} aria-label={`فتح ملف وإحصائيات ${customer.name}`} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-right shadow-sm transition-colors hover:border-violet-300 hover:bg-violet-50 focus-visible:outline-violet-500">
-            {customer.profile?.photo ? <img src={customer.profile.photo} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" /> : <span className="rounded-xl bg-violet-50 p-3 text-violet-600"><ContactRound className="h-5 w-5" /></span>}
-            <span className="min-w-0 flex-1"><strong className="block break-words text-sm text-slate-900">{customer.name}</strong><span className="mt-1 block text-xs text-slate-500">{customer.phone || "ملف العميل والإحصائيات"}</span></span>
-            {customer.sequence != null && <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{customer.sequence}</span>}
-          </button>)}
-        </div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا يوجد عملاء في هذه الحافظة.</div>}
-      </section> : section === "percentages" ? <PercentageCalculator customers={customers} invoices={invoices} payments={payments} products={products} folders={folders} currency={settings.currency} /> : <>
+      {section === "percentages" ? <PercentageCalculator customers={customers} invoices={invoices} payments={payments} products={products} folders={folders} currency={settings.currency} /> : <>
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-l from-indigo-50 via-white to-white p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-indigo-100 p-2.5 text-indigo-700"><BarChart3 className="h-5 w-5" /></span>
