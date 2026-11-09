@@ -88,6 +88,36 @@ const readProductColumns = (key: string): ProductColumnSettings => {
     return { order: [...order, ...productColumnIds.filter(id => !order.includes(id))], visible: visible.length ? visible : [...productColumnIds], panelOpen: saved.panelOpen === true };
   } catch { return defaultProductColumns(); }
 };
+type ProductSortRule = { key: "none" | ProductColumnId; direction: "asc" | "desc"; show: boolean };
+const defaultProductSort = (): ProductSortRule[] => [{ key: "name", direction: "asc", show: false }];
+const readProductSort = (key: string): { rules: ProductSortRule[]; panelOpen: boolean } => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    if (!saved || !Array.isArray(saved.rules)) return { rules: defaultProductSort(), panelOpen: true };
+    const rules = saved.rules.filter((rule: unknown): rule is ProductSortRule => {
+      if (!rule || typeof rule !== "object") return false;
+      const candidate = rule as Partial<ProductSortRule>;
+      return (candidate.key === "none" || productColumnIds.includes(candidate.key as ProductColumnId)) && (candidate.direction === "asc" || candidate.direction === "desc") && typeof candidate.show === "boolean";
+    });
+    return { rules, panelOpen: typeof saved.panelOpen === "boolean" ? saved.panelOpen : true };
+  } catch { return { rules: defaultProductSort(), panelOpen: true }; }
+};
+const productSortValue = (product: Product, key: ProductColumnId): string | number => {
+  const purchase = Number(product.purchasePrice) || 0, sale = Number(product.salePrice) || 0, quantity = Number(product.quantity) || 0;
+  switch (key) {
+    case "purchasePrice": return purchase;
+    case "salePrice": return sale;
+    case "profit": return sale - purchase;
+    case "totalCapital": return purchase * quantity;
+    case "totalSaleValue": return sale * quantity;
+    case "totalExpectedProfit": return (sale - purchase) * quantity;
+    case "quantity": return quantity;
+    case "minStock": return Number(product.minStock ?? 5) || 0;
+    case "category": return product.category.trim() || "بدون تصنيف";
+    case "unitName": return product.unitName?.trim() || "قطعة";
+    default: return String(product[key] || "").trim();
+  }
+};
 const productTextLines = (value?: string) => {
   const words = (value || "—").trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -173,6 +203,22 @@ function ProductsViewContent({
     };
   }, [moveProductColumn]);
   const visibleProductColumns = columnSettings.order.filter(id => columnSettings.visible.includes(id));
+  const sortSettingsKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_table_sort` : "acc_guest_product_table_sort";
+  const [sortSettings, setSortSettings] = useState(() => ({ key: sortSettingsKey, ...readProductSort(sortSettingsKey) }));
+  const [openSortMenu, setOpenSortMenu] = useState<string | null>(null);
+  useEffect(() => {
+    setSortSettings({ key: sortSettingsKey, ...readProductSort(sortSettingsKey) });
+    setOpenSortMenu(null);
+  }, [sortSettingsKey]);
+  useEffect(() => {
+    if (sortSettings.key !== sortSettingsKey) return;
+    try { localStorage.setItem(sortSettingsKey, JSON.stringify({ rules: sortSettings.rules, panelOpen: sortSettings.panelOpen })); } catch {}
+  }, [sortSettings, sortSettingsKey]);
+  const updateProductSort = (index: number, patch: Partial<ProductSortRule>) => setSortSettings(old => ({ ...old, rules: old.rules.map((rule, i) => i === index ? { ...rule, ...patch } : rule) }));
+  const activeProductSort = sortSettings.rules.filter((rule): rule is ProductSortRule & { key: ProductColumnId } => rule.key !== "none");
+  const shownProductSort = activeProductSort.filter(rule => rule.show);
+  const lastShownProductSort = activeProductSort.reduce((last, rule, index) => rule.show ? index : last, -1);
+  const productSortGroup = (product: Product) => JSON.stringify(activeProductSort.slice(0, lastShownProductSort + 1).map(rule => productSortValue(product, rule.key)));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [quickFilter, setQuickFilter] = useState<"all" | "favorites" | "recent" | "low">("all");
@@ -298,11 +344,16 @@ function ProductsViewContent({
         || (stockStatus === "out" && quantity <= 0);
       return matchesQuery && matchesCategory && matchesQuick && matchesSupplier && matchesMinimumPrice && matchesMaximumPrice && matchesMinimumQuantity && matchesMaximumQuantity && matchesStockStatus;
     }).sort((a, b) => {
+      for (const rule of activeProductSort) {
+        const left = productSortValue(a, rule.key), right = productSortValue(b, rule.key);
+        const compared = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "ar", { numeric: true });
+        if (compared !== 0) return rule.direction === "asc" ? compared : -compared;
+      }
       if (quickFilter === "recent") return (b.lastViewedAt || "").localeCompare(a.lastViewedAt || "");
       if (quickFilter === "favorites") return Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite)) || a.name.localeCompare(b.name, "ar");
       return a.name.localeCompare(b.name, "ar");
     });
-  }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus]);
+  }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus, sortSettings.rules]);
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
@@ -661,6 +712,44 @@ function ProductsViewContent({
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
         <div className="rounded-xl border border-slate-200 bg-white p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p><p className="mt-1 text-xs text-slate-500">{activeProductSort.length} مستويات فرز فعّالة</p></div>
+            <button type="button" onClick={() => { setSortSettings(old => ({ ...old, panelOpen: !old.panelOpen })); setOpenSortMenu(null); }} aria-expanded={sortSettings.panelOpen} aria-controls="product-sort-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><SlidersHorizontal size={17}/><span>تخصيص الفرز</span><ChevronDown size={16} className={`transition-transform duration-200 ${sortSettings.panelOpen ? "rotate-180" : ""}`}/></button>
+          </div>
+          {sortSettings.panelOpen && <div id="product-sort-options" className="mt-3 space-y-3">
+            <p className="text-xs text-slate-500">الفرز يغيّر ترتيب الصفوف فقط ولا يخفي أي بضاعة. كل مستوى يُطبّق عند تساوي المستويات السابقة.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {sortSettings.rules.map((rule, index) => <div key={index} className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold">الفرز {(["الأول", "الثاني", "الثالث", "الرابع"][index] || `رقم ${index + 1}`)}</span>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={rule.show} onChange={event => updateProductSort(index, { show: event.target.checked })} className="h-4 w-4 shrink-0 aspect-square"/> إظهار بالفاصل</label>
+                    <button type="button" aria-label={`إلغاء الفرز ${index + 1}`} onClick={() => { setSortSettings(old => ({ ...old, rules: old.rules.filter((_, i) => i !== index) })); setOpenSortMenu(null); }} className="rounded-md border border-slate-200 bg-white p-1 text-slate-500 hover:bg-red-50"><X size={15}/></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative min-w-0">
+                    <button type="button" aria-label={`خاصية الفرز ${index + 1}`} aria-expanded={openSortMenu === `key-${index}`} onClick={() => setOpenSortMenu(openSortMenu === `key-${index}` ? null : `key-${index}`)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs flex items-center justify-between gap-1 text-right"><span className="truncate">{rule.key === "none" ? "بدون فرز" : productColumnLabel(rule.key)}</span><ChevronDown size={14}/></button>
+                    {openSortMenu === `key-${index}` && <div className="absolute top-full right-0 z-30 mt-1 max-h-60 w-max min-w-full max-w-[85vw] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      {[{ id: "none" as const, label: "بدون فرز" }, ...productTableColumns].map(option => <button type="button" key={option.id} onClick={() => { updateProductSort(index, { key: option.id }); setOpenSortMenu(null); }} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${rule.key === option.id ? "bg-blue-50 font-bold text-blue-700" : ""}`}>{option.label}</button>)}
+                    </div>}
+                  </div>
+                  <div className="relative min-w-0">
+                    <button type="button" aria-label={`اتجاه الفرز ${index + 1}`} aria-expanded={openSortMenu === `direction-${index}`} onClick={() => setOpenSortMenu(openSortMenu === `direction-${index}` ? null : `direction-${index}`)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs flex items-center justify-between gap-1 text-right"><span>{rule.direction === "asc" ? "تصاعدي ↑" : "تنازلي ↓"}</span><ChevronDown size={14}/></button>
+                    {openSortMenu === `direction-${index}` && <div className="absolute top-full right-0 z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{(["asc", "desc"] as const).map(direction => <button type="button" key={direction} onClick={() => { updateProductSort(index, { direction }); setOpenSortMenu(null); }} className={`block w-full rounded-lg px-3 py-2 text-right text-xs hover:bg-blue-50 ${rule.direction === direction ? "bg-blue-50 font-bold text-blue-700" : ""}`}>{direction === "asc" ? "تصاعدي ↑" : "تنازلي ↓"}</button>)}</div>}
+                  </div>
+                </div>
+              </div>)}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setSortSettings(old => ({ ...old, rules: [...old.rules, { key: "none", direction: "asc", show: false }] }))} className="rounded-lg bg-blue-600 text-white px-3 py-2 text-xs font-bold hover:bg-blue-700">+ إضافة فرز</button>
+              <button type="button" onClick={() => setSortSettings(old => ({ ...old, rules: old.rules.map(rule => ({ ...rule, show: true })) }))} className="rounded-lg border px-3 py-2 text-xs">إظهار الكل بالفاصل</button>
+              <button type="button" onClick={() => setSortSettings(old => ({ ...old, rules: old.rules.map(rule => ({ ...rule, show: false })) }))} className="rounded-lg border px-3 py-2 text-xs">إخفاء الفواصل</button>
+              <button type="button" onClick={() => { setSortSettings(old => ({ ...old, rules: defaultProductSort() })); setOpenSortMenu(null); }} className="rounded-lg border px-3 py-2 text-xs flex items-center gap-1"><RotateCcw size={14}/> إعادة ضبط</button>
+            </div>
+          </div>}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-bold text-slate-700">تخصيص أعمدة الجدول</p>
               <p className="mt-1 text-xs text-slate-500">{columnSettings.visible.length} من {columnSettings.order.length} أعمدة ظاهرة</p>
@@ -699,8 +788,10 @@ function ProductsViewContent({
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredProducts.map(product => {
+                      {filteredProducts.map((product, index) => {
                         return (
+                          <React.Fragment key={product.id}>
+                            {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
                           <tr
                             key={product.id}
                             className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40"}`}
@@ -757,6 +848,7 @@ function ProductsViewContent({
                             ))}
 
                           </tr>
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
