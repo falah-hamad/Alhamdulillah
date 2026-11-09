@@ -1,3 +1,4 @@
+# Retry the preview deployment from the latest branch revision.
 name: Deploy Alhamdulillah Web Preview
 
 on:
