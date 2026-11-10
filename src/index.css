@@ -291,6 +291,23 @@ img, video, canvas, svg { max-width: 100%; }
   -webkit-overflow-scrolling: touch;
 }
 .app-content :is(.overflow-x-auto, .overflow-x-scroll) table { min-width: 100%; }
+.customer-data-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.customer-data-table-row.customer-table-row-pressing > td {
+  background-color: rgb(219 234 254 / 0.82) !important;
+  border-top-color: rgb(59 130 246 / 0.75) !important;
+  border-bottom-color: rgb(59 130 246 / 0.75) !important;
+}
+.customer-data-table-row.customer-table-row-pressing > td:first-child {
+  border-inline-start-color: rgb(59 130 246 / 0.75) !important;
+}
+.customer-data-table-row.customer-table-row-pressing > td:last-child {
+  border-inline-end-color: rgb(59 130 246 / 0.75) !important;
+}
 [role="dialog"], [aria-modal="true"], dialog {
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
