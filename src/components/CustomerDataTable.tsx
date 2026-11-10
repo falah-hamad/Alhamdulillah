@@ -404,7 +404,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
               role="button"
               tabIndex={0}
               aria-label={`فتح إحصائيات ${r.name}`}
-              title="اضغط مطولاً لفتح إحصائيات العميل"
+              title="اضغط مطولاً لعرض خيارات العميل"
               onPointerDown={event => {
                 if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
                 startCustomerRowLongPress(r.id, event.currentTarget, event.pointerId, event.clientX, event.clientY);
