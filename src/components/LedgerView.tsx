@@ -118,6 +118,7 @@ interface LedgerViewProps {
   setSelectedCustomerId?: (id: string | null) => void;
   selectedInvoiceId?: string | null;
   setSelectedInvoiceId?: (id: string | null) => void;
+  onReturnToCustomerDataTable?: () => void;
   changeLogs?: CustomerChangeLogItem[];
   isCloudSyncing?: boolean;
   addChangeLog?: (item: Omit<CustomerChangeLogItem, "id" | "timestamp" | "formattedDateTime"> & { id?: string; timestamp?: string; formattedDateTime?: string }) => Promise<CustomerChangeLogItem>;
@@ -158,6 +159,7 @@ export default function LedgerView({
   setSelectedCustomerId: propSetSelectedCustomerId,
   selectedInvoiceId: propSelectedInvoiceId,
   setSelectedInvoiceId: propSetSelectedInvoiceId,
+  onReturnToCustomerDataTable,
   changeLogs = [],
   isCloudSyncing = false,
   addChangeLog,
@@ -2454,6 +2456,10 @@ ${folderCustomers
                 window.dispatchEvent(new CustomEvent("ledger-request-navigation", {
                   detail: {
                     action: () => {
+                      if (onReturnToCustomerDataTable) {
+                        onReturnToCustomerDataTable();
+                        return;
+                      }
                       setSelectedCustomerId(null);
                       setSelectedInvoiceId(null);
                       setIsAddingInvoice(false);
