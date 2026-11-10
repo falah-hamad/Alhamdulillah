@@ -746,7 +746,6 @@ export default function App() {
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
                 {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
                 {currentTab === "stats" && "التقارير البيانية والإحصائيات"}
-                {currentTab === "reports" && "تصدير التقارير المعتمدة"}
                 {currentTab === "downloads" && "التنزيلات"}
                 {currentTab === "settings" && "الإعدادات وتأمين البيانات"}
               </h1>
