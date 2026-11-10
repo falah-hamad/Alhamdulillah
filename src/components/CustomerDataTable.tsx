@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, BarChart3, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
@@ -92,8 +92,9 @@ const wordLines = (text: string) => {
   return lines;
 };
 
-export default function CustomerDataTable({customers,invoices,folders = [],onBack,onOpenCustomerStatistics,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
+export default function CustomerDataTable({customers,invoices,folders = [],onBack,onOpenCustomerLedger,onOpenCustomerStatistics,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; folders?: CustomerFolder[]; onBack: () => void;
+  onOpenCustomerLedger: (customerId: string) => void;
   onOpenCustomerStatistics: (customerId: string) => void;
   filterControls: React.ReactNode; searchControl: React.ReactNode; onOpenFilters: () => void; activeFilterCount: number;
   totalCustomerCount: number;
@@ -102,6 +103,14 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   const customerRowLongPressTimer = useRef<number | null>(null);
   const pressedCustomerRowRef = useRef<HTMLTableRowElement | null>(null);
   const customerRowPointerStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const customerMenuRef = useRef<HTMLDivElement | null>(null);
+  const [openCustomerMenuId, setOpenCustomerMenuId] = useState<string | null>(null);
+  const [customerMenuPosition, setCustomerMenuPosition] = useState({ top: 0, left: 0 });
+  const placeCustomerMenuAt = (x: number, y: number, height: number) => {
+    const top = y + height + 8 <= window.innerHeight ? y + 4 : Math.max(8, y - height - 4);
+    const left = Math.max(8, Math.min(x - 192, window.innerWidth - 200));
+    setCustomerMenuPosition({ top, left });
+  };
   const currentSortSettingsKey = sortSettingsKey(currentUser?.uid);
   const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
   const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
@@ -131,12 +140,28 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
       row.classList.remove("customer-table-row-pressing");
       pressedCustomerRowRef.current = null;
       customerRowPointerStartRef.current = null;
-      onOpenCustomerStatistics(customerId);
+      placeCustomerMenuAt(x, y, 112);
+      setOpenCustomerMenuId(customerId);
     }, 400);
   };
   useEffect(() => () => {
     if (customerRowLongPressTimer.current !== null) window.clearTimeout(customerRowLongPressTimer.current);
   }, []);
+  useEffect(() => {
+    if (!openCustomerMenuId) return;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !customerMenuRef.current?.contains(event.target)) setOpenCustomerMenuId(null);
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenCustomerMenuId(null);
+    };
+    document.addEventListener("pointerdown", dismissOutside, true);
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside, true);
+      window.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [openCustomerMenuId]);
   useEffect(()=>{
     const saved = readSortSettings(currentSortSettingsKey);
     setRules(saved.rules);
@@ -392,16 +417,22 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
               onPointerUp={cancelCustomerRowLongPress}
               onPointerCancel={cancelCustomerRowLongPress}
               onPointerLeave={event => { if (event.pointerType === "mouse") cancelCustomerRowLongPress(); }}
-              onContextMenu={event => event.preventDefault()}
+              onContextMenu={event => {
+                event.preventDefault();
+                placeCustomerMenuAt(event.clientX || event.currentTarget.getBoundingClientRect().right, event.clientY || event.currentTarget.getBoundingClientRect().top, 112);
+                setOpenCustomerMenuId(r.id);
+              }}
               onKeyDown={event => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onOpenCustomerStatistics(r.id);
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  placeCustomerMenuAt(bounds.right, bounds.top, 112);
+                  setOpenCustomerMenuId(r.id);
                 }
               }}
               className="customer-data-table-row select-none cursor-pointer focus:outline-none transition-colors duration-150 hover:bg-blue-50/40"
             >
-              {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}
+              {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}{id===visibleColumnOrder[0]&&openCustomerMenuId===r.id&&<div ref={customerMenuRef} role="menu" aria-label={`خيارات العميل ${r.name}`} style={{position:"fixed",top:customerMenuPosition.top,left:customerMenuPosition.left,zIndex:99999}} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-right shadow-2xl" onPointerDown={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}><button type="button" role="menuitem" onClick={()=>{setOpenCustomerMenuId(null);onOpenCustomerLedger(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BookOpen className="h-4 w-4"/>فتح سجل الديون</button><button type="button" role="menuitem" onClick={()=>{setOpenCustomerMenuId(null);onOpenCustomerStatistics(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BarChart3 className="h-4 w-4"/>فتح الإحصائيات</button></div>}</td>;})}
             </tr>
           </React.Fragment>)}
         </tbody>
