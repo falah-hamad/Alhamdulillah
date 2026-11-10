@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, BarChart3, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, GripVertical, Printer, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
@@ -112,22 +112,14 @@ function restoreCustomerTablePosition() {
   if (!saved) return;
   try {
     const position = JSON.parse(saved) as { customerId: string; rowTop: number; horizontalScroll: number };
-    let attempts = 0;
-    const restore = () => {
-      const row = Array.from(document.querySelectorAll<HTMLTableRowElement>(".customer-data-table-row"))
-        .find(candidate => candidate.dataset.customerRowId === position.customerId);
-      if (!row && attempts++ < 8) {
-        requestAnimationFrame(restore);
-        return;
-      }
-      if (!row) return;
-      const horizontalScroller = row.closest<HTMLElement>(".customer-data-table-scroll");
-      if (horizontalScroller) horizontalScroller.scrollLeft = position.horizontalScroll;
-      const currentTop = row.getBoundingClientRect().top;
-      window.scrollTo({ top: Math.max(0, window.scrollY + currentTop - position.rowTop), behavior: "instant" });
-      sessionStorage.removeItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
-    };
-    requestAnimationFrame(() => requestAnimationFrame(restore));
+    const row = Array.from(document.querySelectorAll<HTMLTableRowElement>(".customer-data-table-row"))
+      .find(candidate => candidate.dataset.customerRowId === position.customerId);
+    if (!row) return;
+    const horizontalScroller = row.closest<HTMLElement>(".customer-data-table-scroll");
+    if (horizontalScroller) horizontalScroller.scrollLeft = position.horizontalScroll;
+    const currentTop = row.getBoundingClientRect().top;
+    window.scrollTo({ top: Math.max(0, window.scrollY + currentTop - position.rowTop), behavior: "instant" });
+    sessionStorage.removeItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
   } catch {
     sessionStorage.removeItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
   }
@@ -141,7 +133,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
-  useEffect(() => {
+  useLayoutEffect(() => {
     restoreCustomerTablePosition();
   }, []);
   const customerRowLongPressTimer = useRef<number | null>(null);
