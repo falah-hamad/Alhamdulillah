@@ -217,46 +217,48 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
           </div>
         </div>
 
-        <section id="supplier-ledger-print" className="overflow-hidden border border-slate-300 bg-white shadow-sm print:shadow-none">
-          <header className="border-b-2 border-slate-700 bg-slate-50 px-4 py-5 text-center sm:px-7">
-            <div className="flex items-center justify-center gap-2 text-slate-700"><Truck className="h-5 w-5" /><span className="text-xs font-bold tracking-wide">كشف حساب المجهّز</span></div>
-            <h2 className="mt-2 text-xl font-black text-slate-900">{selectedSupplier.name}</h2>
-            <p className="mt-1 text-xs text-slate-500">كشف حركة المشتريات والتسديدات</p>
+        <section id="supplier-ledger-print" className="overflow-hidden border border-slate-400 bg-white p-3 text-slate-900 shadow-sm sm:p-5 print:shadow-none">
+          <header className="flex min-h-24 items-start justify-between gap-4 border-b border-slate-400 px-2 pb-4 pt-2">
+            <div className="text-right">
+              <h2 className="text-xl font-black underline decoration-1 underline-offset-4">كشف حساب</h2>
+              <div className="mt-3 space-y-1 text-xs"><div><b>رقم الكشف:</b> {selectedSupplier.id.slice(-8).toUpperCase()}</div><div><b>التاريخ:</b> {dateLabel(nowLocalInput())}</div><div><b>هاتف المحل:</b> {settings.companyPhone || "—"}</div></div>
+            </div>
+            <div className="text-left">
+              {settings.logoUrl ? <img src={settings.logoUrl} alt="شعار المحل" className="mr-auto mb-2 h-12 max-w-28 object-contain" /> : <div className="text-2xl font-black text-slate-800">{settings.companyName || "المحل"}</div>}
+              <div className="mt-1 max-w-56 text-xs text-slate-600">{settings.companyDescription || "كشف مشتريات وتسديدات المجهّز"}</div>
+              {settings.companyAddress && <div className="mt-1 text-xs text-slate-600">{settings.companyAddress}</div>}
+            </div>
           </header>
-          <div className="grid gap-x-6 gap-y-3 border-b border-slate-300 px-4 py-4 text-sm sm:grid-cols-2 sm:px-7">
-            <div><span className="font-bold text-slate-600">تاريخ إعداد الكشف:</span> <span className="font-semibold">{dateLabel(nowLocalInput())}</span></div>
-            <div><span className="font-bold text-slate-600">اسم المجهّز:</span> <span className="font-semibold">{selectedSupplier.name}</span></div>
-            <div><span className="font-bold text-slate-600">رقم الهاتف:</span> <span>{selectedSupplier.phone || "—"}</span></div>
-            <div><span className="font-bold text-slate-600">العنوان:</span> <span>{selectedSupplier.address || "—"}</span></div>
-            {selectedSupplier.notes && <div className="sm:col-span-2"><span className="font-bold text-slate-600">ملاحظات المجهّز:</span> {selectedSupplier.notes}</div>}
-            <div className="sm:col-span-2 print:hidden"><button type="button" onClick={() => openEditSupplier(selectedSupplier)} className="text-xs font-bold text-blue-700 underline">تعديل تفاصيل المجهّز</button></div>
-          </div>
-          <div className="grid grid-cols-1 border-b border-slate-300 bg-white sm:grid-cols-3">
-            <div className="border-b border-slate-200 px-4 py-3 text-center sm:border-b-0 sm:border-l"><div className="text-xs font-bold text-slate-500">إجمالي المشتريات</div><div className="mt-1 font-extrabold">{money(totals.purchases)} {currency}</div></div>
-            <div className="border-b border-slate-200 px-4 py-3 text-center sm:border-b-0 sm:border-l"><div className="text-xs font-bold text-slate-500">إجمالي التسديدات</div><div className="mt-1 font-extrabold text-emerald-700">{money(totals.paid)} {currency}</div></div>
-            <div className="px-4 py-3 text-center"><div className="text-xs font-bold text-slate-500">{totals.balance >= 0 ? "المتبقي للمجهّز" : "رصيد لك عند المجهّز"}</div><div className="mt-1 font-extrabold text-amber-700">{money(Math.abs(totals.balance))} {currency}</div></div>
+          <div className="my-3 rounded border border-slate-400 px-3 py-2 text-sm">
+            <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2"><div><b>اسم المجهّز:</b> {selectedSupplier.name}</div><div><b>رقم الهاتف:</b> {selectedSupplier.phone || "—"}</div><div><b>العنوان:</b> {selectedSupplier.address || "—"}</div><div><b>ملاحظات المجهّز:</b> {selectedSupplier.notes || "—"}</div></div>
+            <button type="button" onClick={() => openEditSupplier(selectedSupplier)} className="mt-2 text-xs font-bold text-blue-700 underline print:hidden">تعديل تفاصيل المجهّز</button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-sm">
-              <thead className="bg-slate-800 text-white"><tr>
-                {["ت", "التاريخ والوقت", "نوع الحركة والتفاصيل", "الكمية", "سعر الوحدة", "المبلغ", "الرصيد بعد الحركة"].map((header) => <th key={header} className="border border-slate-300 px-2 py-2 text-center font-extrabold">{header}</th>)}
+            <table className="w-full min-w-[750px] border-collapse text-sm">
+              <thead><tr>
+                {["ت", "التاريخ والوقت", "التفاصيل", "الكمية", "سعر الوحدة", "المبلغ الكلي"].map((header) => <th key={header} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-extrabold">{header}</th>)}
               </tr></thead>
               <tbody>
-                {ledgerRows.map((row, index) => <tr key={row.id} className={row.transaction.type === "payment" ? "bg-emerald-50" : "bg-white"}>
-                  <td className="border border-slate-300 px-2 py-2 text-center">{index + 1}</td>
-                  <td className="border border-slate-300 px-2 py-2 text-center text-xs leading-5">{dateLabel(row.transaction.date)}</td>
-                  <td className="border border-slate-300 px-2 py-2 font-semibold"><span className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-extrabold ${row.transaction.type === "payment" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"}`}>{row.transaction.type === "payment" ? "تسديد" : "شراء"}</span><div>{row.item?.details || row.details}</div>{row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-500">ملاحظة: {row.transaction.notes}</div>}{row.transaction.reference && row.item && <div className="mt-1 text-xs font-normal text-slate-500">رقم الفاتورة: {row.transaction.reference}</div>}</td>
-                  <td className="border border-slate-300 px-2 py-2 text-center">{row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
-                  <td className="border border-slate-300 px-2 py-2 text-center">{row.item ? money(row.item.unitPrice) : "—"}</td>
-                  <td className={`border border-slate-300 px-2 py-2 text-center font-bold ${row.displayAmount < 0 ? "text-emerald-700" : "text-slate-800"}`}>{row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
-                  <td className="border border-slate-300 px-2 py-2 text-center font-extrabold">{row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</td>
+                {ledgerRows.map((row, index) => <tr key={row.id} className={row.transaction.type === "payment" ? "bg-slate-50" : "bg-white"}>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{index + 1}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center text-xs leading-5">{dateLabel(row.transaction.date)}</td>
+                  <td className="border border-slate-400 px-2 py-2 font-semibold"><div>{row.transaction.type === "payment" ? "تسديد" : row.item?.details || row.details}</div>{row.transaction.type === "payment" && <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}{row.transaction.type === "payment" && <div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div>}{row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}{row.transaction.reference && row.item && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item ? money(row.item.unitPrice) : "—"}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
                 </tr>)}
-                {!ledgerRows.length && <tr><td colSpan={7} className="p-8 text-center text-slate-500">ماكو مشتريات أو تسديدات مسجلة لهذا المجهّز بعد.</td></tr>}
+                {!ledgerRows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">ماكو مشتريات أو تسديدات مسجلة لهذا المجهّز بعد.</td></tr>}
               </tbody>
-              {ledgerRows.length > 0 && <tfoot className="bg-slate-100 font-extrabold"><tr><td colSpan={5} className="border border-slate-300 px-3 py-3 text-left">الرصيد المتبقي حالياً</td><td colSpan={2} className="border border-slate-300 px-3 py-3 text-center">{totals.balance < 0 ? `رصيد لك ${money(Math.abs(totals.balance))}` : `${money(totals.balance)} ${currency}`}</td></tr></tfoot>}
             </table>
           </div>
-          {transactions.some((entry) => entry.type === "purchase") && <div className="border-t border-slate-300 px-4 py-4 text-xs text-slate-600"><strong>تفاصيل الفواتير المتبقية:</strong> {transactions.filter((entry) => entry.type === "purchase").map((purchase) => ({ purchase, due: remainingByPurchase.get(purchase.id) || 0 })).filter(({ due }) => due > 0).map(({ purchase, due }) => `${purchase.reference ? `فاتورة ${purchase.reference}` : dateLabel(purchase.date)}: ${money(due)} ${currency}`).join(" — ") || "لا توجد فواتير متبقية"}<div className="mt-5 flex justify-between gap-8 font-bold"><span>توقيع صاحب المحل: __________________</span><span>توقيع المجهّز: __________________</span></div></div>}
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_0.85fr]">
+            <div className="min-h-28 rounded border border-slate-400 p-3"><div className="text-sm font-extrabold">ملاحظات:</div><div className="mt-2 text-xs leading-6">{transactions.filter((entry) => entry.notes).map((entry) => `${dateLabel(entry.date)}: ${entry.notes}`).join(" | ") || "لا توجد ملاحظات"}</div><div className="mt-4 border-t border-dashed border-slate-300 pt-2 text-center text-xs">ملاحظات إضافية</div></div>
+            <div className="overflow-hidden rounded border border-slate-400 text-sm">
+              {[{ label: "إجمالي المشتريات", value: totals.purchases }, { label: "إجمالي التسديدات", value: totals.paid }, { label: totals.balance >= 0 ? "المتبقي للمجهّز" : "رصيد لك", value: Math.abs(totals.balance) }].map((entry) => <div key={entry.label} className="flex justify-between border-b border-slate-300 last:border-b-0"><span className="w-1/2 bg-slate-100 px-3 py-2 font-bold">{entry.label}</span><span className="flex-1 px-3 py-2 text-center font-extrabold">{money(entry.value)} {currency}</span></div>)}
+            </div>
+          </div>
+          {transactions.some((entry) => entry.type === "purchase") && <div className="mt-2 text-xs text-slate-600"><strong>الفواتير المتبقية:</strong> {transactions.filter((entry) => entry.type === "purchase").map((purchase) => ({ purchase, due: remainingByPurchase.get(purchase.id) || 0 })).filter(({ due }) => due > 0).map(({ purchase, due }) => `${purchase.reference ? `فاتورة ${purchase.reference}` : dateLabel(purchase.date)}: ${money(due)} ${currency}`).join(" — ") || "لا توجد فواتير متبقية"}</div>}
+          <footer className="mt-6 flex justify-between gap-6 border-t border-slate-400 pt-4 text-xs font-bold"><span>توقيع صاحب المحل: __________________</span><span>توقيع المجهّز: __________________</span></footer>
         </section>
 
         {purchaseOpen && <Modal title="تسجيل شراء من المجهّز" onClose={() => setPurchaseOpen(false)}>
