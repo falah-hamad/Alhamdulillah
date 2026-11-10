@@ -118,6 +118,45 @@ export interface Product {
   originalCategory?: string;
 }
 
+export interface SupplierTransactionItem {
+  id: string;
+  productId?: string;
+  details: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+}
+
+export interface SupplierPaymentAllocation {
+  purchaseId: string;
+  amount: number;
+}
+
+export interface SupplierTransaction {
+  id: string;
+  type: "purchase" | "payment";
+  date: string;
+  amount: number;
+  items?: SupplierTransactionItem[];
+  allocations?: SupplierPaymentAllocation[];
+  method?: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface Supplier {
+  id: string;
+  userId?: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  createdAt: string;
+  transactions: SupplierTransaction[];
+  isDeleted?: boolean;
+}
+
 export interface InvoiceItem {
   unitCost?: number; // Historical purchase cost captured when the item is sold.
   id: string;

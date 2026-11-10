@@ -10,6 +10,7 @@ import {
   CustomerChangeLogItem,
   AccountingSheetRow,
   CloudBackupItem,
+  Supplier,
 } from "../types";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { recordProductPriceChange } from "../lib/productPriceHistory";
@@ -69,6 +70,7 @@ export function useAccountingData() {
   const [folders, setFolders] = useState<CustomerFolder[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [changeLogs, setChangeLogs] = useState<CustomerChangeLogItem[]>([]);
@@ -82,6 +84,7 @@ export function useAccountingData() {
     folders,
     customers,
     products,
+    suppliers,
     invoices,
     payments,
     changeLogs,
@@ -93,6 +96,7 @@ export function useAccountingData() {
       folders,
       customers,
       products,
+      suppliers,
       invoices,
       payments,
       changeLogs,
@@ -129,6 +133,7 @@ export function useAccountingData() {
     setFolders([]);
     setCustomers([]);
     setProducts([]);
+    setSuppliers([]);
     setInvoices([]);
     setPayments([]);
     setChangeLogs([]);
@@ -142,6 +147,7 @@ export function useAccountingData() {
         const guestFolders = localStorage.getItem(getScopedKey("folders", null));
         const guestCustomers = localStorage.getItem(getScopedKey("customers", null));
         const guestProducts = localStorage.getItem(getScopedKey("products", null));
+        const guestSuppliers = localStorage.getItem(getScopedKey("suppliers", null));
         const guestInvoices = localStorage.getItem(getScopedKey("invoices", null));
         const guestPayments = localStorage.getItem(getScopedKey("payments", null));
         const guestChangeLogs = localStorage.getItem(getScopedKey("change_logs", null));
@@ -151,6 +157,7 @@ export function useAccountingData() {
           setFolders(guestFolders ? JSON.parse(guestFolders) : []);
           setCustomers(JSON.parse(guestCustomers));
           setProducts(JSON.parse(guestProducts));
+          setSuppliers(guestSuppliers ? JSON.parse(guestSuppliers) : []);
           setInvoices(JSON.parse(guestInvoices));
           setPayments(guestPayments ? JSON.parse(guestPayments) : []);
           setChangeLogs(guestChangeLogs ? JSON.parse(guestChangeLogs) : []);
@@ -159,6 +166,7 @@ export function useAccountingData() {
           setFolders([]);
           setCustomers([]);
           setProducts([]);
+          setSuppliers([]);
           setInvoices([]);
           setPayments([]);
           setChangeLogs([]);
@@ -182,6 +190,7 @@ export function useAccountingData() {
       const cachedFolders = localStorage.getItem(getScopedKey("folders", userId));
       const cachedCustomers = localStorage.getItem(getScopedKey("customers", userId));
       const cachedProducts = localStorage.getItem(getScopedKey("products", userId));
+      const cachedSuppliers = localStorage.getItem(getScopedKey("suppliers", userId));
       const cachedInvoices = localStorage.getItem(getScopedKey("invoices", userId));
       const cachedPayments = localStorage.getItem(getScopedKey("payments", userId));
       const cachedChangeLogs = localStorage.getItem(getScopedKey("change_logs", userId));
@@ -190,6 +199,7 @@ export function useAccountingData() {
       if (cachedFolders) setFolders(JSON.parse(cachedFolders));
       if (cachedCustomers) setCustomers(JSON.parse(cachedCustomers));
       if (cachedProducts) setProducts(JSON.parse(cachedProducts));
+      if (cachedSuppliers) setSuppliers(JSON.parse(cachedSuppliers));
       if (cachedInvoices) setInvoices(JSON.parse(cachedInvoices));
       if (cachedPayments) setPayments(JSON.parse(cachedPayments));
       if (cachedChangeLogs) setChangeLogs(JSON.parse(cachedChangeLogs));
@@ -289,6 +299,25 @@ export function useAccountingData() {
       (err) => console.warn("Products snapshot notice:", err)
     );
     unsubscribers.push(unsubProducts);
+
+    // Supplier directory and account transactions are synced independently from customer ledgers.
+    const unsubSuppliers = onSnapshot(
+      collection(db, "users", userId, "suppliers"),
+      (snapshot) => {
+        if (activeUserIdRef.current !== userId) return;
+        checkSyncStatus(snapshot);
+        const items: Supplier[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as Supplier;
+          items.push({ ...data, userId, transactions: Array.isArray(data.transactions) ? data.transactions : [] });
+        });
+        const sorted = items.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+        setSuppliers(sorted);
+        try { localStorage.setItem(getScopedKey("suppliers", userId), JSON.stringify(sorted)); } catch {}
+      },
+      (err) => console.warn("Suppliers snapshot notice:", err)
+    );
+    unsubscribers.push(unsubSuppliers);
 
     // 4. Invoices Listener
     const unsubInvoices = onSnapshot(
@@ -957,6 +986,35 @@ export function useAccountingData() {
     }
   };
 
+  // Supplier directory and each supplier's purchase/payment account.
+  const addSupplier = (supplier: Omit<Supplier, "id" | "createdAt" | "transactions">): Supplier => {
+    const nextSupplier: Supplier = { ...supplier, id: createUniqueRecordId("supplier"), userId: currentUser?.uid, createdAt: new Date().toISOString(), transactions: [] };
+    latestState.current.suppliers = [nextSupplier, ...latestState.current.suppliers];
+    setSuppliers((prev) => {
+      const next = [nextSupplier, ...prev];
+      saveScopedStorage("suppliers", next);
+      return next;
+    });
+    if (currentUser) saveToFirestoreDoc("suppliers", nextSupplier.id, nextSupplier).catch((error) => console.error(error));
+    return nextSupplier;
+  };
+
+  const updateSupplier = async (supplier: Supplier) => {
+    const updated = { ...supplier, userId: currentUser?.uid, transactions: Array.isArray(supplier.transactions) ? supplier.transactions : [] };
+    latestState.current.suppliers = latestState.current.suppliers.map((item) => item.id === updated.id ? updated : item);
+    setSuppliers((prev) => {
+      const next = prev.map((item) => item.id === updated.id ? updated : item);
+      saveScopedStorage("suppliers", next);
+      return next;
+    });
+    if (currentUser) await saveToFirestoreDoc("suppliers", updated.id, updated);
+  };
+
+  const deleteSupplier = async (id: string) => {
+    const supplier = latestState.current.suppliers.find((item) => item.id === id);
+    if (supplier) await updateSupplier({ ...supplier, isDeleted: true });
+  };
+
   // Invoices actions
   const addInvoice = (invoice: Omit<Invoice, "id" | "createdAt">): Invoice => {
     const invoiceId = `inv-${Date.now()}`;
@@ -1298,12 +1356,14 @@ export function useAccountingData() {
         const newSettings = { ...(payload.settings || settings || defaultSettings), userId: uid };
         const newFolders = (Array.isArray(payload.folders) ? payload.folders : folders).map((f: CustomerFolder) => ({ ...f, userId: uid }));
         const newCustomers = payload.customers.map((c: Customer) => ({ ...c, userId: uid }));
+        const newSuppliers = (Array.isArray(payload.suppliers) ? payload.suppliers : []).map((s: Supplier) => ({ ...s, userId: uid, transactions: Array.isArray(s.transactions) ? s.transactions : [] }));
         const newProducts = payload.products.map((p: Product) => ({ ...p, userId: uid }));
         const newInvoices = payload.invoices.map((inv: Invoice) => ({ ...inv, userId: uid }));
         const newPayments = payload.payments.map((pay: Payment) => ({ ...pay, userId: uid }));
 
         setFolders(newFolders);
         setCustomers(newCustomers);
+        setSuppliers(newSuppliers);
         setProducts(newProducts);
         setInvoices(newInvoices);
         setPayments(newPayments);
@@ -1311,6 +1371,7 @@ export function useAccountingData() {
 
         saveScopedStorage("folders", newFolders);
         saveScopedStorage("customers", newCustomers);
+        saveScopedStorage("suppliers", newSuppliers);
         saveScopedStorage("products", newProducts);
         saveScopedStorage("invoices", newInvoices);
         saveScopedStorage("payments", newPayments);
@@ -1318,6 +1379,10 @@ export function useAccountingData() {
 
         if (currentUser) {
           const batch = writeBatch(db);
+          const importedSupplierIds = new Set(newSuppliers.map((supplier: Supplier) => supplier.id));
+          latestState.current.suppliers.filter((supplier) => !importedSupplierIds.has(supplier.id)).forEach((supplier) => {
+            batch.delete(doc(db, "users", currentUser.uid, "suppliers", supplier.id));
+          });
           newFolders.forEach((f: CustomerFolder) => {
             const ref = doc(db, "users", currentUser.uid, "folders", f.id);
             batch.set(ref, cleanForFirestore({ ...f, userId: currentUser.uid }));
@@ -1325,6 +1390,10 @@ export function useAccountingData() {
           newCustomers.forEach((c: Customer) => {
             const ref = doc(db, "users", currentUser.uid, "customers", c.id);
             batch.set(ref, cleanForFirestore({ ...c, userId: currentUser.uid }));
+          });
+          newSuppliers.forEach((s: Supplier) => {
+            const ref = doc(db, "users", currentUser.uid, "suppliers", s.id);
+            batch.set(ref, cleanForFirestore({ ...s, userId: currentUser.uid }));
           });
           newProducts.forEach((p: Product) => {
             const ref = doc(db, "users", currentUser.uid, "products", p.id);
@@ -1349,6 +1418,7 @@ export function useAccountingData() {
           counts: {
             folders: newFolders.length,
             customers: newCustomers.length,
+            suppliers: newSuppliers.length,
             products: newProducts.length,
             invoices: newInvoices.length,
             payments: newPayments.length,
@@ -1368,6 +1438,7 @@ export function useAccountingData() {
     const uid = currentUser?.uid;
     const taggedFolders = sampleCustomerFolders.map((f) => ({ ...f, userId: uid }));
     const taggedCustomers = sampleCustomers.map((c) => ({ ...c, userId: uid }));
+    const taggedSuppliers: Supplier[] = [];
     const taggedProducts = sampleProducts.map((p) => ({ ...p, userId: uid }));
     const taggedInvoices = sampleInvoices.map((inv) => ({ ...inv, userId: uid }));
     const taggedPayments = samplePayments.map((p) => ({ ...p, userId: uid }));
@@ -1375,6 +1446,7 @@ export function useAccountingData() {
 
     setFolders(taggedFolders);
     setCustomers(taggedCustomers);
+    setSuppliers(taggedSuppliers);
     setProducts(taggedProducts);
     setInvoices(taggedInvoices);
     setPayments(taggedPayments);
@@ -1382,6 +1454,7 @@ export function useAccountingData() {
 
     saveScopedStorage("folders", taggedFolders);
     saveScopedStorage("customers", taggedCustomers);
+    saveScopedStorage("suppliers", taggedSuppliers);
     saveScopedStorage("products", taggedProducts);
     saveScopedStorage("invoices", taggedInvoices);
     saveScopedStorage("payments", taggedPayments);
@@ -1389,11 +1462,15 @@ export function useAccountingData() {
 
     if (currentUser) {
       const batch = writeBatch(db);
+      suppliers.forEach((supplier) => batch.delete(doc(db, "users", currentUser.uid, "suppliers", supplier.id)));
       taggedFolders.forEach((f) => {
         batch.set(doc(db, "users", currentUser.uid, "folders", f.id), cleanForFirestore({ ...f, userId: currentUser.uid }));
       });
       taggedCustomers.forEach((c) => {
         batch.set(doc(db, "users", currentUser.uid, "customers", c.id), cleanForFirestore({ ...c, userId: currentUser.uid }));
+      });
+      taggedSuppliers.forEach((s) => {
+        batch.set(doc(db, "users", currentUser.uid, "suppliers", s.id), cleanForFirestore({ ...s, userId: currentUser.uid }));
       });
       taggedProducts.forEach((p) => {
         batch.set(doc(db, "users", currentUser.uid, "products", p.id), cleanForFirestore({ ...p, userId: currentUser.uid }));
@@ -1417,6 +1494,7 @@ export function useAccountingData() {
     if (currentUser) {
       for (const f of folders) await deleteFromFirestoreDoc("folders", f.id);
       for (const c of customers) await deleteFromFirestoreDoc("customers", c.id);
+      for (const s of suppliers) await deleteFromFirestoreDoc("suppliers", s.id);
       for (const p of products) await deleteFromFirestoreDoc("products", p.id);
       for (const inv of invoices) await deleteFromFirestoreDoc("invoices", inv.id);
       for (const pay of payments) await deleteFromFirestoreDoc("payments", pay.id);
@@ -1424,6 +1502,7 @@ export function useAccountingData() {
     }
     setFolders([]);
     setCustomers([]);
+    setSuppliers([]);
     setProducts([]);
     setInvoices([]);
     setPayments([]);
@@ -1431,6 +1510,7 @@ export function useAccountingData() {
 
     saveScopedStorage("folders", []);
     saveScopedStorage("customers", []);
+    saveScopedStorage("suppliers", []);
     saveScopedStorage("products", []);
     saveScopedStorage("invoices", []);
     saveScopedStorage("payments", []);
@@ -1676,6 +1756,7 @@ export function useAccountingData() {
       },
       folders: latestState.current.folders,
       customers: latestState.current.customers,
+      suppliers: latestState.current.suppliers,
       products: latestState.current.products,
       invoices: latestState.current.invoices,
       payments: latestState.current.payments,
@@ -1709,6 +1790,7 @@ export function useAccountingData() {
   return {
     folders,
     customers,
+    suppliers,
     products,
     invoices,
     payments,
@@ -1738,6 +1820,9 @@ export function useAccountingData() {
     addProduct,
     updateProduct,
     deleteProduct,
+    addSupplier,
+    updateSupplier,
+    deleteSupplier,
     addInvoice,
     updateInvoice,
     deleteInvoice,

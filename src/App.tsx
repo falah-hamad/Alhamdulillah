@@ -44,6 +44,7 @@ import DashboardView from "./components/DashboardView";
 import LedgerView from "./components/LedgerView";
 import CustomersView from "./components/CustomersView";
 import ProductsView from "./components/ProductsView";
+import SuppliersView from "./components/SuppliersView";
 import PaymentsView from "./components/PaymentsView";
 import InvoicesView from "./components/InvoicesView";
 import StatsView from "./components/StatsView";
@@ -61,6 +62,7 @@ export default function App() {
     folders,
     customers,
     products,
+    suppliers,
     invoices,
     payments,
     settings,
@@ -85,6 +87,9 @@ export default function App() {
     addProduct,
     updateProduct,
     deleteProduct,
+    addSupplier,
+    updateSupplier,
+    deleteSupplier,
     addInvoice,
     updateInvoice,
     deleteInvoice,
@@ -480,6 +485,7 @@ export default function App() {
         data: {
           folders,
           customers,
+          suppliers,
           products,
           invoices,
           payments,
@@ -744,6 +750,7 @@ export default function App() {
                 {currentTab === "folders" && "مدير المجلدات والملفات (File Manager)"}
                 {currentTab === "customers" && "ملفات حسابات العملاء"}
                 {currentTab === "products" && "جرد البضائع والمستودع"}
+                {currentTab === "suppliers" && "حسابات المجهّزين والمشتريات"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
                 {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
                 {currentTab === "stats" && "التقارير البيانية والإحصائيات"}
@@ -1034,6 +1041,18 @@ export default function App() {
             />
           )}
 
+          {currentTab === "suppliers" && (
+            <SuppliersView
+              suppliers={suppliers}
+              products={products}
+              settings={settings}
+              addSupplier={addSupplier}
+              updateSupplier={updateSupplier}
+              deleteSupplier={deleteSupplier}
+              updateProduct={updateProduct}
+            />
+          )}
+
           {currentTab === "payments" && (
             <PaymentsView
               payments={activePayments}
@@ -1075,6 +1094,7 @@ export default function App() {
               clearAllData={clearAllData}
               importData={importData}
               customers={activeCustomers}
+              suppliers={suppliers}
               products={products}
               invoices={activeInvoices}
               payments={activePayments}
