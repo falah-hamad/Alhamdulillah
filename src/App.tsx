@@ -550,6 +550,7 @@ export default function App() {
   // State to pass target selections to ledger
   const [ledgerTargetCustomerId, setLedgerTargetCustomerId] = useState<string | null>(null);
   const [ledgerTargetInvoiceId, setLedgerTargetInvoiceId] = useState<string | null>(null);
+  const [customerDataTableReturnRequested, setCustomerDataTableReturnRequested] = useState(false);
 
   // Quick shortcut triggers from Dashboard
   const handleOpenNewInvoiceDashboard = () => {
@@ -981,6 +982,7 @@ export default function App() {
               onOpenNewCustomerModal={handleOpenNewCustomerDashboard}
               targetCustomerId={ledgerTargetCustomerId}
               targetInvoiceId={ledgerTargetInvoiceId}
+              onReturnToCustomerDataTable={customerDataTableReturnRequested ? () => setCurrentTab("customers") : undefined}
               clearTargets={() => {
                 setLedgerTargetCustomerId(null);
                 setLedgerTargetInvoiceId(null);
@@ -1009,6 +1011,14 @@ export default function App() {
                 setLedgerTargetCustomerId(customerId);
                 setLedgerTargetInvoiceId(null);
               }}
+              onOpenLedgerFromCustomerDataTable={(customerId) => {
+                setCustomerDataTableReturnRequested(true);
+                setCurrentTab("ledger");
+                setLedgerTargetCustomerId(customerId);
+                setLedgerTargetInvoiceId(null);
+              }}
+              initialShowCustomerData={customerDataTableReturnRequested}
+              onCustomerDataTableReturnConsumed={() => setCustomerDataTableReturnRequested(false)}
             />
           )}
 
@@ -1185,6 +1195,7 @@ interface LedgerWrapperProps {
   onOpenNewCustomerModal: any;
   targetCustomerId: string | null;
   targetInvoiceId: string | null;
+  onReturnToCustomerDataTable?: () => void;
   clearTargets: () => void;
   changeLogs?: any[];
   isCloudSyncing?: boolean;
@@ -1224,6 +1235,7 @@ function LedgerWrapper({
   onOpenNewCustomerModal,
   targetCustomerId,
   targetInvoiceId,
+  onReturnToCustomerDataTable,
   clearTargets,
   changeLogs,
   isCloudSyncing,
@@ -1281,6 +1293,7 @@ function LedgerWrapper({
       setSelectedCustomerId={setInternalCustomerId}
       selectedInvoiceId={internalInvoiceId}
       setSelectedInvoiceId={setInternalInvoiceId}
+      onReturnToCustomerDataTable={onReturnToCustomerDataTable}
       changeLogs={changeLogs}
       isCloudSyncing={isCloudSyncing}
       addChangeLog={addChangeLog}
