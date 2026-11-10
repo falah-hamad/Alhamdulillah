@@ -92,6 +92,47 @@ const wordLines = (text: string) => {
   return lines;
 };
 
+const CUSTOMER_TABLE_RETURN_POSITION_KEY = "customer-data-table-return-position";
+
+function rememberCustomerTablePosition(customerId: string) {
+  const row = Array.from(document.querySelectorAll<HTMLTableRowElement>(".customer-data-table-row"))
+    .find(candidate => candidate.dataset.customerRowId === customerId);
+  if (!row) return;
+  const horizontalScroller = row.closest<HTMLElement>(".customer-data-table-scroll");
+  sessionStorage.setItem(CUSTOMER_TABLE_RETURN_POSITION_KEY, JSON.stringify({
+    customerId,
+    rowTop: row.getBoundingClientRect().top,
+    pageTop: window.scrollY,
+    horizontalScroll: horizontalScroller?.scrollLeft ?? 0,
+  }));
+}
+
+function restoreCustomerTablePosition() {
+  const saved = sessionStorage.getItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
+  if (!saved) return;
+  try {
+    const position = JSON.parse(saved) as { customerId: string; rowTop: number; horizontalScroll: number };
+    let attempts = 0;
+    const restore = () => {
+      const row = Array.from(document.querySelectorAll<HTMLTableRowElement>(".customer-data-table-row"))
+        .find(candidate => candidate.dataset.customerRowId === position.customerId);
+      if (!row && attempts++ < 8) {
+        requestAnimationFrame(restore);
+        return;
+      }
+      if (!row) return;
+      const horizontalScroller = row.closest<HTMLElement>(".customer-data-table-scroll");
+      if (horizontalScroller) horizontalScroller.scrollLeft = position.horizontalScroll;
+      const currentTop = row.getBoundingClientRect().top;
+      window.scrollTo({ top: Math.max(0, window.scrollY + currentTop - position.rowTop), behavior: "instant" });
+      sessionStorage.removeItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+  } catch {
+    sessionStorage.removeItem(CUSTOMER_TABLE_RETURN_POSITION_KEY);
+  }
+}
+
 export default function CustomerDataTable({customers,invoices,folders = [],onBack,onOpenCustomerLedger,onOpenCustomerStatistics,filterControls,searchControl,onOpenFilters,activeFilterCount,totalCustomerCount}: {
   customers: Customer[]; invoices: Invoice[]; folders?: CustomerFolder[]; onBack: () => void;
   onOpenCustomerLedger: (customerId: string) => void;
@@ -100,6 +141,9 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
+  useEffect(() => {
+    restoreCustomerTablePosition();
+  }, []);
   const customerRowLongPressTimer = useRef<number | null>(null);
   const pressedCustomerRowRef = useRef<HTMLTableRowElement | null>(null);
   const customerRowPointerStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
@@ -401,6 +445,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
           {sorted.map((r,i)=><React.Fragment key={r.id}>
             {visible.length>0 && (i===0 || group(r)!==group(sorted[i-1])) && <tr><td colSpan={visibleColumnOrder.length} className="border border-slate-300 bg-[#e7eef9] px-1.5 py-1.5 font-bold text-slate-800 text-center whitespace-normal break-words">{visible.map(x=>`${ruleLabel(x)}: ${ruleValueLabel(r,x)}`).join(" — ")}</td></tr>}
             <tr
+              data-customer-row-id={r.id}
               role="button"
               tabIndex={0}
               aria-label={`فتح إحصائيات ${r.name}`}
@@ -432,7 +477,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
               }}
               className="customer-data-table-row select-none cursor-pointer focus:outline-none transition-colors duration-150 hover:bg-blue-50/40"
             >
-              {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}{id===visibleColumnOrder[0]&&openCustomerMenuId===r.id&&<div ref={customerMenuRef} role="menu" aria-label={`خيارات العميل ${r.name}`} style={{position:"fixed",top:customerMenuPosition.top,left:customerMenuPosition.left,zIndex:99999}} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-right shadow-2xl" onPointerDown={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}><button type="button" role="menuitem" onClick={()=>{setOpenCustomerMenuId(null);onOpenCustomerLedger(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BookOpen className="h-4 w-4"/>فتح الحساب</button><button type="button" role="menuitem" onClick={()=>{setOpenCustomerMenuId(null);onOpenCustomerStatistics(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BarChart3 className="h-4 w-4"/>فتح الإحصائيات</button></div>}</td>;})}
+              {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}{id===visibleColumnOrder[0]&&openCustomerMenuId===r.id&&<div ref={customerMenuRef} role="menu" aria-label={`خيارات العميل ${r.name}`} style={{position:"fixed",top:customerMenuPosition.top,left:customerMenuPosition.left,zIndex:99999}} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-right shadow-2xl" onPointerDown={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}><button type="button" role="menuitem" onClick={()=>{rememberCustomerTablePosition(r.id);setOpenCustomerMenuId(null);onOpenCustomerLedger(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BookOpen className="h-4 w-4"/>فتح الحساب</button><button type="button" role="menuitem" onClick={()=>{setOpenCustomerMenuId(null);onOpenCustomerStatistics(r.id);}} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><BarChart3 className="h-4 w-4"/>فتح الإحصائيات</button></div>}</td>;})}
             </tr>
           </React.Fragment>)}
         </tbody>
