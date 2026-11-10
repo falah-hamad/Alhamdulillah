@@ -568,7 +568,7 @@ export default function CustomersView({
     const selectedStatisticsCustomer = customers.find(customer => customer.id === selectedStatisticsCustomerId);
     return <>
       <div className={selectedStatisticsCustomer ? "hidden" : ""}>
-        <CustomerDataTable customers={filteredCustomers} invoices={invoices} folders={folders} onBack={() => setShowCustomerData(false)} onOpenCustomerStatistics={setSelectedStatisticsCustomerId} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
+        <CustomerDataTable customers={filteredCustomers} invoices={invoices} folders={folders} onBack={() => setShowCustomerData(false)} onOpenCustomerLedger={onOpenLedger} onOpenCustomerStatistics={setSelectedStatisticsCustomerId} filterControls={customerDataFilterControls} searchControl={customerSearchControl} onOpenFilters={() => { if (!filtersOpen) setDraftFilters(customerFilters); setFiltersOpen(open => !open); }} activeFilterCount={activeFilterCount} totalCustomerCount={customers.filter(customer => !customer.isDeleted).length} />
       </div>
       {selectedStatisticsCustomer && <CustomerStatisticsProfile customer={selectedStatisticsCustomer} invoices={invoices} payments={payments} currency={settings.currency} folders={folders} onSave={updateCustomer} onClose={() => setSelectedStatisticsCustomerId(null)} />}
     </>;
