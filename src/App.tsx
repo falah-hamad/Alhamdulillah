@@ -47,7 +47,6 @@ import ProductsView from "./components/ProductsView";
 import PaymentsView from "./components/PaymentsView";
 import InvoicesView from "./components/InvoicesView";
 import StatsView from "./components/StatsView";
-import ReportsView from "./components/ReportsView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
@@ -1054,16 +1053,6 @@ export default function App() {
             />
           )}
 
-          {currentTab === "reports" && (
-            <ReportsView
-              customers={activeCustomers}
-              products={products}
-              invoices={activeInvoices}
-              payments={activePayments}
-              settings={settings}
-              folders={folders}
-            />
-          )}
 
           {currentTab === "downloads" && <DownloadsView />}
 
