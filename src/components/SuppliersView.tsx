@@ -50,6 +50,10 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const [paymentMethod, setPaymentMethod] = useState("نقداً");
   const [paymentNote, setPaymentNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [supplierSheetMode, setSupplierSheetMode] = useState<"view" | "edit">("view");
+  const [supplierLedgerTab, setSupplierLedgerTab] = useState<"all" | "purchases" | "payments">("all");
+  const [supplierDraftTransactions, setSupplierDraftTransactions] = useState<SupplierTransaction[]>([]);
+  const [supplierRowsDirty, setSupplierRowsDirty] = useState(false);
   const holdTimer = useRef<number | null>(null);
   const holdStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -59,6 +63,34 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const selectedSupplier = suppliers.find((supplier) => supplier.id === selectedSupplierId && !supplier.isDeleted) || null;
   const contextSupplier = suppliers.find((supplier) => supplier.id === contextSupplierId && !supplier.isDeleted) || null;
   const currency = settings.currency || "د.ع";
+
+  useEffect(() => {
+    const supplier = suppliers.find((entry) => entry.id === selectedSupplierId && !entry.isDeleted);
+    const currentTransactions = supplier?.transactions || [];
+    setSupplierDraftTransactions(currentTransactions.map((entry) => ({ ...entry, items: entry.items?.map((item) => ({ ...item })) })));
+    setSupplierRowsDirty(false);
+    setSupplierSheetMode("view");
+    setSupplierLedgerTab("all");
+  }, [selectedSupplierId]);
+
+  const updateSupplierTransaction = (transactionId: string, patch: Partial<SupplierTransaction>) => {
+    setSupplierDraftTransactions((current) => current.map((entry) => entry.id === transactionId ? { ...entry, ...patch } : entry));
+    setSupplierRowsDirty(true);
+  };
+
+  const updateSupplierItem = (transactionId: string, itemId: string, patch: Partial<SupplierTransactionItem>) => {
+    setSupplierDraftTransactions((current) => current.map((entry) => {
+      if (entry.id !== transactionId || entry.type !== "purchase") return entry;
+      const items = (entry.items || []).map((item) => {
+        if (item.id !== itemId) return item;
+        const updated = { ...item, ...patch };
+        if (patch.quantity !== undefined || patch.unitPrice !== undefined) updated.total = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
+        return updated;
+      });
+      return { ...entry, items, amount: items.reduce((sum, item) => sum + (Number(item.total) || 0), 0) };
+    }));
+    setSupplierRowsDirty(true);
+  };
 
   const totalsFor = (supplier: Supplier) => {
     const transactions = Array.isArray(supplier.transactions) ? supplier.transactions : [];
@@ -184,7 +216,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const openPayment = () => { setPaymentDate(nowLocalInput()); setPaymentOpen(true); };
 
   if (selectedSupplier) {
-    const transactions = [...(selectedSupplier.transactions || [])].sort((a, b) => a.date.localeCompare(b.date));
+    const transactions = [...(supplierSheetMode === "edit" ? supplierDraftTransactions : (selectedSupplier.transactions || []))].sort((a, b) => a.date.localeCompare(b.date));
     let runningBalance = 0;
     const ledgerRows = transactions.flatMap((transaction) => {
       if (transaction.type === "purchase") {
@@ -205,16 +237,64 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     const remainingByPurchase = new Map<string, number>();
     transactions.filter((entry) => entry.type === "purchase").forEach((purchase) => remainingByPurchase.set(purchase.id, purchase.amount));
     transactions.filter((entry) => entry.type === "payment").forEach((payment) => (payment.allocations || []).forEach((allocation) => remainingByPurchase.set(allocation.purchaseId, Math.max(0, (remainingByPurchase.get(allocation.purchaseId) || 0) - allocation.amount))));
+    const shownRows = ledgerRows.filter((row) => supplierLedgerTab === "all" || (supplierLedgerTab === "purchases" ? row.transaction.type === "purchase" : row.transaction.type === "payment"));
+    const saveSupplierRows = async () => {
+      if (!supplierRowsDirty) { setSupplierSheetMode("view"); return; }
+      setSaving(true);
+      try {
+        const outstanding = new Map<string, number>();
+        const normalized = [...supplierDraftTransactions].sort((a, b) => a.date.localeCompare(b.date)).map((entry) => {
+          if (entry.type === "purchase") {
+            const items = entry.items?.map((item) => ({ ...item, quantity: Number(item.quantity) || 0, unitPrice: Number(item.unitPrice) || 0, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) }));
+            const amount = items?.length ? items.reduce((sum, item) => sum + item.total, 0) : Number(entry.amount) || 0;
+            outstanding.set(entry.id, amount);
+            return { ...entry, ...(items?.length ? { items } : {}), amount };
+          }
+          let unallocated = Number(entry.amount) || 0;
+          const allocations: NonNullable<SupplierTransaction["allocations"]> = [];
+          for (const [purchaseId, due] of outstanding) {
+            if (unallocated <= 0) break;
+            const allocated = Math.min(due, unallocated);
+            if (allocated > 0) { allocations.push({ purchaseId, amount: allocated }); outstanding.set(purchaseId, due - allocated); unallocated -= allocated; }
+          }
+          return { ...entry, amount: Number(entry.amount) || 0, allocations };
+        });
+        await updateSupplier({ ...selectedSupplier, transactions: normalized });
+        setSupplierDraftTransactions(normalized);
+        setSupplierRowsDirty(false);
+        setSupplierSheetMode("view");
+      } finally { setSaving(false); }
+    };
+    const cancelSupplierRows = () => {
+      setSupplierDraftTransactions((selectedSupplier.transactions || []).map((entry) => ({ ...entry, items: entry.items?.map((item) => ({ ...item })) })));
+      setSupplierRowsDirty(false);
+      setSupplierSheetMode("view");
+    };
 
     return (
       <div className="space-y-4" dir="rtl">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => setSelectedSupplierId(null)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى المجهّزين</button>
+          <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد الخروج وإلغاءها؟")) return; setSelectedSupplierId(null); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى المجهّزين</button>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={openPurchase} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"><PackagePlus className="h-4 w-4" /> تسجيل شراء</button>
-            <button type="button" onClick={openPayment} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"><CreditCard className="h-4 w-4" /> تسجيل تسديد</button>
+            <button type="button" disabled={supplierSheetMode === "edit"} onClick={openPurchase} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"><PackagePlus className="h-4 w-4" /> تسجيل شراء</button>
+            <button type="button" disabled={supplierSheetMode === "edit"} onClick={openPayment} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><CreditCard className="h-4 w-4" /> تسجيل تسديد</button>
             <button type="button" onClick={() => void printElement("supplier-ledger-print", { title: `حساب ${selectedSupplier.name}` })} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"><FileText className="h-4 w-4" /> طباعة</button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" dir="rtl">
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد إلغاءها والرجوع للعرض؟")) return; if (supplierRowsDirty) cancelSupplierRows(); else setSupplierSheetMode("view"); }} aria-pressed={supplierSheetMode === "view"} className={`rounded-lg border px-3 py-2 text-xs font-bold ${supplierSheetMode === "view" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><span aria-hidden>◉</span> عرض</button>
+            <button type="button" onClick={() => setSupplierSheetMode("edit")} aria-pressed={supplierSheetMode === "edit"} className={`rounded-lg border px-3 py-2 text-xs font-bold ${supplierSheetMode === "edit" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><span aria-hidden>✎</span> تعديل</button>
+          </div>
+          {supplierSheetMode === "edit" && <div className="flex gap-2">
+            <button type="button" onClick={() => void saveSupplierRows()} disabled={!supplierRowsDirty || saving} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}</button>
+            <button type="button" onClick={cancelSupplierRows} disabled={saving} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700">إلغاء التغييرات</button>
+          </div>}
+        </div>
+        <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white p-2" role="tablist" aria-label="تبويبات حساب المجهّز">
+          {([{ id: "all", label: "كل الحركات" }, { id: "purchases", label: "المشتريات" }, { id: "payments", label: "التسديدات" }] as const).map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={supplierLedgerTab === tab.id} onClick={() => setSupplierLedgerTab(tab.id)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${supplierLedgerTab === tab.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700"}`}>{tab.label}</button>)}
+          {supplierSheetMode === "edit" && <span className="self-center text-[11px] text-slate-500">اضغط على خلية لتعديلها مباشرة، ثم احفظ.</span>}
         </div>
 
         <section id="supplier-ledger-print" className="overflow-hidden border border-slate-400 bg-white p-3 text-slate-900 shadow-sm sm:p-5 print:shadow-none">
@@ -239,15 +319,15 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
                 {["ت", "التاريخ والوقت", "التفاصيل", "الكمية", "سعر الوحدة", "المبلغ الكلي"].map((header) => <th key={header} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-extrabold">{header}</th>)}
               </tr></thead>
               <tbody>
-                {ledgerRows.map((row, index) => <tr key={row.id} className={row.transaction.type === "payment" ? "bg-slate-50" : "bg-white"}>
+                {shownRows.map((row, index) => <tr key={row.id} className={row.transaction.type === "payment" ? "bg-slate-50" : "bg-white"}>
                   <td className="border border-slate-400 px-2 py-2 text-center">{index + 1}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center text-xs leading-5">{dateLabel(row.transaction.date)}</td>
-                  <td className="border border-slate-400 px-2 py-2 font-semibold"><div>{row.transaction.type === "payment" ? "تسديد" : row.item?.details || row.details}</div>{row.transaction.type === "payment" && <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}{row.transaction.type === "payment" && <div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div>}{row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}{row.transaction.reference && row.item && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item ? money(row.item.unitPrice) : "—"}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center text-xs leading-5">{supplierSheetMode === "edit" ? <input aria-label="تاريخ الحركة" type="datetime-local" value={row.transaction.date.slice(0, 16)} onChange={(event) => updateSupplierTransaction(row.transaction.id, { date: event.target.value })} className="w-40 rounded border border-blue-200 bg-white p-1 text-xs" /> : dateLabel(row.transaction.date)}</td>
+                  <td className="border border-slate-400 px-2 py-2 font-semibold">{row.transaction.type === "payment" ? <><div>تسديد</div>{supplierSheetMode === "edit" ? <input aria-label="طريقة التسديد" value={row.transaction.method || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { method: event.target.value })} className="mt-1 w-full rounded border border-blue-200 p-1 text-xs font-normal" placeholder="طريقة التسديد" /> : <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}<div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div></> : supplierSheetMode === "edit" && row.item ? <input aria-label="تفاصيل البضاعة" value={row.item.details} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { details: event.target.value })} className="w-full rounded border border-blue-200 p-1 font-semibold" /> : <div>{row.item?.details || row.details}</div>}{supplierSheetMode === "edit" && <input aria-label="ملاحظات الحركة" value={row.transaction.notes || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { notes: event.target.value })} className="mt-1 w-full rounded border border-blue-200 p-1 text-xs font-normal" placeholder="ملاحظة الحركة" />}{row.transaction.type === "purchase" && (row.transaction.reference || supplierSheetMode === "edit") && <div className="mt-1 text-xs font-normal">{supplierSheetMode === "edit" ? <input aria-label="رقم الفاتورة" value={row.transaction.reference || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { reference: event.target.value })} className="w-full rounded border border-blue-200 p-1" placeholder="رقم الفاتورة" /> : <span className="text-slate-600">رقم الفاتورة: {row.transaction.reference}</span>}</div>}{row.transaction.notes && supplierSheetMode === "view" && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <><input aria-label="كمية البضاعة" type="number" min="0" step="any" value={row.item.quantity} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { quantity: Number(event.target.value) })} className="w-16 rounded border border-blue-200 p-1 text-center" /><input aria-label="وحدة البضاعة" value={row.item.unit} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unit: event.target.value })} className="mt-1 w-16 rounded border border-blue-200 p-1 text-center text-xs" /></> : row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <input aria-label="سعر الوحدة" type="number" min="0" step="any" value={row.item.unitPrice} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unitPrice: Number(event.target.value) })} className="w-24 rounded border border-blue-200 p-1 text-center" /> : row.item ? money(row.item.unitPrice) : "—"}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.transaction.type === "payment" && supplierSheetMode === "edit" ? <input aria-label="مبلغ التسديد" type="number" min="0" step="any" value={row.transaction.amount} onChange={(event) => updateSupplierTransaction(row.transaction.id, { amount: Number(event.target.value) })} className="w-24 rounded border border-blue-200 p-1 text-center font-bold" /> : row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
                 </tr>)}
-                {!ledgerRows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">ماكو مشتريات أو تسديدات مسجلة لهذا المجهّز بعد.</td></tr>}
+                {!shownRows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">ماكو حركات ضمن هذا التبويب.</td></tr>}
               </tbody>
             </table>
           </div>
