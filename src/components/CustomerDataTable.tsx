@@ -132,7 +132,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
       pressedCustomerRowRef.current = null;
       customerRowPointerStartRef.current = null;
       onOpenCustomerStatistics(customerId);
-    }, 550);
+    }, 400);
   };
   useEffect(() => () => {
     if (customerRowLongPressTimer.current !== null) window.clearTimeout(customerRowLongPressTimer.current);
