@@ -99,8 +99,9 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
   totalCustomerCount: number;
 }) {
   const { currentUser } = useAuth();
-  const [pressedCustomerRowId, setPressedCustomerRowId] = useState<string | null>(null);
   const customerRowLongPressTimer = useRef<number | null>(null);
+  const pressedCustomerRowRef = useRef<HTMLTableRowElement | null>(null);
+  const customerRowPointerStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const currentSortSettingsKey = sortSettingsKey(currentUser?.uid);
   const [initialSortSettings] = useState(()=>readSortSettings(currentSortSettingsKey));
   const [rules,setRules] = useState<Rule[]>(initialSortSettings.rules);
@@ -116,14 +117,20 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
       window.clearTimeout(customerRowLongPressTimer.current);
       customerRowLongPressTimer.current = null;
     }
-    setPressedCustomerRowId(null);
+    pressedCustomerRowRef.current?.classList.remove("customer-table-row-pressing");
+    pressedCustomerRowRef.current = null;
+    customerRowPointerStartRef.current = null;
   };
-  const startCustomerRowLongPress = (customerId: string) => {
+  const startCustomerRowLongPress = (customerId: string, row: HTMLTableRowElement, pointerId: number, x: number, y: number) => {
     cancelCustomerRowLongPress();
-    setPressedCustomerRowId(customerId);
+    pressedCustomerRowRef.current = row;
+    customerRowPointerStartRef.current = { pointerId, x, y };
+    row.classList.add("customer-table-row-pressing");
     customerRowLongPressTimer.current = window.setTimeout(() => {
       customerRowLongPressTimer.current = null;
-      setPressedCustomerRowId(null);
+      row.classList.remove("customer-table-row-pressing");
+      pressedCustomerRowRef.current = null;
+      customerRowPointerStartRef.current = null;
       onOpenCustomerStatistics(customerId);
     }, 550);
   };
@@ -360,7 +367,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
       </div>}
     </div>
     <p className="text-sm font-semibold text-slate-600">عدد العملاء: {format(sorted.length)} من {format(totalCustomerCount)}</p>
-    <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
+    <div className="customer-data-table-scroll w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-slate-400 bg-white shadow-sm" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
       <table className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
         <thead className="bg-[#94acd1] text-slate-950">
           <tr>{visibleColumnOrder.map(id=><th key={id} className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{columnLabel(id)}</th>)}</tr>
@@ -371,16 +378,20 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
             <tr
               role="button"
               tabIndex={0}
-              aria-pressed={pressedCustomerRowId === r.id}
               aria-label={`فتح إحصائيات ${r.name}`}
               title="اضغط مطولاً لفتح إحصائيات العميل"
-              onTouchStart={() => startCustomerRowLongPress(r.id)}
-              onTouchEnd={cancelCustomerRowLongPress}
-              onTouchMove={cancelCustomerRowLongPress}
-              onTouchCancel={cancelCustomerRowLongPress}
-              onMouseDown={() => startCustomerRowLongPress(r.id)}
-              onMouseUp={cancelCustomerRowLongPress}
-              onMouseLeave={cancelCustomerRowLongPress}
+              onPointerDown={event => {
+                if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
+                startCustomerRowLongPress(r.id, event.currentTarget, event.pointerId, event.clientX, event.clientY);
+              }}
+              onPointerMove={event => {
+                const start = customerRowPointerStartRef.current;
+                if (!start || start.pointerId !== event.pointerId) return;
+                if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) cancelCustomerRowLongPress();
+              }}
+              onPointerUp={cancelCustomerRowLongPress}
+              onPointerCancel={cancelCustomerRowLongPress}
+              onPointerLeave={event => { if (event.pointerType === "mouse") cancelCustomerRowLongPress(); }}
               onContextMenu={event => event.preventDefault()}
               onKeyDown={event => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -388,7 +399,7 @@ export default function CustomerDataTable({customers,invoices,folders = [],onBac
                   onOpenCustomerStatistics(r.id);
                 }
               }}
-              className={`select-none cursor-pointer focus:outline-none transition-colors duration-150 ${pressedCustomerRowId === r.id ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40"}`}
+              className="customer-data-table-row select-none cursor-pointer focus:outline-none transition-colors duration-150 hover:bg-blue-50/40"
             >
               {visibleColumnOrder.map(id=>{const cell=cellValue(r,i,id);return <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${textualColumns.has(id)?"whitespace-normal":"whitespace-nowrap"}`}>{textualColumns.has(id)?wordLines(String(cell)).map((line,k)=><span key={k} className="block leading-5 whitespace-nowrap">{line}</span>):typeof cell==="number"?format(cell):cell}</td>;})}
             </tr>
