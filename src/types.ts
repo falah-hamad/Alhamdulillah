@@ -167,6 +167,12 @@ export interface Supplier {
   createdAt: string;
   transactions: SupplierTransaction[];
   ledgerBackgroundColor?: string;
+  /** Full debt-ledger notebook stored only on this supplier, separate from customer invoices/payments. */
+  ledgerInvoices?: Invoice[];
+  ledgerPayments?: Payment[];
+  accountingSheetDate?: string;
+  accountingSheetRows?: AccountingSheetRow[];
+  accountingSheetPayments?: AccountingSheetPayment[];
   isDeleted?: boolean;
 }
 
