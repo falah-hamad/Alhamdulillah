@@ -5,6 +5,7 @@ import { exportElementToPDF, printElement } from "../utils/printUtils";
 import SupplierLedgerBook from "./SupplierLedgerBook";
 import FormattedNumberInput from "./FormattedNumberInput";
 import { formatThousands } from "../utils/numberFormatting";
+import { getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 
 
 type SupplierForm = { name: string; phone: string; address: string; notes: string };
@@ -142,7 +143,13 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     const paid = supplier.ledgerPayments !== undefined
       ? supplier.ledgerPayments.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0)
       : transactions.filter((entry) => entry.type === "payment").reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-    return { purchases, paid, balance: purchases - paid };
+    // Payments entered as separators inside the supplier's vertical ledger are
+    // stored on its invoices, independently from standalone payment records.
+    const verticalLedgerPaid = (supplier.ledgerInvoices || [])
+      .filter((invoice) => !invoice.isDeleted)
+      .reduce((sum, invoice) => sum + getInvoiceLedgerTotals(invoice).paid, 0);
+    const totalPaid = paid + verticalLedgerPaid;
+    return { purchases, paid: totalPaid, balance: purchases - totalPaid };
   };
 
   const clearHold = () => {
