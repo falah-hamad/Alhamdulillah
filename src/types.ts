@@ -126,6 +126,17 @@ export interface SupplierTransactionItem {
   unit: string;
   unitPrice: number;
   total: number;
+  rowStyle?: SupplierLedgerRowStyle;
+}
+
+export interface SupplierLedgerRowStyle {
+  fontSize?: number;
+  fontColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  backgroundColor?: string;
 }
 
 export interface SupplierPaymentAllocation {
@@ -143,6 +154,7 @@ export interface SupplierTransaction {
   method?: string;
   reference?: string;
   notes?: string;
+  rowStyle?: SupplierLedgerRowStyle;
 }
 
 export interface Supplier {
@@ -154,6 +166,7 @@ export interface Supplier {
   notes?: string;
   createdAt: string;
   transactions: SupplierTransaction[];
+  ledgerBackgroundColor?: string;
   isDeleted?: boolean;
 }
 
