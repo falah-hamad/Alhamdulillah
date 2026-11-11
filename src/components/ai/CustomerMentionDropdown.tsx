@@ -2,6 +2,8 @@ import React, { useMemo } from "react";
 import { User, Phone, DollarSign, AlertCircle } from "lucide-react";
 import { Customer, Invoice, Payment } from "../../types";
 import { getCustomerLedgerTotals } from "../../lib/debtLedgerSources";
+import { formatThousands } from "../../utils/numberFormatting";
+
 
 interface CustomerMentionDropdownProps {
   query: string;
@@ -104,7 +106,7 @@ export default function CustomerMentionDropdown({
                       : "text-emerald-600 dark:text-emerald-400"
                   }`}
                 >
-                  {remainingDebt > 0 ? `${remainingDebt.toLocaleString()} ${currency}` : "مسدد ✅"}
+                  {remainingDebt > 0 ? `${formatThousands(remainingDebt)} ${currency}` : "مسدد ✅"}
                 </div>
                 <div className="text-[10px] text-slate-400">
                   {invoiceCount} فواتير

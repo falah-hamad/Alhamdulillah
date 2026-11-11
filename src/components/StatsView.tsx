@@ -11,6 +11,8 @@ import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } f
 import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { BalanceDonut, MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 import PercentageCalculator from "./PercentageCalculator";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface StatsViewProps {
   customers: Customer[];
@@ -21,7 +23,7 @@ interface StatsViewProps {
   folders: CustomerFolder[];
 }
 
-const formatAmount = (amount: number) => Math.round(amount).toLocaleString("ar-IQ");
+const formatAmount = (amount: number) => formatThousands(Math.round(amount));
 const isFinancialItem = (item: Invoice["items"][number]) =>
   !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 

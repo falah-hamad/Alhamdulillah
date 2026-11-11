@@ -13,6 +13,9 @@ import { uploadUserFile } from "../lib/firebase";
 import { parseProductsFromTextServer } from "../lib/cloudFunctions";
 import { useAuth } from "../contexts/AuthContext";
 import { formatStockSaleTimestamp, getProductSalesHistory } from "../lib/productSalesHistory";
+import FormattedNumberInput from "./FormattedNumberInput";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface ProductsViewProps {
   products: Product[];
@@ -53,7 +56,7 @@ const emptyForm: ProductForm = {
 const nowIso = () => new Date().toISOString();
 const movementId = () => `move-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const priceId = () => `price-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-const money = (value: number) => (Number(value) || 0).toLocaleString("en-US");
+const money = (value: number) => formatThousands((Number(value) || 0));
 const productTableColumns = [
   { id: "name", label: "اسم البضاعة" }, { id: "category", label: "التصنيف" },
   { id: "purchasePrice", label: "رأس المال / سعر الشراء" }, { id: "salePrice", label: "سعر البيع للعميل" },
@@ -705,8 +708,8 @@ function ProductsViewContent({
         <div className="flex justify-end"><FilterButton activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} /></div>
         <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
           <label className="block text-sm font-semibold text-slate-700">المجهّز<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المجهّز" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
-          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<input type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<input type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل كمية<input type="number" min="0" value={minimumQuantity} onChange={e => setMinimumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى كمية<input type="number" min="0" value={maximumQuantity} onChange={e => setMaximumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<FormattedNumberInput type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<FormattedNumberInput type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+          <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل كمية<FormattedNumberInput type="number" min="0" value={minimumQuantity} onChange={e => setMinimumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى كمية<FormattedNumberInput type="number" min="0" value={maximumQuantity} onChange={e => setMaximumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
           <label className="block text-sm font-semibold text-slate-700">حالة المخزون<select value={stockStatus} onChange={e => setStockStatus(e.target.value as typeof stockStatus)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></label>
         </FilterPanel>
         <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
@@ -880,19 +883,19 @@ function ProductsViewContent({
                   <datalist id="product-categories">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
-                  <input type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">سعر البيع للعميل
-                  <input type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الكمية الحالية
-                  <input type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">وحدة القياس
                   <input value={form.unitName} onInput={e => setField("unitName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="قطعة، كرتون، متر..." />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الحد الأدنى للتنبيه
-                  <input type="number" min="0" value={form.minStock} onInput={e => setField("minStock", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" value={form.minStock} onInput={e => setField("minStock", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الباركود / رقم الصنف
                   <input value={form.barcode} onInput={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
@@ -949,10 +952,10 @@ function ProductsViewContent({
                 <tbody>{aiImportItems.map((item, index) => <tr key={index} className="border-b last:border-b-0">
                   <td className="p-2"><input aria-label="اسم الصنف" value={item.name} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,name:e.target.value} : x))} className="w-36 p-2 border rounded-lg" /></td>
                   <td className="p-2"><input aria-label="التصنيف" value={item.category} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,category:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
-                  <td className="p-2"><input aria-label="الكمية" type="number" min="0" step="any" value={item.quantity} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,quantity:Math.max(0,Number(e.target.value)||0)} : x))} className="w-24 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><FormattedNumberInput aria-label="الكمية" type="number" min="0" step="any" value={item.quantity} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,quantity:Math.max(0,Number(e.target.value)||0)} : x))} className="w-24 p-2 border rounded-lg" /></td>
                   <td className="p-2"><input aria-label="الوحدة" value={item.unitName} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,unitName:e.target.value} : x))} className="w-24 p-2 border rounded-lg" /></td>
-                  <td className="p-2"><input aria-label="سعر الشراء" type="number" min="0" value={item.purchasePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,purchasePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
-                  <td className="p-2"><input aria-label="سعر البيع" type="number" min="0" value={item.salePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,salePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><FormattedNumberInput aria-label="سعر الشراء" type="number" min="0" value={item.purchasePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,purchasePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><FormattedNumberInput aria-label="سعر البيع" type="number" min="0" value={item.salePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,salePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
                   <td className="p-2"><input aria-label="المجهّز" value={item.supplierName || ""} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,supplierName:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
                   <td className="p-2"><button type="button" onClick={() => setAiImportItems(current => current.filter((_,i) => i !== index))} className="p-2 text-rose-600 rounded-lg hover:bg-rose-50" aria-label="حذف الصنف"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>)}</tbody>
@@ -977,7 +980,7 @@ function ProductsViewContent({
               </select>
             </label>
             <label className="block text-xs font-semibold text-slate-600">{movementType === "adjustment" ? "فرق الكمية (مثلاً -2 أو +5)" : "عدد القطع"}
-              <input type="number" required step="1" value={movementQty} onInput={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+              <FormattedNumberInput type="number" required step="1" value={movementQty} onInput={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
             </label>
             <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المجهّز
               <textarea value={movementNote} onInput={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />

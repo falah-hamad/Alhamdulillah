@@ -17,6 +17,8 @@ import {
 import { Customer, CustomerFolder, Product, Invoice, Payment, SystemSettings } from "../types";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface ReportsViewProps {
   customers: Customer[];
@@ -497,9 +499,9 @@ export default function ReportsView({
                             </span>
                           </td>
                           <td className="p-2.5 text-slate-600">{c.phone}</td>
-                          <td className="p-2.5 text-left text-slate-700 font-semibold">{c.totalInvoiced.toLocaleString()}</td>
-                          <td className="p-2.5 text-left text-blue-600 font-semibold">{c.totalPaid.toLocaleString()}</td>
-                          <td className="p-2.5 text-left text-rose-600 font-extrabold">{c.totalRemaining.toLocaleString()}</td>
+                          <td className="p-2.5 text-left text-slate-700 font-semibold">{formatThousands(c.totalInvoiced)}</td>
+                          <td className="p-2.5 text-left text-blue-600 font-semibold">{formatThousands(c.totalPaid)}</td>
+                          <td className="p-2.5 text-left text-rose-600 font-extrabold">{formatThousands(c.totalRemaining)}</td>
                           <td className="p-2.5 text-center font-sans text-slate-400 text-[10px]">{c.lastActive}</td>
                         </tr>
                       ))
@@ -512,15 +514,15 @@ export default function ReportsView({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-2 border-slate-200 bg-slate-50 p-4 rounded-xl font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">إجمالي حجم المبيعات الموثقة:</span>
-                  <p className="text-base font-extrabold text-slate-800">{debtsReportSummary.totalOverall.toLocaleString()} {settings.currency}</p>
+                  <p className="text-base font-extrabold text-slate-800">{formatThousands(debtsReportSummary.totalOverall)} {settings.currency}</p>
                 </div>
                 <div className="space-y-1 border-r sm:border-r-0 sm:border-x border-slate-200 px-0 sm:px-4">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">إجمالي الأموال المحصلة فعلاً:</span>
-                  <p className="text-base font-extrabold text-blue-600">{debtsReportSummary.totalCollected.toLocaleString()} {settings.currency}</p>
+                  <p className="text-base font-extrabold text-blue-600">{formatThousands(debtsReportSummary.totalCollected)} {settings.currency}</p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">إجمالي الديون والذمم المتبقية بذمتهم:</span>
-                  <p className="text-base font-black text-rose-600 underline">{debtsReportSummary.totalDebts.toLocaleString()} {settings.currency}</p>
+                  <p className="text-base font-black text-rose-600 underline">{formatThousands(debtsReportSummary.totalDebts)} {settings.currency}</p>
                 </div>
               </div>
 
@@ -569,7 +571,7 @@ export default function ReportsView({
                             <td className="p-2.5 font-sans font-bold text-slate-800">{p.customerName}</td>
                             <td className="p-2.5 text-center font-sans font-semibold text-slate-700">{p.method}</td>
                             <td className="p-2.5 text-right font-sans text-slate-500">{p.notes || "لا توجد"}</td>
-                            <td className="p-2.5 text-left text-blue-600 font-extrabold">{p.amount.toLocaleString()}</td>
+                            <td className="p-2.5 text-left text-blue-600 font-extrabold">{formatThousands(p.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -580,7 +582,7 @@ export default function ReportsView({
                   <div className="border-2 border-slate-200 bg-slate-50 p-4 rounded-xl font-mono text-left text-xs flex justify-between items-center">
                     <span className="font-sans font-bold text-slate-600 text-sm">مجموع المبالغ المقبوضة والمستلمة في هذه الفترة:</span>
                     <span className="text-lg font-black text-blue-600">
-                      {collectionsReportSummary.totalCollected.toLocaleString()} {settings.currency}
+                      {formatThousands(collectionsReportSummary.totalCollected)} {settings.currency}
                     </span>
                   </div>
                 </div>
@@ -609,9 +611,9 @@ export default function ReportsView({
                         <td className="p-2.5 font-sans font-bold text-slate-900">{p.name}</td>
                         <td className="p-2.5 font-sans text-slate-500">{p.category}</td>
                         <td className="p-2.5 text-center font-extrabold text-slate-700">{p.quantity} وحدة</td>
-                        <td className="p-2.5 text-left text-slate-500">{p.totalCost.toLocaleString()}</td>
-                        <td className="p-2.5 text-left text-slate-700">{p.totalRetail.toLocaleString()}</td>
-                        <td className="p-2.5 text-left text-blue-600 font-extrabold">{p.potentialProfit.toLocaleString()}</td>
+                        <td className="p-2.5 text-left text-slate-500">{formatThousands(p.totalCost)}</td>
+                        <td className="p-2.5 text-left text-slate-700">{formatThousands(p.totalRetail)}</td>
+                        <td className="p-2.5 text-left text-blue-600 font-extrabold">{formatThousands(p.potentialProfit)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -622,15 +624,15 @@ export default function ReportsView({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-2 border-slate-200 bg-slate-50 p-4 rounded-xl font-mono text-xs">
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">إجمالي السلع والوحدات بالمستودع:</span>
-                  <p className="text-base font-extrabold text-slate-800">{inventoryReportSummary.totalItems.toLocaleString()} قطع</p>
+                  <p className="text-base font-extrabold text-slate-800">{formatThousands(inventoryReportSummary.totalItems)} قطع</p>
                 </div>
                 <div className="space-y-1 border-r sm:border-r-0 sm:border-x border-slate-200 px-0 sm:px-4">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">إجمالي التكلفة الكلية (الأصول بسعر الشراء):</span>
-                  <p className="text-base font-extrabold text-slate-800">{inventoryReportSummary.totalCost.toLocaleString()} {settings.currency}</p>
+                  <p className="text-base font-extrabold text-slate-800">{formatThousands(inventoryReportSummary.totalCost)} {settings.currency}</p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 font-sans font-semibold">القيمة التسييلية الإجمالية للمخزن:</span>
-                  <p className="text-base font-black text-blue-600">{inventoryReportSummary.totalRetail.toLocaleString()} {settings.currency}</p>
+                  <p className="text-base font-black text-blue-600">{formatThousands(inventoryReportSummary.totalRetail)} {settings.currency}</p>
                 </div>
               </div>
             </div>

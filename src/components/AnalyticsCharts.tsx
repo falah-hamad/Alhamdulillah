@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 export interface AnalyticsMoneyRecord {
   date: string;
@@ -11,7 +13,7 @@ export interface AnalyticsRankItem {
   unit?: string;
 }
 
-const formatNumber = (value: number) => Math.round(value).toLocaleString("ar-IQ");
+const formatNumber = (value: number) => formatThousands(Math.round(value));
 
 function monthParts(value: string): { year: number; month: number } | null {
   const date = new Date(value);

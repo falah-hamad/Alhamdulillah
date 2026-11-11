@@ -19,6 +19,8 @@ import { Customer, Product, Invoice, Payment, SystemSettings } from "../types";
 import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import OverdueInvoicesAlert from "./OverdueInvoicesAlert";
 import { isInvoiceOverdue, getInvoiceOverdueDays } from "../utils/overdueUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface DashboardViewProps {
   customers: Customer[];
@@ -138,7 +140,7 @@ export default function DashboardView({
             <div className="mt-3">
               <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
                 <span className="text-base sm:text-3xl font-black text-slate-900 break-words min-w-0">
-                  {totalSales.toLocaleString()}
+                  {formatThousands(totalSales)}
                 </span>
                 <span className="text-xs font-bold text-slate-500">{settings.currency}</span>
               </div>
@@ -159,7 +161,7 @@ export default function DashboardView({
             <div className="mt-3">
               <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
                 <span className="text-base sm:text-3xl font-black text-blue-700 break-words min-w-0">
-                  {totalPaid.toLocaleString()}
+                  {formatThousands(totalPaid)}
                 </span>
                 <span className="text-xs font-bold text-blue-600">{settings.currency}</span>
               </div>
@@ -180,7 +182,7 @@ export default function DashboardView({
             <div className="mt-3">
               <div className="flex flex-wrap items-baseline gap-x-1.5 font-mono min-w-0">
                 <span className="text-base sm:text-3xl font-black text-rose-700 break-words min-w-0">
-                  {totalRemaining.toLocaleString()}
+                  {formatThousands(totalRemaining)}
                 </span>
                 <span className="text-xs font-bold text-rose-600">{settings.currency}</span>
               </div>
@@ -208,21 +210,21 @@ export default function DashboardView({
             <div
               style={{ width: `${collectionRate}%` }}
               className="h-full bg-blue-600 transition-all duration-500"
-              title={`المحصل: ${totalPaid.toLocaleString()} ${settings.currency} (${collectionRate}%)`}
+              title={`المحصل: ${formatThousands(totalPaid)} ${settings.currency} (${collectionRate}%)`}
             />
             <div
               style={{ width: `${remainingRate}%` }}
               className="h-full bg-rose-500 transition-all duration-500"
-              title={`المتبقي: ${totalRemaining.toLocaleString()} ${settings.currency} (${remainingRate}%)`}
+              title={`المتبقي: ${formatThousands(totalRemaining)} ${settings.currency} (${remainingRate}%)`}
             />
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-1">
             <span>0 {settings.currency}</span>
             <span className="font-sans font-medium text-slate-500">
-              إجمالي حجم الالتزامات: <strong className="font-mono text-slate-800 font-bold">{totalSales.toLocaleString()} {settings.currency}</strong>
+              إجمالي حجم الالتزامات: <strong className="font-mono text-slate-800 font-bold">{formatThousands(totalSales)} {settings.currency}</strong>
             </span>
-            <span>{totalSales.toLocaleString()} {settings.currency}</span>
+            <span>{formatThousands(totalSales)} {settings.currency}</span>
           </div>
         </div>
       </div>
@@ -235,7 +237,7 @@ export default function DashboardView({
             <span className="text-xs text-slate-500 font-medium">إجمالي حجم المبيعات / الديون</span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg sm:text-2xl font-bold text-slate-800 font-mono break-words min-w-0">
-                {totalSales.toLocaleString()}
+                {formatThousands(totalSales)}
               </span>
               <span className="text-xs text-slate-400 font-medium">{settings.currency}</span>
             </div>
@@ -251,7 +253,7 @@ export default function DashboardView({
             <span className="text-xs text-slate-500 font-medium">إجمالي المبالغ المحصلة</span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg sm:text-2xl font-bold text-blue-600 font-mono break-words min-w-0">
-                {totalPaid.toLocaleString()}
+                {formatThousands(totalPaid)}
               </span>
               <span className="text-xs text-blue-500 font-medium">{settings.currency}</span>
             </div>
@@ -274,13 +276,13 @@ export default function DashboardView({
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg sm:text-2xl font-bold text-rose-600 font-mono break-words min-w-0">
-                {totalRemaining.toLocaleString()}
+                {formatThousands(totalRemaining)}
               </span>
               <span className="text-xs text-rose-500 font-medium">{settings.currency}</span>
             </div>
             {totalOverdueAmount > 0 && (
               <p className="text-[10px] text-rose-600 font-semibold mt-0.5">
-                منها {totalOverdueAmount.toLocaleString()} {settings.currency} تجاوزت الاستحقاق
+                منها {formatThousands(totalOverdueAmount)} {settings.currency} تجاوزت الاستحقاق
               </p>
             )}
           </div>
@@ -403,7 +405,7 @@ export default function DashboardView({
             <div className="space-y-1 text-xs">
               <div className="flex justify-between text-blue-100">
                 <span>إجمالي المحصل:</span>
-                <span className="font-mono font-bold">{totalPaid.toLocaleString()} {settings.currency}</span>
+                <span className="font-mono font-bold">{formatThousands(totalPaid)} {settings.currency}</span>
               </div>
               <div className="w-full bg-blue-800/50 rounded-full h-1.5 mt-1 overflow-hidden">
                 <div
@@ -472,7 +474,7 @@ export default function DashboardView({
                             </div>
                           </td>
                           <td className="py-3 font-bold font-mono text-slate-900 text-left">
-                            {ledgerTotals.sales.toLocaleString()} {settings.currency}
+                            {formatThousands(ledgerTotals.sales)} {settings.currency}
                           </td>
                           <td className="py-3 text-left">
                             <span
@@ -484,7 +486,7 @@ export default function DashboardView({
                                   : "bg-rose-50 text-rose-700"
                               }`}
                             >
-                              {ledgerTotals.remaining.toLocaleString()} {settings.currency}
+                              {formatThousands(ledgerTotals.remaining)} {settings.currency}
                             </span>
                           </td>
                           <td className="py-3 text-slate-500 font-mono text-center">
@@ -538,7 +540,7 @@ export default function DashboardView({
                     </div>
                     <div className="text-left">
                       <p className="font-bold text-blue-600 font-mono text-sm">
-                        +{pay.amount.toLocaleString()} {settings.currency}
+                        +{formatThousands(pay.amount)} {settings.currency}
                       </p>
                       {pay.notes && (
                         <p className="text-[10px] text-slate-400 mt-0.5 max-w-[200px] truncate">

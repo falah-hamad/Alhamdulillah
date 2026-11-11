@@ -69,6 +69,8 @@ import FormattedMessageContent from "./ai/FormattedMessageContent";
 import AIChatSettingsModal from "./ai/AIChatSettingsModal";
 import CustomerMentionDropdown from "./ai/CustomerMentionDropdown";
 import { exportElementToPDF } from "../utils/printUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface AIAssistantViewProps {
   customers: Customer[];
@@ -1000,7 +1002,7 @@ export default function AIAssistantView({
                   <span>{currentModelInfo.name}</span>
                 </span>
                 <span>•</span>
-                <span>الديون المتبقية: <strong>{totalRemaining.toLocaleString()} {currency}</strong></span>
+                <span>الديون المتبقية: <strong>{formatThousands(totalRemaining)} {currency}</strong></span>
               </div>
             </div>
           </div>
@@ -1049,19 +1051,19 @@ export default function AIAssistantView({
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
               <div className="text-[10px] text-slate-500 font-bold">إجمالي الديون المسجلة</div>
               <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white mt-0.5">
-                {totalInvoiced.toLocaleString()} {currency}
+                {formatThousands(totalInvoiced)} {currency}
               </div>
             </div>
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
               <div className="text-[10px] text-slate-500 font-bold">المقبوضات والواصل</div>
               <div className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {totalCollected.toLocaleString()} {currency}
+                {formatThousands(totalCollected)} {currency}
               </div>
             </div>
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
               <div className="text-[10px] text-slate-500 font-bold">صافي الديون المتبقية</div>
               <div className="text-xs sm:text-sm font-black text-red-600 dark:text-red-400 mt-0.5">
-                {totalRemaining.toLocaleString()} {currency}
+                {formatThousands(totalRemaining)} {currency}
               </div>
             </div>
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">

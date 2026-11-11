@@ -20,6 +20,8 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
 import DeleteConfirmModal, { DeleteConfirmType } from "./DeleteConfirmModal";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 export interface TrashManagerViewProps {
   folders: CustomerFolder[];
@@ -779,7 +781,7 @@ export default function TrashManagerView({
                           <DollarSign className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                           <span className="text-slate-400">الرصيد المحفوظ:</span>
                           <span className="font-bold font-mono text-emerald-700">
-                            {debtInfo.debt.toLocaleString()} {currencySymbol}
+                            {formatThousands(debtInfo.debt)} {currencySymbol}
                           </span>
                           <span className="text-[10px] text-slate-400">
                             ({debtInfo.invoiceCount} فاتورة وقائمة)

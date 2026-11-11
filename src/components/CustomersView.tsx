@@ -15,6 +15,9 @@ import { FilterSelect } from "./FilterPanel";
 import { printElement } from "../utils/printUtils";
 import CustomerDataTable from "./CustomerDataTable";
 import CustomerStatisticsProfile from "./CustomerStatisticsProfile";
+import FormattedNumberInput from "./FormattedNumberInput";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -488,7 +491,7 @@ export default function CustomersView({
     }
   };
   const filterNumberInput = (label: string, value: string, onChange: (value: string) => void, min = false) => (
-    <label className="min-w-0 text-sm text-slate-700">{label}<input type="number" min={min ? "0" : undefined} step="any" value={value} onChange={event => onChange(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
+    <label className="min-w-0 text-sm text-slate-700">{label}<FormattedNumberInput type="number" min={min ? "0" : undefined} step="any" value={value} onChange={event => onChange(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2" /></label>
   );
   const numericFilterEditor = (row: typeof filterRows[number], title: string, exact: string, min: string, max: string, setters: { exact: (value: string) => void; min: (value: string) => void; max: (value: string) => void }, currency = "") => (
     <div className="space-y-2">
@@ -662,19 +665,19 @@ export default function CustomersView({
                             <div>
                               <p className="text-[9px] text-slate-400 font-sans font-medium">الديون</p>
                               <p className="text-xs font-bold text-slate-800 mt-0.5">
-                                {metrics.totalDebts.toLocaleString()}
+                                {formatThousands(metrics.totalDebts)}
                               </p>
                             </div>
                             <div>
                               <p className="text-[9px] text-slate-400 font-sans font-medium">المسدد</p>
                               <p className="text-xs font-bold text-blue-600 mt-0.5">
-                                {metrics.totalPaid.toLocaleString()}
+                                {formatThousands(metrics.totalPaid)}
                               </p>
                             </div>
                             <div>
                               <p className="text-[9px] text-slate-400 font-sans font-medium">المطلوب</p>
                               <p className="text-xs font-black text-rose-600 mt-0.5">
-                                {metrics.totalRemaining.toLocaleString()}
+                                {formatThousands(metrics.totalRemaining)}
                               </p>
                             </div>
                           </div>
@@ -811,7 +814,7 @@ export default function CustomersView({
                               : "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                           }`}>
                             {metrics.totalRemaining > 0
-                              ? `${metrics.totalRemaining.toLocaleString()} ${settings.currency}`
+                              ? `${formatThousands(metrics.totalRemaining)} ${settings.currency}`
                               : "مسدد بالكامل"}
                           </div>
                         </div>
@@ -852,7 +855,7 @@ export default function CustomersView({
                               ? "bg-rose-50 text-rose-700"
                               : "bg-emerald-50 text-emerald-700"
                           }`}>
-                            {metrics.totalRemaining > 0 ? metrics.totalRemaining.toLocaleString() : "مسدد"}
+                            {metrics.totalRemaining > 0 ? formatThousands(metrics.totalRemaining) : "مسدد"}
                           </span>
                         </div>
                       </div>

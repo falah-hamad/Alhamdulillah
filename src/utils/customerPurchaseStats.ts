@@ -1,4 +1,6 @@
 import type { Customer, CustomerFolder, Invoice } from "../types";
+import { formatThousands } from "./numberFormatting";
+
 
 const digits = (value: string) => value.replace(/[٠-٩۰-۹]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c) >= 0 ? "٠١٢٣٤٥٦٧٨٩".indexOf(c) : "۰۱۲۳۴۵۶۷۸۹".indexOf(c)));
 const plainName = (value: string) => digits(value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " "))
@@ -60,6 +62,6 @@ export function purchaseDuration(first: string | undefined, last: string | undef
   const anniversary = (n: number) => { const y = sy + Math.floor((sm - 1 + n) / 12), m = (sm - 1 + n) % 12; return Date.UTC(y,m,Math.min(sd,new Date(Date.UTC(y,m+1,0)).getUTCDate())); };
   if (anniversary(months) > end) months--;
   const days = Math.round((end - anniversary(months)) / 86400000);
-  const fmt = (n: number) => n.toLocaleString("ar-IQ");
+  const fmt = (n: number) => formatThousands(n);
   return `${fmt(Math.floor(months / 12))} سنة، ${fmt(months % 12)} شهر، ${fmt(days)} يوم (الإجمالي: ${fmt(Math.round((end-start)/86400000))} يوم)`;
 }

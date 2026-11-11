@@ -27,6 +27,8 @@ import {
   getOverdueSeverity,
   generateOverdueWhatsAppMessage,
 } from "../utils/overdueUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface OverdueInvoicesAlertProps {
   invoices: Invoice[];
@@ -189,7 +191,7 @@ export default function OverdueInvoicesAlert({
           </span>
           <span className="font-semibold">
             تنبيه: يوجد {totalOverdueCount} فواتير متأخرة السداد بإجمالي{" "}
-            {totalOverdueAmount.toLocaleString()} {settings.currency}
+            {formatThousands(totalOverdueAmount)} {settings.currency}
           </span>
         </div>
         <button
@@ -243,7 +245,7 @@ export default function OverdueInvoicesAlert({
             <div className="bg-black/25 backdrop-blur-sm px-3 py-1.5 rounded-lg text-right border border-white/15">
               <span className="text-[10px] text-rose-200 block font-medium">إجمالي المبالغ المتأخرة</span>
               <span className="font-mono font-black text-sm sm:text-base text-white">
-                {totalOverdueAmount.toLocaleString()} {settings.currency}
+                {formatThousands(totalOverdueAmount)} {settings.currency}
               </span>
             </div>
 
@@ -391,14 +393,14 @@ export default function OverdueInvoicesAlert({
                     <div>
                       <span className="text-[10px] text-slate-400 block">المبلغ المتبقي</span>
                       <span className="font-mono font-extrabold text-rose-600 text-sm">
-                        {invoice.remainingAmount.toLocaleString()} {settings.currency}
+                        {formatThousands(invoice.remainingAmount)} {settings.currency}
                       </span>
                     </div>
 
                     <div>
                       <span className="text-[10px] text-slate-400 block">إجمالي الفاتورة</span>
                       <span className="font-mono text-slate-700 text-xs font-semibold">
-                        {invoice.grandTotal.toLocaleString()} {settings.currency}
+                        {formatThousands(invoice.grandTotal)} {settings.currency}
                       </span>
                     </div>
 
@@ -456,9 +458,9 @@ export default function OverdueInvoicesAlert({
               onClick={() => {
                 const summaryLines = overdueList.map(
                   (item, idx) =>
-                    `${idx + 1}. ${item.invoice.customerName} - فاتورة ${item.invoice.invoiceNumber}: متبقي ${item.invoice.remainingAmount.toLocaleString()} ${settings.currency} (تأخير ${item.days} يوم)`
+                    `${idx + 1}. ${item.invoice.customerName} - فاتورة ${item.invoice.invoiceNumber}: متبقي ${formatThousands(item.invoice.remainingAmount)} ${settings.currency} (تأخير ${item.days} يوم)`
                 );
-                const fullText = `📋 كشف الفواتير المتأخرة السداد - ${settings.companyName || "محلات العاشق"}\nإجمالي المتأخرات: ${totalOverdueAmount.toLocaleString()} ${settings.currency}\nعدد الفواتير: ${totalOverdueCount}\n\n${summaryLines.join("\n")}`;
+                const fullText = `📋 كشف الفواتير المتأخرة السداد - ${settings.companyName || "محلات العاشق"}\nإجمالي المتأخرات: ${formatThousands(totalOverdueAmount)} ${settings.currency}\nعدد الفواتير: ${totalOverdueCount}\n\n${summaryLines.join("\n")}`;
                 handleCopyText(fullText, "تقرير الفواتير المتأخرة بالكامل");
               }}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
@@ -493,7 +495,7 @@ export default function OverdueInvoicesAlert({
                 <p className="text-slate-500">
                   فاتورة رقم: <span className="font-mono font-semibold">{editingInvoice.invoiceNumber}</span> • المتبقي:{" "}
                   <span className="font-mono font-bold text-rose-600">
-                    {editingInvoice.remainingAmount.toLocaleString()} {settings.currency}
+                    {formatThousands(editingInvoice.remainingAmount)} {settings.currency}
                   </span>
                 </p>
               </div>

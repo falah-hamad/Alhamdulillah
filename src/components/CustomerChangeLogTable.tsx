@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { CustomerChangeLogItem, ChangeLogActionType } from "../types";
 import { printElement } from "../utils/printUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface CustomerChangeLogTableProps {
   customerId: string;
@@ -69,7 +71,7 @@ export default function CustomerChangeLogTable({
     if (value === undefined || value === null || String(value).trim() === "" || Number(value) === 0) return "ــــ";
     const amount = Number(value);
     if (!Number.isFinite(amount)) return "ــــ";
-    return `${amount.toLocaleString("en-US")} ${currency}`;
+    return `${formatThousands(amount)} ${currency}`;
   };
 
   const renderBeforeAfter = (beforeAmount: string, beforeDetails: string, afterAmount: string, afterDetails: string) => (

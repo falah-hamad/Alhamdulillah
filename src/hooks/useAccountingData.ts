@@ -42,6 +42,8 @@ import {
   dispatchAccountingNotification,
   dispatchCustomerAddedNotification,
 } from "../lib/notifications";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 // Generate collision-resistant IDs; Date.now() alone can collide during bulk imports.
 let recordIdFallbackCounter = 0;
@@ -1093,7 +1095,7 @@ export function useAccountingData() {
     // 🔔 Trigger Notification for Event 1: إضافة دين أو قيد جديد
     if (currentUser) {
       const custName = newInvoice.customerName || "عميل";
-      const grandAmt = Number(newInvoice.grandTotal || 0).toLocaleString();
+      const grandAmt = formatThousands(Number(newInvoice.grandTotal || 0));
       const curr = settings?.currency || "د.ع";
       const itemsCount = (newInvoice.items || []).filter((it) => !it.isSeparator && !it.isPaymentRow && !it.isRemainingRow).length;
       const itemsDesc = itemsCount > 0 ? ` (${itemsCount} مادة)` : "";
@@ -1295,11 +1297,11 @@ export function useAccountingData() {
     if (currentUser) {
       const totalsAfterPayment = getCustomerLedgerTotals(customerWithPayment, invoices);
       const currency = settings?.currency || "د.ع";
-      const remainingDesc = ` | المبلغ المتبقي: ${totalsAfterPayment.remaining.toLocaleString()} ${currency}`;
+      const remainingDesc = ` | المبلغ المتبقي: ${formatThousands(totalsAfterPayment.remaining)} ${currency}`;
       dispatchAccountingNotification(currentUser.uid, {
         id: `notif_payment_${newPayment.id}`,
         title: `سند قبض / دفعة مسجلة: ${newPayment.customerName || "العميل"}`,
-        body: `تم تسجيل تسديد بقيمة ${Number(newPayment.amount || 0).toLocaleString()} ${currency} (${newPayment.method || "حسب سجل الديون"})${newPayment.notes ? ` — ${newPayment.notes}` : ""}${remainingDesc}`,
+        body: `تم تسجيل تسديد بقيمة ${formatThousands(Number(newPayment.amount || 0))} ${currency} (${newPayment.method || "حسب سجل الديون"})${newPayment.notes ? ` — ${newPayment.notes}` : ""}${remainingDesc}`,
         category: "payments",
         data: {
           paymentId: newPayment.id,

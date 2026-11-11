@@ -1,3 +1,4 @@
+import { formatThousands } from "../utils/numberFormatting";
 /**
  * Deterministic Financial Accounting Engine for Firebase Cloud Functions
  * Guarantees exact calculations from the authoritative user dataset.
@@ -504,7 +505,7 @@ function formatDebtorsTableInternal(
   const rows = debtors
     .map((c, idx) => {
       const overdue = c.isOverdue ? " ⚠️" : "";
-      return `| ${idx + 1} | **${c.name}**${overdue} | ${c.folderName} | ${c.totalInvoiced.toLocaleString()} ${currency} | ${c.totalPaid.toLocaleString()} ${currency} | **${c.remainingDebt.toLocaleString()} ${currency}** |`;
+      return `| ${idx + 1} | **${c.name}**${overdue} | ${c.folderName} | ${formatThousands(c.totalInvoiced)} ${currency} | ${formatThousands(c.totalPaid)} ${currency} | **${formatThousands(c.remainingDebt)} ${currency}** |`;
     })
     .join("\n");
 
@@ -512,7 +513,7 @@ function formatDebtorsTableInternal(
   const totalPaid = debtors.reduce((sum, c) => sum + c.totalPaid, 0);
   const totalRem = debtors.reduce((sum, c) => sum + c.remainingDebt, 0);
 
-  const footer = `\n| **المجموع** | **${debtors.length}** | — | **${totalDebt.toLocaleString()} ${currency}** | **${totalPaid.toLocaleString()} ${currency}** | **${totalRem.toLocaleString()} ${currency}** |`;
+  const footer = `\n| **المجموع** | **${debtors.length}** | — | **${formatThousands(totalDebt)} ${currency}** | **${formatThousands(totalPaid)} ${currency}** | **${formatThousands(totalRem)} ${currency}** |`;
 
   return `${titleHeader}${countNote}${header}${rows}${footer}`;
 }
@@ -535,7 +536,7 @@ export function formatFoldersTable(folders: FolderDebtSummary[], currency: strin
   const rows = folders
     .map(
       (f, idx) =>
-        `| ${idx + 1} | **${f.name}** | ${f.customerCount} | ${f.debtorCount} | ${f.totalDebt.toLocaleString()} ${currency} | ${f.totalPaid.toLocaleString()} ${currency} | **${f.totalRemaining.toLocaleString()} ${currency}** | ${f.collectionRate}% |`
+        `| ${idx + 1} | **${f.name}** | ${f.customerCount} | ${f.debtorCount} | ${formatThousands(f.totalDebt)} ${currency} | ${formatThousands(f.totalPaid)} ${currency} | **${formatThousands(f.totalRemaining)} ${currency}** | ${f.collectionRate}% |`
     )
     .join("\n");
 
@@ -555,15 +556,15 @@ export function formatSingleCustomerStatement(
     `### 👤 كشف حساب العميل: **${c.name}**\n\n` +
     `- **المجلد:** ${c.folderName}\n` +
     `- **الهاتف:** ${c.phone || "غير مسجل"}\n` +
-    `- **إجمالي الدين الأصلي:** **${c.totalInvoiced.toLocaleString()} ${currency}**\n` +
-    `- **إجمالي المسدد:** **${c.totalPaid.toLocaleString()} ${currency}**\n` +
-    `- **المتبقي:** **${c.remainingDebt.toLocaleString()} ${currency}**\n` +
+    `- **إجمالي الدين الأصلي:** **${formatThousands(c.totalInvoiced)} ${currency}**\n` +
+    `- **إجمالي المسدد:** **${formatThousands(c.totalPaid)} ${currency}**\n` +
+    `- **المتبقي:** **${formatThousands(c.remainingDebt)} ${currency}**\n` +
     `- **عدد الفواتير:** ${c.invoiceCount}\n` +
     `- **عدد الدفعات:** ${c.paymentCount}\n`;
 
   if (c.lastPaymentDate) text += `- **آخر دفعة:** ${c.lastPaymentDate}\n`;
   if (c.lastInvoiceDate) text += `- **آخر فاتورة:** ${c.lastInvoiceDate}\n`;
-  if (c.isOverdue) text += `- **المتأخر:** ${c.overdueAmount.toLocaleString()} ${currency}\n`;
+  if (c.isOverdue) text += `- **المتأخر:** ${formatThousands(c.overdueAmount)} ${currency}\n`;
 
   if (payments.length > 0) {
     const recent = [...payments].slice(-10).reverse();
@@ -572,7 +573,7 @@ export function formatSingleCustomerStatement(
       `| التاريخ | المبلغ | الطريقة |\n` +
       `| :---: | :---: | :---: |\n` +
       recent
-        .map((p) => `| ${p.date || "—"} | ${(Number(p.amount) || 0).toLocaleString()} ${currency} | ${p.method || "نقدي"} |`)
+        .map((p) => `| ${p.date || "—"} | ${formatThousands((Number(p.amount) || 0))} ${currency} | ${p.method || "نقدي"} |`)
         .join("\n");
   }
 
@@ -585,7 +586,7 @@ export function formatSingleCustomerStatement(
       recentInv
         .map(
           (inv) =>
-            `| ${inv.invoiceNumber || "—"} | ${inv.date || "—"} | ${(Number(inv.grandTotal) || 0).toLocaleString()} ${currency} | ${(Number(inv.paidAmount) || 0).toLocaleString()} ${currency} | ${(Number(inv.remainingAmount) || 0).toLocaleString()} ${currency} |`
+            `| ${inv.invoiceNumber || "—"} | ${inv.date || "—"} | ${formatThousands((Number(inv.grandTotal) || 0))} ${currency} | ${formatThousands((Number(inv.paidAmount) || 0))} ${currency} | ${formatThousands((Number(inv.remainingAmount) || 0))} ${currency} |`
         )
         .join("\n");
   }
@@ -597,9 +598,9 @@ export function formatPortfolioOverview(data: ProcessedFinancialDataset): string
   const { portfolio, folders, currency } = data;
   return (
     `### 📈 الملخص المحاسبي\n\n` +
-    `- **إجمالي الدين الأصلي:** ${portfolio.totalDebt.toLocaleString()} ${currency}\n` +
-    `- **إجمالي المسدد:** ${portfolio.totalPaid.toLocaleString()} ${currency}\n` +
-    `- **إجمالي المتبقي:** ${portfolio.totalRemaining.toLocaleString()} ${currency}\n` +
+    `- **إجمالي الدين الأصلي:** ${formatThousands(portfolio.totalDebt)} ${currency}\n` +
+    `- **إجمالي المسدد:** ${formatThousands(portfolio.totalPaid)} ${currency}\n` +
+    `- **إجمالي المتبقي:** ${formatThousands(portfolio.totalRemaining)} ${currency}\n` +
     `- **عدد العملاء:** ${portfolio.customerCount}\n` +
     `- **عدد المدينين:** ${portfolio.debtorCount}\n` +
     `- **نسبة التحصيل:** ${portfolio.collectionRate}%\n\n` +
@@ -882,9 +883,9 @@ function resolveFollowUp(
       listedCustomerIds: list,
       resultAnswer:
         `تم جمع مبالغ النتائج السابقة (${selected.length} عميل):\n\n` +
-        `- إجمالي الدين الأصلي: **${totalDebt.toLocaleString()} ${dataset.currency}**\n` +
-        `- إجمالي المسدد: **${totalPaid.toLocaleString()} ${dataset.currency}**\n` +
-        `- إجمالي المتبقي: **${totalRemaining.toLocaleString()} ${dataset.currency}**`,
+        `- إجمالي الدين الأصلي: **${formatThousands(totalDebt)} ${dataset.currency}**\n` +
+        `- إجمالي المسدد: **${formatThousands(totalPaid)} ${dataset.currency}**\n` +
+        `- إجمالي المتبقي: **${formatThousands(totalRemaining)} ${dataset.currency}**`,
     };
   }
 
@@ -980,14 +981,14 @@ export function executeDeterministicFinancialQuery(
       const rows = inPeriod
         .slice()
         .sort((a, b) => (a.dateKey < b.dateKey ? 1 : -1))
-        .map((p) => `| ${p.dateKey} | ${p.amount.toLocaleString()} ${dataset.currency} | ${p.method} |`)
+        .map((p) => `| ${p.dateKey} | ${formatThousands(p.amount)} ${dataset.currency} | ${p.method} |`)
         .join("\n");
 
       return {
         intent: "single_customer",
         matchedCustomer: c,
         resultAnswer:
-          `العميل **${c.name}** سجّل ${inPeriod.length} دفعات خلال ${range.label} بمجموع **${total.toLocaleString()} ${dataset.currency}**.\n\n` +
+          `العميل **${c.name}** سجّل ${inPeriod.length} دفعات خلال ${range.label} بمجموع **${formatThousands(total)} ${dataset.currency}**.\n\n` +
           `| التاريخ | المبلغ | الطريقة |\n| :---: | :---: | :---: |\n${rows}`,
       };
     }
@@ -1006,7 +1007,7 @@ export function executeDeterministicFinancialQuery(
         intent: "single_customer",
         matchedCustomer: c,
         resultAnswer:
-          `آخر دفعة للعميل **${c.name}** كانت بتاريخ **${latest.dateKey}** بمبلغ **${latest.amount.toLocaleString()} ${dataset.currency}** (${latest.method}).`,
+          `آخر دفعة للعميل **${c.name}** كانت بتاريخ **${latest.dateKey}** بمبلغ **${formatThousands(latest.amount)} ${dataset.currency}** (${latest.method}).`,
       };
     }
 
@@ -1033,7 +1034,7 @@ export function executeDeterministicFinancialQuery(
       intent: "payments_by_period",
       listedCustomerIds: [latest.customerId],
       resultAnswer:
-        `آخر دفعة مسجلة هي للعميل **${latest.customerName}** بتاريخ **${latest.dateKey}** بمبلغ **${latest.amount.toLocaleString()} ${dataset.currency}** (${latest.method}).`,
+        `آخر دفعة مسجلة هي للعميل **${latest.customerName}** بتاريخ **${latest.dateKey}** بمبلغ **${formatThousands(latest.amount)} ${dataset.currency}** (${latest.method}).`,
     };
   }
 
@@ -1098,7 +1099,7 @@ export function executeDeterministicFinancialQuery(
         : `| التسلسل | العميل | عدد الدفعات | مجموع الدفعات | آخر دفعة |\n| :---: | :--- | :---: | :---: | :---: |\n${rows
             .map(
               (r, idx) =>
-                `| ${idx + 1} | **${r.customer!.name}** | ${r.stat.count} | **${r.stat.total.toLocaleString()} ${dataset.currency}** | ${r.stat.lastDateKey} |`
+                `| ${idx + 1} | **${r.customer!.name}** | ${r.stat.count} | **${formatThousands(r.stat.total)} ${dataset.currency}** | ${r.stat.lastDateKey} |`
             )
             .join("\n")}`;
 
@@ -1108,7 +1109,7 @@ export function executeDeterministicFinancialQuery(
       resultAnswer:
         `### الدفعات خلال ${range ? range.label : "الفترة المطلوبة"}\n\n` +
         table +
-        `\n\nإجمالي المقبوضات: **${total.toLocaleString()} ${dataset.currency}**\nعدد العملاء الفريدين: **${uniqueCustomers}**`,
+        `\n\nإجمالي المقبوضات: **${formatThousands(total)} ${dataset.currency}**\nعدد العملاء الفريدين: **${uniqueCustomers}**`,
     };
   }
 
@@ -1202,7 +1203,7 @@ export function executeDeterministicFinancialQuery(
     const table =
       `| المجلد | عدد العملاء | عدد المدينين | إجمالي المتبقي |\n| :--- | :---: | :---: | :---: |\n` +
       dataset.folders
-        .map((f) => `| **${f.name}** | ${f.customerCount} | ${f.debtorCount} | ${f.totalRemaining.toLocaleString()} ${dataset.currency} |`)
+        .map((f) => `| **${f.name}** | ${f.customerCount} | ${f.debtorCount} | ${formatThousands(f.totalRemaining)} ${dataset.currency} |`)
         .join("\n");
     return {
       intent: "all_folders",
@@ -1217,13 +1218,13 @@ export function executeDeterministicFinancialQuery(
       intent: "portfolio_stats",
       resultAnswer:
         `### الإحصائيات المالية\n\n` +
-        `- إجمالي الدين الأصلي: **${dataset.portfolio.totalDebt.toLocaleString()} ${dataset.currency}**\n` +
-        `- إجمالي المسدد: **${dataset.portfolio.totalPaid.toLocaleString()} ${dataset.currency}**\n` +
-        `- إجمالي المتبقي: **${dataset.portfolio.totalRemaining.toLocaleString()} ${dataset.currency}**\n` +
+        `- إجمالي الدين الأصلي: **${formatThousands(dataset.portfolio.totalDebt)} ${dataset.currency}**\n` +
+        `- إجمالي المسدد: **${formatThousands(dataset.portfolio.totalPaid)} ${dataset.currency}**\n` +
+        `- إجمالي المتبقي: **${formatThousands(dataset.portfolio.totalRemaining)} ${dataset.currency}**\n` +
         `- عدد العملاء الفريدين: **${dataset.portfolio.customerCount}**\n` +
         `- عدد العملاء المدينين: **${dataset.portfolio.debtorCount}**\n` +
-        `- متوسط الدين لكل عميل: **${avgDebt.toLocaleString()} ${dataset.currency}**\n` +
-        `- أعلى دفعة مفردة: **${maxSinglePayment.toLocaleString()} ${dataset.currency}**`,
+        `- متوسط الدين لكل عميل: **${formatThousands(avgDebt)} ${dataset.currency}**\n` +
+        `- أعلى دفعة مفردة: **${formatThousands(maxSinglePayment)} ${dataset.currency}**`,
     };
   }
 
@@ -1261,7 +1262,7 @@ export function executeDeterministicFinancialQuery(
       maxValue: maxDebt,
       listedCustomerIds: candidates.map((c) => c.id),
       resultAnswer: formatDebtorsTableInternal(candidates, dataset.currency, {
-        title: `العملاء ضمن نطاق الدين ${minDebt.toLocaleString()} - ${maxDebt.toLocaleString()} ${dataset.currency} (شامل الحدين)`,
+        title: `العملاء ضمن نطاق الدين ${formatThousands(minDebt)} - ${formatThousands(maxDebt)} ${dataset.currency} (شامل الحدين)`,
         totalAvailable: candidates.length,
       }),
     };
@@ -1273,7 +1274,7 @@ export function executeDeterministicFinancialQuery(
       minValue: minDebt,
       listedCustomerIds: candidates.map((c) => c.id),
       resultAnswer: formatDebtorsTableInternal(candidates, dataset.currency, {
-        title: `العملاء الذين دينهم المتبقي أكبر أو يساوي ${minDebt.toLocaleString()} ${dataset.currency}`,
+        title: `العملاء الذين دينهم المتبقي أكبر أو يساوي ${formatThousands(minDebt)} ${dataset.currency}`,
         totalAvailable: candidates.length,
       }),
     };
@@ -1285,7 +1286,7 @@ export function executeDeterministicFinancialQuery(
       maxValue: maxDebt,
       listedCustomerIds: candidates.map((c) => c.id),
       resultAnswer: formatDebtorsTableInternal(candidates, dataset.currency, {
-        title: `العملاء الذين دينهم المتبقي أقل أو يساوي ${maxDebt.toLocaleString()} ${dataset.currency}`,
+        title: `العملاء الذين دينهم المتبقي أقل أو يساوي ${formatThousands(maxDebt)} ${dataset.currency}`,
         totalAvailable: candidates.length,
       }),
     };

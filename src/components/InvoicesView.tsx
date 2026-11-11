@@ -34,6 +34,8 @@ import {
   getCurrentDateFormatted,
   getCurrentTimeFormatted,
 } from "../utils/separatorUtils";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -247,13 +249,13 @@ export default function InvoicesView({
             {filteredInvoices.length > 0 && (
               <div className="flex items-center gap-3 font-mono text-[11px]">
                 <span className="text-slate-600">
-                  المجموع: <strong className="text-slate-900 font-bold">{totalInvoicesSum.toLocaleString()}</strong> {settings.currency}
+                  المجموع: <strong className="text-slate-900 font-bold">{formatThousands(totalInvoicesSum)}</strong> {settings.currency}
                 </span>
                 <span className="text-emerald-700">
-                  المدفوع: <strong className="font-bold">{totalPaidSum.toLocaleString()}</strong> {settings.currency}
+                  المدفوع: <strong className="font-bold">{formatThousands(totalPaidSum)}</strong> {settings.currency}
                 </span>
                 <span className="text-rose-700">
-                  المتبقي: <strong className="font-bold">{totalRemainingSum.toLocaleString()}</strong> {settings.currency}
+                  المتبقي: <strong className="font-bold">{formatThousands(totalRemainingSum)}</strong> {settings.currency}
                 </span>
               </div>
             )}
@@ -304,13 +306,13 @@ export default function InvoicesView({
                         )}
                       </td>
                       <td className="p-3 text-left text-slate-900 font-bold">
-                        {ledgerTotals.sales.toLocaleString()} {settings.currency}
+                        {formatThousands(ledgerTotals.sales)} {settings.currency}
                       </td>
                       <td className="p-3 text-left text-blue-600 font-bold">
-                        {ledgerTotals.paid.toLocaleString()} {settings.currency}
+                        {formatThousands(ledgerTotals.paid)} {settings.currency}
                       </td>
                       <td className="p-3 text-left text-rose-600 font-bold">
-                        {ledgerTotals.remaining.toLocaleString()} {settings.currency}
+                        {formatThousands(ledgerTotals.remaining)} {settings.currency}
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -580,7 +582,7 @@ export default function InvoicesView({
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono font-bold text-slate-900 text-xs">
-                                    {(item.subtotal || 0).toLocaleString()} {settings.currency}
+                                    {formatThousands((item.subtotal || 0))} {settings.currency}
                                   </td>
                                 </tr>
 
@@ -600,7 +602,7 @@ export default function InvoicesView({
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono font-bold text-emerald-800 text-xs">
-                                    {(Number(item.paidAmount) || 0).toLocaleString()} {settings.currency}
+                                    {formatThousands((Number(item.paidAmount) || 0))} {settings.currency}
                                   </td>
                                 </tr>
 
@@ -631,7 +633,7 @@ export default function InvoicesView({
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400 bg-black/5">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono text-slate-400 bg-black/5">-</td>
                                   <td className="p-2 border border-slate-300 text-center font-mono font-black text-slate-950 text-sm bg-black/5">
-                                    {(item.remainingAmount || 0).toLocaleString()} {settings.currency}
+                                    {formatThousands((item.remainingAmount || 0))} {settings.currency}
                                   </td>
                                 </tr>
                               </React.Fragment>
@@ -645,10 +647,10 @@ export default function InvoicesView({
                               <td className="p-2 border border-slate-200 font-medium text-slate-800">{item.details}</td>
                               <td className="p-2 border border-slate-200 text-center font-mono font-bold">{item.quantity}</td>
                               <td className="p-2 border border-slate-200 text-center font-mono">
-                                {item.unitPrice.toLocaleString()} {settings.currency}
+                                {formatThousands(item.unitPrice)} {settings.currency}
                               </td>
                               <td className="p-2 border border-slate-200 text-center font-mono font-bold text-slate-900">
-                                {item.total.toLocaleString()} {settings.currency}
+                                {formatThousands(item.total)} {settings.currency}
                               </td>
                             </tr>
                           );
@@ -663,19 +665,19 @@ export default function InvoicesView({
                   <div className="flex justify-between items-center py-1">
                     <span className="font-sans font-semibold text-slate-600">المجموع الكلي:</span>
                     <span className="font-bold text-slate-900">
-                      {previewTotals?.sales.toLocaleString()} {settings.currency}
+                      {formatThousands(previewTotals?.sales)} {settings.currency}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-t border-dotted border-slate-200">
                     <span className="font-sans font-semibold text-emerald-700">المبلغ الواصل (المسدد):</span>
                     <span className="font-bold text-emerald-700">
-                      {previewTotals?.paid.toLocaleString()} {settings.currency}
+                      {formatThousands(previewTotals?.paid)} {settings.currency}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 bg-slate-50 px-2 rounded font-black border border-slate-200">
                     <span className="font-sans font-bold text-slate-800">المتبقي بذمة العميل:</span>
                     <span className={`text-sm ${(previewTotals?.remaining || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                      {(previewTotals?.remaining || 0).toLocaleString()} {settings.currency}
+                      {formatThousands((previewTotals?.remaining || 0))} {settings.currency}
                     </span>
                   </div>
                 </div>

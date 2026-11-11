@@ -23,6 +23,8 @@ import {
   showNativeLocalNotification,
 } from "./native";
 import { sendCrossDeviceNotificationServer } from "./cloudFunctions";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 export function getTokenDocId(token: string): string {
   let hash = 0;
@@ -438,11 +440,11 @@ export async function dispatchPaidAmountNotification(
   processedOperationIds.add(params.operationId);
 
   const curr = params.currency || "د.ع";
-  const formattedPaid = Number(params.paidAmount).toLocaleString();
+  const formattedPaid = formatThousands(Number(params.paidAmount));
   const remVal = Math.max(0, Number(params.remainingAmount || 0));
   const remainingText = remVal === 0
     ? "تم تسديد كامل الدين بنجاح"
-    : `المبلغ المتبقي: ${remVal.toLocaleString()} ${curr}`;
+    : `المبلغ المتبقي: ${formatThousands(remVal)} ${curr}`;
 
   const title = `سداد واصل جديد: ${params.customerName || "العميل"}`;
   const body = `تم تسجيل واصل بقيمة ${formattedPaid} ${curr}، ${remainingText}`;

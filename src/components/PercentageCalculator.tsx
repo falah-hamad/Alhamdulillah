@@ -3,6 +3,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { Customer, CustomerFolder, Invoice, Payment, Product } from "../types";
 import { getCustomerLedgerTotals, getInvoiceLedgerTotals } from "../lib/debtLedgerSources";
 import { FilterSelect } from "./FilterPanel";
+import FormattedNumberInput from "./FormattedNumberInput";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 type Metric = "payments" | "sales" | "remaining" | "profit";
 type FilterField = "all" | "folderId" | "address" | "occupation" | "salaryStatus" | "salaryType" | "relationship" | "purchaseDate" | "quantity" | "cost" | "sales" | "profit" | "paid" | "remaining" | "balanceStatus" | "overdueOnly" | "activityDate" | "sellerName" | "paymentRecipient";
@@ -44,7 +47,7 @@ const filterFields: Array<{ value: FilterField; label: string }> = [
 ];
 const emptyValueFilter = (): ValueFilter => ({ category: "", field: "all", value: "all", mode: "exact", exact: "", min: "", max: "", unit: "days" });
 const periodFromDate = (date: string): PeriodFilter => ({ mode: "exact", on: date, from: date, to: date });
-const formatAmount = (value: number, currency: string) => `${Math.round(value).toLocaleString("ar-IQ")} ${currency}`;
+const formatAmount = (value: number, currency: string) => `${formatThousands(Math.round(value))} ${currency}`;
 
 function dateKey(value?: string): string {
   if (!value) return "";
@@ -284,9 +287,9 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
         </label>}
       </div>
       {filter.mode === "range" ? <div className="grid grid-cols-2 gap-2">
-        <label className="block text-xs font-semibold text-slate-600">من<input type="number" min="0" value={filter.min} onChange={event => updateFilter(comparison.id, side, { min: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
-        <label className="block text-xs font-semibold text-slate-600">إلى<input type="number" min="0" value={filter.max} onChange={event => updateFilter(comparison.id, side, { max: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
-      </div> : <label className="block text-xs font-semibold text-slate-600">{label} يساوي<input type="number" min="0" value={filter.exact} onChange={event => updateFilter(comparison.id, side, { exact: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>}
+        <label className="block text-xs font-semibold text-slate-600">من<FormattedNumberInput type="number" min="0" value={filter.min} onChange={event => updateFilter(comparison.id, side, { min: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+        <label className="block text-xs font-semibold text-slate-600">إلى<FormattedNumberInput type="number" min="0" value={filter.max} onChange={event => updateFilter(comparison.id, side, { max: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>
+      </div> : <label className="block text-xs font-semibold text-slate-600">{label} يساوي<FormattedNumberInput type="number" min="0" value={filter.exact} onChange={event => updateFilter(comparison.id, side, { exact: event.target.value })} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800" /></label>}
     </div>;
   };
 
@@ -363,7 +366,7 @@ export default function PercentageCalculator({ customers, invoices, payments, pr
               })}
             </div>
             <div className="rounded-xl bg-indigo-50 p-3" aria-live="polite">
-              <div className="text-2xl font-extrabold tabular-nums text-indigo-800">{result == null ? "—" : `${result.toLocaleString("ar-IQ", { maximumFractionDigits: 2 })}٪`}</div>
+              <div className="text-2xl font-extrabold tabular-nums text-indigo-800">{result == null ? "—" : `${formatThousands(result, { maximumFractionDigits: 2 })}٪`}</div>
               <p className="mt-1 break-words text-sm leading-6 text-slate-700">{metricLabels[comparison.metric]} — {describeFilter(comparison.numeratorFilter)}، {numeratorBounds.label}: <strong>{formatAmount(numerator.total, currency)}</strong> من {metricLabels[comparison.metric]} — {describeFilter(comparison.denominatorFilter)}، {denominatorBounds.label}: <strong>{formatAmount(denominator.total, currency)}</strong>.</p>
               {result == null && <p className="mt-1 text-xs text-amber-800">ماكو مبلغ للمقارنة بالفترة المحددة؛ اختَر فترة أو نوع تصفية يحتوي بيانات.</p>}
               {comparison.metric === "profit" && (numerator.missingCostItems > 0 || denominator.missingCostItems > 0) && <p className="mt-1 text-xs text-amber-800">بعض البنود ما بيها تكلفة شراء محفوظة؛ ما دخلت بحساب الربح.</p>}

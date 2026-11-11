@@ -5,6 +5,8 @@ import { Customer, CustomerProfile, CustomerFolder, Invoice, Payment } from "../
 import { MonthlyFinanceChart, RankingChart } from "./AnalyticsCharts";
 
 import { customerFolderPath, customerPurchaseStats, purchaseDate, purchaseDuration } from "../utils/customerPurchaseStats";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 const groups: [string, [string,string,string?][]][] = [
 ["1. البيانات الأساسية",[["name","اسم العميل الرباعي"],["photo","صورة العميل","image"],["phone","رقم الهاتف","tel"],["address","عنوان السكن"],["occupation","المهنة أو الوظيفة"]]],
@@ -12,7 +14,7 @@ const groups: [string, [string,string,string?][]][] = [
 ["3. معلومات الكفيل أو الضامن",[["guarantorName","اسم الكفيل"],["guarantorPhone","رقم هاتف الكفيل","tel"],["guarantorAddress","عنوان سكن الكفيل"]]],
 ["4. معلومات الأرشفة",[["folderId","المجلد التابع له العميل","readonly"],["sequence","التسلسل داخل المجلد","readonly"]]]
 ];
-const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+const number = (value: number) => formatThousands(value, { maximumFractionDigits: 2 });
 const validDate = (value: string) => Number.isFinite(Date.parse(value));
 const formatLedgerTimestamp = (value: string) => {
   const raw = value?.trim();

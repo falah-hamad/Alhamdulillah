@@ -1,4 +1,6 @@
 import { Invoice, SystemSettings } from "../types";
+import { formatThousands } from "./numberFormatting";
+
 
 /**
  * Calculates the effective due date of an invoice.
@@ -142,9 +144,9 @@ export function generateOverdueWhatsAppMessage(
 تاريخ الاستحقاق المحدد: ${dueDateStr} (تجاوزت الاستحقاق منذ ${overdueDays} يوماً)
 
 تفاصيل الحساب:
-• إجمالي الفاتورة: ${invoice.grandTotal.toLocaleString()} ${settings.currency}
-• المسدد منها: ${invoice.paidAmount.toLocaleString()} ${settings.currency}
-• المبلغ المتبقي المستحق للسداد: ${invoice.remainingAmount.toLocaleString()} ${settings.currency}
+• إجمالي الفاتورة: ${formatThousands(invoice.grandTotal)} ${settings.currency}
+• المسدد منها: ${formatThousands(invoice.paidAmount)} ${settings.currency}
+• المبلغ المتبقي المستحق للسداد: ${formatThousands(invoice.remainingAmount)} ${settings.currency}
 
 نرجو التكرم بالتواصل معنا لترتيب سداد المبلغ المتبقي شاكرين لكم حسن تعاونكم الدائم معنا.
 

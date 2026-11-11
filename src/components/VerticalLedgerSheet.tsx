@@ -47,6 +47,9 @@ import CustomerChangeLogTable from "./CustomerChangeLogTable";
 import { formatDebtChangeLogDetails, formatPaymentChangeLogDetails } from "../utils/changeLogUtils";
 import { auth, uploadUserFile } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
+import { formatThousands } from "../utils/numberFormatting";
+import FormattedNumberInput from "./FormattedNumberInput";
+
 
 const BG_COLOR_PRESETS = [
   { id: "classic", name: "ورقي دافئ (دفتر كلاسيكي)", color: "#faf6ef" },
@@ -687,7 +690,7 @@ export default function VerticalLedgerSheet({
           customerId: customer.id,
           invoiceId: invoice.id,
           actionType: "تعديل واصل",
-          details: `تعديل التسديد: المجموع ${oldTotal.toLocaleString("en-US")} ${settings.currency}، التسديد ${oldPaid.toLocaleString("en-US")} ← ${newPaid.toLocaleString("en-US")} ${settings.currency}`,
+          details: `تعديل التسديد: المجموع ${formatThousands(oldTotal)} ${settings.currency}، التسديد ${formatThousands(oldPaid)} ← ${formatThousands(newPaid)} ${settings.currency}`,
           rawAmount: newPaid,
           targetItemId: item.id,
           location: getLedgerSequence(latestItems, item.id),
@@ -1726,7 +1729,7 @@ export default function VerticalLedgerSheet({
               <div className="text-left bg-white/90 border border-amber-300/80 px-3 py-1 rounded-lg">
                 <span className="text-[9px] font-bold text-amber-800 block">المبلغ المرحّل:</span>
                 <span className="text-xs sm:text-sm font-black font-mono text-slate-950">
-                  {pageData.startingBalance.toLocaleString()} {settings.currency}
+                  {formatThousands(pageData.startingBalance)} {settings.currency}
                 </span>
               </div>
             </div>
@@ -1868,11 +1871,11 @@ export default function VerticalLedgerSheet({
                               className="w-full text-center font-mono font-bold text-slate-900 py-0.5 select-text"
                             >
                               {item.total !== undefined && item.total !== 0
-                                ? Number(item.total).toLocaleString()
+                                ? formatThousands(Number(item.total))
                                 : "—"}
                             </div>
                           ) : (
-                            <input
+                            <FormattedNumberInput
                               type="text"
                               inputMode="numeric"
                               style={{ fontSize: `${fontSize}px` }}
@@ -2028,7 +2031,7 @@ export default function VerticalLedgerSheet({
                           style={{ fontSize: `${fontSize + 1}px` }}
                           className="col-span-3 text-center font-mono font-bold text-slate-900"
                         >
-                          {sec.subtotal.toLocaleString()}
+                          {formatThousands(sec.subtotal)}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize}px` }}
@@ -2049,10 +2052,10 @@ export default function VerticalLedgerSheet({
                               style={{ fontSize: `${fontSize + 1}px` }}
                               className="font-mono font-bold text-emerald-800 py-0.5 select-text"
                             >
-                              {sec.paid ? Number(sec.paid).toLocaleString() : "0"}
+                              {sec.paid ? formatThousands(Number(sec.paid)) : "0"}
                             </span>
                           ) : (
-                            <input
+                            <FormattedNumberInput
                               type="text"
                               inputMode="numeric"
                               style={{ fontSize: `${fontSize + 1}px` }}
@@ -2174,7 +2177,7 @@ export default function VerticalLedgerSheet({
                           style={{ fontSize: `${fontSize + 2}px` }}
                           className="col-span-3 text-center font-mono font-black text-slate-950"
                         >
-                          {sec.remaining.toLocaleString()}
+                          {formatThousands(sec.remaining)}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
@@ -2224,7 +2227,7 @@ export default function VerticalLedgerSheet({
             ) : (
               <div className="text-emerald-900 bg-emerald-100/90 px-2.5 py-0.5 rounded-md border border-emerald-300 flex items-center gap-1">
                 <span>✓ نهاية كشف الحساب — صافي المتبقي:</span>
-                <span className="font-mono font-black">{overallRemaining.toLocaleString()} {settings.currency}</span>
+                <span className="font-mono font-black">{formatThousands(overallRemaining)} {settings.currency}</span>
               </div>
             )}
 
@@ -2414,7 +2417,7 @@ export default function VerticalLedgerSheet({
             {filteredLedgerRows.length ? <div className="overflow-x-auto"><table className="min-w-[760px] w-full border-collapse text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:text-center [&_td]:text-center">
               <thead className="bg-blue-50"><tr><th className="border p-2">ت</th><th className="border p-2">نوع الحركة</th><th className="border p-2">المبلغ</th><th className="border p-2">التفاصيل والبيان</th><th className="border p-2">الطابع الزمني</th><th className="border p-2">البائع / المستلم</th></tr></thead>
               <tbody>{filteredLedgerRows.map(({ item, index }) => <tr key={item.id || index} className={index % 2 ? "bg-slate-50" : "bg-white"}>
-                <td className="border p-2">{index + 1}</td><td className="border p-2">{item.isSeparator || item.isPaymentRow ? "تسديد" : "دين"}</td><td className="border p-2">{Number(item.isSeparator ? item.paidAmount : item.total || item.unitPrice || 0).toLocaleString("en-US")}</td><td className="border p-2">{item.details || "—"}</td>
+                <td className="border p-2">{index + 1}</td><td className="border p-2">{item.isSeparator || item.isPaymentRow ? "تسديد" : "دين"}</td><td className="border p-2">{formatThousands(Number(item.isSeparator ? item.paidAmount : item.total || item.unitPrice || 0))}</td><td className="border p-2">{item.details || "—"}</td>
                 <td className="border p-2">{item.isSeparator ? [item.paidDay, item.paidTime, item.paidDate].filter(Boolean).join(" — ") : item.createdAt || invoice.date || "غير مسجل"}</td><td className="border p-2">{item.sellerName || "غير مسجل"}</td>
               </tr>)}</tbody>
             </table></div> : <p className="text-center text-sm text-slate-500">ماكو صفوف تطابق شروط التصفية.</p>}

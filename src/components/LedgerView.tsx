@@ -83,6 +83,9 @@ import BarcodeScannerModal from "./BarcodeScannerModal";
 import { auth } from "../lib/firebase";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
+import FormattedNumberInput from "./FormattedNumberInput";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
 
@@ -721,9 +724,9 @@ export default function LedgerView({
 الموقع: ${c.address || "غير محدد"}
 --------------------------
 عدد القوائم: ${stats.invoiceCount}
-إجمالي الديون: ${stats.totalDebts.toLocaleString()} ${settings.currency}
-إجمالي المسدد: ${stats.totalPaid.toLocaleString()} ${settings.currency}
-المطلوب المتبقي: ${stats.totalRemaining.toLocaleString()} ${settings.currency}
+إجمالي الديون: ${formatThousands(stats.totalDebts)} ${settings.currency}
+إجمالي المسدد: ${formatThousands(stats.totalPaid)} ${settings.currency}
+المطلوب المتبقي: ${formatThousands(stats.totalRemaining)} ${settings.currency}
 --------------------------
 تاريخ التقرير: ${new Date().toLocaleDateString("ar-SA")}`;
 
@@ -749,14 +752,14 @@ export default function LedgerView({
 
     const text = `📁 تقرير مجلد [${folder.name}] - ${settings.companyName || "محلات العاشق للكهربائيات"}
 عدد الزبائن: ${folderCustomers.length}
-إجمالي الديون: ${totalDebts.toLocaleString()} ${settings.currency}
-إجمالي المطلوب المتبقي: ${totalRemaining.toLocaleString()} ${settings.currency}
+إجمالي الديون: ${formatThousands(totalDebts)} ${settings.currency}
+إجمالي المطلوب المتبقي: ${formatThousands(totalRemaining)} ${settings.currency}
 --------------------------
 قائمة الزبائن:
 ${folderCustomers
   .map((c) => {
     const s = getCustomerStats(c.id);
-    return `• ${c.name} (${c.phone}): مطلوب ${s.totalRemaining.toLocaleString()} ${settings.currency}`;
+    return `• ${c.name} (${c.phone}): مطلوب ${formatThousands(s.totalRemaining)} ${settings.currency}`;
   })
   .join("\n")}
 --------------------------
@@ -834,20 +837,20 @@ ${folderCustomers
       for (const row of nextRows) {
         const previous = previousById.get(row.id);
         const amount = Number(row.total) || (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
-        const details = `القائمة الحسابية: ${row.details || "بند بدون تفاصيل"} — ${row.quantity} ${row.unit || "قطعة"} × ${Number(row.unitPrice || 0).toLocaleString()} = ${amount.toLocaleString()} ${settings.currency}`;
+        const details = `القائمة الحسابية: ${row.details || "بند بدون تفاصيل"} — ${row.quantity} ${row.unit || "قطعة"} × ${formatThousands(Number(row.unitPrice || 0))} = ${formatThousands(amount)} ${settings.currency}`;
         if (!previous) {
           entries.push({ customerId: selectedCustomer.id, actionType: "إضافة دين", details, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: nextRows.findIndex((item) => item.id === row.id) + 1, previousState: { ...row, afterDetails: row.details, afterQuantity: row.quantity, afterUnit: row.unit, afterUnitPrice: row.unitPrice, afterTotal: amount } });
           continue;
         }
         const oldAmount = Number(previous.total) || (Number(previous.quantity) || 0) * (Number(previous.unitPrice) || 0);
         if (previous.details !== row.details || Number(previous.quantity) !== Number(row.quantity) || previous.unit !== row.unit || Number(previous.unitPrice) !== Number(row.unitPrice)) {
-          entries.push({ customerId: selectedCustomer.id, actionType: "تعديل دين", details: `القائمة الحسابية — تعديل: ${previous.details || "بدون تفاصيل"} (${oldAmount.toLocaleString()} ${settings.currency}) ← ${row.details || "بدون تفاصيل"} (${amount.toLocaleString()} ${settings.currency})`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: nextRows.findIndex((item) => item.id === row.id) + 1, previousState: { ...previous, afterDetails: row.details, afterQuantity: row.quantity, afterUnit: row.unit, afterUnitPrice: row.unitPrice, afterTotal: amount } });
+          entries.push({ customerId: selectedCustomer.id, actionType: "تعديل دين", details: `القائمة الحسابية — تعديل: ${previous.details || "بدون تفاصيل"} (${formatThousands(oldAmount)} ${settings.currency}) ← ${row.details || "بدون تفاصيل"} (${formatThousands(amount)} ${settings.currency})`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: nextRows.findIndex((item) => item.id === row.id) + 1, previousState: { ...previous, afterDetails: row.details, afterQuantity: row.quantity, afterUnit: row.unit, afterUnitPrice: row.unitPrice, afterTotal: amount } });
         }
       }
       for (const row of previousRows) {
         if (!nextById.has(row.id)) {
           const amount = Number(row.total) || (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
-          entries.push({ customerId: selectedCustomer.id, actionType: "حذف دين", details: `القائمة الحسابية: حذف ${row.details || "بند بدون تفاصيل"} — ${amount.toLocaleString()} ${settings.currency}`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: previousRows.findIndex((item) => item.id === row.id) + 1, previousState: row });
+          entries.push({ customerId: selectedCustomer.id, actionType: "حذف دين", details: `القائمة الحسابية: حذف ${row.details || "بند بدون تفاصيل"} — ${formatThousands(amount)} ${settings.currency}`, rawAmount: amount, itemName: row.details, targetItemId: row.id, location: previousRows.findIndex((item) => item.id === row.id) + 1, previousState: row });
         }
       }
       for (const entry of entries) {
@@ -2113,7 +2116,7 @@ ${folderCustomers
         setProductCartSearch("");
         const total = cartRows.reduce((sum, row) => sum + row.total, 0);
         // Do not write history for draft cart rows; saveAccountingRows owns the final audit entries.
-        showToast("تمت إضافة البضاعة إلى القائمة الحسابية فقط بمبلغ " + total.toLocaleString() + " " + settings.currency + ".");
+        showToast("تمت إضافة البضاعة إلى القائمة الحسابية فقط بمبلغ " + formatThousands(total) + " " + settings.currency + ".");
         return;
       }
 
@@ -2786,7 +2789,7 @@ ${folderCustomers
                                         if (col.id === "amount") {
                                           return (
                                             <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center font-mono font-bold text-slate-900 text-sm">
-                                              {(item.subtotal || 0).toLocaleString()} <span className="text-[10px] text-slate-500 font-sans">{settings.currency}</span>
+                                              {formatThousands((item.subtotal || 0))} <span className="text-[10px] text-slate-500 font-sans">{settings.currency}</span>
                                             </td>
                                           );
                                         }
@@ -2814,7 +2817,7 @@ ${folderCustomers
                                           return (
                                             <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center">
                                               <div className="flex items-center justify-center gap-1">
-                                                <input
+                                                <FormattedNumberInput
                                                   type="number"
                                                   min="0"
                                                   placeholder="0"
@@ -2885,7 +2888,7 @@ ${folderCustomers
                                         if (col.id === "amount") {
                                           return (
                                             <td key={col.id} className="py-2 px-2 border-l border-slate-800 text-center font-mono font-black text-slate-950 text-base bg-black/5">
-                                              {(item.remainingAmount || 0).toLocaleString()} <span className="text-[10px] text-slate-600 font-sans font-normal">{settings.currency}</span>
+                                              {formatThousands((item.remainingAmount || 0))} <span className="text-[10px] text-slate-600 font-sans font-normal">{settings.currency}</span>
                                             </td>
                                           );
                                         }
@@ -2941,7 +2944,7 @@ ${folderCustomers
                                       const isRemaining = item.isRemainingRow;
                                       return (
                                         <td key={col.id} className={`py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-900 font-mono min-w-[110px] ${item.isPaymentRow ? "bg-emerald-50/40" : isRemaining ? "bg-rose-50/40" : ""}`}>
-                                          <input
+                                          <FormattedNumberInput
                                             id={`input-${idx}-amount`}
                                             type="number"
                                             min="0"
@@ -3000,7 +3003,7 @@ ${folderCustomers
                                                     >
                                                       <span className="font-bold text-slate-800">{p.name}</span>
                                                       <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">
-                                                        {p.salePrice.toLocaleString()} {settings.currency}
+                                                        {formatThousands(p.salePrice)} {settings.currency}
                                                       </span>
                                                     </button>
                                                   ))}
@@ -3014,7 +3017,7 @@ ${folderCustomers
                                     if (col.id === "quantity") {
                                       return (
                                         <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-900 font-mono">
-                                          <input
+                                          <FormattedNumberInput
                                             id={`input-${idx}-quantity`}
                                             type="number"
                                             min="1"
@@ -3032,7 +3035,7 @@ ${folderCustomers
                                     if (col.id === "unitPrice") {
                                       return (
                                         <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-800 font-mono">
-                                          <input
+                                          <FormattedNumberInput
                                             id={`input-${idx}-unitPrice`}
                                             type="number"
                                             min="0"
@@ -3158,7 +3161,7 @@ ${folderCustomers
                                 if (col.id === "amount") {
                                   return (
                                     <td key={col.id} className="py-2 px-2 border-l border-slate-800 text-center text-slate-950 font-mono font-black bg-[#fafafa]">
-                                      {getGrandTotal(newInvItems).toLocaleString()}
+                                      {formatThousands(getGrandTotal(newInvItems))}
                                     </td>
                                   );
                                 }
@@ -3228,7 +3231,7 @@ ${folderCustomers
                             <div className="flex justify-between items-center text-slate-800 font-extrabold text-xs">
                               <span className="text-slate-600">المجموع الكلي:</span>
                               <span className="font-mono font-black text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {getGrandTotal(newInvItems).toLocaleString()} {settings.currency}
+                                {formatThousands(getGrandTotal(newInvItems))} {settings.currency}
                               </span>
                             </div>
 
@@ -3236,7 +3239,7 @@ ${folderCustomers
                             <div className="flex justify-between items-center text-slate-800 font-extrabold text-xs border-t border-dashed border-slate-300 pt-2">
                               <span className="text-blue-700 flex items-center gap-1 font-black">💸 مبلغ التسديد:</span>
                               <div className="relative max-w-[150px] w-full">
-                                <input
+                                <FormattedNumberInput
                                   type="number"
                                   min="0"
                                   placeholder="0"
@@ -3288,7 +3291,7 @@ ${folderCustomers
                                   <div className="flex justify-between items-center text-rose-700 font-extrabold text-xs border-t border-dashed border-slate-300 pt-2">
                                     <span>الصافي المتبقي (دين):</span>
                                     <span className="font-mono text-xs bg-rose-50 border border-rose-100 text-rose-800 px-2 py-0.5 rounded font-black">
-                                      {remaining.toLocaleString()} {settings.currency}
+                                      {formatThousands(remaining)} {settings.currency}
                                     </span>
                                   </div>
 
@@ -3297,7 +3300,7 @@ ${folderCustomers
                                     <div className="flex justify-between items-center text-emerald-700 font-extrabold text-xs border-t-2 border-double border-emerald-500 pt-2 animate-pulse">
                                       <span className="flex items-center gap-1 font-black">💰 المبلغ الراجع للزبون:</span>
                                       <span className="font-mono text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-1 rounded-md font-black">
-                                        {change.toLocaleString()} {settings.currency}
+                                        {formatThousands(change)} {settings.currency}
                                       </span>
                                     </div>
                                   )}
@@ -3356,7 +3359,7 @@ ${folderCustomers
               <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-slate-500 text-xs font-semibold mb-1">قيمة دفعة التسديد ({settings.currency})</label>
-                  <input
+                  <FormattedNumberInput
                     type="number"
                     min="1"
                     required
@@ -3535,7 +3538,7 @@ ${folderCustomers
                                 >
                                   {custInvs.map((inv, idx) => (
                                     <option key={inv.id} value={inv.id}>
-                                      #{idx + 1} - {inv.invoiceNumber} ({inv.grandTotal.toLocaleString()} {settings.currency})
+                                      #{idx + 1} - {inv.invoiceNumber} ({formatThousands(inv.grandTotal)} {settings.currency})
                                     </option>
                                   ))}
                                 </select>
@@ -3701,17 +3704,17 @@ ${folderCustomers
                                           )}</>, "font-bold text-[#0018A8]")}
                                         {cell("details", row.isSeparator ? <span className="font-black text-[#0018A8]">— فاصلة حسابية —</span> : <input disabled={accountingSheetMode === "view"} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-details`} aria-label={`تفاصيل السطر ${index + 1}`} value={row.details || ""} onChange={(event) => changeCell(index, "details", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "details")} className={paperInput + " iraqi-ledger-input text-right disabled:cursor-default"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit" }} />, row.isSeparator ? "bg-blue-50" : "")}
                                          {cell("quantityUnit", <div className="flex w-full min-w-0 items-center gap-0" dir="rtl">
-                                           <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-quantity`} aria-label={`كمية السطر ${index + 1}`} type="number" min="0" step="any" inputMode="numeric" value={row.quantity || ""} onChange={(event) => changeCell(index, "quantity", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "quantity")} className={paperInput + " iraqi-ledger-input disabled:cursor-default border-0 bg-transparent shadow-none rounded-none px-0"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit", border: "none", boxShadow: "none", textAlign: "left", width: "30%", flex: "0 0 30%" }} />
+                                           <FormattedNumberInput disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-quantity`} aria-label={`كمية السطر ${index + 1}`} type="number" min="0" step="any" inputMode="numeric" value={row.quantity || ""} onChange={(event) => changeCell(index, "quantity", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "quantity")} className={paperInput + " iraqi-ledger-input disabled:cursor-default border-0 bg-transparent shadow-none rounded-none px-0"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit", border: "none", boxShadow: "none", textAlign: "left", width: "30%", flex: "0 0 30%" }} />
                                            <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-unit`} aria-label={`وحدة السطر ${index + 1}`} list="accounting-unit-options" value={row.unit || ""} onChange={(event) => changeCell(index, "unit", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unit")} className={paperInput + " iraqi-ledger-input disabled:cursor-default border-0 bg-transparent shadow-none rounded-none px-0"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit", border: "none", boxShadow: "none", textAlign: "right", width: "70%", flex: "0 0 70%" }} />
                                          </div>, row.isSeparator ? "bg-blue-50" : "")}
-                                        {cell("unitPrice", <input disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-unitPrice`} aria-label={`سعر السطر ${index + 1}`} type="number" min="0" step="any" inputMode="decimal" value={row.unitPrice || ""} onChange={(event) => changeCell(index, "unitPrice", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unitPrice")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit" }} />, row.isSeparator ? "bg-blue-50" : "")}
-                                        {cell("total", row.isSeparator ? "—" : ((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString("en-US"), "font-bold text-[#0018A8] " + (row.isSeparator ? "bg-blue-50" : ""))}
+                                        {cell("unitPrice", <FormattedNumberInput disabled={accountingSheetMode === "view" || row.isSeparator} onFocus={() => { setAccountingSelectedRow(index); setAccountingCursorSelected(true); }} data-accounting-cell={`${index}-unitPrice`} aria-label={`سعر السطر ${index + 1}`} type="number" min="0" step="any" inputMode="decimal" value={row.unitPrice || ""} onChange={(event) => changeCell(index, "unitPrice", event.target.value)} onBlur={persistDraftRows} onKeyDown={(event) => goNextCell(event, index, "unitPrice")} className={paperInput + " iraqi-ledger-input disabled:cursor-default"} style={{ color: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", textDecoration: "inherit" }} />, row.isSeparator ? "bg-blue-50" : "")}
+                                        {cell("total", row.isSeparator ? "—" : formatThousands(((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0))), "font-bold text-[#0018A8] " + (row.isSeparator ? "bg-blue-50" : ""))}
                                       </React.Fragment>;
                                     })}
                                   </div>
                                   <datalist id="accounting-unit-options">{["قطعة", "روله", "باكيت", "علبة", "سيت", "كارتون"].map((unit) => <option key={unit} value={unit} />)}</datalist>
                                   <div className="mt-2 grid grid-cols-1 gap-[3px]">
-                                    <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{invoiceTotal.toLocaleString("en-US")} {settings.currency}</span></div>
+                                    <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{formatThousands(invoiceTotal)} {settings.currency}</span></div>
                                     
                                   </div>
                                 </div>
@@ -4195,7 +4198,7 @@ ${folderCustomers
                                                     if (col.id === "amount") {
                                                       return (
                                                         <td key={col.id} className="py-1.5 px-3 border-l border-slate-800 text-center font-mono font-bold text-slate-900 text-sm">
-                                                          {(item.subtotal || 0).toLocaleString()} <span className="text-[11px] text-slate-600 font-sans font-normal">{settings.currency}</span>
+                                                          {formatThousands((item.subtotal || 0))} <span className="text-[11px] text-slate-600 font-sans font-normal">{settings.currency}</span>
                                                         </td>
                                                       );
                                                     }
@@ -4220,7 +4223,7 @@ ${folderCustomers
                                                     if (col.id === "amount") {
                                                       return (
                                                         <td key={col.id} className="py-1.5 px-3 border-l border-slate-800 text-center font-mono font-bold text-emerald-800 text-sm">
-                                                          {(Number(item.paidAmount) || 0).toLocaleString()} <span className="text-[11px] text-emerald-700 font-sans font-normal">{settings.currency}</span>
+                                                          {formatThousands((Number(item.paidAmount) || 0))} <span className="text-[11px] text-emerald-700 font-sans font-normal">{settings.currency}</span>
                                                         </td>
                                                       );
                                                     }
@@ -4259,7 +4262,7 @@ ${folderCustomers
                                                     if (col.id === "amount") {
                                                       return (
                                                         <td key={col.id} className="py-2 px-3 border-l border-slate-800 text-center font-mono font-black text-slate-950 text-base bg-black/5">
-                                                          {(item.remainingAmount || 0).toLocaleString()} <span className="text-[11px] text-slate-700 font-sans font-normal">{settings.currency}</span>
+                                                          {formatThousands((item.remainingAmount || 0))} <span className="text-[11px] text-slate-700 font-sans font-normal">{settings.currency}</span>
                                                         </td>
                                                       );
                                                     }
@@ -4309,7 +4312,7 @@ ${folderCustomers
                                                 if (col.id === "amount") {
                                                   return (
                                                     <td key={col.id} className="py-1 px-3 border-l border-slate-800 text-center font-mono font-black text-slate-900 bg-slate-50/20">
-                                                      {item.total.toLocaleString()}
+                                                      {formatThousands(item.total)}
                                                     </td>
                                                   );
                                                 }
@@ -4330,7 +4333,7 @@ ${folderCustomers
                                                 if (col.id === "unitPrice") {
                                                   return (
                                                     <td key={col.id} className="py-1 px-3 border-l border-slate-800 text-center text-xs text-slate-800 font-mono">
-                                                      {isSpecial ? "-" : item.unitPrice.toLocaleString()}
+                                                      {isSpecial ? "-" : formatThousands(item.unitPrice)}
                                                     </td>
                                                   );
                                                 }
@@ -4376,7 +4379,7 @@ ${folderCustomers
                                             if (col.id === "amount") {
                                               return (
                                                 <td key={col.id} className="py-2 px-3 border-l border-slate-800 text-center text-slate-950 font-mono font-black bg-[#fafafa]">
-                                                  {currentInvoice.grandTotal.toLocaleString()}
+                                                  {formatThousands(currentInvoice.grandTotal)}
                                                 </td>
                                               );
                                             }
@@ -4413,15 +4416,15 @@ ${folderCustomers
                                       <div className="border border-slate-800 p-2 bg-[#fafafa] rounded text-[10px] space-y-1 text-slate-600 font-medium">
                                         <p className="flex justify-between">
                                           <span>المجموع الأصلي:</span>
-                                          <span className="font-mono font-bold text-slate-900">{currentInvoice.grandTotal.toLocaleString()} {settings.currency}</span>
+                                          <span className="font-mono font-bold text-slate-900">{formatThousands(currentInvoice.grandTotal)} {settings.currency}</span>
                                         </p>
                                         <p className="flex justify-between text-blue-700 font-bold">
                                           <span>المسدد نقداً:</span>
-                                          <span className="font-mono">{currentInvoice.paidAmount.toLocaleString()} {settings.currency}</span>
+                                          <span className="font-mono">{formatThousands(currentInvoice.paidAmount)} {settings.currency}</span>
                                         </p>
                                         <p className="flex justify-between text-rose-700 font-extrabold border-t border-dashed border-slate-300 pt-0.5">
                                           <span>الصافي المتبقي بالذمة:</span>
-                                          <span className="font-mono">{currentInvoice.remainingAmount.toLocaleString()} {settings.currency}</span>
+                                          <span className="font-mono">{formatThousands(currentInvoice.remainingAmount)} {settings.currency}</span>
                                         </p>
                                       </div>
                                     </div>
@@ -5267,10 +5270,10 @@ ${folderCustomers
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {available.toLocaleString()} {product.unitName || "قطعة"}</p>
-                        <p className="text-xs font-black text-emerald-700 mt-1">{(Number(product.salePrice) || 0).toLocaleString()} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
+                        <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands((Number(product.salePrice) || 0))} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
                         {quantity > 0 && (
-                          <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {(quantity * (Number(product.salePrice) || 0)).toLocaleString()} {settings.currency}</p>
+                          <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {formatThousands((quantity * (Number(product.salePrice) || 0)))} {settings.currency}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -5283,7 +5286,7 @@ ${folderCustomers
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <input
+                        <FormattedNumberInput
                           aria-label={"كمية " + product.name}
                           type="number"
                           min="0"
@@ -5320,11 +5323,11 @@ ${folderCustomers
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-slate-600">
                   <span className="font-bold text-slate-900">{selectedCartProducts.length}</span> أصناف ·
-                  <span className="font-bold text-slate-900"> {productCartCount.toLocaleString()}</span> وحدة محددة
+                  <span className="font-bold text-slate-900"> {formatThousands(productCartCount)}</span> وحدة محددة
                 </div>
                 <div className="text-left">
                   <p className="text-[11px] text-slate-500">إجمالي العربة</p>
-                  <p className="text-lg font-black text-emerald-700">{productCartTotal.toLocaleString()} {settings.currency}</p>
+                  <p className="text-lg font-black text-emerald-700">{formatThousands(productCartTotal)} {settings.currency}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -5400,7 +5403,7 @@ ${folderCustomers
                 </label>
                 <div className="relative flex items-center">
                   <Hash className="absolute right-3.5 w-4 h-4 text-blue-600" />
-                  <input
+                  <FormattedNumberInput
                     type="number"
                     min="1"
                     value={sequenceModal.targetSeq}

@@ -3,6 +3,8 @@ import { ArrowRight, BarChart3, BookOpen, ChevronDown, ChevronLeft, ChevronRight
 import type { Customer, CustomerFolder, Invoice } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { useAuth } from "../contexts/AuthContext";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 type Key = "none" | "folder" | "name" | "address" | "salary" | "purchaseDate" | "capital" | "sales" | "profit" | "paid" | "remaining" | "quantity";
 type Rule = { key: Key; direction: "asc" | "desc"; show: boolean; dateMode?: "first" | "last" };
@@ -64,7 +66,7 @@ const toEnglishDigits = (value: string) => value.replace(/[٠-٩۰-۹]/g,digit=>
   const arabicIndex=arabic.indexOf(digit);
   return String(arabicIndex>=0?arabicIndex:persian.indexOf(digit));
 });
-const format = (n: number) => n.toLocaleString("en-US", {maximumFractionDigits:2});
+const format = (n: number) => formatThousands(n, {maximumFractionDigits:2});
 const label = (key: Key) => fields.find(f => f.key === key)?.label || key;
 const textValue = (v: string | number | null) => v === null ? "غير مسجل" : typeof v === "number" ? format(v) : (v || "غير مسجل");
 const value = (row: Entry, key: Key, dateMode: Rule["dateMode"] = "first"): string | number | null =>

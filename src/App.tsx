@@ -53,6 +53,8 @@ import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
 import { deriveLedgerPayments, getCustomerLedgerTotals } from "./lib/debtLedgerSources";
 import AIAssistantView from "./components/AIAssistantView";
+import { formatThousands } from "./utils/numberFormatting";
+
 
 
 export default function App() {
@@ -782,7 +784,7 @@ export default function App() {
             <div className="hidden md:flex items-center gap-3 text-xs border-l border-slate-200 pl-4">
               <span className="text-slate-400">إجمالي المديونية الحالية:</span>
               <span className="font-mono font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
-                {activeInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0).toLocaleString()} {settings.currency}
+                {formatThousands(activeInvoices.reduce((acc, inv) => acc + inv.remainingAmount, 0))} {settings.currency}
               </span>
             </div>
 

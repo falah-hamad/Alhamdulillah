@@ -1,4 +1,6 @@
 import { getArabicDayName } from "./separatorUtils";
+import { formatThousands } from "./numberFormatting";
+
 
 /**
  * Formats a Date or timestamp string into the exact format requested:
@@ -40,7 +42,7 @@ export function formatDebtChangeLogDetails(
   currency: string = "د.ع"
 ): string {
   const cleanAmt = Number(amount) || 0;
-  const amtStr = `${cleanAmt.toLocaleString()} ${currency}`;
+  const amtStr = `${formatThousands(cleanAmt)} ${currency}`;
   const cleanName = itemName?.trim();
 
   if (cleanName) {
@@ -58,5 +60,5 @@ export function formatPaymentChangeLogDetails(
   currency: string = "د.ع"
 ): string {
   const cleanAmt = Number(amount) || 0;
-  return `${cleanAmt.toLocaleString()} ${currency}`;
+  return `${formatThousands(cleanAmt)} ${currency}`;
 }

@@ -18,6 +18,8 @@ import {
 import { Customer, Invoice, Payment, SystemSettings, Folder } from "../types";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { openExternalUrl } from "../lib/native";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface OverdueDebtorsViewProps {
   customers: Customer[];
@@ -125,9 +127,9 @@ export default function OverdueDebtorsView({
 الأخ الفاضل / ${debtor.customer.name} المحترم 🌹
 
 نود تذكيركم بلطف بتفاصيل الحساب المسجل لدينا:
-• إجمالي المشتريات والديون: ${debtor.totalDebts.toLocaleString()} ${settings.currency}
-• إجمالي المسدد (الواصل): ${debtor.totalPaid.toLocaleString()} ${settings.currency}
-• المبلغ المتبقي المستحق للسداد: ${debtor.totalRemaining.toLocaleString()} ${settings.currency}
+• إجمالي المشتريات والديون: ${formatThousands(debtor.totalDebts)} ${settings.currency}
+• إجمالي المسدد (الواصل): ${formatThousands(debtor.totalPaid)} ${settings.currency}
+• المبلغ المتبقي المستحق للسداد: ${formatThousands(debtor.totalRemaining)} ${settings.currency}
 
 نرجو التكرم بالتواصل معنا لترتيب سداد المبلغ المتبقي.
 شاكرين لكم حسن تعاونكم الدائم.
@@ -144,9 +146,9 @@ ${settings.companyName || "محلات العاشق"} - ${settings.companyPhone |
 الأخ الفاضل / ${debtor.customer.name} المحترم 🌹
 
 نود تذكيركم بلطف بتفاصيل الحساب المسجل لدينا:
-• إجمالي المشتريات والديون: ${debtor.totalDebts.toLocaleString()} ${settings.currency}
-• إجمالي المسدد (الواصل): ${debtor.totalPaid.toLocaleString()} ${settings.currency}
-• المبلغ المتبقي المستحق للسداد: ${debtor.totalRemaining.toLocaleString()} ${settings.currency}
+• إجمالي المشتريات والديون: ${formatThousands(debtor.totalDebts)} ${settings.currency}
+• إجمالي المسدد (الواصل): ${formatThousands(debtor.totalPaid)} ${settings.currency}
+• المبلغ المتبقي المستحق للسداد: ${formatThousands(debtor.totalRemaining)} ${settings.currency}
 
 نرجو التكرم بالسداد في أقرب وقت شاكرين لكم طيب تعاونكم.
 ${settings.companyName || "محلات العاشق"}`;
@@ -197,7 +199,7 @@ ${settings.companyName || "محلات العاشق"}`;
           <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-rose-700">إجمالي المبالغ المتبقية المطلوبة</p>
             <p className="text-base sm:text-xl font-bold text-rose-900 mt-1 font-mono break-words">
-              {totalRemainingSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
+              {formatThousands(totalRemainingSum)} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-rose-600 mt-1">
               مجموع متبقي الديون غير المسددة لـ {totalDebtorsCount} زبون
@@ -207,7 +209,7 @@ ${settings.companyName || "محلات العاشق"}`;
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-slate-600">إجمالي ديون المتأخرين</p>
             <p className="text-base sm:text-xl font-bold text-slate-800 mt-1 font-mono break-words">
-              {totalDebtsSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
+              {formatThousands(totalDebtsSum)} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-slate-500 mt-1">
               إجمالي فواتير ومشتريات هؤلاء الزبائن
@@ -217,7 +219,7 @@ ${settings.companyName || "محلات العاشق"}`;
           <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 sm:p-4 min-w-0">
             <p className="text-xs font-semibold text-emerald-700">إجمالي المسدد (الواصل)</p>
             <p className="text-base sm:text-xl font-bold text-emerald-900 mt-1 font-mono break-words">
-              {totalPaidSum.toLocaleString()} <span className="text-xs font-sans font-normal">{settings.currency}</span>
+              {formatThousands(totalPaidSum)} <span className="text-xs font-sans font-normal">{settings.currency}</span>
             </p>
             <p className="text-[11px] text-emerald-600 mt-1">
               نسبة التحصيل: {totalDebtsSum > 0 ? Math.round((totalPaidSum / totalDebtsSum) * 100) : 0}%
@@ -323,19 +325,19 @@ ${settings.companyName || "محلات العاشق"}`;
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">المجموع الكلي:</span>
                   <span className="font-semibold text-slate-700 font-mono">
-                    {d.totalDebts.toLocaleString()} {settings.currency}
+                    {formatThousands(d.totalDebts)} {settings.currency}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">الواصل (المسدد):</span>
                   <span className="font-semibold text-emerald-700 font-mono">
-                    {d.totalPaid.toLocaleString()} {settings.currency}
+                    {formatThousands(d.totalPaid)} {settings.currency}
                   </span>
                 </div>
                 <div className="border-t border-slate-200/60 pt-1.5 flex items-center justify-between text-xs">
                   <span className="font-bold text-rose-700">المتبقي المستحق:</span>
                   <span className="font-bold text-rose-700 text-sm font-mono">
-                    {d.totalRemaining.toLocaleString()} {settings.currency}
+                    {formatThousands(d.totalRemaining)} {settings.currency}
                   </span>
                 </div>
               </div>

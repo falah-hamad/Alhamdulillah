@@ -12,6 +12,9 @@ import {
 import { Payment, SystemSettings } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import { FilterButton, FilterPanel } from "./FilterPanel";
+import FormattedNumberInput from "./FormattedNumberInput";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 interface PaymentsViewProps {
   payments: Payment[];
@@ -108,7 +111,7 @@ export default function PaymentsView({ payments, settings, onOpenLedger }: Payme
             </div>
             <FilterPanel open={filtersOpen} title="تصفية التسديدات" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedMethod("all"); setDateFrom(""); setDateTo(""); setMinimumAmount(""); setMaximumAmount(""); setSearchQuery(""); }}>
               <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل مبلغ<input type="number" min="0" value={minimumAmount} onChange={e => setMinimumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى مبلغ<input type="number" min="0" value={maximumAmount} onChange={e => setMaximumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل مبلغ<FormattedNumberInput type="number" min="0" value={minimumAmount} onChange={e => setMinimumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى مبلغ<FormattedNumberInput type="number" min="0" value={maximumAmount} onChange={e => setMaximumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
               <p className="text-xs text-slate-500">استخدم البحث و«طريقة التسديد» بجانب زر التصفية لاختيار العميل والطريقة.</p>
             </FilterPanel>
 
@@ -145,7 +148,7 @@ export default function PaymentsView({ payments, settings, onOpenLedger }: Payme
                     <div className="text-left font-mono shrink-0 flex items-center gap-3">
                       <div>
                         <p className={`text-sm font-extrabold ${selectedReceiptId === p.id ? "text-blue-400" : "text-blue-600"}`}>
-                          +{p.amount.toLocaleString()} {settings.currency}
+                          +{formatThousands(p.amount)} {settings.currency}
                         </p>
                         {p.notes && (
                           <p className="text-[9px] opacity-75 max-w-[150px] truncate font-sans">
@@ -275,7 +278,7 @@ export default function PaymentsView({ payments, settings, onOpenLedger }: Payme
                     <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100 font-mono">
                       <span className="font-sans font-semibold text-slate-500">المبلغ المستلم:</span>
                       <span className="text-lg font-black text-blue-600">
-                        {selectedReceipt.amount.toLocaleString()} {settings.currency}
+                        {formatThousands(selectedReceipt.amount)} {settings.currency}
                       </span>
                     </div>
 
@@ -288,7 +291,7 @@ export default function PaymentsView({ payments, settings, onOpenLedger }: Payme
                       <p className="flex items-baseline gap-2 border-b border-dotted border-slate-300 pb-1">
                         <span className="text-slate-400 font-semibold shrink-0">مبلغ وقدره:</span>
                         <span className="font-bold text-slate-700">
-                          {selectedReceipt.amount.toLocaleString()} {settings.currency} فقط لا غير.
+                          {formatThousands(selectedReceipt.amount)} {settings.currency} فقط لا غير.
                         </span>
                       </p>
 

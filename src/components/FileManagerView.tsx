@@ -37,6 +37,8 @@ import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../t
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import DeleteConfirmModal, { DeleteConfirmType } from "./DeleteConfirmModal";
 import TrashManagerView from "./TrashManagerView";
+import { formatThousands } from "../utils/numberFormatting";
+
 
 export interface FileManagerViewProps {
   rootName?: string;
@@ -1707,7 +1709,7 @@ export default function FileManagerView({
                               : "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                           }`}
                         >
-                          {debt > 0 ? `${debt.toLocaleString()} ${currency}` : "خالص"}
+                          {debt > 0 ? `${formatThousands(debt)} ${currency}` : "خالص"}
                         </span>
                       </div>
                     </div>
@@ -1768,7 +1770,7 @@ export default function FileManagerView({
                             debt > 0 ? "text-rose-600 bg-rose-50" : "text-emerald-600 bg-emerald-50"
                           }`}
                         >
-                          {debt > 0 ? `${debt.toLocaleString()} ${currency}` : "خالص"}
+                          {debt > 0 ? `${formatThousands(debt)} ${currency}` : "خالص"}
                         </span>
 
                         <button

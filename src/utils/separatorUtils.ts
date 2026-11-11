@@ -1,4 +1,6 @@
 import { InvoiceItem } from "../types";
+import { formatThousands } from "./numberFormatting";
+
 
 /**
  * Returns Arabic day name for a given ISO date (YYYY-MM-DD) or Date object
@@ -165,16 +167,16 @@ export function formatInvoiceAccountingText(
         currentSectionItems.forEach((ci) => {
           const itemTotal =
             Number(ci.total) || (Number(ci.quantity || 1) * Number(ci.unitPrice || 0));
-          lines.push(`${ci.details} — ${itemTotal.toLocaleString()}`);
+          lines.push(`${ci.details} — ${formatThousands(itemTotal)}`);
         });
         currentSectionItems = [];
 
         // Output accounting separator block
         lines.push("━━━━━━━━━");
-        lines.push(`المجموع — ${(it.subtotal || 0).toLocaleString()}`);
-        lines.push(`الواصل — ${(Number(it.paidAmount) || 0).toLocaleString()}`);
+        lines.push(`المجموع — ${formatThousands((it.subtotal || 0))}`);
+        lines.push(`الواصل — ${formatThousands((Number(it.paidAmount) || 0))}`);
         lines.push("━━━━━━━━━");
-        lines.push(`المتبقي — ${(it.remainingAmount || 0).toLocaleString()}`);
+        lines.push(`المتبقي — ${formatThousands((it.remainingAmount || 0))}`);
       } else if (
         !it.isPaymentRow &&
         !it.isRemainingRow &&
@@ -191,14 +193,14 @@ export function formatInvoiceAccountingText(
       currentSectionItems.forEach((ci) => {
         const itemTotal =
           Number(ci.total) || (Number(ci.quantity || 1) * Number(ci.unitPrice || 0));
-        lines.push(`${ci.details} — ${itemTotal.toLocaleString()}`);
+        lines.push(`${ci.details} — ${formatThousands(itemTotal)}`);
       });
       const trailingSum = currentSectionItems.reduce(
         (sum, ci) => sum + (Number(ci.total) || (Number(ci.quantity || 1) * Number(ci.unitPrice || 0))),
         0
       );
       lines.push("━━━━━━━━━");
-      lines.push(`مجموع البنود الإضافية — ${trailingSum.toLocaleString()}`);
+      lines.push(`مجموع البنود الإضافية — ${formatThousands(trailingSum)}`);
     }
   } else {
     // Standard list without explicit separator
@@ -214,7 +216,7 @@ export function formatInvoiceAccountingText(
     validItems.forEach((ci) => {
       const itemTotal =
         Number(ci.total) || (Number(ci.quantity || 1) * Number(ci.unitPrice || 0));
-      lines.push(`${ci.details} — ${itemTotal.toLocaleString()}`);
+      lines.push(`${ci.details} — ${formatThousands(itemTotal)}`);
     });
 
     const total =
@@ -231,10 +233,10 @@ export function formatInvoiceAccountingText(
         : Math.max(0, total - paid);
 
     lines.push("━━━━━━━━━");
-    lines.push(`المجموع — ${total.toLocaleString()}`);
-    lines.push(`الواصل — ${paid.toLocaleString()}`);
+    lines.push(`المجموع — ${formatThousands(total)}`);
+    lines.push(`الواصل — ${formatThousands(paid)}`);
     lines.push("━━━━━━━━━");
-    lines.push(`المتبقي — ${remaining.toLocaleString()}`);
+    lines.push(`المتبقي — ${formatThousands(remaining)}`);
   }
 
   return lines.join("\n");
