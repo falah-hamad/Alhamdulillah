@@ -21,6 +21,11 @@ const nowLocalInput = () => {
   const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
   return d.toISOString().slice(0, 16);
 };
+const toLocalDateTimeInput = (value: string) => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return nowLocalInput();
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
 const dateLabel = (value: string) => {
   const d = new Date(value);
   if (!Number.isFinite(d.getTime())) return value || "—";
@@ -226,8 +231,25 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     } finally { setSaving(false); }
   };
 
-  const openPurchase = () => { setPurchaseDate(nowLocalInput()); setPurchasePaidNow(""); setPurchaseOpen(true); };
-  const openPayment = () => { setPaymentDate(nowLocalInput()); setPaymentOpen(true); };
+  const openPurchase = () => {
+    const transactionId = newId("supplier-purchase");
+    const itemId = newId("supplier-item");
+    const transaction: SupplierTransaction = { id: transactionId, type: "purchase", date: new Date().toISOString(), amount: 0, items: [{ id: itemId, details: "", quantity: 1, unit: "قطعة", unitPrice: 0, total: 0 }] };
+    setSupplierDraftTransactions((current) => [...current, transaction]);
+    setSelectedLedgerRowId(itemId);
+    setSupplierLedgerTab("purchases");
+    setSupplierSheetMode("edit");
+    setSupplierRowsDirty(true);
+  };
+  const openPayment = () => {
+    const transactionId = newId("supplier-payment");
+    const transaction: SupplierTransaction = { id: transactionId, type: "payment", date: new Date().toISOString(), amount: 0, method: "نقداً", allocations: [] };
+    setSupplierDraftTransactions((current) => [...current, transaction]);
+    setSelectedLedgerRowId(transactionId);
+    setSupplierLedgerTab("payments");
+    setSupplierSheetMode("edit");
+    setSupplierRowsDirty(true);
+  };
 
   if (selectedSupplier) {
     const transactions = [...(supplierSheetMode === "edit" ? supplierDraftTransactions : (selectedSupplier.transactions || []))].sort((a, b) => a.date.localeCompare(b.date));
@@ -269,39 +291,43 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
       setSaving(true);
       try {
         const outstanding = new Map<string, number>();
-        const normalized = [...supplierDraftTransactions].sort((a, b) => a.date.localeCompare(b.date)).map((entry) => {
+        const normalized = [...supplierDraftTransactions].flatMap((entry) => {
           if (entry.type === "purchase") {
-            const items = entry.items?.map((item) => ({ ...item, quantity: Number(item.quantity) || 0, unitPrice: Number(item.unitPrice) || 0, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) }));
+            const items = entry.items?.filter((item) => item.details.trim() || (Number(item.total) || 0) > 0).map((item) => ({ ...item, quantity: Number(item.quantity) || 0, unitPrice: Number(item.unitPrice) || 0, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) }));
+            if (entry.items?.length && !items?.length) return [];
             const amount = items?.length ? items.reduce((sum, item) => sum + item.total, 0) : Number(entry.amount) || 0;
+            if (!items?.length && amount <= 0) return [];
             outstanding.set(entry.id, amount);
-            return { ...entry, ...(items?.length ? { items } : {}), amount };
+            return [{ ...entry, ...(items?.length ? { items } : {}), amount }];
           }
           let unallocated = Number(entry.amount) || 0;
+          if (unallocated <= 0) return [];
           const allocations: NonNullable<SupplierTransaction["allocations"]> = [];
           for (const [purchaseId, due] of outstanding) {
             if (unallocated <= 0) break;
             const allocated = Math.min(due, unallocated);
             if (allocated > 0) { allocations.push({ purchaseId, amount: allocated }); outstanding.set(purchaseId, due - allocated); unallocated -= allocated; }
           }
-          return { ...entry, amount: Number(entry.amount) || 0, allocations };
-        });
+          return [{ ...entry, amount: Number(entry.amount) || 0, allocations }];
+        }).sort((a, b) => a.date.localeCompare(b.date));
         await updateSupplier({ ...selectedSupplier, transactions: normalized, ledgerBackgroundColor: supplierPageColor });
-        const oldItems = new Map<string, { transactionId: string; item: SupplierTransactionItem }>();
-        for (const transaction of selectedSupplier.transactions || []) for (const item of transaction.items || []) if (item.productId) oldItems.set(item.id, { transactionId: transaction.id, item });
-        const newItems = new Map<string, SupplierTransactionItem>();
-        for (const transaction of normalized) for (const item of transaction.items || []) if (item.productId) newItems.set(item.id, item);
-        const stockDeltas = new Map<string, { quantity: number; transactionId: string }>();
-        for (const [itemId, { transactionId, item }] of oldItems) {
-          const next = newItems.get(itemId);
-          const delta = (next?.quantity || 0) - (item.quantity || 0);
-          if (delta) { const old = stockDeltas.get(item.productId!); stockDeltas.set(item.productId!, { quantity: (old?.quantity || 0) + delta, transactionId: next ? transactionId : transactionId }); }
+        const quantitiesByProduct = (entries: SupplierTransaction[]) => {
+          const quantities = new Map<string, number>();
+          for (const transaction of entries) for (const item of transaction.items || []) if (item.productId) quantities.set(item.productId, (quantities.get(item.productId) || 0) + (Number(item.quantity) || 0));
+          return quantities;
+        };
+        const previousQuantities = quantitiesByProduct(selectedSupplier.transactions || []);
+        const nextQuantities = quantitiesByProduct(normalized);
+        const stockDeltas = new Map<string, { quantity: number; transactionId: string; latestItem?: SupplierTransactionItem }>();
+        for (const productId of new Set([...previousQuantities.keys(), ...nextQuantities.keys()])) {
+          const latestPurchase = normalized.flatMap((entry) => entry.type === "purchase" ? (entry.items || []).map((item) => ({ item, date: entry.date, transactionId: entry.id })) : []).filter(({ item }) => item.productId === productId).sort((a, b) => a.date.localeCompare(b.date)).at(-1);
+          stockDeltas.set(productId, { quantity: (nextQuantities.get(productId) || 0) - (previousQuantities.get(productId) || 0), transactionId: latestPurchase?.transactionId || "", latestItem: latestPurchase?.item });
         }
-        for (const [itemId, item] of newItems) if (!oldItems.has(itemId)) { const old = stockDeltas.get(item.productId!); stockDeltas.set(item.productId!, { quantity: (old?.quantity || 0) + (item.quantity || 0), transactionId: normalized.find((entry) => entry.items?.some((line) => line.id === itemId))?.id || "" }); }
         for (const [productId, delta] of stockDeltas) {
           if (!delta.quantity) continue;
           const product = products.find((entry) => entry.id === productId);
           if (!product) continue;
-          await updateProduct({ ...product, quantity: Math.max(0, (Number(product.quantity) || 0) + delta.quantity), stockMovements: [...(product.stockMovements || []), { id: newId("stock"), type: "adjustment", quantity: delta.quantity, createdAt: new Date().toISOString(), note: `تعديل حساب المجهّز ${selectedSupplier.name}`, referenceId: delta.transactionId }] });
+          await updateProduct({ ...product, quantity: Math.max(0, (Number(product.quantity) || 0) + delta.quantity), ...(delta.latestItem && delta.quantity > 0 ? { purchasePrice: delta.latestItem.unitPrice, supplierName: selectedSupplier.name, supplierPhone: selectedSupplier.phone } : {}), stockMovements: [...(product.stockMovements || []), { id: newId("stock"), type: "adjustment", quantity: delta.quantity, createdAt: new Date().toISOString(), note: `تعديل حساب المجهّز ${selectedSupplier.name}`, referenceId: delta.transactionId }] });
         }
         setSupplierDraftTransactions(normalized);
         setSupplierRowsDirty(false);
@@ -349,8 +375,8 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد الخروج وإلغاءها؟")) return; setSelectedSupplierId(null); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى المجهّزين</button>
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={supplierSheetMode === "edit"} onClick={openPurchase} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"><PackagePlus className="h-4 w-4" /> تسجيل شراء</button>
-            <button type="button" disabled={supplierSheetMode === "edit"} onClick={openPayment} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><CreditCard className="h-4 w-4" /> تسجيل تسديد</button>
+            <button type="button" onClick={openPurchase} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"><PackagePlus className="h-4 w-4" /> إضافة صف شراء</button>
+            <button type="button" onClick={openPayment} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"><CreditCard className="h-4 w-4" /> إضافة صف تسديد</button>
             <button type="button" onClick={() => void printElement("supplier-ledger-print", { title: `حساب ${selectedSupplier.name}` })} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"><FileText className="h-4 w-4" /> طباعة</button>
           </div>
         </div>
@@ -382,7 +408,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
             <button type="button" aria-pressed={!!selectedRowStyle.strike} onClick={() => applySelectedRowStyle({ strike: !selectedRowStyle.strike })} className={`rounded-lg border px-2.5 py-1.5 text-xs line-through ${selectedRowStyle.strike ? "border-blue-300 bg-blue-100" : "border-slate-200 bg-white"}`}>شطب</button>
             <label className="flex items-center gap-1 text-[11px] font-bold">تلوين الصف <input aria-label="لون خلفية الصف" type="color" value={selectedRowStyle.backgroundColor || "#ffffff"} onChange={(event) => applySelectedRowStyle({ backgroundColor: event.target.value })} className="h-7 w-8 rounded border bg-white p-0.5" /></label>
           </div>}
-          {supplierToolsTab === "add" && <div className="flex flex-wrap gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={openPurchase} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><PackagePlus className="me-1 inline h-4 w-4" /> تسجيل فاتورة شراء</button><button type="button" onClick={openPayment} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><CreditCard className="me-1 inline h-4 w-4" /> إضافة تسديد</button></div>}
+          {supplierToolsTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={openPurchase} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><PackagePlus className="me-1 inline h-4 w-4" /> إضافة صف شراء</button><button type="button" onClick={openPayment} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><CreditCard className="me-1 inline h-4 w-4" /> إضافة صف تسديد</button><span className="text-[11px] text-slate-500">ينضاف الصف مباشرة للجدول؛ اضغط خلاياه واكتب، ثم احفظ.</span></div>}
           {supplierToolsTab === "delete" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={deleteSelectedSupplierRow} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white"><Trash2 className="me-1 inline h-4 w-4" /> حذف الصف المحدد</button><span className="text-[11px] text-slate-500">حدد الصف من رقم التسلسل. حذف صنف مربوط بالمخزون يعدّل كميته عند الحفظ.</span></div>}
           {supplierToolsTab === "move" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => moveSelectedSupplierRow(-1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">↑ نقل الصنف للأعلى</button><button type="button" onClick={() => moveSelectedSupplierRow(1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">↓ نقل الصنف للأسفل</button><span className="text-[11px] text-slate-500">النقل داخل فاتورة الشراء المحددة.</span></div>}
           {supplierToolsTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><label className="flex items-center gap-2 text-xs font-bold">لون ورقة الحساب <input aria-label="لون ورقة حساب المجهز" type="color" value={supplierPageColor} onChange={(event) => { setSupplierPageColor(event.target.value); setSupplierRowsDirty(true); }} className="h-8 w-10 rounded border bg-white p-1" /></label><button type="button" onClick={() => { setSupplierPageColor("#ffffff"); setSupplierRowsDirty(true); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">استعادة اللون الافتراضي</button></div>}
@@ -407,21 +433,23 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
             <button type="button" onClick={() => openEditSupplier(selectedSupplier)} className="mt-2 text-xs font-bold text-blue-700 underline print:hidden">تعديل تفاصيل المجهّز</button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[750px] border-collapse text-sm">
+            <table className="w-full min-w-[880px] border-collapse text-sm">
               <thead><tr>
-                {["ت", "التفاصيل", "الكمية", "سعر الوحدة", "المبلغ الكلي"].map((header) => <th key={header} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-extrabold">{header}</th>)}
+                {["ت", "التاريخ والوقت", "التفاصيل", "الكمية", "سعر الوحدة", "المبلغ الكلي"].map((header) => <th key={header} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-extrabold">{header}</th>)}
               </tr></thead>
               <tbody>
                 {shownRows.map((row, index) => { const rowStyle = row.item?.rowStyle || row.transaction.rowStyle || {}; return <tr key={row.id} style={{ backgroundColor: rowStyle.backgroundColor || (row.transaction.type === "payment" ? "#f8fafc" : "#ffffff"), color: rowStyle.fontColor, fontSize: rowStyle.fontSize ? `${rowStyle.fontSize}px` : undefined, fontWeight: rowStyle.bold ? 800 : undefined, fontStyle: rowStyle.italic ? "italic" : undefined, textDecoration: [rowStyle.underline ? "underline" : "", rowStyle.strike ? "line-through" : ""].filter(Boolean).join(" ") || undefined }} className={selectedLedgerRowId === row.id && supplierSheetMode === "edit" ? "ring-2 ring-inset ring-blue-500" : ""}>
                   <td className="border border-slate-400 px-2 py-2 text-center">{supplierSheetMode === "edit" ? <button type="button" onClick={() => setSelectedLedgerRowId(row.id)} aria-label={`تحديد الصف ${index + 1}`} className={`rounded px-1 font-bold leading-5 ${selectedLedgerRowId === row.id ? "bg-blue-100 text-blue-800" : "text-slate-700"}`}>{index + 1}</button> : index + 1}</td>
-                  <td className="border border-slate-400 px-2 py-2 font-semibold">{row.transaction.type === "payment" ? <><div>تسديد</div>{supplierSheetMode === "edit" ? <input aria-label="طريقة التسديد" value={row.transaction.method || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { method: event.target.value })} className="supplier-ledger-input text-xs font-normal" /> : <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}<div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div></> : supplierSheetMode === "edit" && row.item ? <input aria-label="تفاصيل البضاعة" value={row.item.details} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { details: event.target.value })} className="supplier-ledger-input font-semibold" /> : <div>{row.item?.details || row.details}</div>}{supplierSheetMode !== "edit" && row.transaction.type === "purchase" && row.transaction.reference && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}{supplierSheetMode !== "edit" && row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <div className="supplier-ledger-quantity"><input aria-label="كمية البضاعة" type="number" min="0" step="any" value={row.item.quantity} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { quantity: Number(event.target.value) })} style={{ width: "3.2em" }} /><input aria-label="وحدة البضاعة" value={row.item.unit} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unit: event.target.value })} style={{ width: "4.2em" }} /></div> : row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{supplierSheetMode === "edit" ? <input aria-label="تاريخ ووقت الحركة" type="datetime-local" value={toLocalDateTimeInput(row.transaction.date)} onChange={(event) => { const date = new Date(event.target.value); if (Number.isFinite(date.getTime())) updateSupplierTransaction(row.transaction.id, { date: date.toISOString() }); }} className="supplier-ledger-input text-xs" /> : <span className="text-xs leading-5">{dateLabel(row.transaction.date)}</span>}</td>
+                  <td className="border border-slate-400 px-2 py-2 font-semibold">{row.transaction.type === "payment" ? <><div>تسديد</div>{supplierSheetMode === "edit" ? <input aria-label="طريقة التسديد" value={row.transaction.method || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { method: event.target.value })} className="supplier-ledger-input text-xs font-normal" /> : <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}<div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div></> : supplierSheetMode === "edit" && row.item ? <input autoFocus={selectedLedgerRowId === row.id} list="supplier-product-options" aria-label="تفاصيل البضاعة" value={row.item.details} onChange={(event) => { const value = event.target.value; const product = products.find((entry) => !entry.isDeleted && entry.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateSupplierItem(row.transaction.id, row.item!.id, { details: value, productId: product?.id, ...(product ? { unit: product.unitName || row.item!.unit } : {}) }); }} className="supplier-ledger-input font-semibold" /> : <div>{row.item?.details || row.details}</div>}{supplierSheetMode !== "edit" && row.transaction.type === "purchase" && row.transaction.reference && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}{supplierSheetMode !== "edit" && row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <div className="supplier-ledger-quantity"><input aria-label="كمية البضاعة" type="number" min="0" step="any" value={row.item.quantity || ""} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { quantity: Number(event.target.value) })} style={{ width: "3.2em" }} /><input aria-label="وحدة البضاعة" value={row.item.unit} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unit: event.target.value })} style={{ width: "4.2em" }} /></div> : row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
                   <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <input aria-label="سعر الوحدة" type="number" min="0" step="any" value={row.item.unitPrice} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unitPrice: Number(event.target.value) })} className="supplier-ledger-input text-center" /> : row.item ? money(row.item.unitPrice) : "—"}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.transaction.type === "payment" && supplierSheetMode === "edit" ? <input aria-label="مبلغ التسديد" type="number" min="0" step="any" value={row.transaction.amount} onChange={(event) => updateSupplierTransaction(row.transaction.id, { amount: Number(event.target.value) })} className="supplier-ledger-input text-center font-bold" /> : row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
+                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.transaction.type === "payment" && supplierSheetMode === "edit" ? <input autoFocus={selectedLedgerRowId === row.id} aria-label="مبلغ التسديد" type="number" min="0" step="any" value={row.transaction.amount || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { amount: Number(event.target.value) })} className="supplier-ledger-input text-center font-bold" /> : row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
                 </tr>; })}
-                {!shownRows.length && <tr><td colSpan={5} className="p-8 text-center text-slate-500">ماكو حركات ضمن هذا التبويب.</td></tr>}
+                {!shownRows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">ماكو حركات ضمن هذا التبويب.</td></tr>}
               </tbody>
             </table>
+            <datalist id="supplier-product-options">{products.filter((product) => !product.isDeleted).map((product) => <option key={product.id} value={product.name} />)}</datalist>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_0.85fr]">
             <div className="min-h-28 rounded border border-slate-400 p-3"><div className="text-sm font-extrabold">ملاحظات:</div><div className="mt-2 text-xs leading-6">{transactions.filter((entry) => entry.notes).map((entry) => entry.notes).join(" | ") || "لا توجد ملاحظات"}</div><div className="mt-4 border-t border-dashed border-slate-300 pt-2 text-center text-xs">ملاحظات إضافية</div></div>
