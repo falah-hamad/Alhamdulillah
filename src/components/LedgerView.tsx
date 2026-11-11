@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 83547)
-Total output lines: 5475
-
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -2730,7 +2727,972 @@ ${folderCustomers
                                         {cIdx > 0 && (
                                           <button
                                             type="button"
-                                            onClick={() => handleMoveColumn(cI…23547 tokens truncated…eight: row.rowFontBold === undefined ? undefined : row.rowFontBold ? 800 : 400, fontStyle: row.rowFontItalic ? "italic" : "normal", textDecoration: [row.rowFontUnderline ? "underline" : "", row.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none", "--row-font-color": row.rowFontColor || "#111827", "--row-font-size": `${row.rowFontSize || accountingFontSize}px`, "--row-font-weight": row.rowFontBold ? 800 : 400, "--row-font-style": row.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [row.rowFontUnderline ? "underline" : "", row.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties} className={`accounting-cell flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}${selectedClass}`}>{content}</div>; };
+                                            onClick={() => handleMoveColumn(cIdx, 'left')}
+                                            title="نقل لليمين"
+                                            className="p-0.5 hover:bg-slate-200 rounded text-slate-600 text-[9px] cursor-pointer"
+                                          >
+                                            →
+                                          </button>
+                                        )}
+                                        {cIdx < invColumns.length - 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveColumn(cIdx, 'right')}
+                                            title="نقل لليسار"
+                                            className="p-0.5 hover:bg-slate-200 rounded text-slate-600 text-[9px] cursor-pointer"
+                                          >
+                                            ←
+                                          </button>
+                                        )}
+                                        {!isCore && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveColumn(col.id)}
+                                            title="حذف العمود"
+                                            className="p-0.5 hover:bg-red-100 text-red-600 rounded text-[10px] cursor-pointer"
+                                          >
+                                            ✕
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </th>
+                                );
+                              })}
+                              {/* Operations/Actions Column Header */}
+                              <th className="py-2 px-1 text-center font-bold w-28 no-print">إجراءات الصف</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {newInvItems.map((item, idx) => {
+                              if (item.isSeparator) {
+                                const autoDate = item.paidDate || getCurrentDateFormatted();
+                                const autoDay = item.paidDay || getArabicDayName(autoDate);
+                                const autoTime = item.paidTime || getCurrentTimeFormatted();
+
+                                return (
+                                  <React.Fragment key={`sep-${idx}`}>
+                                    {/* Divider line spanning entire table width */}
+                                    <tr className="bg-[#faf8f4]/90 border-t border-slate-700">
+                                      <td colSpan={invColumns.length} className="p-0 border-l border-slate-800">
+                                        <div className="w-full h-[1.5px] bg-slate-700/80"></div>
+                                      </td>
+                                      <td className="p-0 no-print border-r border-slate-800 bg-slate-50"></td>
+                                    </tr>
+
+                                    {/* 1. المجموع (Subtotal) */}
+                                    <tr className="bg-[#faf8f4]/90 text-slate-900 font-bold select-text">
+                                      {invColumns.map((col) => {
+                                        if (col.id === "amount") {
+                                          return (
+                                            <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center font-mono font-bold text-slate-900 text-sm">
+                                              {(item.subtotal || 0).toLocaleString()} <span className="text-[10px] text-slate-500 font-sans">{settings.currency}</span>
+                                            </td>
+                                          );
+                                        }
+                                        if (col.id === "details") {
+                                          return (
+                                            <td key={col.id} className="py-1.5 px-3 border-l border-slate-800 text-right font-bold text-slate-800 text-xs">
+                                              المجموع
+                                            </td>
+                                          );
+                                        }
+                                        return (
+                                          <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center text-xs text-slate-400 font-mono">
+                                            -
+                                          </td>
+                                        );
+                                      })}
+                                      {/* Action placeholder */}
+                                      <td className="py-1.5 px-1 text-center text-xs no-print border-r border-slate-800 bg-slate-50"></td>
+                                    </tr>
+
+                                    {/* 2. الواصل (Paid Amount) - قابل للتعديل */}
+                                    <tr className="bg-[#faf8f4]/90 text-slate-900 font-bold select-text">
+                                      {invColumns.map((col) => {
+                                        if (col.id === "amount") {
+                                          return (
+                                            <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center">
+                                              <div className="flex items-center justify-center gap-1">
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  placeholder="0"
+                                                  value={item.paidAmount || ""}
+                                                  onChange={(e) => handleUpdateSeparatorPaid(idx, Number(e.target.value))}
+                                                  className="w-24 text-center font-mono font-bold text-sm text-emerald-800 bg-white border border-emerald-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                                                  title="أدخل المبلغ الواصل المسدد"
+                                                />
+                                                <span className="text-[10px] text-emerald-800 font-bold shrink-0">{settings.currency}</span>
+                                              </div>
+                                            </td>
+                                          );
+                                        }
+                                        if (col.id === "details") {
+                                          return (
+                                            <td key={col.id} className="py-1.5 px-3 border-l border-slate-800 text-right text-xs">
+                                              <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">
+                                                <span className="font-bold text-slate-800 whitespace-nowrap shrink-0">
+                                                  الواصل
+                                                </span>
+                                                <span className="font-medium text-slate-700 whitespace-nowrap shrink-0 text-[11px]">
+                                                  ( يوم {autoDay} بتاريخ <span dir="ltr" className="font-mono">{autoDate}</span>{autoTime ? ` — الساعة ${autoTime}` : ""} )
+                                                </span>
+                                              </div>
+                                            </td>
+                                          );
+                                        }
+                                        return (
+                                          <td key={col.id} className="py-1.5 px-2 border-l border-slate-800 text-center text-xs text-slate-400 font-mono">
+                                            -
+                                          </td>
+                                        );
+                                      })}
+                                      {/* Action controls for separator */}
+                                      <td className="py-1.5 px-1 text-center text-xs no-print border-r border-slate-800 align-middle bg-slate-50">
+                                        <div className="flex items-center justify-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleInsertRow(idx, "after")}
+                                            title="إدراج سطر جديد بعد هذه الفاصلة"
+                                            className="p-1 text-slate-600 hover:text-blue-700 hover:bg-slate-200 rounded transition-colors cursor-pointer text-xs font-bold"
+                                          >
+                                            +⬇️
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveRow(idx)}
+                                            title="حذف هذه الفاصلة"
+                                            className="p-1 text-rose-600 hover:bg-rose-100 rounded transition-colors cursor-pointer"
+                                          >
+                                            🗑️
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+
+                                    {/* Divider line spanning entire table width */}
+                                    <tr className="bg-[#faf8f4]/90">
+                                      <td colSpan={invColumns.length} className="p-0 border-l border-slate-800">
+                                        <div className="w-full h-[1.5px] bg-slate-700/80"></div>
+                                      </td>
+                                      <td className="p-0 no-print border-r border-slate-800 bg-slate-50"></td>
+                                    </tr>
+
+                                    {/* 3. المتبقي (Remaining) */}
+                                    <tr className="bg-black/5 border-b border-slate-700 text-slate-950 font-black select-text">
+                                      {invColumns.map((col) => {
+                                        if (col.id === "amount") {
+                                          return (
+                                            <td key={col.id} className="py-2 px-2 border-l border-slate-800 text-center font-mono font-black text-slate-950 text-base bg-black/5">
+                                              {(item.remainingAmount || 0).toLocaleString()} <span className="text-[10px] text-slate-600 font-sans font-normal">{settings.currency}</span>
+                                            </td>
+                                          );
+                                        }
+                                        if (col.id === "details") {
+                                          return (
+                                            <td key={col.id} className="py-2 px-3 border-l border-slate-800 text-right text-xs font-black text-slate-950">
+                                              <div className="flex items-center gap-2">
+                                                <span>المتبقي</span>
+                                                {(item.remainingAmount || 0) === 0 ? (
+                                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full font-sans">
+                                                    مسدد بالكامل ✓
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full font-sans">
+                                                    مطلوب بذمة الزبون
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </td>
+                                          );
+                                        }
+                                        return (
+                                          <td key={col.id} className="py-2 px-2 border-l border-slate-800 text-center text-xs text-slate-400 font-mono">
+                                            -
+                                          </td>
+                                        );
+                                      })}
+                                      {/* Action placeholder */}
+                                      <td className="py-2 px-1 text-center text-xs no-print border-r border-slate-800 bg-slate-50"></td>
+                                    </tr>
+                                  </React.Fragment>
+                                );
+                              }
+
+                              const rowTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+
+                              return (
+                                <tr key={idx} className="border-b border-dashed border-slate-400 h-11 hover:bg-slate-50/40 text-slate-900 font-bold relative">
+                                  {invColumns.map((col, colIdx) => {
+                                    if (col.id === "num") {
+                                      const arabicNum = [
+                                        "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠",
+                                        "١١", "١٢", "١٣", "١٤", "١٥", "١٦", "١٧", "١٨", "١٩", "٢٠"
+                                      ][idx] || String(idx + 1);
+                                      return (
+                                        <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-[12px] text-slate-600 font-sans bg-slate-100/50">
+                                          {arabicNum}
+                                        </td>
+                                      );
+                                    }
+
+                                    if (col.id === "amount") {
+                                      const isRemaining = item.isRemainingRow;
+                                      return (
+                                        <td key={col.id} className={`py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-900 font-mono min-w-[110px] ${item.isPaymentRow ? "bg-emerald-50/40" : isRemaining ? "bg-rose-50/40" : ""}`}>
+                                          <input
+                                            id={`input-${idx}-amount`}
+                                            type="number"
+                                            min="0"
+                                            placeholder="المبلغ"
+                                            value={item.unitPrice || ""}
+                                            onChange={(e) => handleItemChange(idx, "unitPrice", Number(e.target.value))}
+                                            onBlur={handleCellBlur}
+                                            onKeyDown={(e) => handleKeyDown(e, idx, colIdx, col.id)}
+                                            disabled={isRemaining}
+                                            className={`w-full bg-transparent border-b border-dotted border-slate-300/80 text-center p-0.5 focus:outline-none focus:ring-0 text-xs font-bold font-mono text-slate-900 ${isRemaining ? "cursor-not-allowed opacity-80" : ""}`}
+                                          />
+                                        </td>
+                                      );
+                                    }
+
+                                    if (col.id === "details") {
+                                      const isSpecial = item.isPaymentRow || item.isRemainingRow;
+                                      return (
+                                        <td key={col.id} className={`py-1 px-3 border-l border-slate-800 text-right text-xs text-slate-900 font-sans relative ${item.isPaymentRow ? "bg-emerald-50/20" : item.isRemainingRow ? "bg-rose-50/20" : ""}`}>
+                                          <div className="flex items-center justify-between gap-2 w-full relative">
+                                            <input
+                                              id={`input-${idx}-details`}
+                                              type="text"
+                                              placeholder=""
+                                              value={item.details}
+                                              onChange={(e) => {
+                                                handleItemChange(idx, "details", e.target.value);
+                                                setFocusedRowIdx(idx);
+                                              }}
+                                              onFocus={() => {
+                                                if (!isSpecial) setFocusedRowIdx(idx);
+                                              }}
+                                              onBlur={() => {
+                                                // Delay slightly to allow product list clicks
+                                                setTimeout(() => setFocusedRowIdx(null), 250);
+                                                handleCellBlur();
+                                              }}
+                                              onKeyDown={(e) => handleKeyDown(e, idx, colIdx, col.id)}
+                                              disabled={isSpecial}
+                                              className={`flex-1 bg-transparent border-b border-dotted border-slate-300/80 py-1 px-0.5 focus:outline-none focus:ring-0 text-xs font-bold text-slate-900 ${isSpecial ? "cursor-not-allowed text-slate-800" : ""}`}
+                                            />
+                                            
+                                            {/* Autocomplete Dropdown */}
+                                            {focusedRowIdx === idx && item.details && item.details.trim() !== "" && (
+                                              <div className="absolute top-full right-0 z-50 w-full max-w-[320px] mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100 text-right">
+                                                {products
+                                                  .filter((p) => p.name.toLowerCase().includes(item.details.toLowerCase()))
+                                                  .map((p) => (
+                                                    <button
+                                                      key={p.id}
+                                                      type="button"
+                                                      onMouseDown={() => {
+                                                        handleSelectProduct(idx, p);
+                                                      }}
+                                                      className="w-full text-right px-3 py-2 text-xs hover:bg-slate-50 transition-colors flex justify-between items-center cursor-pointer"
+                                                    >
+                                                      <span className="font-bold text-slate-800">{p.name}</span>
+                                                      <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">
+                                                        {p.salePrice.toLocaleString()} {settings.currency}
+                                                      </span>
+                                                    </button>
+                                                  ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
+                                      );
+                                    }
+
+                                    if (col.id === "quantity") {
+                                      return (
+                                        <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-900 font-mono">
+                                          <input
+                                            id={`input-${idx}-quantity`}
+                                            type="number"
+                                            min="1"
+                                            placeholder=""
+                                            value={item.quantity || ""}
+                                            onChange={(e) => handleItemChange(idx, "quantity", Number(e.target.value))}
+                                            onBlur={handleCellBlur}
+                                            onKeyDown={(e) => handleKeyDown(e, idx, colIdx, col.id)}
+                                            className="w-full bg-transparent border-b border-dotted border-slate-300/80 text-center p-0.5 focus:outline-none focus:ring-0 text-xs font-bold font-mono text-slate-900"
+                                          />
+                                        </td>
+                                      );
+                                    }
+
+                                    if (col.id === "unitPrice") {
+                                      return (
+                                        <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-800 font-mono">
+                                          <input
+                                            id={`input-${idx}-unitPrice`}
+                                            type="number"
+                                            min="0"
+                                            placeholder=""
+                                            value={item.unitPrice || ""}
+                                            onChange={(e) => handleItemChange(idx, "unitPrice", Number(e.target.value))}
+                                            onBlur={handleCellBlur}
+                                            onKeyDown={(e) => handleKeyDown(e, idx, colIdx, col.id)}
+                                            className="w-full bg-transparent border-b border-dotted border-slate-300/80 text-center p-0.5 focus:outline-none focus:ring-0 text-xs font-bold font-mono text-slate-900"
+                                          />
+                                        </td>
+                                      );
+                                    }
+
+                                    // Custom Column Cell
+                                    return (
+                                      <td key={col.id} className="py-1 px-1 border-l border-slate-800 text-center text-xs text-slate-800">
+                                        <input
+                                          id={`input-${idx}-${col.id}`}
+                                          type="text"
+                                          placeholder=""
+                                          value={item[col.id] || ""}
+                                          onChange={(e) => handleItemChange(idx, col.id, e.target.value)}
+                                          onBlur={handleCellBlur}
+                                          onKeyDown={(e) => handleKeyDown(e, idx, colIdx, col.id)}
+                                          className="w-full bg-transparent border-b border-dotted border-slate-300/80 text-center p-0.5 focus:outline-none focus:ring-0 text-xs font-bold text-slate-900"
+                                        />
+                                      </td>
+                                    );
+                                  })}
+
+                                  {/* Row controls */}
+                                  <td className="py-1 px-1 text-center text-xs no-print">
+                                    <div className="flex items-center justify-center gap-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInsertRow(idx, "before")}
+                                        title="إدراج سطر قبل"
+                                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                      >
+                                        +⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInsertRow(idx, "after")}
+                                        title="إدراج سطر بعد"
+                                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                      >
+                                        +⬇️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddSeparatorRow(idx)}
+                                        title="إدراج فاصلة حسابية بعد هذا البند مباشرة"
+                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded transition-colors cursor-pointer font-bold text-xs"
+                                      >
+                                        ➗
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveRow(idx)}
+                                        title="حذف هذا السطر"
+                                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {/* Action to add extra rows if 12 isn't enough */}
+                            <tr className="border-t border-slate-800 no-print">
+                              <td colSpan={invColumns.length + 1} className="py-2 px-3 bg-slate-50/50">
+                                <div className="flex flex-wrap justify-center items-center gap-2.5">
+                                  <button
+                                    type="button"
+                                    onClick={handleAddItem}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-dashed border-blue-300 bg-white hover:bg-blue-50 text-blue-700 rounded-md text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" /> إضافة سطر فارغ
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddSeparatorRow()}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-md text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                                    title="إدراج فاصلة حسابية تحسب المجموع، الواصل، والمتبقي"
+                                  >
+                                    <Calculator className="w-3.5 h-3.5 text-amber-700" />
+                                    <span>إدراج فاصلة حسابية 🧮</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleClearModalRows}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-md text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                                    title="إفراغ الجدول وتصفير جميع الصفوف"
+                                  >
+                                    <Eraser className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>إفراغ الجدول 🧹</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleAddPaymentRows}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-dashed border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                                  >
+                                    <DollarSign className="w-3.5 h-3.5" /> صف تسديد
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* The "المجموع" row at the bottom of the table exactly like the image */}
+                            <tr className="border-t-2 border-slate-800 bg-slate-100 font-black text-xs">
+                              {invColumns.map((col, colIdx) => {
+                                if (col.id === "num") {
+                                  return (
+                                    <td key={col.id} className="py-2 px-1 border-l border-slate-800 text-center font-sans">
+                                      -
+                                    </td>
+                                  );
+                                }
+                                if (col.id === "amount") {
+                                  return (
+                                    <td key={col.id} className="py-2 px-2 border-l border-slate-800 text-center text-slate-950 font-mono font-black bg-[#fafafa]">
+                                      {getGrandTotal(newInvItems).toLocaleString()}
+                                    </td>
+                                  );
+                                }
+                                if (col.id === "details") {
+                                  return (
+                                    <td key={col.id} className="py-2 px-4 border-l border-slate-800 text-right text-slate-950 text-sm font-bold">
+                                      الـمـجـمـوع الكلي (Total)
+                                    </td>
+                                  );
+                                }
+                                return (
+                                  <td key={col.id} className="py-2 px-1 border-l border-slate-800 text-center font-mono">
+                                    -
+                                  </td>
+                                );
+                              })}
+                              <td className="py-2 px-1 text-center font-mono no-print">-</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* 4. Bottom Form Controls (Notes & Payment Amounts) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t-2 border-slate-800">
+                      
+                      {/* Right: Notes and Signature */}
+                      <div className="space-y-4">
+                        {/* Notes text area */}
+                        <div>
+                          <label className="block text-slate-700 text-xs font-bold mb-1">ملاحظات أو شروط الدفع:</label>
+                          <textarea
+                            value={newInvNotes}
+                            onChange={(e) => setNewInvNotes(e.target.value)}
+                            placeholder="اكتب أي ملاحظات أو شروط دفع للدين هنا..."
+                            className="w-full p-2 border border-slate-300 rounded text-xs h-16 focus:outline-blue-500 resize-none bg-white font-medium"
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                          <span>الخطأ والسهو مرجوع للطرفين</span>
+                          <div className="text-left">
+                            <span className="block text-slate-500 text-[11px] mb-0.5">طريقة توثيق السند:</span>
+                            <input
+                              type="text"
+                              value={newInvSignature}
+                              onChange={(e) => setNewInvSignature(e.target.value)}
+                              className="p-1 border border-slate-300 rounded text-[11px] font-mono text-slate-600 bg-white focus:outline-blue-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-center text-[10px] text-slate-400 font-sans pt-2">
+                          ستخضع هذه القائمة للرقابة والتدقيق وتثبت مباشرة في الدفتر العمومي للعميل المحترم.
+                        </div>
+                      </div>
+
+                      {/* Left: Professional Cashier Payment Panel (قسم التسديد) */}
+                      <div className="border-2 border-slate-800 p-4 bg-[#fbfbfa] rounded-xl text-xs space-y-3 shadow-md relative overflow-hidden flex flex-col justify-between">
+                        <div>
+                          <div className="bg-slate-800 text-white text-center py-1 font-extrabold text-[11px] tracking-wide rounded-t-md">
+                            قســم التســديد (CASHIER PANEL)
+                          </div>
+                          
+                          <div className="pt-3 space-y-2">
+                            {/* 1. Grand Total */}
+                            <div className="flex justify-between items-center text-slate-800 font-extrabold text-xs">
+                              <span className="text-slate-600">المجموع الكلي:</span>
+                              <span className="font-mono font-black text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                {getGrandTotal(newInvItems).toLocaleString()} {settings.currency}
+                              </span>
+                            </div>
+
+                            {/* 2. Paid Amount */}
+                            <div className="flex justify-between items-center text-slate-800 font-extrabold text-xs border-t border-dashed border-slate-300 pt-2">
+                              <span className="text-blue-700 flex items-center gap-1 font-black">💸 مبلغ التسديد:</span>
+                              <div className="relative max-w-[150px] w-full">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={newInvPaidAmount || ""}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0;
+                                    setNewInvPaidAmount(val);
+                                    
+                                    // Sync with payment/remaining rows if they exist in the table
+                                    const items = [...newInvItems];
+                                    const payIdx = items.findIndex((item) => item.isPaymentRow);
+                                    if (payIdx !== -1) {
+                                      items[payIdx] = { ...items[payIdx], unitPrice: val };
+                                    }
+                                    const subTotal = items
+                                      .filter((item) => item.details.trim() !== "" && !item.isPaymentRow && !item.isRemainingRow)
+                                      .reduce((acc, item) => acc + (Number(item.unitPrice) || 0), 0);
+                                    const remIdx = items.findIndex((item) => item.isRemainingRow);
+                                    if (remIdx !== -1) {
+                                      items[remIdx] = { ...items[remIdx], unitPrice: Math.max(0, subTotal - val) };
+                                    }
+                                    setNewInvItems(items);
+                                    pushHistory(items, val, invColumns);
+                                  }}
+                                  className="w-full p-1 border-2 border-blue-500 rounded font-mono text-xs font-black text-blue-800 focus:outline-blue-500 bg-white text-center shadow-inner"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Calculations */}
+                            {(() => {
+                              const grandTotal = getGrandTotal(newInvItems);
+                              const paid = Number(newInvPaidAmount) || 0;
+                              
+                              let remaining = 0;
+                              let change = 0;
+                              
+                              if (paid >= grandTotal) {
+                                remaining = 0;
+                                change = paid - grandTotal;
+                              } else {
+                                remaining = grandTotal - paid;
+                                change = 0;
+                              }
+
+                              return (
+                                <>
+                                  {/* 3. Remaining */}
+                                  <div className="flex justify-between items-center text-rose-700 font-extrabold text-xs border-t border-dashed border-slate-300 pt-2">
+                                    <span>الصافي المتبقي (دين):</span>
+                                    <span className="font-mono text-xs bg-rose-50 border border-rose-100 text-rose-800 px-2 py-0.5 rounded font-black">
+                                      {remaining.toLocaleString()} {settings.currency}
+                                    </span>
+                                  </div>
+
+                                  {/* 4. Change amount if any */}
+                                  {change > 0 && (
+                                    <div className="flex justify-between items-center text-emerald-700 font-extrabold text-xs border-t-2 border-double border-emerald-500 pt-2 animate-pulse">
+                                      <span className="flex items-center gap-1 font-black">💰 المبلغ الراجع للزبون:</span>
+                                      <span className="font-mono text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-1 rounded-md font-black">
+                                        {change.toLocaleString()} {settings.currency}
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Form submit buttons */}
+                        <div className="flex gap-2 pt-4 border-t border-dashed border-slate-300 mt-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingInvoice(false);
+                              setEditingInvoice(null);
+                            }}
+                            className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                          >
+                            إلغاء وتراجع
+                          </button>
+                          
+                          <button
+                            type="submit"
+                            className="flex-[2] py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black shadow transition-colors cursor-pointer text-center"
+                          >
+                            {editingInvoice ? "حفظ وتعديل القائمة 📥" : "حفظ وتثبيت الدين بالدفتر 📥"}
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form: Record Payment */}
+          {isRecordingPayment && (
+            <div className="bg-white p-6 rounded-xl border border-blue-100 shadow-sm space-y-4 no-print">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-blue-600" />
+                  تسجيل تسديد دفعة للعميل: {selectedCustomer.name}
+                </h2>
+                <button
+                  onClick={() => setIsRecordingPayment(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-500 text-xs font-semibold mb-1">قيمة دفعة التسديد ({settings.currency})</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(Number(e.target.value))}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-xs font-semibold mb-1">تاريخ الدفع</label>
+                  <input
+                    type="date"
+                    required
+                    value={payDate}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-mono focus:outline-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-xs font-semibold mb-1">طريقة الدفع</label>
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
+                  >
+                    <option value="نقدي">💵 نقدي (كاش)</option>
+                    <option value="تحويل بنكي">🏦 تحويل بنكي</option>
+                    <option value="شيك">✍️ شيك</option>
+                    <option value="مدى">💳 بطاقة مدى / الكتروني</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-slate-500 text-xs font-semibold mb-1">ملاحظات على الدفعة (اختياري)</label>
+                  <input
+                    type="text"
+                    value={payNotes}
+                    onChange={(e) => setPayNotes(e.target.value)}
+                    placeholder="أدخل أي ملاحظات (مثل رقم الحوالة، اسم المستلم، دفعة تحت الحساب...)"
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRecordingPayment(false)}
+                    className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+                  >
+                    تثبيت دفعة التسديد وتخفيض الدين
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Digital Traditional Paper Ledger Book View */}
+          <div className="w-full">
+            {!selectedInvoiceId ? (
+                <div className="bg-white p-12 rounded-xl border border-slate-100 text-center text-slate-400 text-xs shadow-sm h-full flex flex-col items-center justify-center gap-4">
+                  <BookOpen className="w-12 h-12 text-slate-300" />
+                  <div className="space-y-1 text-center">
+                    <p className="font-bold text-slate-700 text-sm">لم يتم تحديد صفحة حساب حالياً</p>
+                    <p className="text-slate-400">يرجى اختيار أحد صفحات الدفتر من القائمة، أو بدء دفتر حساب جديد للعميل بنمط الصورة المرفقة.</p>
+                  </div>
+                  {selectedCustomer && (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newInv = addInvoice({
+                          invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+                          date: new Date().toISOString().split("T")[0],
+                          customerId: selectedCustomer.id,
+                          customerName: selectedCustomer.name,
+                          customerPhone: selectedCustomer.phone,
+                          customerAddress: selectedCustomer.address || "",
+                          items: [],
+                          grandTotal: 0,
+                          paidAmount: 0,
+                          remainingAmount: 0,
+                          notes: "",
+                          employeeName: "المحاسب",
+                          signature: "",
+                        });
+                        setSelectedInvoiceId(newInv.id);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      بدء كشف حساب فارغ للعميل
+                    </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                currentInvoice && (
+                  <div className="space-y-4">
+                    {/* View Mode Switcher */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print">
+                      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+                        <button
+                          onClick={() => setLedgerDisplayMode("vertical")}
+                          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            ledgerDisplayMode === "vertical"
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          سجل الحساب العمودي (نمط الصورة)
+                        </button>
+<button
+                            onClick={() => setLedgerDisplayMode("accounting")}
+                            className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              ledgerDisplayMode === "accounting"
+                                ? "bg-slate-800 text-white shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            القائمة الحسابية
+                          </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {(ledgerDisplayMode === "vertical" || ledgerDisplayMode === "accounting") && (
+                          <div className="flex items-center gap-1.5" dir="rtl" aria-label={ledgerDisplayMode === "vertical" ? "إجراءات سجل الديون" : "إجراءات القائمة الحسابية"}>
+                            <button
+                              type="button"
+                              onClick={() => ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-print")) : void handlePrintAccountingSheet()}
+                              disabled={ledgerDisplayMode === "vertical" ? isPrinting : isAccountingPrinting}
+                              aria-label="طباعة وصل الدين A4"
+                              title={(ledgerDisplayMode === "vertical" ? isPrinting : isAccountingPrinting) ? "جاري تجهيز الوصل..." : "طباعة القائمة (A4)"}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+                            >
+                              {(ledgerDisplayMode === "vertical" ? isPrinting : isAccountingPrinting) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-export-pdf")) : void handleExportAccountingSheetPDF()}
+                              disabled={ledgerDisplayMode === "vertical" ? isExportingPDF : isAccountingExportingPDF}
+                              aria-label="حفظ وصل الدين PDF"
+                              title={(ledgerDisplayMode === "vertical" ? isExportingPDF : isAccountingExportingPDF) ? "جاري الحفظ..." : "حفظ PDF"}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                            >
+                              {(ledgerDisplayMode === "vertical" ? isExportingPDF : isAccountingExportingPDF) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-open-history")) : setIsAccountingChangeLogOpen(true)}
+                              aria-label="سجل التغييرات"
+                              title="سجل التغييرات"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => setProfileCustomerId(selectedCustomer.id)} aria-label="ملف العميل" title="ملف العميل" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"><ContactRound className="h-4 w-4" /></button>
+                          </div>
+                        )}
+                        {(() => {
+                          const custInvs = selectedCustomer ? getCustomerStats(selectedCustomer.id).custInvoices : [];
+                          if (custInvs.length > 1) {
+                            return (
+                              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                                <span>القائمة:</span>
+                                <select
+                                  value={currentInvoice.id}
+                                  onChange={(e) => setSelectedInvoiceId(e.target.value)}
+                                  className="bg-white border border-slate-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-slate-800 focus:outline-none cursor-pointer"
+                                >
+                                  {custInvs.map((inv, idx) => (
+                                    <option key={inv.id} value={inv.id}>
+                                      #{idx + 1} - {inv.invoiceNumber} ({inv.grandTotal.toLocaleString()} {settings.currency})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                      </div>
+                    </div>
+
+                    {ledgerDisplayMode === "accounting" && selectedCustomer ? (
+                      <div className="mx-auto w-full max-w-5xl space-y-2" dir="rtl">
+                        <div className="no-print space-y-2">
+                          {/* نفس شريط وضع الورقة في سجل الحساب العمودي */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/90 bg-white/95 p-2 shadow-sm" dir="rtl">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button type="button" id="accounting-mode-view" onClick={() => { if (accountingRowsDirty) { showToast("لديك تغييرات غير محفوظة؛ اختر حفظ التغييرات أو إلغاء."); return; } setAccountingSheetMode("view"); exitAccountingSelectionMode(); }} aria-pressed={accountingSheetMode === "view"} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold ${accountingSheetMode === "view" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}><Eye className="h-4 w-4"/> عرض</button>
+                              <button type="button" id="accounting-mode-edit" onClick={() => { setAccountingSheetMode("edit"); }} aria-pressed={accountingSheetMode === "edit"} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold ${accountingSheetMode === "edit" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}><Pencil className="h-4 w-4"/> تعديل</button>
+                            </div>
+                            {accountingSheetMode === "edit" && <div className="flex flex-wrap items-center gap-2">
+                              <button type="button" id="accounting-save-changes" onClick={() => { void saveAccountingRows().catch((error) => { console.error("Failed to save accounting sheet:", error); showToast("تعذر حفظ القائمة الحسابية."); }); }} disabled={!accountingRowsDirty} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4"/> حفظ التغييرات</button>
+                              <button type="button" id="accounting-cancel-changes" onClick={cancelAccountingRows} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50"><X className="h-4 w-4"/> إلغاء التغييرات</button>
+                            </div>}
+                          </div>
+                          {accountingSheetMode === "edit" && <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm space-y-2">
+                            <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات القائمة الحسابية">
+                              <button type="button" role="tab" aria-selected={accountingToolbarTab === "font"} onClick={() => setAccountingToolbarTab("font")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${accountingToolbarTab === "font" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Type className="inline h-3.5 w-3.5 me-1"/>تنسيق الخط</button>
+                              <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "add"} onClick={() => setAccountingToolbarTab("add")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "add" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
+                              <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "delete"} onClick={() => setAccountingToolbarTab("delete")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "delete" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
+                              <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "move"} onClick={() => setAccountingToolbarTab("move")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "move" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
+                              <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "page"} onClick={() => setAccountingToolbarTab("page")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "page" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
+                              <button type="button" disabled={accountingSelectionMode} role="tab" aria-selected={accountingToolbarTab === "favorites"} onClick={() => setAccountingToolbarTab("favorites")} className={`rounded-lg border px-3 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-30 ${accountingToolbarTab === "favorites" ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}><Sparkles className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
+                            </div>
+                          {accountingSheetMode === "edit" && accountingToolbarTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold">حجم الخط <input type="range" min={10} max={22} value={accountingRowFontSize} onChange={(event) => { const value = Number(event.target.value); setAccountingRowFontSize(value); applyAccountingRowFormat({ rowFontSize: value }); }} className="w-24 accent-blue-600"/><span className="min-w-6 text-blue-700">{accountingRowFontSize}</span></label>
+                            <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input type="color" value={accountingRowFontColor} onChange={(event) => { const value = event.target.value; setAccountingRowFontColor(value); applyAccountingRowFormat({ rowFontColor: value }); }} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5"/></label>
+                            <button type="button" onClick={() => { const value = !(accountingRowFontBold); setAccountingRowFontBold(value); applyAccountingRowFormat({ rowFontBold: value }); }} aria-pressed={accountingRowFontBold} className={`rounded-lg border px-3 py-1.5 text-xs font-black ${(accountingRowFontBold) ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>غامق B</button>
+                            <button type="button" onClick={() => { const value = !(accountingRowFontItalic); setAccountingRowFontItalic(value); applyAccountingRowFormat({ rowFontItalic: value }); }} aria-pressed={accountingRowFontItalic} className={`rounded-lg border px-3 py-1.5 text-xs italic ${(accountingRowFontItalic) ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>مائل I</button>
+                            <button type="button" onClick={() => { const value = !(accountingRowFontUnderline); setAccountingRowFontUnderline(value); applyAccountingRowFormat({ rowFontUnderline: value }); }} aria-pressed={accountingRowFontUnderline} className={`rounded-lg border px-3 py-1.5 text-xs underline ${(accountingRowFontUnderline) ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>تسطير U</button>
+                            <button type="button" onClick={() => { const value = !(accountingRowFontStrike); setAccountingRowFontStrike(value); applyAccountingRowFormat({ rowFontStrike: value }); }} aria-pressed={accountingRowFontStrike} className={`rounded-lg border px-3 py-1.5 text-xs line-through ${(accountingRowFontStrike) ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white"}`}>شطب النص</button>
+                            <label className="flex items-center gap-1 text-[11px] font-bold">تلوين الصف <input type="color" defaultValue="#fff2b3" onChange={(event) => applyAccountingRowFormat({ rowBackgroundColor: event.target.value })} className="h-7 w-8 cursor-pointer rounded border bg-white p-0.5" aria-label="لون خلفية الصف"/></label>
+                          </div>}
+                            {accountingSelectionMode && accountingSheetMode === "edit" && <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-bold text-slate-700" role="region" aria-label="التحكم بالتحديد المتعدد">
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={exitAccountingSelectionMode} aria-label="إلغاء وضع التحديد" title="إلغاء وضع التحديد" className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 hover:bg-white"><X className="h-4 w-4"/></button>
+                                <button type="button" onClick={() => setAccountingSelectedRowIds(accountingDraftRows.map((row) => row.id))} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-blue-800">تحديد الكل</button>
+                              </div>
+                              <span className="whitespace-nowrap text-blue-800">تم تحديد {accountingSelectedRowIds.length} عنصر</span>
+                            </div>}
+
+                                      {accountingSheetMode === "edit" && accountingToolbarTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+                            <button type="button" onClick={() => insertAccountingRow("above")} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أعلاه</button>
+                            <button type="button" onClick={() => insertAccountingRow("below")} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
+                            <button type="button" onClick={() => handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow })} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
+                          </div>}
+                          {accountingSheetMode === "edit" && accountingToolbarTab === "delete" && accountingSheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+                            <button type="button" onClick={deleteAccountingSelectedRow} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700"><Eraser className="inline h-3.5 w-3.5 me-1"/>حذف صف</button>
+                            <button type="button" onClick={clearAccountingSheet} disabled={accountingDraftRows.length === 0} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-40"><Eraser className="inline h-3.5 w-3.5 me-1"/>تفريغ السجل</button>
+                          </div>}
+                          {accountingSheetMode === "edit" && accountingToolbarTab === "move" && accountingSheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => moveAccountingSelectedRow(-1)} disabled={accountingSelectedRow <= 0} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل للأعلى</button><button type="button" onClick={() => moveAccountingSelectedRow(1)} disabled={accountingSelectedRow >= accountingDraftRows.length - 1} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowDown className="inline h-3.5 w-3.5 me-1"/>نقل للأسفل</button></div>}
+                          {accountingSheetMode === "edit" && accountingToolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{accountingToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") { const value = !accountingRowFontBold; setAccountingRowFontBold(value); applyAccountingRowFormat({ rowFontBold: value }); } else if (key === "italic") { const value = !accountingRowFontItalic; setAccountingRowFontItalic(value); applyAccountingRowFormat({ rowFontItalic: value }); } else if (key === "underline") { const value = !accountingRowFontUnderline; setAccountingRowFontUnderline(value); applyAccountingRowFormat({ rowFontUnderline: value }); } else if (key === "strike") { const value = !accountingRowFontStrike; setAccountingRowFontStrike(value); applyAccountingRowFormat({ rowFontStrike: value }); } else if (key === "addAbove") insertAccountingRow("above"); else if (key === "addBelow") insertAccountingRow("below"); else if (key === "deleteRow") deleteAccountingSelectedRow(); else if (key === "clear") clearAccountingSheet(); else if (key === "moveUp") moveAccountingSelectedRow(-1); else if (key === "moveDown") moveAccountingSelectedRow(1); else if (key === "cart") handleOpenProductCart({ mode: "accounting", rowIndex: accountingSelectedRow }); else if (key === "page") setAccountingToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setAccountingFavoritesDraft([...accountingToolbarFavorites]); setShowAccountingFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showAccountingFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={accountingFavoritesDraft.includes(key)} onChange={() => setAccountingFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowAccountingFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setAccountingToolbarFavorites(accountingFavoritesDraft); setShowAccountingFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{accountingSheetMode === "edit" && accountingToolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+                            <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={accountingBgColor} onChange={(event) => {setAccountingBgColor(event.target.value); try {localStorage.setItem("accounting_sheet_bg_color",event.target.value);} catch {}}} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
+                            <div className="flex flex-wrap gap-1.5">{[["ورقي","#faf6ef"],["أبيض","#ffffff"],["عاجي","#fdfbf7"],["رمادي","#f8fafc"],["أخضر","#f2f8f2"],["أصفر","#fef9e7"],["أزرق","#f0f7ff"]].map(([label,color]) => <button key={color} type="button" title={label} aria-label={label} onClick={() => {setAccountingBgColor(color); try {localStorage.setItem("accounting_sheet_bg_color",color);} catch {}}} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:color}}/>)}</div>
+                          </div>}
+                          </div>}
+                        </div>
+                        {(() => {
+                          const rows = accountingDraftRows;
+                          const invoiceTotal = rows.reduce((sum, row) => sum + (row.isSeparator ? 0 : (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)), 0);
+                          const rowCount = rows.length;
+                          const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
+                          const persistDraftRows = () => {
+                            // Read the latest draft, not the render-time "rows" snapshot.
+                            // A blur event can otherwise restore old rows and erase formatting just applied from the toolbar.
+                            const latestRows = accountingDraftRowsRef.current;
+                            const lastUsedIndex = latestRows.reduce((last, row, index) => row.isManual || row.isSeparator || row.details.trim() || row.quantity > 0 || row.unitPrice > 0 || row.unit.trim() ? index : last, -1);
+                            const validRows = latestRows.slice(0, lastUsedIndex + 1);
+                            persistAccountingRows(validRows.map((row) => ({ ...row, total: (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0) })));
+                          };
+                          const changeCell = (index: number, field: "details" | "quantity" | "unit" | "unitPrice", value: string) => {
+                            setAccountingDraftRows((previous) => {
+                              const next = [...previous];
+                              while (next.length <= index) next.push({ id: `asr-${selectedCustomer.id}-${next.length}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 });
+                              const oldRow = next[index];
+                              next[index] = { ...oldRow, isManual: true, [field]: field === "quantity" || field === "unitPrice" ? (value === "" ? 0 : Math.max(0, Number(value) || 0)) : value, total: (field === "quantity" ? (Number(value) || 0) : Number(oldRow.quantity) || 0) * (field === "unitPrice" ? (Number(value) || 0) : Number(oldRow.unitPrice) || 0) } as AccountingSheetRow;
+                              return next;
+                            });
+                          };
+                          const goNextCell = (event: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, field: "details" | "quantity" | "unit" | "unitPrice") => {
+                            if (event.key !== "Enter") return;
+                            event.preventDefault();
+                            const order = ["details", "quantity", "unit", "unitPrice"];
+                            const fieldIndex = order.indexOf(field);
+                            const nextRow = fieldIndex === 3 ? rowIndex + 1 : rowIndex;
+                            const nextField = fieldIndex === 3 ? "details" : order[fieldIndex + 1];
+                            if (nextRow >= rowCount) setAccountingDraftRows((previous) => [...previous, { id: `asr-${selectedCustomer.id}-${previous.length}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 }]);
+                            window.setTimeout(() => {
+                              const target = document.querySelector<HTMLInputElement>(`[data-accounting-cell="${nextRow}-${nextField}"]`);
+                              target?.focus();
+                            }, 0);
+                          };
+                          const saveCustomerField = (field: "name" | "address", value: string) => {
+                            if (updateCustomer) updateCustomer({ ...selectedCustomer, [field]: value });
+                          };
+                          return (
+                            <>
+                            <style>{`@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Cairo:wght@400;700;800;900&family=Courier+Prime:wght@700&family=Reem+Kufi:wght@400;500;600;700&display=swap'); .accounting-paper[data-accounting-font] .accounting-cell{font-size:${accountingFontSize}px !important}.accounting-paper[data-accounting-font] .iraqi-ledger-column-heading{font-family:"Cairo","Almarai",Tahoma,sans-serif;font-size:${accountingFontSize}px!important;font-weight:800;line-height:1.25;white-space:normal;overflow-wrap:anywhere}.accounting-paper[data-accounting-font] .iraqi-ledger-input{font-family:"Almarai","Cairo",Tahoma,sans-serif!important;font-size:${accountingFontSize}px!important;font-weight:700;line-height:1.45;min-height:28px;padding:3px 2px}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-size="true"]{font-size:var(--row-font-size)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-color="true"]{color:var(--row-font-color)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-bold="true"]{font-weight:var(--row-font-weight)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-italic="true"]{font-style:var(--row-font-style)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-decoration="true"]{text-decoration:var(--row-text-decoration)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-size="true"] .iraqi-ledger-input{font-size:var(--row-font-size)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-color="true"] .iraqi-ledger-input{color:var(--row-font-color)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-bold="true"] .iraqi-ledger-input{font-weight:var(--row-font-weight)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-italic="true"] .iraqi-ledger-input{font-style:var(--row-font-style)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-decoration="true"] .iraqi-ledger-input{text-decoration:var(--row-text-decoration)!important}.accounting-paper[data-accounting-font] .iraqi-ledger-footer{font-family:"Almarai","Cairo",Tahoma,sans-serif;font-size:${accountingFontSize}px!important;line-height:1.6}.accounting-paper[data-accounting-font] .iraqi-invoice-subheader{font-size:${accountingFontSize}px!important}.accounting-paper[data-accounting-font] .iraqi-invoice-field{font-size:${accountingFontSize}px!important}.accounting-paper[data-accounting-font] .iraqi-ledger-legal{font-family:"Almarai","Cairo",Tahoma,sans-serif;font-weight:800}.accounting-paper[data-accounting-font] .iraqi-ledger-signature{font-family:"Cairo","Almarai",Tahoma,sans-serif;font-weight:700;letter-spacing:.1px}.iraqi-invoice-header{display:grid;grid-template-columns:minmax(76px,18%) minmax(0,1fr) minmax(76px,19%);min-height:150px;border:1.5px solid #C84B31;border-radius:10px;overflow:hidden;background:linear-gradient(105deg,#fff 0%,#EBF4FA 78%);direction:rtl}.iraqi-invoice-company{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-name{font-family:'Reem Kufi','Cairo',Tahoma,sans-serif;text-shadow:-1px -1px 0 #fff,1px 1px 1px rgba(255,255,255,.9),0 2px 2px rgba(10,54,126,.12)}.iraqi-invoice-info{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-art{position:relative;overflow:hidden;background:linear-gradient(135deg,#0A367E,#1C65A5);clip-path:ellipse(105% 95% at 0% 50%);border-right:5px solid #5BA6D8}.iraqi-invoice-art:before{content:'';position:absolute;inset:-15% -15% 0 15%;background:linear-gradient(135deg,#F9A826 0 23%,transparent 23% 40%,#F27438 40% 62%,transparent 62%);opacity:.95;transform:rotate(-8deg)}.iraqi-invoice-art:after{content:'';position:absolute;width:110px;height:110px;border:2px solid rgba(255,255,255,.6);border-radius:50%;left:-35px;top:22px}.iraqi-invoice-ornament{position:relative;overflow:hidden;background:linear-gradient(135deg,#F9A826,#F27438);clip-path:polygon(0 0,100% 0,100% 100%,18% 100%,0 78%)}.iraqi-invoice-ornament:before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 0 24%,rgba(255,255,255,.36) 24% 35%,transparent 35% 49%,rgba(200,75,49,.28) 49% 66%,transparent 66%);clip-path:polygon(0 0,100% 0,100% 100%,0 74%)}.iraqi-invoice-subheader{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-field{min-width:0;width:100%;background:transparent;border:0;border-bottom:1px dotted #9E2A2B;border-radius:0;padding:3px 5px;color:#172033;outline:none}.iraqi-invoice-field:focus{background:rgba(235,244,250,.8);border-bottom:2px solid #0A367E}.iraqi-invoice-field:disabled{opacity:1;color:#172033;-webkit-text-fill-color:#172033}.iraqi-invoice-date{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-number{font-family:'Courier Prime','Times New Roman',serif;letter-spacing:1px}@media(max-width:420px){.iraqi-invoice-header{grid-template-columns:58px minmax(0,1fr) 58px;min-height:116px}.iraqi-invoice-header .iraqi-invoice-name{font-size:clamp(15px,4.8vw,22px)!important}.iraqi-invoice-header .iraqi-invoice-specialty{font-size:10px!important}.iraqi-invoice-header .iraqi-invoice-contact{font-size:9px!important;gap:4px!important}.iraqi-invoice-header .iraqi-invoice-art svg{width:34px;height:34px}.iraqi-invoice-subheader{font-size:11px}.iraqi-invoice-subheader .iraqi-invoice-field{font-size:11px;padding:3px 2px}}@media print{.iraqi-invoice-header{min-height:120px;print-color-adjust:exact;-webkit-print-color-adjust:exact}.iraqi-invoice-art,.iraqi-invoice-ornament{print-color-adjust:exact;-webkit-print-color-adjust:exact}.iraqi-invoice-field{color:#111!important}}`}</style>
+                            <section id="accounting-report-document" data-accounting-font className="accounting-paper relative overflow-hidden border border-[#333333] text-slate-900 shadow-sm" style={{ fontFamily: "Tahoma, Arial, sans-serif", backgroundColor: accountingBgColor, color: accountingFontColor, fontWeight: accountingFontBold ? 800 : 400, fontStyle: accountingFontItalic ? "italic" : "normal", textDecoration: accountingFontUnderline ? "underline" : "none", "--invoice-blue": "#0018A8", "--invoice-pink": "#E91E63", "--invoice-red": "#E60000" } as React.CSSProperties}>
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
+                                <div className="rotate-[-24deg] text-center text-4xl sm:text-6xl font-black text-[#E91E63] opacity-[0.08]">{settings.companyName || "قائمة حسابية"}<div className="mt-2 text-2xl">{settings.logoUrl ? "✦" : "قائمة حسابية"}</div></div>
+                              </div>
+                              <div className="relative z-[1]">
+                                <header className="iraqi-invoice-header" dir="rtl">
+                                  <div className="iraqi-invoice-ornament" aria-hidden="true"><div className="absolute inset-y-0 right-0 w-[42%] bg-[#C84B31]/20" /><div className="absolute bottom-0 left-0 h-1/2 w-1/2 rotate-[-24deg] bg-[#F9A826]/70" /></div>
+                                  <div className="iraqi-invoice-company flex min-w-0 flex-col items-center justify-center px-1 py-3 text-center sm:px-4">
+                                    <h2 className="iraqi-invoice-name m-0 text-[clamp(17px,3.2vw,34px)] font-black leading-tight text-[#0A367E]">{settings.companyName || "اسم المحل / المكتب"}</h2>
+                                    {settings.companyDescription?.trim() && <p className="iraqi-invoice-specialty mt-1 max-w-full whitespace-normal break-words text-[10px] font-extrabold leading-relaxed text-[#1A1A1A] sm:text-xs">{settings.companyDescription}</p>}
+                                    <div className="iraqi-invoice-contact mt-3 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#C84B31]/35 pt-2 text-[10px] font-bold text-[#9E2A2B] sm:text-xs" dir="rtl">
+                                      <span className="flex min-w-0 items-center gap-1"><MapPin size={13} className="shrink-0" /><span className="truncate">{settings.companyAddress || "عنوان المحل"}</span></span>
+                                      <span className="flex shrink-0 items-center gap-1" dir="ltr"><Phone size={13} />{settings.companyPhone || "رقم الهاتف"}</span>
+                                    </div>
+                                  </div>
+                                  <div className="iraqi-invoice-art flex items-center justify-center" aria-label="صورة تعبيرية لهوية المحل">
+                                    {settings.logoUrl ? <img src={settings.logoUrl} alt="شعار المحل" className="relative z-[1] max-h-[78%] max-w-[78%] rounded-full border-2 border-white/80 bg-white/90 object-contain p-1 shadow-md" /> : <svg className="relative z-[1] h-12 w-12 text-white drop-shadow" viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M9 24 32 10l23 14v28H9V24Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round"/><path d="M20 52V34h24v18M25 34v18M39 34v18M5 24h54M26 17v-7h12v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/><path d="M15 29h34" stroke="#F9A826" strokeWidth="4" strokeLinecap="round"/></svg>}
+                                  </div>
+                                </header>
+                                <div className="iraqi-invoice-subheader mt-2 space-y-2 border-b border-[#C84B31]/60 px-2 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm" dir="rtl">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="iraqi-invoice-date flex min-w-0 items-center gap-1 font-extrabold text-[#172033]">
+                                      <label className="shrink-0" htmlFor="accounting-sheet-date">التاريخ :</label>
+                                      <input id="accounting-sheet-date" disabled={accountingSheetMode === "view"} type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="iraqi-invoice-field max-w-[145px] text-xs sm:max-w-[175px] sm:text-sm" />
+                                    </div>
+                                    <div className="iraqi-invoice-number shrink-0 whitespace-nowrap text-sm font-bold text-[#171717] sm:text-base" dir="ltr">NO: {String(selectedCustomer.sequence ?? Math.max(1, customers.findIndex((customer) => customer.id === selectedCustomer.id) + 1)).padStart(6, "0")}</div>
+                                  </div>
+                                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 sm:grid-cols-[auto_minmax(70px,1fr)_auto_minmax(70px,1fr)]">
+                                    <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-name">{accountEntityLabel === "المجهّز" ? "اسم المجهّز:" : "حضرة السيد :"}</label>
+                                    <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field" />
+                                    <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-address">المحترم / العنوان :</label>
+                                    <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field" />
+                                  </div>
+                                </div>
+                                <div className="p-2 sm:p-3">
+                                   <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 38fr 18fr 16fr 22fr" }}>
+                                    {[
+                                      { key: "sequence", label: "ت", color: "#0018A8" },
+                                      { key: "details", label: "التفاصيل", color: "#E91E63" },
+                                      { key: "quantityUnit", label: "الكمية", color: "#0018A8" },
+                                      { key: "unitPrice", label: "السعر", color: "#0018A8" },
+                                      { key: "total", label: "المبلغ الكلي", color: "#E91E63" },
+                                    ].map((column) => <div key={column.key} className="iraqi-ledger-column-heading rounded-t-md px-0.5 py-2 text-center text-[10px] sm:text-sm font-black text-white" style={{ backgroundColor: column.color }}>{column.label}</div>)}
+                                  </div>
+                                  <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 38fr 18fr 16fr 22fr" }}>
+                                    {Array.from({ length: rowCount }, (_, index) => {
+                                      const row = rows[index] || { id: `asr-${selectedCustomer.id}-${index}`, details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 };
+                                       const cell = (field: string, content: React.ReactNode, extraClass = "") => { const borderColor = field === "sequence" || field === "quantity" || field === "quantityUnit" || field === "unitPrice" ? "#0018A8" : "#E91E63"; const isSelectedForBulk = accountingSelectionMode && accountingSelectedRowIds.includes(row.id); const selectedClass = isSelectedForBulk ? " !bg-blue-100 ring-1 ring-inset ring-blue-300" : ""; const formatted = row.rowFontSize || row.rowFontColor || row.rowFontBold !== undefined || row.rowFontItalic !== undefined || row.rowFontUnderline !== undefined || row.rowFontStrike !== undefined; return <div key={field} data-accounting-row-format={formatted ? "true" : undefined} data-row-font-color={row.rowFontColor ? "true" : undefined} data-row-font-size={row.rowFontSize ? "true" : undefined} data-row-font-bold={row.rowFontBold !== undefined ? "true" : undefined} data-row-font-italic={row.rowFontItalic !== undefined ? "true" : undefined} data-row-font-decoration={row.rowFontUnderline !== undefined || row.rowFontStrike !== undefined ? "true" : undefined} style={{ borderRight: `1px solid ${borderColor}`, borderLeft: `1px solid ${borderColor}`, backgroundColor: isSelectedForBulk ? undefined : row.rowBackgroundColor, color: row.rowFontColor, fontSize: row.rowFontSize ? `${row.rowFontSize}px` : undefined, fontWeight: row.rowFontBold === undefined ? undefined : row.rowFontBold ? 800 : 400, fontStyle: row.rowFontItalic ? "italic" : "normal", textDecoration: [row.rowFontUnderline ? "underline" : "", row.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none", "--row-font-color": row.rowFontColor || "#111827", "--row-font-size": `${row.rowFontSize || accountingFontSize}px`, "--row-font-weight": row.rowFontBold ? 800 : 400, "--row-font-style": row.rowFontItalic ? "italic" : "normal", "--row-text-decoration": [row.rowFontUnderline ? "underline" : "", row.rowFontStrike ? "line-through" : ""].filter(Boolean).join(" ") || "none" } as React.CSSProperties} className={`accounting-cell flex min-h-[31px] min-w-0 items-center justify-center border-b border-[#F8BBD0] px-0.5 text-[10px] sm:text-sm ${extraClass}${selectedClass}`}>{content}</div>; };
                                       return <React.Fragment key={row.id}>
                                          {cell("sequence", <>{accountingSelectionMode ? (
                                             <button type="button" onClick={() => { if (accountingLongPressTriggered.current) { accountingLongPressTriggered.current = false; return; } toggleAccountingSelectedRow(row.id); }} aria-label={accountingSelectedRowIds.includes(row.id) ? `إلغاء تحديد السطر ${index + 1}` : `تحديد السطر ${index + 1}`} className={`flex items-center justify-center rounded-none border-2 ${accountingSelectedRowIds.includes(row.id) ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}`} style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, maxWidth: 24, maxHeight: 24, flex: "0 0 24px", aspectRatio: "1 / 1", boxSizing: "border-box" }}>{accountingSelectedRowIds.includes(row.id) ? <Check className="h-4 w-4" /> : <span className="text-transparent">✓</span>}</button>
