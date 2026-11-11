@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CreditCard, FileText, MapPin, PackagePlus, Phone, Plus, Search, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, Check, CreditCard, Eraser, FileText, MapPin, PackagePlus, Palette, Phone, Plus, Printer, Search, ShoppingCart, Sparkles, Trash2, Truck, Type, UserRound, X } from "lucide-react";
 import type { Product, Supplier, SupplierLedgerRowStyle, SupplierTransaction, SupplierTransactionItem, SystemSettings } from "../types";
-import { printElement } from "../utils/printUtils";
+import { exportElementToPDF, printElement } from "../utils/printUtils";
 
 type SupplierForm = { name: string; phone: string; address: string; notes: string };
 type PurchaseLineDraft = { id: string; productId: string; details: string; quantity: string; unit: string; unitPrice: string };
@@ -55,6 +55,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const [paymentMethod, setPaymentMethod] = useState("نقداً");
   const [paymentNote, setPaymentNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [supplierPdfBusy, setSupplierPdfBusy] = useState(false);
   const [supplierSheetMode, setSupplierSheetMode] = useState<"view" | "edit">("view");
   const [supplierLedgerTab, setSupplierLedgerTab] = useState<"all" | "purchases" | "payments">("all");
   const [supplierToolsTab, setSupplierToolsTab] = useState<"font" | "add" | "delete" | "move" | "page" | "favorites">("font");
@@ -62,8 +63,18 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const [supplierPageColor, setSupplierPageColor] = useState("#ffffff");
   const [supplierDraftTransactions, setSupplierDraftTransactions] = useState<SupplierTransaction[]>([]);
   const [supplierRowsDirty, setSupplierRowsDirty] = useState(false);
+  const [supplierSelectionMode, setSupplierSelectionMode] = useState(false);
+  const [selectedSupplierRowIds, setSelectedSupplierRowIds] = useState<string[]>([]);
+  const [supplierFontSize, setSupplierFontSize] = useState(13);
+  const [supplierFavorites, setSupplierFavorites] = useState<string[]>(["bold", "addBelow", "moveUp", "italic", "underline", "strike", "cart"]);
+  const [supplierFavoritesDraft, setSupplierFavoritesDraft] = useState<string[]>([]);
+  const [showSupplierFavoritesEditor, setShowSupplierFavoritesEditor] = useState(false);
+  const [supplierCartOpen, setSupplierCartOpen] = useState(false);
+  const [supplierCartProductId, setSupplierCartProductId] = useState("");
+  const [supplierCartQuantity, setSupplierCartQuantity] = useState("1");
   const holdTimer = useRef<number | null>(null);
   const holdStart = useRef<{ x: number; y: number } | null>(null);
+  const supplierLongPressTriggered = useRef(false);
 
   const visibleSuppliers = useMemo(() => suppliers.filter((supplier) => !supplier.isDeleted)
     .filter((supplier) => `${supplier.name} ${supplier.phone || ""} ${supplier.address || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
@@ -81,7 +92,10 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     setSupplierLedgerTab("all");
     setSupplierToolsTab("font");
     setSelectedLedgerRowId(null);
+    setSupplierSelectionMode(false);
+    setSelectedSupplierRowIds([]);
     setSupplierPageColor(supplier?.ledgerBackgroundColor || "#ffffff");
+    try { setSupplierFavorites(JSON.parse(localStorage.getItem(`supplier_accounting_favorites_${selectedSupplierId}`) || '["bold","addBelow","moveUp","italic","underline","strike","cart"]')); } catch { setSupplierFavorites(["bold", "addBelow", "moveUp", "italic", "underline", "strike", "cart"]); }
   }, [selectedSupplierId]);
 
   const updateSupplierTransaction = (transactionId: string, patch: Partial<SupplierTransaction>) => {
@@ -105,11 +119,16 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
 
   const applySelectedRowStyle = (patch: Partial<SupplierLedgerRowStyle>) => {
     const row = selectedSupplierId ? (supplierDraftTransactions.flatMap((transaction) => transaction.type === "purchase" ? (transaction.items || []).map((item) => ({ id: item.id, transaction, item })) : [{ id: transaction.id, transaction, item: null }]).find((entry) => entry.id === selectedLedgerRowId) || null) : null;
-    if (!row) { window.alert("حدد صفاً من عمود (ت) أولاً."); return; }
-    const style = { ...(row.item?.rowStyle || row.transaction.rowStyle || {}), ...patch };
-    if (row.item) updateSupplierItem(row.transaction.id, row.item.id, { rowStyle: style });
-    else updateSupplierTransaction(row.transaction.id, { rowStyle: style });
+    const targets = supplierSelectionMode && selectedSupplierRowIds.length ? selectedSupplierRowIds : row ? [row.id] : [];
+    if (!targets.length) { window.alert("حدد صفاً من عمود (ت) أولاً."); return; }
+    setSupplierDraftTransactions((current) => current.map((transaction) => {
+      if (transaction.type === "purchase") return { ...transaction, items: (transaction.items || []).map((item) => targets.includes(item.id) ? { ...item, rowStyle: { ...(item.rowStyle || transaction.rowStyle || {}), ...patch } } : item) };
+      return targets.includes(transaction.id) ? { ...transaction, rowStyle: { ...(transaction.rowStyle || {}), ...patch } } : transaction;
+    }));
+    setSupplierRowsDirty(true);
   };
+
+  const toggleSupplierRowSelection = (rowId: string) => setSelectedSupplierRowIds((current) => current.includes(rowId) ? current.filter((id) => id !== rowId) : [...current, rowId]);
 
   const totalsFor = (supplier: Supplier) => {
     const transactions = Array.isArray(supplier.transactions) ? supplier.transactions : [];
@@ -288,10 +307,13 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     const selectedRowStyle = selectedLedgerRow?.item?.rowStyle || selectedLedgerRow?.transaction.rowStyle || {};
     const saveSupplierRows = async () => {
       if (!supplierRowsDirty) { setSupplierSheetMode("view"); return; }
+      const savedItemIds = new Set((selectedSupplier.transactions || []).flatMap((entry) => entry.items?.map((item) => item.id) || []));
+      const incompleteNewItem = supplierDraftTransactions.some((entry) => entry.type === "purchase" && (entry.items || []).some((item) => !savedItemIds.has(item.id) && (item.details.trim() || Number(item.quantity) || Number(item.unitPrice)) && (!item.details.trim() || Number(item.quantity) <= 0 || Number(item.unitPrice) <= 0)));
+      if (incompleteNewItem) { window.alert("أكمل تفاصيل الصنف والكمية وسعر الوحدة في الصف الجديد، أو اترك الصف فارغاً قبل الحفظ."); return; }
       setSaving(true);
       try {
         const outstanding = new Map<string, number>();
-        const normalized = [...supplierDraftTransactions].flatMap((entry) => {
+        const normalized = [...supplierDraftTransactions].sort((a, b) => a.date.localeCompare(b.date)).flatMap((entry) => {
           if (entry.type === "purchase") {
             const items = entry.items?.filter((item) => item.details.trim() || (Number(item.total) || 0) > 0).map((item) => ({ ...item, quantity: Number(item.quantity) || 0, unitPrice: Number(item.unitPrice) || 0, total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) }));
             if (entry.items?.length && !items?.length) return [];
@@ -355,19 +377,111 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
       setSupplierRowsDirty(true);
       setSelectedLedgerRowId(null);
     };
+    const insertSupplierRow = (type: "purchase" | "payment", position: "above" | "below") => {
+      const selectedIndex = ledgerRows.findIndex((row) => row.id === selectedLedgerRowId);
+      const currentTime = selectedIndex >= 0 ? new Date(ledgerRows[selectedIndex].transaction.date).getTime() : Date.now();
+      const previousTime = selectedIndex > 0 ? new Date(ledgerRows[selectedIndex - 1].transaction.date).getTime() : undefined;
+      const nextTime = selectedIndex >= 0 && selectedIndex < ledgerRows.length - 1 ? new Date(ledgerRows[selectedIndex + 1].transaction.date).getTime() : undefined;
+      let time = currentTime;
+      if (selectedIndex >= 0 && position === "above") time = previousTime !== undefined && currentTime - previousTime > 1 ? Math.floor((previousTime + currentTime) / 2) : currentTime - 1;
+      if (selectedIndex >= 0 && position === "below") time = nextTime !== undefined && nextTime - currentTime > 1 ? Math.floor((nextTime + currentTime) / 2) : currentTime + 1;
+      const transactionId = newId(type === "purchase" ? "supplier-purchase" : "supplier-payment");
+      const transaction: SupplierTransaction = type === "purchase"
+        ? { id: transactionId, type, date: new Date(time).toISOString(), amount: 0, items: [{ id: newId("supplier-item"), details: "", quantity: 0, unit: "", unitPrice: 0, total: 0 }] }
+        : { id: transactionId, type, date: new Date(time).toISOString(), amount: 0, method: "نقداً", allocations: [] };
+      setSupplierDraftTransactions((current) => [...current, transaction]);
+      setSelectedLedgerRowId(type === "purchase" ? transaction.items![0].id : transaction.id);
+      setSupplierLedgerTab(type === "purchase" ? "purchases" : "payments");
+      setSupplierSheetMode("edit");
+      setSupplierRowsDirty(true);
+      setSupplierToolsTab("font");
+      window.setTimeout(() => document.querySelector<HTMLInputElement>(`[data-supplier-cell="${type === "purchase" ? transaction.items![0].id : transaction.id}-${type === "purchase" ? "details" : "amount"}"]`)?.focus(), 0);
+    };
     const moveSelectedSupplierRow = (direction: -1 | 1) => {
       const row = ledgerRows.find((entry) => entry.id === selectedLedgerRowId);
-      if (!row?.item) { window.alert("اختر بند شراء. يمكن نقل الأصناف داخل فاتورتها فقط حتى يبقى ترتيب التواريخ والحساب صحيحاً."); return; }
-      setSupplierDraftTransactions((current) => current.map((entry) => {
-        if (entry.id !== row.transaction.id || entry.type !== "purchase") return entry;
-        const items = [...(entry.items || [])];
-        const from = items.findIndex((item) => item.id === row.item!.id);
-        const to = Math.max(0, Math.min(items.length - 1, from + direction));
-        if (from < 0 || to === from) return entry;
-        [items[from], items[to]] = [items[to], items[from]];
-        return { ...entry, items };
-      }));
+      const from = ledgerRows.findIndex((entry) => entry.id === selectedLedgerRowId);
+      const neighbor = ledgerRows[from + direction];
+      if (!row || !neighbor || from < 0) return;
+      if (row.transaction.id === neighbor.transaction.id && row.item && neighbor.item) {
+        setSupplierDraftTransactions((current) => current.map((entry) => {
+          if (entry.id !== row.transaction.id || entry.type !== "purchase") return entry;
+          const items = [...(entry.items || [])];
+          const a = items.findIndex((item) => item.id === row.item!.id);
+          const b = items.findIndex((item) => item.id === neighbor.item!.id);
+          if (a >= 0 && b >= 0) [items[a], items[b]] = [items[b], items[a]];
+          return { ...entry, items };
+        }));
+      } else {
+        setSupplierDraftTransactions((current) => current.map((entry) => entry.id === row.transaction.id ? { ...entry, date: neighbor.transaction.date } : entry.id === neighbor.transaction.id ? { ...entry, date: row.transaction.date } : entry));
+      }
       setSupplierRowsDirty(true);
+    };
+    const clearSupplierLedger = () => {
+      if (!window.confirm(`تأكيد تفريغ كل الحركات من حساب المجهّز «${selectedSupplier.name}»؟`)) return;
+      setSupplierDraftTransactions([]);
+      setSelectedLedgerRowId(null);
+      setSupplierRowsDirty(true);
+    };
+    const addSupplierCartItem = () => {
+      const product = products.find((entry) => entry.id === supplierCartProductId && !entry.isDeleted);
+      if (!product) { window.alert("اختر بضاعة من المخزون أولاً."); return; }
+      const quantity = Number(supplierCartQuantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) { window.alert("أدخل كمية صحيحة."); return; }
+      const selected = ledgerRows.find((entry) => entry.id === selectedLedgerRowId);
+      if (selected?.transaction.type === "purchase" && selected.item && !selected.item.details.trim() && !(Number(selected.item.total) || 0)) {
+        updateSupplierItem(selected.transaction.id, selected.item.id, { productId: product.id, details: product.name, quantity, unit: product.unitName || "قطعة", unitPrice: Number(product.purchasePrice) || 0 });
+      } else {
+        const transactionId = newId("supplier-purchase");
+        const itemId = newId("supplier-item");
+        const transaction: SupplierTransaction = { id: transactionId, type: "purchase", date: new Date().toISOString(), amount: quantity * (Number(product.purchasePrice) || 0), items: [{ id: itemId, productId: product.id, details: product.name, quantity, unit: product.unitName || "قطعة", unitPrice: Number(product.purchasePrice) || 0, total: quantity * (Number(product.purchasePrice) || 0) }] };
+        setSupplierDraftTransactions((current) => [...current, transaction]);
+        setSelectedLedgerRowId(itemId);
+        setSupplierRowsDirty(true);
+        setSupplierLedgerTab("purchases");
+      }
+      setSupplierCartOpen(false);
+      setSupplierCartProductId("");
+      setSupplierCartQuantity("1");
+      setSupplierSheetMode("edit");
+    };
+    const runSupplierFavorite = (key: string) => {
+      if (key === "bold") applySelectedRowStyle({ bold: !selectedRowStyle.bold });
+      else if (key === "italic") applySelectedRowStyle({ italic: !selectedRowStyle.italic });
+      else if (key === "underline") applySelectedRowStyle({ underline: !selectedRowStyle.underline });
+      else if (key === "strike") applySelectedRowStyle({ strike: !selectedRowStyle.strike });
+      else if (key === "addAbove") insertSupplierRow("purchase", "above");
+      else if (key === "addBelow") insertSupplierRow("purchase", "below");
+      else if (key === "deleteRow") deleteSelectedSupplierRow();
+      else if (key === "clear") clearSupplierLedger();
+      else if (key === "moveUp") moveSelectedSupplierRow(-1);
+      else if (key === "moveDown") moveSelectedSupplierRow(1);
+      else if (key === "cart") setSupplierCartOpen(true);
+      else if (key === "page") setSupplierToolsTab("page");
+    };
+    const focusSupplierCell = (rowId: string, field: string) => window.setTimeout(() => document.querySelector<HTMLInputElement>(`[data-supplier-cell="${rowId}-${field}"]`)?.focus(), 0);
+    const advanceSupplierCell = (event: React.KeyboardEvent<HTMLInputElement>, row: typeof ledgerRows[number], field: string) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      if (field === "date") { focusSupplierCell(row.id, "details"); return; }
+      const fields = row.transaction.type === "purchase" ? ["details", "quantity", "unit", "unitPrice"] : ["details", "amount"];
+      const current = fields.indexOf(field);
+      if (current >= 0 && current < fields.length - 1) focusSupplierCell(row.id, fields[current + 1]);
+      else {
+        const index = shownRows.findIndex((entry) => entry.id === row.id);
+        const next = shownRows[index + 1];
+        if (next) focusSupplierCell(next.id, "details");
+        else if (supplierSheetMode === "edit") insertSupplierRow(row.transaction.type, "below");
+      }
+    };
+    const handleSupplierGridKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Enter") return;
+      const token = (event.target as HTMLInputElement).dataset.supplierCell;
+      if (!token) return;
+      const splitAt = token.lastIndexOf("-");
+      const rowId = token.slice(0, splitAt);
+      const field = token.slice(splitAt + 1);
+      const row = shownRows.find((entry) => entry.id === rowId);
+      if (row) advanceSupplierCell(event as unknown as React.KeyboardEvent<HTMLInputElement>, row, field);
     };
 
     return (
@@ -375,9 +489,8 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد الخروج وإلغاءها؟")) return; setSelectedSupplierId(null); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى المجهّزين</button>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={openPurchase} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"><PackagePlus className="h-4 w-4" /> إضافة صف شراء</button>
-            <button type="button" onClick={openPayment} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"><CreditCard className="h-4 w-4" /> إضافة صف تسديد</button>
-            <button type="button" onClick={() => void printElement("supplier-ledger-print", { title: `حساب ${selectedSupplier.name}` })} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"><FileText className="h-4 w-4" /> طباعة</button>
+            <button type="button" onClick={() => void printElement("supplier-ledger-print", { title: `حساب ${selectedSupplier.name}` })} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100"><Printer className="h-4 w-4" /> طباعة</button>
+            <button type="button" disabled={supplierPdfBusy} onClick={() => { setSupplierPdfBusy(true); void exportElementToPDF("supplier-ledger-print", { filename: `كشف_حساب_${selectedSupplier.name}` }).finally(() => setSupplierPdfBusy(false)); }} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 disabled:opacity-50"><FileText className="h-4 w-4" /> {supplierPdfBusy ? "جارٍ تجهيز PDF" : "حفظ PDF"}</button>
           </div>
         </div>
 
@@ -385,6 +498,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
           <div className="flex flex-wrap gap-1.5">
             <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد إلغاءها والرجوع للعرض؟")) return; if (supplierRowsDirty) cancelSupplierRows(); else setSupplierSheetMode("view"); }} aria-pressed={supplierSheetMode === "view"} className={`rounded-lg border px-3 py-2 text-xs font-bold ${supplierSheetMode === "view" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><span aria-hidden>◉</span> عرض</button>
             <button type="button" onClick={() => setSupplierSheetMode("edit")} aria-pressed={supplierSheetMode === "edit"} className={`rounded-lg border px-3 py-2 text-xs font-bold ${supplierSheetMode === "edit" ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}><span aria-hidden>✎</span> تعديل</button>
+            {supplierSheetMode === "edit" && <button type="button" aria-pressed={supplierSelectionMode} onClick={() => { setSupplierSelectionMode((active) => !active); setSelectedSupplierRowIds([]); }} className={`rounded-lg border px-3 py-2 text-xs font-bold ${supplierSelectionMode ? "border-blue-300 bg-blue-100 text-blue-800" : "border-slate-200 bg-white text-slate-700"}`}>{supplierSelectionMode ? "إلغاء تحديد الصفوف" : "تحديد متعدد"}</button>}
           </div>
           {supplierSheetMode === "edit" && <div className="flex gap-2">
             <button type="button" onClick={() => void saveSupplierRows()} disabled={!supplierRowsDirty || saving} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}</button>
@@ -393,14 +507,14 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white p-2" role="tablist" aria-label="تبويبات حساب المجهّز">
           {([{ id: "all", label: "كل الحركات" }, { id: "purchases", label: "المشتريات" }, { id: "payments", label: "التسديدات" }] as const).map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={supplierLedgerTab === tab.id} onClick={() => setSupplierLedgerTab(tab.id)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${supplierLedgerTab === tab.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700"}`}>{tab.label}</button>)}
-          {supplierSheetMode === "edit" && <span className="self-center text-[11px] text-slate-500">اضغط على خلية لتعديلها مباشرة، ثم احفظ.</span>}
+          {supplierSheetMode === "edit" && <span className="self-center text-[11px] text-slate-500">اضغط على خلية لتعديلها مباشرة، والضغط المطوّل على التسلسل يفعّل التحديد المتعدد.</span>}
         </div>
         {supplierSheetMode === "edit" && <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
           <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="أدوات حساب المجهّز">
-            {([{ id: "font", label: "تنسيق الخط" }, { id: "add", label: "إضافة" }, { id: "delete", label: "حذف" }, { id: "move", label: "نقل" }, { id: "page", label: "لون الصفحة" }, { id: "favorites", label: "المفضلة" }] as const).map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={supplierToolsTab === tab.id} onClick={() => setSupplierToolsTab(tab.id)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${supplierToolsTab === tab.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>{tab.label}</button>)}
+            {([{ id: "font", label: "تنسيق الخط", icon: <Type className="me-1 inline h-3.5 w-3.5" /> }, { id: "add", label: "إضافة", icon: <Plus className="me-1 inline h-3.5 w-3.5" /> }, { id: "delete", label: "حذف", icon: <Trash2 className="me-1 inline h-3.5 w-3.5" /> }, { id: "move", label: "نقل", icon: <ArrowUp className="me-1 inline h-3.5 w-3.5" /> }, { id: "page", label: "لون الصفحة", icon: <Palette className="me-1 inline h-3.5 w-3.5" /> }, { id: "favorites", label: "المفضلة", icon: <Sparkles className="me-1 inline h-3.5 w-3.5" /> }] as const).map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={supplierToolsTab === tab.id} onClick={() => setSupplierToolsTab(tab.id)} className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${supplierToolsTab === tab.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>{tab.icon}{tab.label}</button>)}
           </div>
           {supplierToolsTab === "font" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-            <label className="flex items-center gap-1 text-[11px] font-bold">حجم الخط <input aria-label="حجم خط الصف" type="range" min="10" max="22" value={selectedRowStyle.fontSize || 14} onChange={(event) => applySelectedRowStyle({ fontSize: Number(event.target.value) })} className="w-24 accent-blue-600" /></label>
+            <label className="flex items-center gap-1 text-[11px] font-bold">حجم الخط <input aria-label="حجم خط الصف" type="range" min="10" max="22" value={supplierFontSize} onChange={(event) => { const value = Number(event.target.value); setSupplierFontSize(value); applySelectedRowStyle({ fontSize: value }); }} className="w-24 accent-blue-600" /><span className="min-w-6 text-blue-700">{supplierFontSize}</span></label>
             <label className="flex items-center gap-1 text-[11px] font-bold">لون الخط <input aria-label="لون خط الصف" type="color" value={selectedRowStyle.fontColor || "#111827"} onChange={(event) => applySelectedRowStyle({ fontColor: event.target.value })} className="h-7 w-8 rounded border bg-white p-0.5" /></label>
             <button type="button" aria-pressed={!!selectedRowStyle.bold} onClick={() => applySelectedRowStyle({ bold: !selectedRowStyle.bold })} className={`rounded-lg border px-2.5 py-1.5 text-xs font-black ${selectedRowStyle.bold ? "border-blue-300 bg-blue-100" : "border-slate-200 bg-white"}`}>غامق B</button>
             <button type="button" aria-pressed={!!selectedRowStyle.italic} onClick={() => applySelectedRowStyle({ italic: !selectedRowStyle.italic })} className={`rounded-lg border px-2.5 py-1.5 text-xs italic ${selectedRowStyle.italic ? "border-blue-300 bg-blue-100" : "border-slate-200 bg-white"}`}>مائل I</button>
@@ -408,11 +522,11 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
             <button type="button" aria-pressed={!!selectedRowStyle.strike} onClick={() => applySelectedRowStyle({ strike: !selectedRowStyle.strike })} className={`rounded-lg border px-2.5 py-1.5 text-xs line-through ${selectedRowStyle.strike ? "border-blue-300 bg-blue-100" : "border-slate-200 bg-white"}`}>شطب</button>
             <label className="flex items-center gap-1 text-[11px] font-bold">تلوين الصف <input aria-label="لون خلفية الصف" type="color" value={selectedRowStyle.backgroundColor || "#ffffff"} onChange={(event) => applySelectedRowStyle({ backgroundColor: event.target.value })} className="h-7 w-8 rounded border bg-white p-0.5" /></label>
           </div>}
-          {supplierToolsTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={openPurchase} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><PackagePlus className="me-1 inline h-4 w-4" /> إضافة صف شراء</button><button type="button" onClick={openPayment} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><CreditCard className="me-1 inline h-4 w-4" /> إضافة صف تسديد</button><span className="text-[11px] text-slate-500">ينضاف الصف مباشرة للجدول؛ اضغط خلاياه واكتب، ثم احفظ.</span></div>}
-          {supplierToolsTab === "delete" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={deleteSelectedSupplierRow} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white"><Trash2 className="me-1 inline h-4 w-4" /> حذف الصف المحدد</button><span className="text-[11px] text-slate-500">حدد الصف من رقم التسلسل. حذف صنف مربوط بالمخزون يعدّل كميته عند الحفظ.</span></div>}
-          {supplierToolsTab === "move" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => moveSelectedSupplierRow(-1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">↑ نقل الصنف للأعلى</button><button type="button" onClick={() => moveSelectedSupplierRow(1)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">↓ نقل الصنف للأسفل</button><span className="text-[11px] text-slate-500">النقل داخل فاتورة الشراء المحددة.</span></div>}
-          {supplierToolsTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><label className="flex items-center gap-2 text-xs font-bold">لون ورقة الحساب <input aria-label="لون ورقة حساب المجهز" type="color" value={supplierPageColor} onChange={(event) => { setSupplierPageColor(event.target.value); setSupplierRowsDirty(true); }} className="h-8 w-10 rounded border bg-white p-1" /></label><button type="button" onClick={() => { setSupplierPageColor("#ffffff"); setSupplierRowsDirty(true); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">استعادة اللون الافتراضي</button></div>}
-          {supplierToolsTab === "favorites" && <div className="flex flex-wrap gap-2 rounded-lg bg-slate-50 p-2">{([{ id: "font", label: "تنسيق الخط" }, { id: "add", label: "إضافة" }, { id: "delete", label: "حذف" }, { id: "move", label: "نقل" }, { id: "page", label: "لون الصفحة" }] as const).map((tab) => <button key={tab.id} type="button" onClick={() => setSupplierToolsTab(tab.id)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">✦ {tab.label}</button>)}</div>}
+          {supplierToolsTab === "add" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={openPurchase} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><PackagePlus className="me-1 inline h-4 w-4" /> إضافة صف شراء</button><button type="button" onClick={openPayment} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><CreditCard className="me-1 inline h-4 w-4" /> إضافة صف تسديد</button><button type="button" onClick={() => insertSupplierRow("purchase", "above")} className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white"><ArrowUp className="me-1 inline h-4 w-4" /> شراء أعلاه</button><button type="button" onClick={() => insertSupplierRow("payment", "above")} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white"><ArrowUp className="me-1 inline h-4 w-4" /> تسديد أعلاه</button><button type="button" onClick={() => setSupplierCartOpen(true)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><ShoppingCart className="me-1 inline h-4 w-4" /> عربة البضاعة</button></div>}
+          {supplierToolsTab === "delete" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={deleteSelectedSupplierRow} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"><Eraser className="me-1 inline h-4 w-4" /> حذف الصف</button><button type="button" onClick={clearSupplierLedger} disabled={!ledgerRows.length} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-40">تفريغ السجل</button></div>}
+          {supplierToolsTab === "move" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => moveSelectedSupplierRow(-1)} disabled={!selectedLedgerRow || ledgerRows.findIndex((entry) => entry.id === selectedLedgerRowId) <= 0} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold disabled:opacity-40"><ArrowUp className="me-1 inline h-4 w-4" /> نقل للأعلى</button><button type="button" onClick={() => moveSelectedSupplierRow(1)} disabled={!selectedLedgerRow || ledgerRows.findIndex((entry) => entry.id === selectedLedgerRowId) >= ledgerRows.length - 1} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold disabled:opacity-40"><ArrowDown className="me-1 inline h-4 w-4" /> نقل للأسفل</button></div>}
+          {supplierToolsTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><label className="flex items-center gap-2 text-xs font-bold">لون الصفحة <input aria-label="لون ورقة حساب المجهز" type="color" value={supplierPageColor} onChange={(event) => { setSupplierPageColor(event.target.value); setSupplierRowsDirty(true); }} className="h-8 w-10 rounded border bg-white p-1" /></label><div className="flex flex-wrap gap-1.5">{[["ورقي", "#faf6ef"], ["أبيض", "#ffffff"], ["عاجي", "#fdfbf7"], ["رمادي", "#f8fafc"], ["أخضر", "#f2f8f2"], ["أصفر", "#fef9e7"], ["أزرق", "#f0f7ff"]].map(([label, color]) => <button key={color} type="button" title={label} aria-label={label} onClick={() => { setSupplierPageColor(color); setSupplierRowsDirty(true); }} className="h-7 w-7 rounded-lg border border-black/10" style={{ backgroundColor: color }} />)}</div><button type="button" onClick={() => { setSupplierPageColor("#ffffff"); setSupplierRowsDirty(true); }} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold">استعادة اللون الافتراضي</button></div>}
+          {supplierToolsTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{supplierFavorites.map((key) => <button key={key} type="button" onClick={() => runSupplierFavorite(key)} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700">{key === "bold" ? <><Type className="me-1 inline h-3.5 w-3.5" />غامق</> : key === "italic" ? "مائل" : key === "underline" ? "تسطير" : key === "strike" ? "شطب" : key === "addAbove" ? "إضافة أعلى" : key === "addBelow" ? "إضافة صف" : key === "moveUp" ? "نقل ↑" : key === "moveDown" ? "نقل ↓" : key === "deleteRow" ? "حذف الصف" : key === "clear" ? "تفريغ" : key === "cart" ? <><ShoppingCart className="me-1 inline h-3.5 w-3.5" />عربة البضاعة</> : key === "page" ? "لون الصفحة" : key}</button>)}<button type="button" onClick={() => { setSupplierFavoritesDraft([...supplierFavorites]); setShowSupplierFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800"><Sparkles className="me-1 inline h-3.5 w-3.5" /> تخصيص المفضلة</button></div>}
         </section>}
 
         <section id="supplier-ledger-print" className="overflow-hidden border border-slate-400 p-3 text-slate-900 shadow-sm sm:p-5 print:shadow-none" style={{ backgroundColor: supplierPageColor }}>
@@ -432,19 +546,19 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2"><div><b>اسم المجهّز:</b> {selectedSupplier.name}</div><div><b>رقم الهاتف:</b> {selectedSupplier.phone || "—"}</div><div><b>العنوان:</b> {selectedSupplier.address || "—"}</div><div><b>ملاحظات المجهّز:</b> {selectedSupplier.notes || "—"}</div></div>
             <button type="button" onClick={() => openEditSupplier(selectedSupplier)} className="mt-2 text-xs font-bold text-blue-700 underline print:hidden">تعديل تفاصيل المجهّز</button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] border-collapse text-sm">
+          <div className="overflow-x-auto" onKeyDownCapture={handleSupplierGridKeyDown} style={{ fontSize: `${supplierFontSize}px` }}>
+            <table className="w-full min-w-[880px] border-collapse text-sm" style={{ fontFamily: "Tahoma, Arial, sans-serif" }}>
               <thead><tr>
-                {["ت", "التاريخ والوقت", "التفاصيل", "الكمية", "سعر الوحدة", "المبلغ الكلي"].map((header) => <th key={header} className="border border-slate-500 bg-slate-100 px-2 py-2 text-center font-extrabold">{header}</th>)}
+                {[{ label: "ت", color: "#0018A8" }, { label: "التاريخ والوقت", color: "#E91E63" }, { label: "التفاصيل", color: "#E91E63" }, { label: "الكمية", color: "#0018A8" }, { label: "سعر الوحدة", color: "#0018A8" }, { label: "المبلغ الكلي", color: "#E91E63" }].map((header) => <th key={header.label} className="border border-white px-2 py-2 text-center font-extrabold text-white" style={{ backgroundColor: header.color }}>{header.label}</th>)}
               </tr></thead>
               <tbody>
-                {shownRows.map((row, index) => { const rowStyle = row.item?.rowStyle || row.transaction.rowStyle || {}; return <tr key={row.id} style={{ backgroundColor: rowStyle.backgroundColor || (row.transaction.type === "payment" ? "#f8fafc" : "#ffffff"), color: rowStyle.fontColor, fontSize: rowStyle.fontSize ? `${rowStyle.fontSize}px` : undefined, fontWeight: rowStyle.bold ? 800 : undefined, fontStyle: rowStyle.italic ? "italic" : undefined, textDecoration: [rowStyle.underline ? "underline" : "", rowStyle.strike ? "line-through" : ""].filter(Boolean).join(" ") || undefined }} className={selectedLedgerRowId === row.id && supplierSheetMode === "edit" ? "ring-2 ring-inset ring-blue-500" : ""}>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{supplierSheetMode === "edit" ? <button type="button" onClick={() => setSelectedLedgerRowId(row.id)} aria-label={`تحديد الصف ${index + 1}`} className={`rounded px-1 font-bold leading-5 ${selectedLedgerRowId === row.id ? "bg-blue-100 text-blue-800" : "text-slate-700"}`}>{index + 1}</button> : index + 1}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{supplierSheetMode === "edit" ? <input aria-label="تاريخ ووقت الحركة" type="datetime-local" value={toLocalDateTimeInput(row.transaction.date)} onChange={(event) => { const date = new Date(event.target.value); if (Number.isFinite(date.getTime())) updateSupplierTransaction(row.transaction.id, { date: date.toISOString() }); }} className="supplier-ledger-input text-xs" /> : <span className="text-xs leading-5">{dateLabel(row.transaction.date)}</span>}</td>
-                  <td className="border border-slate-400 px-2 py-2 font-semibold">{row.transaction.type === "payment" ? <><div>تسديد</div>{supplierSheetMode === "edit" ? <input aria-label="طريقة التسديد" value={row.transaction.method || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { method: event.target.value })} className="supplier-ledger-input text-xs font-normal" /> : <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}<div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div></> : supplierSheetMode === "edit" && row.item ? <input autoFocus={selectedLedgerRowId === row.id} list="supplier-product-options" aria-label="تفاصيل البضاعة" value={row.item.details} onChange={(event) => { const value = event.target.value; const product = products.find((entry) => !entry.isDeleted && entry.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateSupplierItem(row.transaction.id, row.item!.id, { details: value, productId: product?.id, ...(product ? { unit: product.unitName || row.item!.unit } : {}) }); }} className="supplier-ledger-input font-semibold" /> : <div>{row.item?.details || row.details}</div>}{supplierSheetMode !== "edit" && row.transaction.type === "purchase" && row.transaction.reference && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}{supplierSheetMode !== "edit" && row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <div className="supplier-ledger-quantity"><input aria-label="كمية البضاعة" type="number" min="0" step="any" value={row.item.quantity || ""} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { quantity: Number(event.target.value) })} style={{ width: "3.2em" }} /><input aria-label="وحدة البضاعة" value={row.item.unit} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unit: event.target.value })} style={{ width: "4.2em" }} /></div> : row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <input aria-label="سعر الوحدة" type="number" min="0" step="any" value={row.item.unitPrice} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unitPrice: Number(event.target.value) })} className="supplier-ledger-input text-center" /> : row.item ? money(row.item.unitPrice) : "—"}</td>
-                  <td className="border border-slate-400 px-2 py-2 text-center font-bold">{row.transaction.type === "payment" && supplierSheetMode === "edit" ? <input autoFocus={selectedLedgerRowId === row.id} aria-label="مبلغ التسديد" type="number" min="0" step="any" value={row.transaction.amount || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { amount: Number(event.target.value) })} className="supplier-ledger-input text-center font-bold" /> : row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
+                {shownRows.map((row, index) => { const rowStyle = row.item?.rowStyle || row.transaction.rowStyle || {}; return <tr key={row.id} style={{ backgroundColor: selectedSupplierRowIds.includes(row.id) ? "#dbeafe" : rowStyle.backgroundColor || (row.transaction.type === "payment" ? "#f8fafc" : "#ffffff"), color: rowStyle.fontColor, fontSize: rowStyle.fontSize ? `${rowStyle.fontSize}px` : undefined, fontWeight: rowStyle.bold ? 800 : undefined, fontStyle: rowStyle.italic ? "italic" : undefined, textDecoration: [rowStyle.underline ? "underline" : "", rowStyle.strike ? "line-through" : ""].filter(Boolean).join(" ") || undefined }} className={selectedLedgerRowId === row.id && supplierSheetMode === "edit" ? "ring-2 ring-inset ring-blue-500" : ""}>
+                  <td className="border border-[#F8BBD0] px-2 py-2 text-center">{supplierSheetMode === "edit" ? <button type="button" onPointerDown={(event) => { if (event.button !== 0) return; supplierLongPressTriggered.current = false; holdTimer.current = window.setTimeout(() => { supplierLongPressTriggered.current = true; setSupplierSelectionMode(true); setSelectedSupplierRowIds((current) => current.includes(row.id) ? current : [...current, row.id]); }, 550); }} onPointerUp={clearHold} onPointerLeave={clearHold} onPointerCancel={clearHold} onContextMenu={(event) => event.preventDefault()} onClick={() => { if (supplierLongPressTriggered.current) { supplierLongPressTriggered.current = false; return; } if (supplierSelectionMode) toggleSupplierRowSelection(row.id); else setSelectedLedgerRowId(row.id); }} aria-label={`تحديد الصف ${index + 1}`} className={`mx-auto flex items-center justify-center font-bold leading-5 ${supplierSelectionMode ? `h-6 w-6 border-2 ${selectedSupplierRowIds.includes(row.id) ? "border-blue-600 bg-blue-600 text-white" : "border-slate-400 bg-white text-transparent"}` : `rounded px-1 ${selectedLedgerRowId === row.id ? "bg-blue-100 text-blue-800" : "text-slate-700"}`}`}>{supplierSelectionMode ? (selectedSupplierRowIds.includes(row.id) ? <Check className="h-4 w-4" /> : "✓") : index + 1}</button> : index + 1}</td>
+                  <td className="border border-[#F8BBD0] px-2 py-2 text-center">{supplierSheetMode === "edit" ? <input data-supplier-cell={`${row.id}-date`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="تاريخ ووقت الحركة" type="datetime-local" value={toLocalDateTimeInput(row.transaction.date)} onChange={(event) => { const date = new Date(event.target.value); if (Number.isFinite(date.getTime())) updateSupplierTransaction(row.transaction.id, { date: date.toISOString() }); }} className="supplier-ledger-input text-xs" /> : <span className="text-xs leading-5">{dateLabel(row.transaction.date)}</span>}</td>
+                  <td className="border border-[#F8BBD0] px-2 py-2 font-semibold">{row.transaction.type === "payment" ? <><div>تسديد</div>{supplierSheetMode === "edit" ? <input data-supplier-cell={`${row.id}-details`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="طريقة التسديد" value={row.transaction.method || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { method: event.target.value })} className="supplier-ledger-input text-xs font-normal" /> : <div className="text-xs font-normal">{row.transaction.method || "طريقة التسديد غير محددة"}</div>}<div className="text-xs font-normal text-slate-600">الرصيد بعد التسديد: {row.balance < 0 ? `رصيد لك ${money(Math.abs(row.balance))}` : `${money(row.balance)} ${currency}`}</div></> : supplierSheetMode === "edit" && row.item ? <input autoFocus={selectedLedgerRowId === row.id} list="supplier-product-options" data-supplier-cell={`${row.id}-details`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="تفاصيل البضاعة" value={row.item.details} onChange={(event) => { const value = event.target.value; const product = products.find((entry) => !entry.isDeleted && entry.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateSupplierItem(row.transaction.id, row.item!.id, { details: value, productId: product?.id, ...(product ? { unit: product.unitName || row.item!.unit } : {}) }); }} className="supplier-ledger-input font-semibold" /> : <div>{row.item?.details || row.details}</div>}{supplierSheetMode !== "edit" && row.transaction.type === "purchase" && row.transaction.reference && <div className="mt-1 text-xs font-normal text-slate-600">رقم الفاتورة: {row.transaction.reference}</div>}{supplierSheetMode !== "edit" && row.transaction.notes && <div className="mt-1 text-xs font-normal text-slate-600">ملاحظة: {row.transaction.notes}</div>}</td>
+                  <td className="border border-[#F8BBD0] px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <div className="supplier-ledger-quantity"><input data-supplier-cell={`${row.id}-quantity`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="كمية البضاعة" type="number" min="0" step="any" value={row.item.quantity || ""} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { quantity: Number(event.target.value) })} style={{ width: "3.2em" }} /><input data-supplier-cell={`${row.id}-unit`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="وحدة البضاعة" value={row.item.unit} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unit: event.target.value })} style={{ width: "4.2em" }} /></div> : row.item ? `${money(row.item.quantity)} ${row.item.unit}` : "—"}</td>
+                  <td className="border border-[#F8BBD0] px-2 py-2 text-center">{row.item && supplierSheetMode === "edit" ? <input data-supplier-cell={`${row.id}-unitPrice`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="سعر الوحدة" type="number" min="0" step="any" value={row.item.unitPrice} onChange={(event) => updateSupplierItem(row.transaction.id, row.item!.id, { unitPrice: Number(event.target.value) })} className="supplier-ledger-input text-center" /> : row.item ? money(row.item.unitPrice) : "—"}</td>
+                  <td className="border border-[#F8BBD0] px-2 py-2 text-center font-bold">{row.transaction.type === "payment" && supplierSheetMode === "edit" ? <input autoFocus={selectedLedgerRowId === row.id} data-supplier-cell={`${row.id}-amount`} onFocus={() => setSelectedLedgerRowId(row.id)} aria-label="مبلغ التسديد" type="number" min="0" step="any" value={row.transaction.amount || ""} onChange={(event) => updateSupplierTransaction(row.transaction.id, { amount: Number(event.target.value) })} className="supplier-ledger-input text-center font-bold" /> : row.displayAmount < 0 ? `−${money(Math.abs(row.displayAmount))}` : money(row.displayAmount)} {currency}</td>
                 </tr>; })}
                 {!shownRows.length && <tr><td colSpan={6} className="p-8 text-center text-slate-500">ماكو حركات ضمن هذا التبويب.</td></tr>}
               </tbody>
@@ -460,6 +574,15 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
           {transactions.some((entry) => entry.type === "purchase") && <div className="mt-2 text-xs text-slate-600"><strong>الفواتير المتبقية:</strong> {transactions.filter((entry) => entry.type === "purchase").map((purchase, index) => ({ purchase, index: index + 1, due: remainingByPurchase.get(purchase.id) || 0 })).filter(({ due }) => due > 0).map(({ purchase, index, due }) => `${purchase.reference ? `فاتورة ${purchase.reference}` : `فاتورة رقم ${index}`}: ${money(due)} ${currency}`).join(" — ") || "لا توجد فواتير متبقية"}</div>}
           <footer className="mt-6 flex justify-between gap-6 border-t border-slate-400 pt-4 text-xs font-bold"><span>توقيع صاحب المحل: __________________</span><span>توقيع المجهّز: __________________</span></footer>
         </section>
+
+        {showSupplierFavoritesEditor && <Modal title="تخصيص أدوات حساب المجهّز" onClose={() => setShowSupplierFavoritesEditor(false)}>
+          <p className="mb-3 text-xs text-slate-500">علّم الأدوات التي تريد ظهورها في تبويب المفضلة.</p>
+          <div className="space-y-3">{[["تنسيق الخط", [["bold", "غامق"], ["italic", "مائل"], ["underline", "تسطير"], ["strike", "شطب"]]], ["الإضافة", [["addAbove", "إضافة صف أعلى"], ["addBelow", "إضافة صف أسفل"], ["cart", "عربة البضاعة"]]], ["الحذف والنقل", [["deleteRow", "حذف الصف"], ["clear", "تفريغ السجل"], ["moveUp", "نقل للأعلى"], ["moveDown", "نقل للأسفل"]]], ["الصفحة", [["page", "لون الصفحة"]]]].map(([category, options]) => <section key={category as string}><h4 className="mb-2 border-b pb-1 text-xs font-extrabold">{category as string}</h4><div className="grid gap-2 sm:grid-cols-2">{(options as string[][]).map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={supplierFavoritesDraft.includes(key)} onChange={() => setSupplierFavoritesDraft((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key])} />{label}</label>)}</div></section>)}</div>
+          <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setShowSupplierFavoritesEditor(false)} className="rounded-lg border px-3 py-2 text-xs font-bold">إلغاء</button><button type="button" onClick={() => { setSupplierFavorites(supplierFavoritesDraft); try { localStorage.setItem(`supplier_accounting_favorites_${selectedSupplier.id}`, JSON.stringify(supplierFavoritesDraft)); } catch {} setShowSupplierFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ الأدوات</button></div>
+        </Modal>}
+        {supplierCartOpen && <Modal title="عربة البضاعة — شراء من المجهّز" onClose={() => setSupplierCartOpen(false)}>
+          <div className="space-y-3"><Field label="اختر الصنف من المخزون"><select value={supplierCartProductId} onChange={(event) => setSupplierCartProductId(event.target.value)} className={inputClass}><option value="">اختر بضاعة</option>{products.filter((product) => !product.isDeleted).map((product) => <option key={product.id} value={product.id}>{product.name} — كلفة الشراء {money(Number(product.purchasePrice) || 0)} {currency}</option>)}</select></Field><Field label="الكمية"><input type="number" min="0.01" step="any" value={supplierCartQuantity} onChange={(event) => setSupplierCartQuantity(event.target.value)} className={inputClass} /></Field>{supplierCartProductId && <div className="rounded-lg bg-blue-50 p-3 text-sm font-bold text-blue-900">سعر الشراء المعتمد: {money(Number(products.find((product) => product.id === supplierCartProductId)?.purchasePrice) || 0)} {currency}. يمكن تغييره مباشرة من خلية السعر بعد الإضافة.</div>}<div className="flex justify-end gap-2"><button type="button" onClick={() => setSupplierCartOpen(false)} className="rounded-lg border px-3 py-2 text-xs font-bold">إلغاء</button><button type="button" onClick={addSupplierCartItem} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><ShoppingCart className="me-1 inline h-4 w-4" /> إدراج في الحساب</button></div></div>
+        </Modal>}
 
         {purchaseOpen && <Modal title="تسجيل شراء من المجهّز" onClose={() => setPurchaseOpen(false)}>
           <form onSubmit={savePurchase} className="space-y-4">
