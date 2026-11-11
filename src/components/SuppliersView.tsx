@@ -642,9 +642,14 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   const dueTotal = visibleSuppliers.reduce((sum, supplier) => sum + Math.max(0, totalsFor(supplier).balance), 0);
   return (
     <div className="space-y-4" dir="rtl">
+      <section id="supplier-directory-report" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-extrabold text-slate-900">المجهّزون</h2><p className="mt-1 text-sm text-slate-500">اضغط مطولاً على المجهّز لفتح حسابه أو تعديل بياناته.</p></div>
-        <button type="button" onClick={openNewSupplier} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"><Plus className="h-4 w-4" /> إضافة مجهّز</button>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <button type="button" onClick={() => void printElement("supplier-directory-report", { title: "قائمة المجهّزين" })} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100"><Printer className="h-4 w-4" /> طباعة</button>
+          <button type="button" disabled={supplierPdfBusy} onClick={() => { setSupplierPdfBusy(true); void exportElementToPDF("supplier-directory-report", { filename: "قائمة_المجهزين" }).finally(() => setSupplierPdfBusy(false)); }} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700 disabled:opacity-50"><FileText className="h-4 w-4" /> {supplierPdfBusy ? "جارٍ تجهيز PDF" : "تنزيل PDF"}</button>
+          <button type="button" onClick={openNewSupplier} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"><Plus className="h-4 w-4" /> إضافة مجهّز</button>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2"><Summary label="عدد المجهّزين" value={visibleSuppliers.length} currency="" tone="blue" /><Summary label="إجمالي المبالغ المتبقية للمجهّزين" value={dueTotal} currency={currency} tone="amber" /></div>
       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"><Search className="h-4 w-4 shrink-0 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-transparent text-sm outline-none" placeholder="ابحث باسم المجهّز أو الهاتف أو العنوان" /></div>
@@ -657,6 +662,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
         </table></div>
         <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">عدد المجهّزين: {visibleSuppliers.length} — اضغط مطولاً على السطر لعرض الإجراءات.</div>
       </div>
+      </section>
       {contextSupplier && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/30 p-3 sm:items-center" onClick={() => setContextSupplierId(null)}><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="mb-2 flex items-center justify-between border-b border-slate-100 px-2 pb-3"><div><p className="text-xs text-slate-500">إجراءات المجهّز</p><strong>{contextSupplier.name}</strong></div><button onClick={() => setContextSupplierId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button></div><button onClick={() => { setSelectedSupplierId(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-bold text-blue-700 hover:bg-blue-50"><BookOpenIcon /> فتح الحساب</button><button onClick={() => openEditSupplier(contextSupplier)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-slate-700 hover:bg-slate-50"><UserRound className="h-4 w-4" /> تعديل التفاصيل</button><button onClick={() => { if (window.confirm(`إخفاء المجهّز «${contextSupplier.name}» من القائمة؟ سيبقى حسابه محفوظاً.`)) void deleteSupplier(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> إخفاء المجهّز</button></div></div>}
       {supplierFormOpen && <SupplierFormModal title={editingSupplier ? "تعديل تفاصيل المجهّز" : "إضافة مجهّز"} form={supplierForm} setForm={setSupplierForm} onSubmit={saveSupplier} onClose={() => setSupplierFormOpen(false)} />}
     </div>
