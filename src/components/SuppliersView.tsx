@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowRight, ArrowUp, Check, CreditCard, Eraser, FileText, MapPin, PackagePlus, Palette, Phone, Plus, Printer, Search, ShoppingCart, Sparkles, Trash2, Truck, Type, UserRound, X } from "lucide-react";
 import type { Product, Supplier, SupplierLedgerRowStyle, SupplierTransaction, SupplierTransactionItem, SystemSettings } from "../types";
 import { exportElementToPDF, printElement } from "../utils/printUtils";
+import SupplierLedgerBook from "./SupplierLedgerBook";
 
 type SupplierForm = { name: string; phone: string; address: string; notes: string };
 type PurchaseLineDraft = { id: string; productId: string; details: string; quantity: string; unit: string; unitPrice: string };
@@ -132,8 +133,12 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
 
   const totalsFor = (supplier: Supplier) => {
     const transactions = Array.isArray(supplier.transactions) ? supplier.transactions : [];
-    const purchases = transactions.filter((entry) => entry.type === "purchase").reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-    const paid = transactions.filter((entry) => entry.type === "payment").reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+    const purchases = supplier.ledgerInvoices !== undefined
+      ? supplier.ledgerInvoices.reduce((sum, entry) => sum + (Number(entry.grandTotal) || 0), 0)
+      : transactions.filter((entry) => entry.type === "purchase").reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+    const paid = supplier.ledgerPayments !== undefined
+      ? supplier.ledgerPayments.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0)
+      : transactions.filter((entry) => entry.type === "payment").reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
     return { purchases, paid, balance: purchases - paid };
   };
 
@@ -155,6 +160,12 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     if (Math.abs(event.clientX - holdStart.current.x) > 10 || Math.abs(event.clientY - holdStart.current.y) > 10) clearHold();
   };
   useEffect(() => () => clearHold(), []);
+
+  // Reuse the complete debt-register notebook for a supplier, while the adapter
+  // stores its invoices, payments and accounting sheet inside that supplier only.
+  if (selectedSupplier) {
+    return <SupplierLedgerBook supplier={selectedSupplier} products={products} settings={settings} updateSupplier={updateSupplier} updateProduct={updateProduct} onBack={() => setSelectedSupplierId(null)} />;
+  }
 
   const openNewSupplier = () => {
     setEditingSupplier(null);
