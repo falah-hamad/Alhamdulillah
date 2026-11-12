@@ -1628,7 +1628,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(8,minmax(0,1.35fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(8,minmax(0,1.35fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {isSupplierLedger ? (
@@ -1917,7 +1917,8 @@ export default function VerticalLedgerSheet({
                             <FormattedNumberInput
                               type="text"
                               inputMode="numeric"
-                              style={{ fontSize: `${fontSize}px` }}
+                              dir="ltr"
+                              style={{ fontSize: `${fontSize}px`, direction: "ltr", minWidth: isSupplierLedger ? "10ch" : undefined }}
                               value={
                                 editingAmounts[item.id] !== undefined
                                   ? editingAmounts[item.id]
@@ -2097,7 +2098,8 @@ export default function VerticalLedgerSheet({
                             <FormattedNumberInput
                               type="text"
                               inputMode="numeric"
-                              style={{ fontSize: `${fontSize + 1}px` }}
+                              dir="ltr"
+                              style={{ fontSize: `${fontSize + 1}px`, direction: "ltr" }}
                               value={
                                 editingAmounts[sec.separator!.id] !== undefined
                                   ? editingAmounts[sec.separator!.id]
