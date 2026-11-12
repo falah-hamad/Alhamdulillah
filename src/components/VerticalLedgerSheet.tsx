@@ -1628,7 +1628,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(8,minmax(0,1.35fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(8,minmax(0,1.35fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {isSupplierLedger ? (
@@ -1776,12 +1776,12 @@ export default function VerticalLedgerSheet({
 
           {/* The Ledger Table */}
           <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "5rem" : "0px" } as React.CSSProperties}>
-            {/* Table Header: ت | المبلغ | التفاصيل | الكمية */}
+            {/* Supplier sheets omit the quantity column; customer ledgers keep it. */}
             <div className="grid grid-cols-12 vertical-ledger-grid border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
               <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
-              <div className="col-span-5 text-right pr-1 font-bold text-xs">التفاصيل والبيان</div>
-              <div className="col-span-3 text-center font-bold text-xs">الكمية</div>
+              <div className={`${isSupplierLedger ? "col-span-8" : "col-span-5"} text-right pr-1 font-bold text-xs`}>التفاصيل والبيان</div>
+              {!isSupplierLedger && <div className="col-span-3 text-center font-bold text-xs">الكمية</div>}
               {sheetMode === "edit" && <div aria-hidden="true" className="no-print" style={{ gridColumn: 13 }} />}
             </div>
 
@@ -1793,7 +1793,7 @@ export default function VerticalLedgerSheet({
                 </div>
                 <div className="space-y-1 max-w-md text-center">
                   <p className="font-bold text-sm text-slate-800">
-                    قائمة حساب فارغة للزبون: {customer.name}
+                    {isSupplierLedger ? `سجل المورد فارغ: ${customer.name}` : `قائمة حساب فارغة للزبون: ${customer.name}`}
                   </p>
                   <p className="text-xs text-slate-500">
                     الحساب فارغ تماماً بدون أي ديون أو بنود افتراضية (المجموع: 0، الواصل: 0، المتبقي: 0).
@@ -1945,7 +1945,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* 3. التفاصيل (Details) */}
-                        <div className="col-span-5 min-w-0 pr-1 pl-1 flex items-center justify-between">
+                        <div className={`${isSupplierLedger ? "col-span-8" : "col-span-5"} min-w-0 pr-1 pl-1 flex items-center justify-between`}>
                           {sheetMode === "view" ? (
                             <div
                               style={{ fontSize: `${fontSize}px` }}
@@ -1979,7 +1979,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
+                        {!isSupplierLedger && <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
@@ -1996,7 +1996,7 @@ export default function VerticalLedgerSheet({
                                 onChange={value => handleUpdateUnit(item.id, value)} />
                             </div>
                           )}
-                        </div>
+                        </div>}
 
                         {/* Row tools follow the quantity column in RTL. */}
                         {sheetMode === "edit" && (
