@@ -67,7 +67,7 @@ const productTableColumns = [
   { id: "quantity", label: "الكمية الحالية" }, { id: "unitName", label: "وحدة القياس" },
   { id: "minStock", label: "الحد الأدنى للتنبيه" }, { id: "barcode", label: "الباركود / رقم الصنف" },
   { id: "location", label: "موقع البضاعة" },
-  { id: "supplierName", label: "اسم المجهّز / المورد" }, { id: "supplierPhone", label: "هاتف المجهّز" },
+  { id: "supplierName", label: "اسم المورد" }, { id: "supplierPhone", label: "هاتف المورد" },
 ] as const;
 type ProductColumnId = typeof productTableColumns[number]["id"];
 type ProductColumnSettings = { order: ProductColumnId[]; visible: ProductColumnId[]; panelOpen: boolean };
@@ -677,7 +677,7 @@ function ProductsViewContent({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /> مستودع البضائع</h2>
-            <p className="text-xs text-slate-500 mt-1">جدول بيانات البضاعة والأسعار والمخزون والمجهّزين.</p>
+            <p className="text-xs text-slate-500 mt-1">جدول بيانات البضاعة والأسعار والمخزون والموردين.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setShowPriceLabels(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-semibold"><ScanBarcode className="w-4 h-4" /> طباعة ملصقات الأسعار</button>
@@ -691,7 +691,7 @@ function ProductsViewContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
-            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المجهّز أو الملاحظات..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المورد أو الملاحظات..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
             <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
@@ -707,7 +707,7 @@ function ProductsViewContent({
         </div>
         <div className="flex justify-end"><FilterButton activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} /></div>
         <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
-          <label className="block text-sm font-semibold text-slate-700">المجهّز<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المجهّز" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
+          <label className="block text-sm font-semibold text-slate-700">المورد<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المورد" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<FormattedNumberInput type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<FormattedNumberInput type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل كمية<FormattedNumberInput type="number" min="0" value={minimumQuantity} onChange={e => setMinimumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى كمية<FormattedNumberInput type="number" min="0" value={maximumQuantity} onChange={e => setMaximumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
           <label className="block text-sm font-semibold text-slate-700">حالة المخزون<select value={stockStatus} onChange={e => setStockStatus(e.target.value as typeof stockStatus)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></label>
@@ -903,10 +903,10 @@ function ProductsViewContent({
                 <label className="text-xs font-semibold text-slate-600">موقع البضاعة
                   <input value={form.location} onInput={e => setField("location", e.currentTarget.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="مثلاً: المخزن — الرف 3 — الدرج 2" />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">اسم المجهّز / المورد
+                <label className="text-xs font-semibold text-slate-600">اسم المورد
                   <input value={form.supplierName} onInput={e => setField("supplierName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="المحل أو الشخص الذي اشتريت منه" />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">هاتف المجهّز
+                <label className="text-xs font-semibold text-slate-600">هاتف المورد
                   <input value={form.supplierPhone} onInput={e => setField("supplierPhone", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" inputMode="tel" />
                 </label>
               </div>
@@ -942,13 +942,13 @@ function ProductsViewContent({
         <div className="fixed inset-0 z-[60] bg-slate-950/60 flex items-center justify-center p-3 sm:p-5">
           <section dir="rtl" className="bg-white w-full max-w-4xl max-h-[94dvh] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4">
             <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-violet-600" /> ترتيب البضاعة بالذكاء الاصطناعي</h3><p className="text-sm text-slate-500 mt-1">أرسل النص كما هو، حتى لو كان غير مرتب. سيستخرج الأصناف والأسعار والكميات ويقترح التصنيفات.</p></div><button type="button" onClick={() => setShowAiImport(false)} className="p-2 rounded-lg hover:bg-slate-100" aria-label="إغلاق"><X className="w-5 h-5" /></button></div>
-            <label className="block text-sm font-semibold text-slate-700">النص الذي يحتوي على بيانات البضاعة<textarea value={aiImportText} onChange={e => setAiImportText(e.target.value)} rows={6} className="mt-2 w-full p-3 border border-slate-200 rounded-xl text-sm leading-6 focus:outline-blue-500" placeholder={"مثال:\nاشتريت 10 كارتونات ماء، سعر الشراء 5000 للكارتون والبيع 6500\n20 علبة عصير برتقال شراء 750 وبيع 1000\nكلها من مجهز أبو علي"} /></label>
+            <label className="block text-sm font-semibold text-slate-700">النص الذي يحتوي على بيانات البضاعة<textarea value={aiImportText} onChange={e => setAiImportText(e.target.value)} rows={6} className="mt-2 w-full p-3 border border-slate-200 rounded-xl text-sm leading-6 focus:outline-blue-500" placeholder={"مثال:\nاشتريت 10 كارتونات ماء، سعر الشراء 5000 للكارتون والبيع 6500\n20 علبة عصير برتقال شراء 750 وبيع 1000\nكلها من مورد أبو علي"} /></label>
             {aiImportError && <p role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-3">{aiImportError}</p>}
             <div className="flex flex-wrap gap-2"><button type="button" disabled={isParsingAi || !aiImportText.trim()} onClick={parseAiImport} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"><Sparkles className="w-4 h-4" /> {isParsingAi ? "جاري تحليل النص..." : "حلّل ورتّب النص"}</button>{aiImportItems.length > 0 && <button type="button" onClick={() => setAiImportItems([])} className="px-4 py-2.5 border rounded-lg text-sm">مسح النتائج</button>}</div>
             {aiImportItems.length > 0 && <>
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">راجع البيانات والأسعار والتصنيفات قبل الحفظ. أي معلومة غير مذكورة في النص تُترك بصفر أو فارغة ولا تُخمن.</div>
               <div className="overflow-x-auto border rounded-xl"><table className="w-full min-w-[900px] text-sm text-right">
-                <thead className="bg-slate-50 text-slate-600"><tr>{["اسم الصنف","التصنيف","الكمية","الوحدة","سعر الشراء","سعر البيع","المجهّز"].map(label => <th key={label} className="p-2 border-b">{label}</th>)}<th className="p-2 border-b">حذف</th></tr></thead>
+                <thead className="bg-slate-50 text-slate-600"><tr>{["اسم الصنف","التصنيف","الكمية","الوحدة","سعر الشراء","سعر البيع","المورد"].map(label => <th key={label} className="p-2 border-b">{label}</th>)}<th className="p-2 border-b">حذف</th></tr></thead>
                 <tbody>{aiImportItems.map((item, index) => <tr key={index} className="border-b last:border-b-0">
                   <td className="p-2"><input aria-label="اسم الصنف" value={item.name} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,name:e.target.value} : x))} className="w-36 p-2 border rounded-lg" /></td>
                   <td className="p-2"><input aria-label="التصنيف" value={item.category} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,category:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
@@ -956,7 +956,7 @@ function ProductsViewContent({
                   <td className="p-2"><input aria-label="الوحدة" value={item.unitName} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,unitName:e.target.value} : x))} className="w-24 p-2 border rounded-lg" /></td>
                   <td className="p-2"><FormattedNumberInput aria-label="سعر الشراء" type="number" min="0" value={item.purchasePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,purchasePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
                   <td className="p-2"><FormattedNumberInput aria-label="سعر البيع" type="number" min="0" value={item.salePrice} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,salePrice:Math.max(0,Number(e.target.value)||0)} : x))} className="w-28 p-2 border rounded-lg" /></td>
-                  <td className="p-2"><input aria-label="المجهّز" value={item.supplierName || ""} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,supplierName:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
+                  <td className="p-2"><input aria-label="المورد" value={item.supplierName || ""} onChange={e => setAiImportItems(current => current.map((x,i) => i === index ? {...x,supplierName:e.target.value} : x))} className="w-32 p-2 border rounded-lg" /></td>
                   <td className="p-2"><button type="button" onClick={() => setAiImportItems(current => current.filter((_,i) => i !== index))} className="p-2 text-rose-600 rounded-lg hover:bg-rose-50" aria-label="حذف الصنف"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>)}</tbody>
               </table></div><p className="text-xs text-slate-500">عدد الأصناف المستخرجة: {aiImportItems.length}. يمكنك تعديل أي قيمة أو حذف صنف قبل الحفظ.</p>
@@ -982,7 +982,7 @@ function ProductsViewContent({
             <label className="block text-xs font-semibold text-slate-600">{movementType === "adjustment" ? "فرق الكمية (مثلاً -2 أو +5)" : "عدد القطع"}
               <FormattedNumberInput type="number" required step="1" value={movementQty} onInput={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
             </label>
-            <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المجهّز
+            <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المورد
               <textarea value={movementNote} onInput={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />
             </label>
             <div className="flex justify-end gap-2"><button type="button" onClick={() => setMovementProduct(null)} className="px-4 py-2 border rounded-lg text-sm">إلغاء</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">حفظ الحركة</button></div>
@@ -1011,7 +1011,7 @@ function ProductsViewContent({
                 {[["سعر الشراء", currentDetailsProduct?.purchasePrice], ["سعر البيع", currentDetailsProduct?.salePrice], ["ربح القطعة المتوقع", (currentDetailsProduct?.salePrice || 0) - (currentDetailsProduct?.purchasePrice || 0)], ["الكمية الحالية", currentDetailsProduct.quantity]].map(([label, value]) => <div key={String(label)} className="bg-slate-50 rounded-lg p-3"><div className="text-[11px] text-slate-500">{label}</div><div className="font-bold text-slate-800 mt-1">{money(Number(value))} {label === "الكمية الحالية" ? (currentDetailsProduct.unitName || "قطعة") : settings.currency}</div></div>)}
                 <div className="col-span-2 text-sm text-slate-700 space-y-1">
                   {currentDetailsProduct.location && <p className="whitespace-pre-wrap">موقع البضاعة: {currentDetailsProduct.location}</p>}
-                  {currentDetailsProduct.supplierName && <p className="flex items-center gap-2"><Truck className="w-4 h-4 text-slate-400" /> المجهّز: {currentDetailsProduct.supplierName}</p>}
+                  {currentDetailsProduct.supplierName && <p className="flex items-center gap-2"><Truck className="w-4 h-4 text-slate-400" /> المورد: {currentDetailsProduct.supplierName}</p>}
                   {currentDetailsProduct.supplierPhone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {currentDetailsProduct.supplierPhone}</p>}
                   {currentDetailsProduct.description && <p className="whitespace-pre-wrap">{currentDetailsProduct.description}</p>}
                   {currentDetailsProduct.notes && <p className="whitespace-pre-wrap text-slate-500">ملاحظات: {currentDetailsProduct.notes}</p>}
@@ -1036,7 +1036,7 @@ function ProductsViewContent({
               <h4 className="font-bold text-sm flex items-center gap-2"><History className="w-4 h-4" /> سجل الأسعار</h4>
               <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white">
                 <table aria-label="جدول سجل الأسعار" className="w-max min-w-full border-collapse text-xs text-center text-slate-900">
-                  <thead className="bg-[#94acd1]"><tr>{["تسلسل", "مبلغ رأس المال", "مبلغ البيع", "مبلغ الربح", "المجهّز", "الطابع الزمني"].map(label => <th scope="col" key={label} className="border border-slate-400 px-2 py-2 font-bold whitespace-nowrap">{label}</th>)}</tr></thead>
+                  <thead className="bg-[#94acd1]"><tr>{["تسلسل", "مبلغ رأس المال", "مبلغ البيع", "مبلغ الربح", "المورد", "الطابع الزمني"].map(label => <th scope="col" key={label} className="border border-slate-400 px-2 py-2 font-bold whitespace-nowrap">{label}</th>)}</tr></thead>
                   <tbody>
                     {priceHistoryRows.length === 0 ? <tr><td colSpan={6} className="border border-slate-300 p-4 text-slate-500">لا توجد أسعار مسجلة بعد. يظهر هنا كل تغيير محفوظ في رأس المال أو سعر البيع.</td></tr> : priceHistoryRows.map((entry, index) => <React.Fragment key={entry.id}>
                       <tr onTouchStart={() => startPriceLongPress(entry.id)} onTouchEnd={cancelPriceLongPress} onTouchMove={cancelPriceLongPress} onTouchCancel={cancelPriceLongPress} onMouseDown={() => startPriceLongPress(entry.id)} onMouseUp={cancelPriceLongPress} onMouseLeave={cancelPriceLongPress} onContextMenu={event => { event.preventDefault(); setPriceDeleteEntryId(entry.id); }} className="select-none hover:bg-blue-50/40" title={entry.note || "اضغط مطولاً لعرض إجراءات السجل"}>

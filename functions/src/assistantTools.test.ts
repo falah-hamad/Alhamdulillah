@@ -279,8 +279,8 @@ test("get_payment_reconciliation flags differences between invoice-paid values a
 
 test("search_products filters, sorts, and excludes deleted inventory items", () => {
   const products = [
-    { id: "pr1", name: "شاي", category: "مواد غذائية", quantity: 5, minStock: 2, purchasePrice: 1000, salePrice: 1500, supplierName: "مجهز أ" },
-    { id: "pr2", name: "سكر", category: "مواد غذائية", quantity: 1, minStock: 3, purchasePrice: 800, salePrice: 1200, supplierName: "مجهز ب" },
+    { id: "pr1", name: "شاي", category: "مواد غذائية", quantity: 5, minStock: 2, purchasePrice: 1000, salePrice: 1500, supplierName: "مورد أ" },
+    { id: "pr2", name: "سكر", category: "مواد غذائية", quantity: 1, minStock: 3, purchasePrice: 800, salePrice: 1200, supplierName: "مورد ب" },
     { id: "pr3", name: "صابون", category: "تنظيف", quantity: 10, minStock: 2, purchasePrice: 500, salePrice: 900, isDeleted: true },
   ];
   const result = executeFinancialAssistantTool("search_products", {

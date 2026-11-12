@@ -752,7 +752,7 @@ export default function App() {
                 {currentTab === "folders" && "مدير المجلدات والملفات (File Manager)"}
                 {currentTab === "customers" && "ملفات حسابات العملاء"}
                 {currentTab === "products" && "جرد البضائع والمستودع"}
-                {currentTab === "suppliers" && "حسابات المجهّزين والمشتريات"}
+                {currentTab === "suppliers" && "حسابات الموردين والمشتريات"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
                 {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
                 {currentTab === "stats" && "التقارير البيانية والإحصائيات"}

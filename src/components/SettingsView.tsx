@@ -233,7 +233,7 @@ export default function SettingsView({
       downloadAnchor.remove();
       URL.revokeObjectURL(url);
 
-      showMsg("success", `تم تصدير قاعدة البيانات بنجاح (${folders.length} مجلد، ${customers.length} عميل، ${suppliers.length} مجهّز، ${invoices.length} فاتورة، ${products.length} بضاعة، ${payments.length} دفعة).`);
+      showMsg("success", `تم تصدير قاعدة البيانات بنجاح (${folders.length} مجلد، ${customers.length} عميل، ${suppliers.length} مورد، ${invoices.length} فاتورة، ${products.length} بضاعة، ${payments.length} دفعة).`);
     } catch (e: any) {
       showMsg("error", "فشل تصدير النسخة الاحتياطية: " + (e?.message || ""));
     } finally {

@@ -148,11 +148,11 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
           },
           {
             name: "search_products",
-            description: "ابحث في بضاعة المستخدم الفعلية حسب الاسم أو التصنيف أو المجهز أو نطاق سعر الشراء/البيع أو كمية المخزون، مع ترتيب النتائج. لا تخمّن إذا لم توجد نتائج.",
+            description: "ابحث في بضاعة المستخدم الفعلية حسب الاسم أو التصنيف أو المورد أو نطاق سعر الشراء/البيع أو كمية المخزون، مع ترتيب النتائج. لا تخمّن إذا لم توجد نتائج.",
             parameters: { type: Type.OBJECT, properties: {
               nameContains: { type: Type.STRING, description: "اسم الصنف أو جزء منه." },
               category: { type: Type.STRING, description: "التصنيف أو جزء منه." },
-              supplierName: { type: Type.STRING, description: "اسم المجهز أو جزء منه." },
+              supplierName: { type: Type.STRING, description: "اسم المورد أو جزء منه." },
               minSalePrice: { type: Type.NUMBER }, maxSalePrice: { type: Type.NUMBER },
               minPurchasePrice: { type: Type.NUMBER }, maxPurchasePrice: { type: Type.NUMBER },
               minQuantity: { type: Type.NUMBER }, maxQuantity: { type: Type.NUMBER },
@@ -171,7 +171,7 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
           },
           {
             name: "get_low_stock_products",
-            description: "اعرض الأصناف التي وصلت كميتها إلى حد التنبيه minStock أو أقل، بما فيها الأصناف التي نفدت، مع الكمية والحد والمجهز.",
+            description: "اعرض الأصناف التي وصلت كميتها إلى حد التنبيه minStock أو أقل، بما فيها الأصناف التي نفدت، مع الكمية والحد والمورد.",
             parameters: { type: Type.OBJECT, properties: {
               category: { type: Type.STRING },
               includeOutOfStockOnly: { type: Type.BOOLEAN, description: "إرجاع الأصناف التي كميتها صفر فقط." },
@@ -180,7 +180,7 @@ export const FINANCIAL_ASSISTANT_TOOLS: any[] = [{
           },
           {
             name: "get_product_price_history",
-            description: "استرجع سجل تغير أسعار الشراء والبيع والمجهزين لصنف محدد بالاسم أو المعرف، دون اختلاق سجلات قديمة.",
+            description: "استرجع سجل تغير أسعار الشراء والبيع والموردين لصنف محدد بالاسم أو المعرف، دون اختلاق سجلات قديمة.",
             parameters: { type: Type.OBJECT, properties: {
               productName: { type: Type.STRING, description: "اسم الصنف أو جزء منه." },
               productId: { type: Type.STRING, description: "معرف الصنف إذا كان معروفاً." },

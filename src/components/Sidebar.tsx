@@ -68,7 +68,7 @@ export default function Sidebar({
     { id: "overdue", label: "المتأخرين", icon: AlertTriangle },
     { id: "customers", label: "العملاء", icon: Users },
     { id: "products", label: "البضائع", icon: Package },
-    { id: "suppliers", label: "المجهّزون", icon: Truck },
+    { id: "suppliers", label: "الموردون", icon: Truck },
     { id: "payments", label: "الدفعات", icon: DollarSign },
     { id: "invoices", label: "الفواتير", icon: FileText },
     { id: "stats", label: "الإحصائيات", icon: BarChart3 },

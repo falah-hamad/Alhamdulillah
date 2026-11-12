@@ -24,7 +24,7 @@ function invoiceFromTransaction(supplier: Supplier, transaction: SupplierTransac
     unitCost: item.unitPrice,
     unit: item.unit,
   }));
-  if (!items.length && Number(transaction.amount) > 0) items.push({ id: `${transaction.id}-item`, details: "مشتريات من المجهّز", quantity: 1, unitPrice: transaction.amount, total: transaction.amount });
+  if (!items.length && Number(transaction.amount) > 0) items.push({ id: `${transaction.id}-item`, details: "مشتريات من المورد", quantity: 1, unitPrice: transaction.amount, total: transaction.amount });
   return {
     id: transaction.id,
     invoiceNumber: transaction.reference || `SUP-${index + 1}`,
@@ -107,7 +107,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
     setSavedError("");
     void updateSupplier(next).catch((error) => {
       console.error("Failed to save supplier ledger:", error);
-      setSavedError("تعذر حفظ حساب المجهّز. تحقق من الاتصال وحاول مجدداً.");
+      setSavedError("تعذر حفظ حساب المورد. تحقق من الاتصال وحاول مجدداً.");
     });
   };
 
@@ -158,7 +158,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
         ...product,
         quantity: Math.max(0, (Number(product.quantity) || 0) + delta),
         ...(latestItem && delta > 0 ? { purchasePrice: Number(latestItem.unitCost ?? latestItem.unitPrice) || product.purchasePrice, supplierName: supplier.name, supplierPhone: supplier.phone } : {}),
-        stockMovements: [...(product.stockMovements || []), { id: makeId("stock"), type: "adjustment", quantity: delta, createdAt: new Date().toISOString(), note: `حساب المجهّز ${supplier.name}`, referenceId }],
+        stockMovements: [...(product.stockMovements || []), { id: makeId("stock"), type: "adjustment", quantity: delta, createdAt: new Date().toISOString(), note: `حساب المورد ${supplier.name}`, referenceId }],
       }).catch((error) => console.error("Failed to update supplier stock:", error));
     }
   };
@@ -228,8 +228,8 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
       selectedInvoiceId={selectedInvoiceId || invoices[0]?.id || null}
       setSelectedInvoiceId={setSelectedInvoiceId}
       onReturnToCustomerDataTable={onBack}
-      returnToListLabel="العودة إلى قائمة المجهّزين"
-      accountEntityLabel="المجهّز"
+      returnToListLabel="العودة إلى قائمة الموردين"
+      accountEntityLabel="المورد"
     />
   </div>;
 }
