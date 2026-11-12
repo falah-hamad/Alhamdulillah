@@ -63,7 +63,7 @@ import {
   ContactRound,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow } from "../types";
+import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow, AccountingSheet, AccountingSheetCategory } from "../types";
 import { printElement, exportElementToPDF } from "../utils/printUtils";
 import {
   calculateCumulativeSeparators,
@@ -85,9 +85,10 @@ import { dispatchPaidAmountNotification } from "../lib/notifications";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import FormattedNumberInput from "./FormattedNumberInput";
 import { formatThousands } from "../utils/numberFormatting";
-
+import { flattenAccountingSheets, getCustomerAccountingCategories, getCustomerAccountingSheets } from "../lib/accountingSheets";
 
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
+type AccountingManagerDialog = { kind: "createCategory" | "renameCategory" | "deleteCategory" | "createSheet" | "renameSheet" | "moveSheet" | "deleteSheet"; value: string; targetCategoryId: string };
 
 interface LedgerViewProps {
   customers: Customer[];
@@ -195,6 +196,12 @@ export default function LedgerView({
   const [isPrinting, setIsPrinting] = useState(false);
   const [accountingRowDraft, setAccountingRowDraft] = useState({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
   const [accountingDraftRows, setAccountingDraftRows] = useState<AccountingSheetRow[]>([]);
+  const [activeAccountingSheetId, setActiveAccountingSheetId] = useState("");
+  const [accountingSheetSelectionReady, setAccountingSheetSelectionReady] = useState(false);
+  const [activeAccountingCategoryId, setActiveAccountingCategoryId] = useState("");
+  const [accountingCategoryMenuOpen, setAccountingCategoryMenuOpen] = useState(false);
+  const [accountingSheetMenuOpen, setAccountingSheetMenuOpen] = useState(false);
+  const [accountingManagerDialog, setAccountingManagerDialog] = useState<AccountingManagerDialog | null>(null);
   const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
   accountingDraftRowsRef.current = accountingDraftRows;
   const [accountingRowsDirty, setAccountingRowsDirty] = useState(false);
@@ -774,15 +781,42 @@ ${folderCustomers
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId && !c.isDeleted);
-  const accountingOriginalRowsRef = useRef<AccountingSheetRow[]>(selectedCustomer?.accountingSheetRows || []);
+  const currentAccountingSheets = selectedCustomer ? getCustomerAccountingSheets(selectedCustomer) : [];
+  const currentAccountingCategories = selectedCustomer ? getCustomerAccountingCategories(selectedCustomer) : [];
+  const activeAccountingSheet = activeAccountingSheetId
+    ? currentAccountingSheets.find(sheet => sheet.id === activeAccountingSheetId)
+    : accountingSheetSelectionReady ? undefined : currentAccountingSheets[0];
+  const visibleAccountingSheets = currentAccountingSheets.filter(sheet => !activeAccountingCategoryId || activeAccountingCategoryId === "__all__" || (activeAccountingCategoryId === "__uncategorized__" ? !sheet.categoryId : sheet.categoryId === activeAccountingCategoryId));
+  const accountingOriginalRowsRef = useRef<AccountingSheetRow[]>(activeAccountingSheet?.rows || []);
+  let saveAccountingRows: () => Promise<boolean> = async () => true;
 
   useEffect(() => {
-    accountingOriginalRowsRef.current = selectedCustomer?.accountingSheetRows || [];
+    if (!selectedCustomer) {
+      setAccountingSheetSelectionReady(false);
+      accountingOriginalRowsRef.current = [];
+      setAccountingDraftRows([]);
+      return;
+    }
+    const sheets = getCustomerAccountingSheets(selectedCustomer);
+    const chosen = sheets.find(sheet => sheet.id === selectedCustomer.activeAccountingSheetId) || sheets[0];
+    setAccountingSheetSelectionReady(true);
+    setActiveAccountingSheetId(chosen?.id || "");
+    setActiveAccountingCategoryId(chosen?.categoryId || "__uncategorized__");
+    accountingOriginalRowsRef.current = chosen?.rows || [];
     setAccountingDraftRows(accountingOriginalRowsRef.current);
     setAccountingRowsDirty(false);
     setAccountingRowDraft({ details: "", quantity: "1", unit: "قطعة", unitPrice: "" });
     setEditingAccountingRowId(null);
   }, [selectedCustomer?.id]);
+
+  useEffect(() => {
+    if (!selectedCustomer || !activeAccountingSheetId) return;
+    const chosen = getCustomerAccountingSheets(selectedCustomer).find(sheet => sheet.id === activeAccountingSheetId);
+    if (!chosen) return;
+    accountingOriginalRowsRef.current = chosen.rows;
+    setAccountingDraftRows(chosen.rows);
+    setAccountingRowsDirty(false);
+  }, [selectedCustomer?.id, selectedCustomer?.accountingSheets, activeAccountingSheetId]);
 
   const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
     if (!selectedCustomer || !updateCustomer) {
@@ -794,6 +828,192 @@ ${folderCustomers
     accountingDraftRowsRef.current = nextRows;
     setAccountingDraftRows(nextRows);
     setAccountingRowsDirty(true);
+  };
+
+  const persistAccountingCollections = async (
+    sheets: AccountingSheet[],
+    categories: AccountingSheetCategory[],
+    nextActiveId: string = activeAccountingSheetId,
+    nextCategoryId: string = activeAccountingCategoryId,
+  ) => {
+    if (!selectedCustomer || !updateCustomer) return false;
+    if (accountingRowsDirty && sheets.some(sheet => sheet.id === activeAccountingSheetId)) await saveAccountingRows();
+    const materializedSheets = sheets.map(sheet => sheet.id === activeAccountingSheetId && accountingRowsDirty
+      ? { ...sheet, rows: accountingDraftRows }
+      : sheet);
+    await Promise.resolve(updateCustomer({
+      ...selectedCustomer,
+      accountingSheets: materializedSheets,
+      accountingSheetCategories: categories,
+      activeAccountingSheetId: nextActiveId,
+      accountingSheetRows: flattenAccountingSheets(materializedSheets),
+    }));
+    const nextActive = materializedSheets.find(sheet => sheet.id === nextActiveId);
+    if (nextActive) {
+      accountingOriginalRowsRef.current = nextActive.rows;
+      accountingDraftRowsRef.current = nextActive.rows;
+      setAccountingDraftRows(nextActive.rows);
+      setActiveAccountingSheetId(nextActive.id);
+      setActiveAccountingCategoryId(nextCategoryId);
+    } else {
+      accountingOriginalRowsRef.current = [];
+      accountingDraftRowsRef.current = [];
+      setAccountingDraftRows([]);
+      setActiveAccountingSheetId("");
+      setActiveAccountingCategoryId(nextCategoryId);
+    }
+    setAccountingRowsDirty(false);
+    setAccountingSheetMode("view");
+    return true;
+  };
+
+  const openAccountingManagerDialog = (kind: AccountingManagerDialog["kind"], value = "") => {
+    setAccountingCategoryMenuOpen(false);
+    setAccountingSheetMenuOpen(false);
+    setAccountingManagerDialog({ kind, value, targetCategoryId: "__uncategorized__" });
+  };
+
+  const createAccountingCategory = () => openAccountingManagerDialog("createCategory");
+
+  const renameAccountingCategory = () => {
+    const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
+    if (!category) { showToast("اختر تصنيفاً أولاً."); return; }
+    openAccountingManagerDialog("renameCategory", category.name);
+  };
+
+  const toggleAccountingCategoryFlag = async (key: "isPinned" | "isFavorite") => {
+    const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
+    if (!category) { showToast("اختر تصنيفاً أولاً."); return; }
+    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories.map(item => item.id === category.id ? { ...item, [key]: !item[key] } : item));
+    setAccountingCategoryMenuOpen(false);
+  };
+
+  const deleteAccountingCategory = () => {
+    const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
+    if (!category) return;
+    openAccountingManagerDialog("deleteCategory", category.name);
+  };
+
+  const createAccountingSheet = () => {
+    if (!selectedCustomer) return;
+    const fallbackName = `قائمة حسابية ${currentAccountingSheets.length + 1}`;
+    openAccountingManagerDialog("createSheet", fallbackName);
+  };
+
+  const renameAccountingSheet = () => {
+    if (!activeAccountingSheet) return;
+    openAccountingManagerDialog("renameSheet", activeAccountingSheet.name);
+  };
+
+  const toggleAccountingSheetFlag = async (key: "isPinned" | "isFavorite") => {
+    if (!activeAccountingSheet) return;
+    const sheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet.id ? { ...sheet, [key]: !sheet[key] } : sheet);
+    await persistAccountingCollections(sheets, currentAccountingCategories);
+    setAccountingSheetMenuOpen(false);
+  };
+
+  const moveAccountingSheet = () => {
+    if (!activeAccountingSheet) return;
+    openAccountingManagerDialog("moveSheet", activeAccountingSheet.name);
+  };
+
+  const copyAccountingSheet = async () => {
+    if (!selectedCustomer || !activeAccountingSheet) return;
+    const copy: AccountingSheet = {
+      ...activeAccountingSheet,
+      id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
+      name: `نسخة من ${activeAccountingSheet.name}`,
+      createdAt: new Date().toISOString(),
+      isPinned: false,
+      isFavorite: false,
+      rows: accountingRowsDirty ? accountingDraftRows : activeAccountingSheet.rows,
+    };
+    copy.rows = copy.rows.map((row, index) => ({ ...row, id: `${copy.id}-row-${index + 1}-${Date.now()}` }));
+    await persistAccountingCollections([...currentAccountingSheets, copy], currentAccountingCategories, copy.id, copy.categoryId || "__uncategorized__");
+    setAccountingSheetMenuOpen(false);
+    setAccountingSelectedRow(0);
+    showToast("تم نسخ القائمة دون نسخ التسديدات.");
+  };
+
+  const deleteAccountingSheet = () => {
+    if (!selectedCustomer || !activeAccountingSheet) return;
+    openAccountingManagerDialog("deleteSheet", activeAccountingSheet.name);
+  };
+
+  const submitAccountingManagerDialog = async () => {
+    if (!selectedCustomer || !accountingManagerDialog) return;
+    const { kind, value } = accountingManagerDialog;
+    const name = value.trim();
+    if (["createCategory", "renameCategory", "createSheet", "renameSheet"].includes(kind) && !name) {
+      showToast("اكتب اسماً أولاً.");
+      return;
+    }
+    if (kind === "createCategory") {
+      const category: AccountingSheetCategory = { id: `accounting-category-${Date.now()}`, name };
+      await persistAccountingCollections(currentAccountingSheets, [...currentAccountingCategories, category], activeAccountingSheetId, activeAccountingCategoryId);
+      showToast("تمت إضافة التصنيف.");
+    } else if (kind === "renameCategory") {
+      const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
+      if (!category) return;
+      await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories.map(item => item.id === category.id ? { ...item, name } : item));
+      showToast("تمت إعادة تسمية التصنيف.");
+    } else if (kind === "deleteCategory") {
+      const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
+      if (!category) return;
+      const sheets = currentAccountingSheets.map(sheet => sheet.categoryId === category.id ? { ...sheet, categoryId: undefined } : sheet);
+      await persistAccountingCollections(sheets, currentAccountingCategories.filter(item => item.id !== category.id), activeAccountingSheetId, "__uncategorized__");
+      showToast("حُذف التصنيف وبقيت قوائمه محفوظة.");
+    } else if (kind === "createSheet") {
+      const sheet: AccountingSheet = {
+        id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
+        name,
+        categoryId: activeAccountingCategoryId && activeAccountingCategoryId !== "__uncategorized__" ? activeAccountingCategoryId : undefined,
+        rows: [],
+        createdAt: new Date().toISOString(),
+      };
+      await persistAccountingCollections([...currentAccountingSheets, sheet], currentAccountingCategories, sheet.id, sheet.categoryId || "__uncategorized__");
+      setAccountingSelectedRow(0);
+      showToast("تم إنشاء القائمة الحسابية الجديدة.");
+    } else if (kind === "renameSheet") {
+      if (!activeAccountingSheet) return;
+      const sheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet.id ? { ...sheet, name } : sheet);
+      await persistAccountingCollections(sheets, currentAccountingCategories);
+      showToast("تمت إعادة تسمية القائمة.");
+    } else if (kind === "moveSheet") {
+      if (!activeAccountingSheet) return;
+      const categoryId = accountingManagerDialog.targetCategoryId === "__uncategorized__" ? undefined : accountingManagerDialog.targetCategoryId;
+      const sheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet.id ? { ...sheet, categoryId } : sheet);
+      await persistAccountingCollections(sheets, currentAccountingCategories, activeAccountingSheet.id, categoryId || "__uncategorized__");
+      showToast("تم نقل القائمة إلى التصنيف.");
+    } else if (kind === "deleteSheet") {
+      if (!activeAccountingSheet) return;
+    let nextSheets = currentAccountingSheets.filter(sheet => sheet.id !== activeAccountingSheet.id);
+    if (!nextSheets.length) nextSheets = [{
+      id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
+      name: "القائمة الحسابية 1",
+      rows: [],
+      createdAt: new Date().toISOString(),
+    }];
+    const nextActive = nextSheets.find(sheet => sheet.categoryId === activeAccountingCategoryId) || nextSheets[0];
+    await persistAccountingCollections(nextSheets, currentAccountingCategories, nextActive.id, nextActive.categoryId || "__uncategorized__");
+    setAccountingSelectedRow(0);
+    showToast("تم حذف القائمة.");
+    }
+    setAccountingManagerDialog(null);
+  };
+
+  const chooseAccountingCategory = async (categoryId: string) => {
+    const nextSheet = currentAccountingSheets
+      .filter(sheet => !categoryId || (categoryId === "__uncategorized__" ? !sheet.categoryId : sheet.categoryId === categoryId))
+      .sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite)))[0];
+    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, nextSheet?.id || "", categoryId);
+  };
+
+  const chooseAccountingSheet = async (sheetId: string) => {
+    if (!sheetId) return;
+    const nextSheet = currentAccountingSheets.find(sheet => sheet.id === sheetId);
+    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, sheetId, nextSheet?.categoryId || "__uncategorized__");
+    setAccountingSheetMenuOpen(false);
   };
 
   const applyAccountingRowFormat = (patch: Partial<AccountingSheetRow>) => {
@@ -811,7 +1031,7 @@ ${folderCustomers
     persistAccountingRows(nextRows);
   };
 
-  const saveAccountingRows = async (): Promise<boolean> => {
+  saveAccountingRows = async (): Promise<boolean> => {
     if (!accountingRowsDirty) {
       setAccountingSheetMode("view");
       return true;
@@ -827,7 +1047,14 @@ ${folderCustomers
       if (wasPurchase && previous.createdAt) return { ...row, createdAt: previous.createdAt };
       return isPurchase && !wasPurchase ? { ...row, createdAt: previous ? savedAt : (row.createdAt || savedAt) } : row;
     });
-    await Promise.resolve(updateCustomer({ ...selectedCustomer, accountingSheetRows: nextRows }));
+    const nextSheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet?.id ? { ...sheet, rows: nextRows } : sheet);
+    await Promise.resolve(updateCustomer({
+      ...selectedCustomer,
+      accountingSheets: nextSheets,
+      accountingSheetCategories: currentAccountingCategories,
+      activeAccountingSheetId: activeAccountingSheet?.id,
+      accountingSheetRows: flattenAccountingSheets(nextSheets),
+    }));
 
     // Write accounting-list history independently from invoice/debt-sheet history.
     if (addChangeLog) {
@@ -3551,7 +3778,99 @@ ${folderCustomers
                       </div>
                     </div>
 
-                    {ledgerDisplayMode === "accounting" && selectedCustomer ? (
+                    {ledgerDisplayMode === "accounting" && selectedCustomer && (
+                      <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
+                        <span className="text-xs font-black text-slate-600">التصنيف</span>
+                        <select
+                          aria-label="اختيار التصنيف"
+                          value={activeAccountingCategoryId || "__uncategorized__"}
+                          onChange={event => { void chooseAccountingCategory(event.target.value === "__uncategorized__" ? "__uncategorized__" : event.target.value); }}
+                          className="min-w-32 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                        >
+                          <option value="__uncategorized__">بلا تصنيف</option>
+                          {currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => (
+                            <option key={category.id} value={category.id}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</option>
+                          ))}
+                        </select>
+                        <div className="relative">
+                          <button type="button" onClick={() => { setAccountingCategoryMenuOpen(open => !open); setAccountingSheetMenuOpen(false); }} aria-label="إجراءات التصنيف" title="إجراءات التصنيف" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
+                          {accountingCategoryMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                            <button type="button" onClick={() => void createAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">＋ إنشاء تصنيف</button>
+                            <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void renameAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">إعادة تسمية التصنيف</button>
+                            <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void toggleAccountingCategoryFlag("isPinned")} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">📌 تثبيت / إلغاء التثبيت</button>
+                            <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void toggleAccountingCategoryFlag("isFavorite")} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">⭐ إضافة / إزالة من المفضلة</button>
+                            <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void deleteAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40">حذف التصنيف</button>
+                          </div>}
+                        </div>
+
+                        <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />
+                        <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>
+                        <select
+                          aria-label="اختيار القائمة الحسابية"
+                          value={activeAccountingSheet?.id || ""}
+                          onChange={event => { void chooseAccountingSheet(event.target.value); }}
+                          className="min-w-40 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                        >
+                          {visibleAccountingSheets.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(sheet => (
+                            <option key={sheet.id} value={sheet.id}>{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}</option>
+                          ))}
+                          {!visibleAccountingSheets.length && <option value="">لا توجد قوائم بهذا التصنيف</option>}
+                        </select>
+                        <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>
+                        <div className="relative">
+                          <button type="button" onClick={() => { setAccountingSheetMenuOpen(open => !open); setAccountingCategoryMenuOpen(false); }} aria-label="إجراءات القائمة الحسابية" title="إجراءات القائمة الحسابية" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
+                          {accountingSheetMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                            <button type="button" onClick={() => { setAccountingSheetMode("view"); setAccountingSheetMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">عرض القائمة الحالية</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void renameAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">إعادة تسمية القائمة</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void moveAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">نقل إلى تصنيف</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void toggleAccountingSheetFlag("isPinned")} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">📌 تثبيت / إلغاء التثبيت</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void toggleAccountingSheetFlag("isFavorite")} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">⭐ إضافة / إزالة من المفضلة</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void copyAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">نسخ القائمة</button>
+                            <button type="button" disabled={!activeAccountingSheet} onClick={() => void deleteAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40">حذف القائمة</button>
+                          </div>}
+                        </div>
+                      </div>
+                    )}
+
+                    {accountingManagerDialog && (
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl">
+                        <form role="dialog" aria-modal="true" aria-labelledby="accounting-manager-dialog-title" onSubmit={event => { event.preventDefault(); void submitAccountingManagerDialog().catch(error => { console.error("Failed to update accounting list management:", error); showToast("تعذر حفظ التغيير."); }); }} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+                          <h3 id="accounting-manager-dialog-title" className="text-base font-black text-slate-900">
+                            {accountingManagerDialog.kind === "createCategory" ? "إنشاء تصنيف جديد" :
+                              accountingManagerDialog.kind === "renameCategory" ? "إعادة تسمية التصنيف" :
+                              accountingManagerDialog.kind === "deleteCategory" ? "حذف التصنيف" :
+                              accountingManagerDialog.kind === "createSheet" ? "إنشاء قائمة حسابية" :
+                              accountingManagerDialog.kind === "renameSheet" ? "إعادة تسمية القائمة الحسابية" :
+                              accountingManagerDialog.kind === "moveSheet" ? "نقل القائمة إلى تصنيف" : "حذف القائمة الحسابية"}
+                          </h3>
+                          {["createCategory", "renameCategory", "createSheet", "renameSheet"].includes(accountingManagerDialog.kind) && (
+                            <label className="mt-4 block text-xs font-bold text-slate-700">
+                              الاسم
+                              <input autoFocus value={accountingManagerDialog.value} onChange={event => setAccountingManagerDialog(current => current ? { ...current, value: event.target.value } : current)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+                            </label>
+                          )}
+                          {accountingManagerDialog.kind === "moveSheet" && (
+                            <label className="mt-4 block text-xs font-bold text-slate-700">
+                              اختر التصنيف
+                              <select value={accountingManagerDialog.targetCategoryId} onChange={event => setAccountingManagerDialog(current => current ? { ...current, targetCategoryId: event.target.value } : current)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                                <option value="__uncategorized__">بلا تصنيف</option>
+                                {currentAccountingCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                              </select>
+                            </label>
+                          )}
+                          {accountingManagerDialog.kind === "deleteCategory" && <p className="mt-3 text-sm leading-6 text-slate-600">سيُحذف التصنيف «{accountingManagerDialog.value}»، وتبقى قوائمه محفوظة وتنتقل إلى «بلا تصنيف».</p>}
+                          {accountingManagerDialog.kind === "deleteSheet" && <p className="mt-3 text-sm leading-6 text-slate-600">سيتم حذف «{accountingManagerDialog.value}» وبنودها من حساب العميل.</p>}
+                          <div className="mt-5 flex justify-end gap-2">
+                            <button type="button" onClick={() => setAccountingManagerDialog(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">إلغاء</button>
+                            <button type="submit" className={`rounded-lg px-4 py-2 text-xs font-bold text-white ${accountingManagerDialog.kind.startsWith("delete") ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"}`}>
+                              {accountingManagerDialog.kind.startsWith("delete") ? "تأكيد الحذف" : "حفظ"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
+                    {ledgerDisplayMode === "accounting" && selectedCustomer ? (activeAccountingSheet ? (
                       <div className="mx-auto w-full max-w-5xl space-y-2" dir="rtl">
                         <div className="no-print space-y-2">
                           {/* نفس شريط وضع الورقة في سجل الحساب العمودي */}
@@ -3778,7 +4097,13 @@ ${folderCustomers
                           );
                         })()}
                       </div>
-                    ) : ledgerDisplayMode === "vertical" ? (
+                    ) : (
+                      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center" dir="rtl">
+                        <ClipboardList className="h-9 w-9 text-blue-500"/>
+                        <p className="text-sm font-bold text-slate-700">ماكو قوائم حسابية بهذا التصنيف.</p>
+                        <button type="button" onClick={() => void createAccountingSheet()} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> إنشاء قائمة حسابية</button>
+                      </div>
+                    )) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
                         isSupplierLedger={accountEntityLabel === "المورد"}
                         productUnits={products.filter(product => !product.isDeleted).map(product => product.unitName || "قطعة")}

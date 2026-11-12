@@ -42,6 +42,23 @@ export interface AccountingSheetPayment {
   notes?: string;
 }
 
+export interface AccountingSheetCategory {
+  id: string;
+  name: string;
+  isPinned?: boolean;
+  isFavorite?: boolean;
+}
+
+export interface AccountingSheet {
+  id: string;
+  name: string;
+  categoryId?: string;
+  rows: AccountingSheetRow[];
+  createdAt: string;
+  isPinned?: boolean;
+  isFavorite?: boolean;
+}
+
 export interface CustomerProfile {
   [field: string]: string;
 }
@@ -64,6 +81,9 @@ export interface Customer {
   originalFolderId?: string | null; // المجلد الأصلي للزبون للاستعادة الدقيقة
   accountingSheetDate?: string;
   accountingSheetRows?: AccountingSheetRow[];
+  accountingSheets?: AccountingSheet[];
+  accountingSheetCategories?: AccountingSheetCategory[];
+  activeAccountingSheetId?: string;
   accountingSheetPayments?: AccountingSheetPayment[];
 }
 
