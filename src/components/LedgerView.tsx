@@ -3610,6 +3610,8 @@ ${folderCustomers
                         {(() => {
                           const rows = accountingDraftRows;
                           const invoiceTotal = rows.reduce((sum, row) => sum + (row.isSeparator ? 0 : (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)), 0);
+                          const supplierPaidTotal = (selectedCustomer.accountingSheetPayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+                          const supplierBalance = invoiceTotal - supplierPaidTotal;
                           const rowCount = rows.length;
                           const paperInput = "w-full min-w-0 bg-transparent border-0 outline-none px-1 py-1 text-inherit text-center focus:bg-[rgba(0,24,168,0.06)]";
                           const persistDraftRows = () => {
@@ -3642,7 +3644,7 @@ ${folderCustomers
                               target?.focus();
                             }, 0);
                           };
-                          const saveCustomerField = (field: "name" | "address", value: string) => {
+                          const saveCustomerField = (field: "name" | "phone" | "address", value: string) => {
                             if (updateCustomer) updateCustomer({ ...selectedCustomer, [field]: value });
                           };
                           return (
@@ -3650,38 +3652,67 @@ ${folderCustomers
                             <style>{`@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Cairo:wght@400;700;800;900&family=Courier+Prime:wght@700&family=Reem+Kufi:wght@400;500;600;700&display=swap'); .accounting-paper[data-accounting-font] .accounting-cell{font-size:${accountingFontSize}px !important}.accounting-paper[data-accounting-font] .iraqi-ledger-column-heading{font-family:"Cairo","Almarai",Tahoma,sans-serif;font-size:${accountingFontSize}px!important;font-weight:800;line-height:1.25;white-space:normal;overflow-wrap:anywhere}.accounting-paper[data-accounting-font] .iraqi-ledger-input{font-family:"Almarai","Cairo",Tahoma,sans-serif!important;font-size:${accountingFontSize}px!important;font-weight:700;line-height:1.45;min-height:28px;padding:3px 2px}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-size="true"]{font-size:var(--row-font-size)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-color="true"]{color:var(--row-font-color)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-bold="true"]{font-weight:var(--row-font-weight)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-italic="true"]{font-style:var(--row-font-style)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-decoration="true"]{text-decoration:var(--row-text-decoration)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-size="true"] .iraqi-ledger-input{font-size:var(--row-font-size)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-color="true"] .iraqi-ledger-input{color:var(--row-font-color)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-bold="true"] .iraqi-ledger-input{font-weight:var(--row-font-weight)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-italic="true"] .iraqi-ledger-input{font-style:var(--row-font-style)!important}.accounting-paper[data-accounting-font] .accounting-cell[data-row-font-decoration="true"] .iraqi-ledger-input{text-decoration:var(--row-text-decoration)!important}.accounting-paper[data-accounting-font] .iraqi-ledger-footer{font-family:"Almarai","Cairo",Tahoma,sans-serif;font-size:${accountingFontSize}px!important;line-height:1.6}.accounting-paper[data-accounting-font] .iraqi-invoice-subheader{font-size:${accountingFontSize}px!important}.accounting-paper[data-accounting-font] .iraqi-invoice-field{font-size:${accountingFontSize}px!important}.accounting-paper[data-accounting-font] .iraqi-ledger-legal{font-family:"Almarai","Cairo",Tahoma,sans-serif;font-weight:800}.accounting-paper[data-accounting-font] .iraqi-ledger-signature{font-family:"Cairo","Almarai",Tahoma,sans-serif;font-weight:700;letter-spacing:.1px}.iraqi-invoice-header{display:grid;grid-template-columns:minmax(76px,18%) minmax(0,1fr) minmax(76px,19%);min-height:150px;border:1.5px solid #C84B31;border-radius:10px;overflow:hidden;background:linear-gradient(105deg,#fff 0%,#EBF4FA 78%);direction:rtl}.iraqi-invoice-company{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-name{font-family:'Reem Kufi','Cairo',Tahoma,sans-serif;text-shadow:-1px -1px 0 #fff,1px 1px 1px rgba(255,255,255,.9),0 2px 2px rgba(10,54,126,.12)}.iraqi-invoice-info{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-art{position:relative;overflow:hidden;background:linear-gradient(135deg,#0A367E,#1C65A5);clip-path:ellipse(105% 95% at 0% 50%);border-right:5px solid #5BA6D8}.iraqi-invoice-art:before{content:'';position:absolute;inset:-15% -15% 0 15%;background:linear-gradient(135deg,#F9A826 0 23%,transparent 23% 40%,#F27438 40% 62%,transparent 62%);opacity:.95;transform:rotate(-8deg)}.iraqi-invoice-art:after{content:'';position:absolute;width:110px;height:110px;border:2px solid rgba(255,255,255,.6);border-radius:50%;left:-35px;top:22px}.iraqi-invoice-ornament{position:relative;overflow:hidden;background:linear-gradient(135deg,#F9A826,#F27438);clip-path:polygon(0 0,100% 0,100% 100%,18% 100%,0 78%)}.iraqi-invoice-ornament:before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 0 24%,rgba(255,255,255,.36) 24% 35%,transparent 35% 49%,rgba(200,75,49,.28) 49% 66%,transparent 66%);clip-path:polygon(0 0,100% 0,100% 100%,0 74%)}.iraqi-invoice-subheader{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-field{min-width:0;width:100%;background:transparent;border:0;border-bottom:1px dotted #9E2A2B;border-radius:0;padding:3px 5px;color:#172033;outline:none}.iraqi-invoice-field:focus{background:rgba(235,244,250,.8);border-bottom:2px solid #0A367E}.iraqi-invoice-field:disabled{opacity:1;color:#172033;-webkit-text-fill-color:#172033}.iraqi-invoice-date{font-family:'Cairo','Almarai',Tahoma,sans-serif}.iraqi-invoice-number{font-family:'Courier Prime','Times New Roman',serif;letter-spacing:1px}@media(max-width:420px){.iraqi-invoice-header{grid-template-columns:58px minmax(0,1fr) 58px;min-height:116px}.iraqi-invoice-header .iraqi-invoice-name{font-size:clamp(15px,4.8vw,22px)!important}.iraqi-invoice-header .iraqi-invoice-specialty{font-size:10px!important}.iraqi-invoice-header .iraqi-invoice-contact{font-size:9px!important;gap:4px!important}.iraqi-invoice-header .iraqi-invoice-art svg{width:34px;height:34px}.iraqi-invoice-subheader{font-size:11px}.iraqi-invoice-subheader .iraqi-invoice-field{font-size:11px;padding:3px 2px}}@media print{.iraqi-invoice-header{min-height:120px;print-color-adjust:exact;-webkit-print-color-adjust:exact}.iraqi-invoice-art,.iraqi-invoice-ornament{print-color-adjust:exact;-webkit-print-color-adjust:exact}.iraqi-invoice-field{color:#111!important}}`}</style>
                             <section id="accounting-report-document" data-accounting-font className="accounting-paper relative overflow-hidden border border-[#333333] text-slate-900 shadow-sm" style={{ fontFamily: "Tahoma, Arial, sans-serif", backgroundColor: accountingBgColor, color: accountingFontColor, fontWeight: accountingFontBold ? 800 : 400, fontStyle: accountingFontItalic ? "italic" : "normal", textDecoration: accountingFontUnderline ? "underline" : "none", "--invoice-blue": "#0018A8", "--invoice-pink": "#E91E63", "--invoice-red": "#E60000" } as React.CSSProperties}>
                               <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
-                                <div className="rotate-[-24deg] text-center text-4xl sm:text-6xl font-black text-[#E91E63] opacity-[0.08]">{settings.companyName || "قائمة حسابية"}<div className="mt-2 text-2xl">{settings.logoUrl ? "✦" : "قائمة حسابية"}</div></div>
+                                <div className="rotate-[-24deg] text-center text-4xl sm:text-6xl font-black text-[#E91E63] opacity-[0.08]">{accountEntityLabel === "المورد" ? (selectedCustomer.name || "كشف حساب المورد") : (settings.companyName || "قائمة حسابية")}<div className="mt-2 text-2xl">{accountEntityLabel === "المورد" ? "كشف حساب المورد" : (settings.logoUrl ? "✦" : "قائمة حسابية")}</div></div>
                               </div>
                               <div className="relative z-[1]">
-                                <header className="iraqi-invoice-header" dir="rtl">
-                                  <div className="iraqi-invoice-ornament" aria-hidden="true"><div className="absolute inset-y-0 right-0 w-[42%] bg-[#C84B31]/20" /><div className="absolute bottom-0 left-0 h-1/2 w-1/2 rotate-[-24deg] bg-[#F9A826]/70" /></div>
-                                  <div className="iraqi-invoice-company flex min-w-0 flex-col items-center justify-center px-1 py-3 text-center sm:px-4">
-                                    <h2 className="iraqi-invoice-name m-0 text-[clamp(17px,3.2vw,34px)] font-black leading-tight text-[#0A367E]">{settings.companyName || "اسم المحل / المكتب"}</h2>
-                                    {settings.companyDescription?.trim() && <p className="iraqi-invoice-specialty mt-1 max-w-full whitespace-normal break-words text-[10px] font-extrabold leading-relaxed text-[#1A1A1A] sm:text-xs">{settings.companyDescription}</p>}
-                                    <div className="iraqi-invoice-contact mt-3 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#C84B31]/35 pt-2 text-[10px] font-bold text-[#9E2A2B] sm:text-xs" dir="rtl">
-                                      <span className="flex min-w-0 items-center gap-1"><MapPin size={13} className="shrink-0" /><span className="truncate">{settings.companyAddress || "عنوان المحل"}</span></span>
-                                      <span className="flex shrink-0 items-center gap-1" dir="ltr"><Phone size={13} />{settings.companyPhone || "رقم الهاتف"}</span>
+                                {accountEntityLabel === "المورد" ? (
+                                  <div className="iraqi-invoice-subheader mt-2 space-y-2 border-b border-[#C84B31]/60 px-2 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm" dir="rtl">
+                                    <div className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-3">
+                                      <h2 className="mb-3 text-center text-xl font-black text-[#0A367E] sm:text-2xl">كشف حساب المورد</h2>
+                                      <div className="grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                                        <label className="flex min-w-0 items-center gap-2 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-name">اسم المورد:
+                                          <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم المورد" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field" />
+                                        </label>
+                                        <label className="flex min-w-0 items-center gap-2 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-phone">هاتف المورد:
+                                          <input id="accounting-customer-phone" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-phone"} aria-label="هاتف المورد" defaultValue={selectedCustomer.phone || ""} onBlur={(event) => saveCustomerField("phone", event.target.value)} className="iraqi-invoice-field" dir="ltr" />
+                                        </label>
+                                        <label className="flex min-w-0 items-center gap-2 font-extrabold text-[#9E2A2B] sm:col-span-2" htmlFor="accounting-customer-address">عنوان المورد:
+                                          <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان المورد" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field" />
+                                        </label>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="iraqi-invoice-art flex items-center justify-center" aria-label="صورة تعبيرية لهوية المحل">
-                                    {settings.logoUrl ? <img src={settings.logoUrl} alt="شعار المحل" className="relative z-[1] max-h-[78%] max-w-[78%] rounded-full border-2 border-white/80 bg-white/90 object-contain p-1 shadow-md" /> : <svg className="relative z-[1] h-12 w-12 text-white drop-shadow" viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M9 24 32 10l23 14v28H9V24Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round"/><path d="M20 52V34h24v18M25 34v18M39 34v18M5 24h54M26 17v-7h12v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/><path d="M15 29h34" stroke="#F9A826" strokeWidth="4" strokeLinecap="round"/></svg>}
-                                  </div>
-                                </header>
-                                <div className="iraqi-invoice-subheader mt-2 space-y-2 border-b border-[#C84B31]/60 px-2 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm" dir="rtl">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="iraqi-invoice-date flex min-w-0 items-center gap-1 font-extrabold text-[#172033]">
-                                      <label className="shrink-0" htmlFor="accounting-sheet-date">التاريخ :</label>
-                                      <input id="accounting-sheet-date" disabled={accountingSheetMode === "view"} type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="iraqi-invoice-field max-w-[145px] text-xs sm:max-w-[175px] sm:text-sm" />
+                                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                                      <div className="iraqi-invoice-date flex min-w-0 items-center gap-1 font-extrabold text-[#172033]">
+                                        <label className="shrink-0" htmlFor="accounting-sheet-date">التاريخ:</label>
+                                        <input id="accounting-sheet-date" disabled={accountingSheetMode === "view"} type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="iraqi-invoice-field max-w-[145px] text-xs sm:max-w-[175px] sm:text-sm" />
+                                      </div>
+                                      <div className="iraqi-invoice-number shrink-0 whitespace-nowrap text-sm font-bold text-[#171717] sm:text-base" dir="ltr">رقم الكشف: {String(selectedCustomer.sequence ?? Math.max(1, customers.findIndex((customer) => customer.id === selectedCustomer.id) + 1)).padStart(6, "0")}</div>
                                     </div>
-                                    <div className="iraqi-invoice-number shrink-0 whitespace-nowrap text-sm font-bold text-[#171717] sm:text-base" dir="ltr">NO: {String(selectedCustomer.sequence ?? Math.max(1, customers.findIndex((customer) => customer.id === selectedCustomer.id) + 1)).padStart(6, "0")}</div>
+                                    <div className="py-1 text-center text-[11px] font-bold text-slate-500 sm:text-xs">صاحب الحساب: {settings.companyName || "المحل"}</div>
                                   </div>
-                                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 sm:grid-cols-[auto_minmax(70px,1fr)_auto_minmax(70px,1fr)]">
-                                    <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-name">{accountEntityLabel === "المورد" ? "اسم المورد:" : "حضرة السيد :"}</label>
-                                    <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field" />
-                                    <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-address">المحترم / العنوان :</label>
-                                    <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field" />
-                                  </div>
-                                </div>
+                                ) : (
+                                  <>
+                                    <header className="iraqi-invoice-header" dir="rtl">
+                                      <div className="iraqi-invoice-ornament" aria-hidden="true"><div className="absolute inset-y-0 right-0 w-[42%] bg-[#C84B31]/20" /><div className="absolute bottom-0 left-0 h-1/2 w-1/2 rotate-[-24deg] bg-[#F9A826]/70" /></div>
+                                      <div className="iraqi-invoice-company flex min-w-0 flex-col items-center justify-center px-1 py-3 text-center sm:px-4">
+                                        <h2 className="iraqi-invoice-name m-0 text-[clamp(17px,3.2vw,34px)] font-black leading-tight text-[#0A367E]">{settings.companyName || "اسم المحل / المكتب"}</h2>
+                                        {settings.companyDescription?.trim() && <p className="iraqi-invoice-specialty mt-1 max-w-full whitespace-normal break-words text-[10px] font-extrabold leading-relaxed text-[#1A1A1A] sm:text-xs">{settings.companyDescription}</p>}
+                                        <div className="iraqi-invoice-contact mt-3 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#C84B31]/35 pt-2 text-[10px] font-bold text-[#9E2A2B] sm:text-xs" dir="rtl">
+                                          <span className="flex min-w-0 items-center gap-1"><MapPin size={13} className="shrink-0" /><span className="truncate">{settings.companyAddress || "عنوان المحل"}</span></span>
+                                          <span className="flex shrink-0 items-center gap-1" dir="ltr"><Phone size={13} />{settings.companyPhone || "رقم الهاتف"}</span>
+                                        </div>
+                                      </div>
+                                      <div className="iraqi-invoice-art flex items-center justify-center" aria-label="صورة تعبيرية لهوية المحل">
+                                        {settings.logoUrl ? <img src={settings.logoUrl} alt="شعار المحل" className="relative z-[1] max-h-[78%] max-w-[78%] rounded-full border-2 border-white/80 bg-white/90 object-contain p-1 shadow-md" /> : <svg className="relative z-[1] h-12 w-12 text-white drop-shadow" viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M9 24 32 10l23 14v28H9V24Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round"/><path d="M20 52V34h24v18M25 34v18M39 34v18M5 24h54M26 17v-7h12v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/><path d="M15 29h34" stroke="#F9A826" strokeWidth="4" strokeLinecap="round"/></svg>}
+                                      </div>
+                                    </header>
+                                    <div className="iraqi-invoice-subheader mt-2 space-y-2 border-b border-[#C84B31]/60 px-2 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm" dir="rtl">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="iraqi-invoice-date flex min-w-0 items-center gap-1 font-extrabold text-[#172033]">
+                                          <label className="shrink-0" htmlFor="accounting-sheet-date">التاريخ :</label>
+                                          <input id="accounting-sheet-date" disabled={accountingSheetMode === "view"} type="date" value={selectedCustomer.accountingSheetDate || new Date().toISOString().slice(0, 10)} onChange={(event) => updateCustomer?.({ ...selectedCustomer, accountingSheetDate: event.target.value })} className="iraqi-invoice-field max-w-[145px] text-xs sm:max-w-[175px] sm:text-sm" />
+                                        </div>
+                                        <div className="iraqi-invoice-number shrink-0 whitespace-nowrap text-sm font-bold text-[#171717] sm:text-base" dir="ltr">NO: {String(selectedCustomer.sequence ?? Math.max(1, customers.findIndex((customer) => customer.id === selectedCustomer.id) + 1)).padStart(6, "0")}</div>
+                                      </div>
+                                      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-2 sm:grid-cols-[auto_minmax(70px,1fr)_auto_minmax(70px,1fr)]">
+                                        <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-name">{accountEntityLabel === "المورد" ? "اسم المورد:" : "حضرة السيد :"}</label>
+                                        <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم الزبون على القائمة الحسابية" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field" />
+                                        <label className="shrink-0 font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-address">المحترم / العنوان :</label>
+                                        <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان الزبون على القائمة الحسابية" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field" />
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
                                 <div className="p-2 sm:p-3">
                                    <div className="grid gap-[3px]" style={{ gridTemplateColumns: "6fr 38fr 18fr 16fr 22fr" }}>
                                     {[
@@ -3713,15 +3744,29 @@ ${folderCustomers
                                     })}
                                   </div>
                                   <datalist id="accounting-unit-options">{["قطعة", "روله", "باكيت", "علبة", "سيت", "كارتون"].map((unit) => <option key={unit} value={unit} />)}</datalist>
-                                  <div className="mt-2 grid grid-cols-1 gap-[3px]">
-                                    <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{formatThousands(invoiceTotal)} {settings.currency}</span></div>
-                                    
-                                  </div>
+                                  {accountEntityLabel === "المورد" ? (
+                                    <div className="mt-2 grid grid-cols-1 gap-[3px] rounded border-2 border-[#0018A8] p-2 text-sm font-black">
+                                      <div className="flex min-h-10 items-center justify-between border-b border-slate-200 px-2"><span className="text-slate-700">إجمالي المشتريات</span><span className="text-[#0018A8]">{formatThousands(invoiceTotal)} {settings.currency}</span></div>
+                                      <div className="flex min-h-10 items-center justify-between border-b border-slate-200 px-2"><span className="text-slate-700">إجمالي التسديدات</span><span className="text-[#0018A8]">{formatThousands(supplierPaidTotal)} {settings.currency}</span></div>
+                                      <div className="flex min-h-10 items-center justify-between px-2"><span className="text-[#C2185B]">{supplierBalance >= 0 ? "المتبقي للمورد" : "رصيد لك لدى المورد"}</span><span className="text-[#0018A8]">{formatThousands(Math.abs(supplierBalance))} {settings.currency}</span></div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2 grid grid-cols-1 gap-[3px]">
+                                      <div className="flex min-h-12 items-center justify-between rounded border-2 border-[#0018A8] px-3 text-sm font-black"><span className="text-[#C2185B]">المجموع</span><span className="text-[#0018A8]">{formatThousands(invoiceTotal)} {settings.currency}</span></div>
+                                    </div>
+                                  )}
                                 </div>
-                                <footer className="iraqi-ledger-footer flex flex-wrap items-end justify-between gap-4 p-3 sm:p-5 text-sm font-bold">
-                                  <span className="iraqi-ledger-legal text-[#C2185B]">الخطأ والسهو مرجوع للطرفين</span>
-                                  <span className="iraqi-ledger-signature text-[#C2185B]">التوقيع: ........................</span>
-                                </footer>
+                                {accountEntityLabel === "المورد" ? (
+                                  <footer className="iraqi-ledger-footer flex flex-wrap items-end justify-between gap-4 border-t border-slate-300 p-3 pt-5 sm:p-5 text-sm font-bold">
+                                    <span className="iraqi-ledger-signature text-slate-700">توقيع صاحب الحساب: ........................</span>
+                                    <span className="iraqi-ledger-signature text-slate-700">توقيع المورد: ........................</span>
+                                  </footer>
+                                ) : (
+                                  <footer className="iraqi-ledger-footer flex flex-wrap items-end justify-between gap-4 p-3 sm:p-5 text-sm font-bold">
+                                    <span className="iraqi-ledger-legal text-[#C2185B]">الخطأ والسهو مرجوع للطرفين</span>
+                                    <span className="iraqi-ledger-signature text-[#C2185B]">التوقيع: ........................</span>
+                                  </footer>
+                                )}
                               </div>
                             </section>
                             </>
