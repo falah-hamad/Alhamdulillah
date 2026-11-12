@@ -3780,6 +3780,7 @@ ${folderCustomers
                       </div>
                     ) : ledgerDisplayMode === "vertical" ? (
                       <VerticalLedgerSheet
+                        isSupplierLedger={accountEntityLabel === "المورد"}
                         productUnits={products.filter(product => !product.isDeleted).map(product => product.unitName || "قطعة")}
                         key={currentInvoice.id}
                         invoice={currentInvoice}

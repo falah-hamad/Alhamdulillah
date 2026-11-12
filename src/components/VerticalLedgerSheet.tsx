@@ -168,6 +168,7 @@ function LedgerComboBox({ label, value, options, onChange, onBlur, numeric = fal
 
 interface VerticalLedgerSheetProps {
   key?: React.Key;
+  isSupplierLedger?: boolean;
   invoice: Invoice;
   customer: Customer;
   settings: SystemSettings;
@@ -184,6 +185,7 @@ interface VerticalLedgerSheetProps {
 }
 
 export default function VerticalLedgerSheet({
+  isSupplierLedger = false,
   invoice,
   customer,
   settings,
@@ -1629,7 +1631,43 @@ export default function VerticalLedgerSheet({
         <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
-          {/* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */}
+          {isSupplierLedger ? (
+            <div id={`ledger-sheet-brand-header-${pageData.pageNum}`} className="mb-4 select-none border-b-2 border-rose-200 pb-3.5">
+              <div className="mb-3 flex items-center justify-center gap-3 text-center">
+                <span className="h-px flex-1 max-w-24 bg-rose-300" />
+                <h1 className="whitespace-nowrap text-lg font-black text-[#0A367E] sm:text-2xl">سجل حساب المورد</h1>
+                <span className="h-px flex-1 max-w-24 bg-rose-300" />
+              </div>
+              <div className="grid grid-cols-1 gap-2 rounded-2xl border border-rose-200 bg-rose-50/30 p-3 text-xs sm:grid-cols-3 sm:gap-3 sm:p-4">
+                <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start">
+                  <span className="font-bold text-rose-800">اسم المورد</span>
+                  <span className="font-black text-slate-950">{customer.name || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-y border-rose-200/70 py-2 sm:flex-col sm:items-start sm:border-x sm:border-y-0 sm:px-3 sm:py-0">
+                  <span className="font-bold text-rose-800">رقم الهاتف</span>
+                  <span dir="ltr" className="font-mono font-black text-slate-950">{customer.phone || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start">
+                  <span className="font-bold text-rose-800">العنوان</span>
+                  <span className="font-black text-slate-950">{customer.address || "—"}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-rose-200 pb-2 text-[11px] font-bold">
+                <div className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white/80 px-3 py-1 text-slate-800">
+                  <Calendar className="h-3.5 w-3.5 text-rose-700" />
+                  <span>التاريخ:</span>
+                  <span dir="ltr" className="font-mono">{invoice.date || new Date().toISOString().split("T")[0]}</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white/80 px-3 py-1 text-slate-800">
+                  <BookOpen className="h-3.5 w-3.5 text-rose-700" />
+                  <span>رقم السجل:</span>
+                  <span dir="ltr" className="font-mono">{invoice.invoiceNumber || "SUP-1"}</span>
+                </div>
+                <span className="text-slate-500">صفحة {pageData.pageNum} من {pageCount}</span>
+              </div>
+            </div>
+          ) : (
+          /* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */
           <div id={`ledger-sheet-brand-header-${pageData.pageNum}`} className="border-b-2 border-amber-900/25 pb-3.5 mb-4 select-none">
             {/* Top Row: Store Branding, Logo, and Electrical Slogan */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-amber-900/15">
@@ -1706,6 +1744,7 @@ export default function VerticalLedgerSheet({
               </div>
             </div>
           </div>
+          )}
 
           {/* CARRIED-FORWARD BALANCE BANNER (الرصيد المدور من الصفحة السابقة) */}
           {!isFirstPage && (
@@ -2190,7 +2229,7 @@ export default function VerticalLedgerSheet({
                             </span>
                           ) : (
                             <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full font-sans">
-                              مطلوب بذمة الزبون
+                              {isSupplierLedger ? "مطلوب للمورد" : "مطلوب بذمة الزبون"}
                             </span>
                           )}
                         </div>
@@ -2205,15 +2244,16 @@ export default function VerticalLedgerSheet({
         </div>
 
         {/* BOTTOM FOOTER OF THE A4 SHEET (Clean, Authentic Ledger Page Footer) */}
-        <div className="pt-4 mt-6 border-t-2 border-amber-900/20 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 select-none">
+        <div className={`pt-4 mt-6 border-t-2 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 select-none ${isSupplierLedger ? "border-rose-200" : "border-amber-900/20"}`}>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">محلات العاشق للكهربائيات</span>
-            <span className="text-slate-400">|</span>
-            <span>تجهيز المواد والشبكات الكهربائية</span>
-            {settings.companyPhone && (
+            {isSupplierLedger ? (
+              <span className="font-bold text-slate-700">سجل حساب المورد: {customer.name}</span>
+            ) : (
               <>
+                <span className="font-bold text-slate-800">محلات العاشق للكهربائيات</span>
                 <span className="text-slate-400">|</span>
-                <span dir="ltr" className="font-mono font-bold text-slate-700">{settings.companyPhone}</span>
+                <span>تجهيز المواد والشبكات الكهربائية</span>
+                {settings.companyPhone && <><span className="text-slate-400">|</span><span dir="ltr" className="font-mono font-bold text-slate-700">{settings.companyPhone}</span></>}
               </>
             )}
           </div>
