@@ -309,13 +309,15 @@ export default function LedgerView({
 
   // Mode: "vertical" (traditional ledger sheet matching user photo) or "formal" (classic A4 invoice)
   const [ledgerDisplayMode, setLedgerDisplayMode] = useState<"vertical" | "formal" | "accounting">("vertical");
+  const accountingListManagementEnabled = supplierAccountingLists || accountEntityLabel === "الزبون";
+  const accountingEntityName = accountEntityLabel === "المورد" ? "المورد" : "الزبون";
   useEffect(() => {
     if (ledgerDisplayMode !== "accounting") setSupplierAccountingManagerOpen(false);
   }, [ledgerDisplayMode]);
   useEffect(() => {
-    if (!supplierAccountingLists || !activeAccountingCategoryId) return;
+    if (!accountingListManagementEnabled || !activeAccountingCategoryId) return;
     setExpandedSupplierAccountingCategories(current => current.includes(activeAccountingCategoryId) ? current : [...current, activeAccountingCategoryId]);
-  }, [supplierAccountingLists, activeAccountingCategoryId]);
+  }, [accountingListManagementEnabled, activeAccountingCategoryId]);
 
   // Debt Customer Names View Mode: "grid" | "list" | "large_icons" | "small_icons"
   const [customerViewMode, setCustomerViewMode] = useState<"grid" | "list" | "large_icons" | "small_icons">(() => {
@@ -3712,11 +3714,11 @@ ${folderCustomers
                 currentInvoice && (
                   <div className="space-y-4">
                     {/* View Mode Switcher */}
-                    <div className={`${supplierAccountingLists ? "flex items-stretch" : "flex flex-wrap items-center justify-between"} gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print`}>
-                      <div className={`flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg ${supplierAccountingLists ? "w-full" : ""}`}>
+                    <div className={`${accountingListManagementEnabled ? "flex items-stretch" : "flex flex-wrap items-center justify-between"} gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print`}>
+                      <div className={`flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg ${accountingListManagementEnabled ? "w-full" : ""}`}>
                         <button
                           onClick={() => setLedgerDisplayMode("vertical")}
-                          className={`${supplierAccountingLists ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={`${accountingListManagementEnabled ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                             ledgerDisplayMode === "vertical"
                               ? "bg-blue-600 text-white shadow-sm"
                               : "text-slate-600 hover:text-slate-900"
@@ -3727,7 +3729,7 @@ ${folderCustomers
                         </button>
 <button
                             onClick={() => setLedgerDisplayMode("accounting")}
-                            className={`${supplierAccountingLists ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            className={`${accountingListManagementEnabled ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                               ledgerDisplayMode === "accounting"
                                 ? "bg-slate-800 text-white shadow-sm"
                                 : "text-slate-600 hover:text-slate-900"
@@ -3738,7 +3740,7 @@ ${folderCustomers
                           </button>
                       </div>
 
-                      {!supplierAccountingLists && <div className="flex items-center gap-2">
+                      {!accountingListManagementEnabled && <div className="flex items-center gap-2">
                         {(ledgerDisplayMode === "vertical" || ledgerDisplayMode === "accounting") && (
                           <div className="flex items-center gap-1.5" dir="rtl" aria-label={ledgerDisplayMode === "vertical" ? "إجراءات سجل الديون" : "إجراءات القائمة الحسابية"}>
                             <button
@@ -3802,8 +3804,8 @@ ${folderCustomers
 
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
-                        {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">التصنيف</span>}
-                        {supplierAccountingLists ? <button type="button" onClick={() => setSupplierAccountingPicker("category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm">
+                        {!accountingListManagementEnabled && <span className="text-xs font-black text-slate-600">التصنيف</span>}
+                        {accountingListManagementEnabled ? <button type="button" onClick={() => setSupplierAccountingPicker("category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm">
                           <span className="truncate">{currentAccountingCategories.find(category => category.id === activeAccountingCategoryId)?.name || "بلا تصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
                         </button> : <select
                           aria-label="اختيار التصنيف"
@@ -3816,7 +3818,7 @@ ${folderCustomers
                             <option key={category.id} value={category.id}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</option>
                           ))}
                         </select>}
-                        {!supplierAccountingLists && <div className="relative">
+                        {!accountingListManagementEnabled && <div className="relative">
                           <button type="button" onClick={() => { setAccountingCategoryMenuOpen(open => !open); setAccountingSheetMenuOpen(false); }} aria-label="إجراءات التصنيف" title="إجراءات التصنيف" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
                           {accountingCategoryMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                             <button type="button" onClick={() => void createAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">＋ إنشاء تصنيف</button>
@@ -3827,9 +3829,9 @@ ${folderCustomers
                           </div>}
                         </div>}
 
-                        {!supplierAccountingLists && <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />}
-                        {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>}
-                        {supplierAccountingLists ? <button type="button" onClick={() => setSupplierAccountingPicker("sheet")} aria-label="اختيار القائمة الحسابية" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm">
+                        {!accountingListManagementEnabled && <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />}
+                        {!accountingListManagementEnabled && <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>}
+                        {accountingListManagementEnabled ? <button type="button" onClick={() => setSupplierAccountingPicker("sheet")} aria-label="اختيار القائمة الحسابية" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm">
                           <span className="truncate">{activeAccountingSheet?.name || "اختر قائمة حسابية"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
                         </button> : <select
                           aria-label="اختيار القائمة الحسابية"
@@ -3842,8 +3844,8 @@ ${folderCustomers
                           ))}
                           {!visibleAccountingSheets.length && <option value="">لا توجد قوائم بهذا التصنيف</option>}
                         </select>}
-                        {!supplierAccountingLists && <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>}
-                        {!supplierAccountingLists && <div className="relative">
+                        {!accountingListManagementEnabled && <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>}
+                        {!accountingListManagementEnabled && <div className="relative">
                           <button type="button" onClick={() => { setAccountingSheetMenuOpen(open => !open); setAccountingCategoryMenuOpen(false); }} aria-label="إجراءات القائمة الحسابية" title="إجراءات القائمة الحسابية" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
                           {accountingSheetMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                             <button type="button" onClick={() => { setAccountingSheetMode("view"); setAccountingSheetMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">عرض القائمة الحالية</button>
@@ -3855,15 +3857,15 @@ ${folderCustomers
                             <button type="button" disabled={!activeAccountingSheet} onClick={() => void deleteAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40">حذف القائمة</button>
                           </div>}
                         </div>}
-                        {supplierAccountingLists && <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); setSupplierAccountingManagerOpen(true); }} aria-label="إدارة التصنيفات والقوائم الحسابية" title="إدارة التصنيفات والقوائم الحسابية" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>}
+                        {accountingListManagementEnabled && <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); setSupplierAccountingManagerOpen(true); }} aria-label="إدارة التصنيفات والقوائم الحسابية" title="إدارة التصنيفات والقوائم الحسابية" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>}
                       </div>
                     )}
 
-                    {supplierAccountingLists && supplierAccountingManagerOpen && ledgerDisplayMode === "accounting" && selectedCustomer && (
+                    {accountingListManagementEnabled && supplierAccountingManagerOpen && ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-3" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingManagerOpen(false); }}>
                         <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-manager-title" className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                           <div className="flex items-center justify-between border-b border-slate-200 p-4">
-                            <div><h3 id="supplier-accounting-manager-title" className="font-black text-slate-900">إدارة قوائم المورد: {selectedCustomer.name}</h3><p className="mt-1 text-xs text-slate-500">التصنيفات والقوائم محفوظة لهذا المورد فقط.</p></div>
+                            <div><h3 id="supplier-accounting-manager-title" className="font-black text-slate-900">إدارة قوائم {accountingEntityName}: {selectedCustomer.name}</h3><p className="mt-1 text-xs text-slate-500">التصنيفات والقوائم محفوظة لهذا {accountingEntityName} فقط.</p></div>
                             <button type="button" onClick={() => setSupplierAccountingManagerOpen(false)} aria-label="إغلاق الإدارة" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
                           </div>
                           <div className="min-h-0 space-y-2 overflow-y-auto p-4">
@@ -3873,11 +3875,11 @@ ${folderCustomers
                                 <button type="button" disabled={ledgerDisplayMode === "vertical" ? isPrinting : isAccountingPrinting} onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-print")) : void handlePrintAccountingSheet(); }} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-blue-800 disabled:opacity-50"><Printer className="h-4 w-4 shrink-0"/>طباعة</button>
                                 <button type="button" disabled={ledgerDisplayMode === "vertical" ? isExportingPDF : isAccountingExportingPDF} onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-export-pdf")) : void handleExportAccountingSheetPDF(); }} className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-emerald-800 disabled:opacity-50"><Download className="h-4 w-4 shrink-0"/>تنزيل PDF</button>
                                 <button type="button" onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-open-history")) : setIsAccountingChangeLogOpen(true); }} className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-amber-800"><History className="h-4 w-4 shrink-0"/>سجل التغييرات</button>
-                                <button type="button" onClick={() => { setSupplierAccountingManagerOpen(false); setProfileCustomerId(selectedCustomer.id); }} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-violet-800"><ContactRound className="h-4 w-4 shrink-0"/>معلومات المورد</button>
+                                <button type="button" onClick={() => { setSupplierAccountingManagerOpen(false); setProfileCustomerId(selectedCustomer.id); }} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-violet-800"><ContactRound className="h-4 w-4 shrink-0"/>معلومات {accountingEntityName}</button>
                               </div>
                             </section>
                             <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2">
-                              <span className="text-sm font-black text-slate-800">تصنيفات المورد وقوائمه</span>
+                              <span className="text-sm font-black text-slate-800">تصنيفات {accountingEntityName} وقوائمه</span>
                               <button type="button" onClick={() => void createAccountingCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>تصنيف جديد</button>
                             </div>
                             {[{ id: "__uncategorized__", name: "بلا تصنيف", category: undefined, sheets: currentAccountingSheets.filter(sheet => !sheet.categoryId) }, ...currentAccountingCategories.map(category => ({ id: category.id, name: category.name, category, sheets: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id) }))].map(group => {
@@ -3914,7 +3916,7 @@ ${folderCustomers
                       </div>
                     )}
 
-                    {supplierAccountingLists && supplierAccountingManagerOpen && supplierAccountingActionMenu && (
+                    {accountingListManagementEnabled && supplierAccountingManagerOpen && supplierAccountingActionMenu && (
                       <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingActionMenu(null); }}>
                         <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-actions-title" className="max-h-[86dvh] w-full max-w-xl overflow-y-auto rounded-[26px] border border-slate-200 bg-white px-5 py-4 shadow-2xl sm:px-7">
                           <div className="mb-1 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
@@ -3946,12 +3948,12 @@ ${folderCustomers
                       </div>
                     )}
 
-                    {supplierAccountingLists && supplierAccountingPicker && (
+                    {accountingListManagementEnabled && supplierAccountingPicker && (
                       <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingPicker(null); }}>
                         <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-picker-title" className="flex max-h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                             <div>
-                              <p className="text-xs font-semibold text-slate-400">اختيار من حساب المورد</p>
+                              <p className="text-xs font-semibold text-slate-400">اختيار من حساب {accountingEntityName}</p>
                               <h3 id="supplier-accounting-picker-title" className="mt-1 text-base font-black text-slate-900">{supplierAccountingPicker === "category" ? "اختر التصنيف" : "اختر القائمة الحسابية"}</h3>
                             </div>
                             <button type="button" onClick={() => setSupplierAccountingPicker(null)} aria-label="إغلاق الاختيار" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
@@ -3997,7 +3999,7 @@ ${folderCustomers
                             </label>
                           )}
                           {accountingManagerDialog.kind === "moveSheet" && (
-                            supplierAccountingLists ? <fieldset className="mt-4">
+                            accountingListManagementEnabled ? <fieldset className="mt-4">
                               <legend className="mb-2 text-xs font-bold text-slate-700">اختر التصنيف</legend>
                               <div className="max-h-56 space-y-1 overflow-y-auto">
                                 {[{ id: "__uncategorized__", name: "بلا تصنيف" }, ...currentAccountingCategories].map(category => {
