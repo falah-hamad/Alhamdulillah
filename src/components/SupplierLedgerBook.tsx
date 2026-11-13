@@ -72,6 +72,9 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
     createdAt: supplier.createdAt,
     accountingSheetDate: supplier.accountingSheetDate,
     accountingSheetRows: supplier.accountingSheetRows || [],
+    accountingSheets: supplier.accountingSheets,
+    accountingSheetCategories: supplier.accountingSheetCategories,
+    activeAccountingSheetId: supplier.activeAccountingSheetId,
     accountingSheetPayments: supplier.accountingSheetPayments || [],
   }), [supplier]);
 
@@ -200,6 +203,9 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
     address: next.address,
     accountingSheetDate: next.accountingSheetDate,
     accountingSheetRows: next.accountingSheetRows || [],
+    accountingSheets: next.accountingSheets,
+    accountingSheetCategories: next.accountingSheetCategories,
+    activeAccountingSheetId: next.activeAccountingSheetId,
     accountingSheetPayments: next.accountingSheetPayments || [],
   });
 
@@ -230,6 +236,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
       onReturnToCustomerDataTable={onBack}
       returnToListLabel="العودة إلى قائمة الموردين"
       accountEntityLabel="المورد"
+      supplierAccountingLists
     />
   </div>;
 }

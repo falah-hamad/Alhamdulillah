@@ -192,6 +192,9 @@ export interface Supplier {
   ledgerPayments?: Payment[];
   accountingSheetDate?: string;
   accountingSheetRows?: AccountingSheetRow[];
+  accountingSheets?: AccountingSheet[];
+  accountingSheetCategories?: AccountingSheetCategory[];
+  activeAccountingSheetId?: string;
   accountingSheetPayments?: AccountingSheetPayment[];
   isDeleted?: boolean;
 }

@@ -131,6 +131,7 @@ interface LedgerViewProps {
   revertChangeLogAction?: (logItem: CustomerChangeLogItem) => Promise<void>;
   returnToListLabel?: string;
   accountEntityLabel?: string;
+  supplierAccountingLists?: boolean;
 }
 
 export default function LedgerView({
@@ -174,6 +175,7 @@ export default function LedgerView({
   revertChangeLogAction,
   returnToListLabel = "العودة إلى سجل الديون",
   accountEntityLabel = "الزبون",
+  supplierAccountingLists = false,
 }: LedgerViewProps) {
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
   const [localCustomerId, setLocalCustomerId] = useState<string | null>(null);
@@ -201,6 +203,7 @@ export default function LedgerView({
   const [activeAccountingCategoryId, setActiveAccountingCategoryId] = useState("");
   const [accountingCategoryMenuOpen, setAccountingCategoryMenuOpen] = useState(false);
   const [accountingSheetMenuOpen, setAccountingSheetMenuOpen] = useState(false);
+  const [supplierAccountingManagerOpen, setSupplierAccountingManagerOpen] = useState(false);
   const [accountingManagerDialog, setAccountingManagerDialog] = useState<AccountingManagerDialog | null>(null);
   const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
   accountingDraftRowsRef.current = accountingDraftRows;
@@ -301,6 +304,9 @@ export default function LedgerView({
 
   // Mode: "vertical" (traditional ledger sheet matching user photo) or "formal" (classic A4 invoice)
   const [ledgerDisplayMode, setLedgerDisplayMode] = useState<"vertical" | "formal" | "accounting">("vertical");
+  useEffect(() => {
+    if (ledgerDisplayMode !== "accounting") setSupplierAccountingManagerOpen(false);
+  }, [ledgerDisplayMode]);
 
   // Debt Customer Names View Mode: "grid" | "list" | "large_icons" | "small_icons"
   const [customerViewMode, setCustomerViewMode] = useState<"grid" | "list" | "large_icons" | "small_icons">(() => {
@@ -870,6 +876,7 @@ ${folderCustomers
   const openAccountingManagerDialog = (kind: AccountingManagerDialog["kind"], value = "") => {
     setAccountingCategoryMenuOpen(false);
     setAccountingSheetMenuOpen(false);
+    setSupplierAccountingManagerOpen(false);
     setAccountingManagerDialog({ kind, value, targetCategoryId: "__uncategorized__" });
   };
 
@@ -886,6 +893,7 @@ ${folderCustomers
     if (!category) { showToast("اختر تصنيفاً أولاً."); return; }
     await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories.map(item => item.id === category.id ? { ...item, [key]: !item[key] } : item));
     setAccountingCategoryMenuOpen(false);
+    setSupplierAccountingManagerOpen(false);
   };
 
   const deleteAccountingCategory = () => {
@@ -910,6 +918,7 @@ ${folderCustomers
     const sheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet.id ? { ...sheet, [key]: !sheet[key] } : sheet);
     await persistAccountingCollections(sheets, currentAccountingCategories);
     setAccountingSheetMenuOpen(false);
+    setSupplierAccountingManagerOpen(false);
   };
 
   const moveAccountingSheet = () => {
@@ -3780,19 +3789,19 @@ ${folderCustomers
 
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
-                        <span className="text-xs font-black text-slate-600">التصنيف</span>
+                        {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">التصنيف</span>}
                         <select
                           aria-label="اختيار التصنيف"
                           value={activeAccountingCategoryId || "__uncategorized__"}
                           onChange={event => { void chooseAccountingCategory(event.target.value === "__uncategorized__" ? "__uncategorized__" : event.target.value); }}
-                          className="min-w-32 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                          className={`${supplierAccountingLists ? "min-w-0 flex-1" : "min-w-32 max-w-full"} rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800`}
                         >
                           <option value="__uncategorized__">بلا تصنيف</option>
                           {currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => (
                             <option key={category.id} value={category.id}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</option>
                           ))}
                         </select>
-                        <div className="relative">
+                        {!supplierAccountingLists && <div className="relative">
                           <button type="button" onClick={() => { setAccountingCategoryMenuOpen(open => !open); setAccountingSheetMenuOpen(false); }} aria-label="إجراءات التصنيف" title="إجراءات التصنيف" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
                           {accountingCategoryMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                             <button type="button" onClick={() => void createAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">＋ إنشاء تصنيف</button>
@@ -3801,23 +3810,23 @@ ${folderCustomers
                             <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void toggleAccountingCategoryFlag("isFavorite")} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">⭐ إضافة / إزالة من المفضلة</button>
                             <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void deleteAccountingCategory()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40">حذف التصنيف</button>
                           </div>}
-                        </div>
+                        </div>}
 
-                        <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />
-                        <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>
+                        {!supplierAccountingLists && <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />}
+                        {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>}
                         <select
                           aria-label="اختيار القائمة الحسابية"
                           value={activeAccountingSheet?.id || ""}
                           onChange={event => { void chooseAccountingSheet(event.target.value); }}
-                          className="min-w-40 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                          className={`${supplierAccountingLists ? "min-w-0 flex-1" : "min-w-40 max-w-full"} rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800`}
                         >
                           {visibleAccountingSheets.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(sheet => (
                             <option key={sheet.id} value={sheet.id}>{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}</option>
                           ))}
                           {!visibleAccountingSheets.length && <option value="">لا توجد قوائم بهذا التصنيف</option>}
                         </select>
-                        <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>
-                        <div className="relative">
+                        {!supplierAccountingLists && <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>}
+                        {!supplierAccountingLists && <div className="relative">
                           <button type="button" onClick={() => { setAccountingSheetMenuOpen(open => !open); setAccountingCategoryMenuOpen(false); }} aria-label="إجراءات القائمة الحسابية" title="إجراءات القائمة الحسابية" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
                           {accountingSheetMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                             <button type="button" onClick={() => { setAccountingSheetMode("view"); setAccountingSheetMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50">عرض القائمة الحالية</button>
@@ -3828,6 +3837,47 @@ ${folderCustomers
                             <button type="button" disabled={!activeAccountingSheet} onClick={() => void copyAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold hover:bg-blue-50 disabled:opacity-40">نسخ القائمة</button>
                             <button type="button" disabled={!activeAccountingSheet} onClick={() => void deleteAccountingSheet()} className="w-full rounded-lg px-3 py-2 text-right text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40">حذف القائمة</button>
                           </div>}
+                        </div>}
+                        {supplierAccountingLists && <button type="button" onClick={() => setSupplierAccountingManagerOpen(true)} aria-label="إدارة التصنيفات والقوائم الحسابية" title="إدارة التصنيفات والقوائم الحسابية" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>}
+                      </div>
+                    )}
+
+                    {supplierAccountingLists && supplierAccountingManagerOpen && ledgerDisplayMode === "accounting" && selectedCustomer && (
+                      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-3" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingManagerOpen(false); }}>
+                        <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-manager-title" className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                          <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                            <div><h3 id="supplier-accounting-manager-title" className="font-black text-slate-900">إدارة قوائم المورد: {selectedCustomer.name}</h3><p className="mt-1 text-xs text-slate-500">التصنيفات والقوائم محفوظة لهذا المورد فقط.</p></div>
+                            <button type="button" onClick={() => setSupplierAccountingManagerOpen(false)} aria-label="إغلاق الإدارة" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
+                          </div>
+                          <div className="min-h-0 space-y-4 overflow-y-auto p-4">
+                            <section className="rounded-xl border border-slate-200 p-3">
+                              <div className="mb-2 flex items-center justify-between gap-2"><h4 className="font-black text-slate-800">التصنيفات</h4><button type="button" onClick={() => void createAccountingCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>تصنيف جديد</button></div>
+                              <div className="space-y-1.5">
+                                <button type="button" onClick={() => { void chooseAccountingCategory("__uncategorized__"); setSupplierAccountingManagerOpen(false); }} className={`w-full rounded-lg border px-3 py-2 text-right text-sm ${activeAccountingCategoryId === "__uncategorized__" ? "border-blue-300 bg-blue-50 font-bold text-blue-800" : "border-slate-200 text-slate-700"}`}>بلا تصنيف</button>
+                                {currentAccountingCategories.map(category => <button key={category.id} type="button" onClick={() => { void chooseAccountingCategory(category.id); setSupplierAccountingManagerOpen(false); }} className={`w-full rounded-lg border px-3 py-2 text-right text-sm ${activeAccountingCategoryId === category.id ? "border-blue-300 bg-blue-50 font-bold text-blue-800" : "border-slate-200 text-slate-700"}`}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</button>)}
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                                <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void renameAccountingCategory()} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">إعادة تسمية</button>
+                                <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void toggleAccountingCategoryFlag("isPinned")} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">📌 تثبيت / إلغاء</button>
+                                <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void toggleAccountingCategoryFlag("isFavorite")} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">⭐ المفضلة</button>
+                                <button type="button" disabled={!currentAccountingCategories.some(category => category.id === activeAccountingCategoryId)} onClick={() => void deleteAccountingCategory()} className="rounded-lg border border-rose-200 px-2 py-2 text-xs font-bold text-rose-700 disabled:opacity-40">حذف</button>
+                              </div>
+                            </section>
+                            <section className="rounded-xl border border-slate-200 p-3">
+                              <div className="mb-2 flex items-center justify-between gap-2"><h4 className="font-black text-slate-800">القوائم الحسابية</h4><button type="button" onClick={() => void createAccountingSheet()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>قائمة جديدة</button></div>
+                              <div className="space-y-1.5">
+                                {currentAccountingSheets.map(sheet => <button key={sheet.id} type="button" onClick={() => { void chooseAccountingSheet(sheet.id); setSupplierAccountingManagerOpen(false); }} className={`w-full rounded-lg border px-3 py-2 text-right text-sm ${activeAccountingSheet?.id === sheet.id ? "border-blue-300 bg-blue-50 font-bold text-blue-800" : "border-slate-200 text-slate-700"}`}>{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}<span className="ms-2 text-[10px] text-slate-500">{currentAccountingCategories.find(category => category.id === sheet.categoryId)?.name || "بلا تصنيف"}</span></button>)}
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void renameAccountingSheet()} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">إعادة تسمية</button>
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void moveAccountingSheet()} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">نقل لتصنيف</button>
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void toggleAccountingSheetFlag("isPinned")} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">📌 تثبيت / إلغاء</button>
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void toggleAccountingSheetFlag("isFavorite")} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">⭐ المفضلة</button>
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void copyAccountingSheet()} className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold disabled:opacity-40">نسخ القائمة</button>
+                                <button type="button" disabled={!activeAccountingSheet} onClick={() => void deleteAccountingSheet()} className="rounded-lg border border-rose-200 px-2 py-2 text-xs font-bold text-rose-700 disabled:opacity-40">حذف القائمة</button>
+                              </div>
+                            </section>
+                          </div>
                         </div>
                       </div>
                     )}
