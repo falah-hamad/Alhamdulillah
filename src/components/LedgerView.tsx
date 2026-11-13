@@ -4131,21 +4131,21 @@ ${folderCustomers
                               <div className="relative z-[1]">
                                 {accountEntityLabel === "المورد" ? (
                                   <div className="iraqi-invoice-subheader mt-2 space-y-2 border-b border-[#C84B31]/60 px-2 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm" dir="rtl">
-                                    <div className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-3">
-                                      <div className="mb-3 flex items-center justify-center gap-3">
-                                        <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
-                                        <h2 className="m-0 whitespace-nowrap text-xl font-black text-[#0A367E] sm:text-2xl">كشف حساب المورد</h2>
-                                        <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
+                                    <div className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2">
+                                      <div className="mb-1 flex flex-col items-center justify-center gap-0.5">
+                                        <div className="flex items-center justify-center gap-3">
+                                          <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
+                                          <h2 className="m-0 whitespace-nowrap text-lg font-black text-[#0A367E] sm:text-2xl">كشف حساب المورد</h2>
+                                          <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
+                                        </div>
+                                        <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم المورد" title="اسم المورد" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field iraqi-supplier-name max-w-full text-center text-sm font-black text-[#B4232F]" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined, color: "#B4232F", WebkitTextFillColor: "#B4232F" }} />
                                       </div>
-                                      <div className="grid gap-y-1">
-                                        <label className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 whitespace-nowrap font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-name">اسم المورد:
-                                          <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم المورد" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field text-right" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined }} />
-                                        </label>
+                                      <div className="grid gap-y-0.5 leading-tight">
                                         <label className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 whitespace-nowrap font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-phone">هاتف المورد:
-                                          <input id="accounting-customer-phone" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-phone"} aria-label="هاتف المورد" defaultValue={selectedCustomer.phone || ""} onBlur={(event) => saveCustomerField("phone", event.target.value)} className="iraqi-invoice-field text-left" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined }} dir="ltr" />
+                                          <input id="accounting-customer-phone" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-phone"} aria-label="هاتف المورد" defaultValue={selectedCustomer.phone || ""} onBlur={(event) => saveCustomerField("phone", event.target.value)} className="iraqi-invoice-field py-0.5 text-left" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined }} dir="ltr" />
                                         </label>
                                         <label className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 whitespace-nowrap font-extrabold text-[#9E2A2B]" htmlFor="accounting-customer-address">عنوان المورد:
-                                          <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان المورد" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field text-right" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined }} />
+                                          <input id="accounting-customer-address" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-address"} aria-label="عنوان المورد" defaultValue={selectedCustomer.address || ""} onBlur={(event) => saveCustomerField("address", event.target.value)} className="iraqi-invoice-field py-0.5 text-right" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined }} />
                                         </label>
                                       </div>
                                     </div>
