@@ -3723,7 +3723,7 @@ ${folderCustomers
                           }`}
                         >
                           <BookOpen className="w-3.5 h-3.5" />
-                          سجل الحساب العمودي (نمط الصورة)
+                          كشف الحساب
                         </button>
 <button
                             onClick={() => setLedgerDisplayMode("accounting")}
