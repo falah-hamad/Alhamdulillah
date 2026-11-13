@@ -207,6 +207,7 @@ export default function LedgerView({
   const [accountingSheetMenuOpen, setAccountingSheetMenuOpen] = useState(false);
   const [supplierAccountingManagerOpen, setSupplierAccountingManagerOpen] = useState(false);
   const [supplierAccountingActionMenu, setSupplierAccountingActionMenu] = useState<string | null>(null);
+  const [supplierAccountingPicker, setSupplierAccountingPicker] = useState<"category" | "sheet" | null>(null);
   const [expandedSupplierAccountingCategories, setExpandedSupplierAccountingCategories] = useState<string[]>(["__uncategorized__"]);
   const [accountingManagerDialog, setAccountingManagerDialog] = useState<AccountingManagerDialog | null>(null);
   const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
@@ -3802,17 +3803,19 @@ ${folderCustomers
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
                         {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">التصنيف</span>}
-                        <select
+                        {supplierAccountingLists ? <button type="button" onClick={() => setSupplierAccountingPicker("category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-base font-bold text-amber-950 shadow-sm">
+                          <span className="truncate">{currentAccountingCategories.find(category => category.id === activeAccountingCategoryId)?.name || "بلا تصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
+                        </button> : <select
                           aria-label="اختيار التصنيف"
                           value={activeAccountingCategoryId || "__uncategorized__"}
                           onChange={event => { void chooseAccountingCategory(event.target.value === "__uncategorized__" ? "__uncategorized__" : event.target.value); }}
-                          className={`${supplierAccountingLists ? "min-w-0 flex-1 text-base" : "min-w-32 max-w-full text-xs"} rounded-lg border border-slate-300 bg-white px-3 py-2 font-bold text-slate-800`}
+                          className="min-w-32 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
                         >
                           <option value="__uncategorized__">بلا تصنيف</option>
                           {currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => (
                             <option key={category.id} value={category.id}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</option>
                           ))}
-                        </select>
+                        </select>}
                         {!supplierAccountingLists && <div className="relative">
                           <button type="button" onClick={() => { setAccountingCategoryMenuOpen(open => !open); setAccountingSheetMenuOpen(false); }} aria-label="إجراءات التصنيف" title="إجراءات التصنيف" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
                           {accountingCategoryMenuOpen && <div className="absolute right-0 top-10 z-50 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
@@ -3826,17 +3829,19 @@ ${folderCustomers
 
                         {!supplierAccountingLists && <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />}
                         {!supplierAccountingLists && <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>}
-                        <select
+                        {supplierAccountingLists ? <button type="button" onClick={() => setSupplierAccountingPicker("sheet")} aria-label="اختيار القائمة الحسابية" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-sm font-bold text-slate-800 shadow-sm">
+                          <span className="truncate">{activeAccountingSheet?.name || "اختر قائمة حسابية"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
+                        </button> : <select
                           aria-label="اختيار القائمة الحسابية"
                           value={activeAccountingSheet?.id || ""}
                           onChange={event => { void chooseAccountingSheet(event.target.value); }}
-                          className={`${supplierAccountingLists ? "min-w-0 flex-1 text-sm" : "min-w-40 max-w-full text-xs"} rounded-lg border border-slate-300 bg-white px-3 py-2 font-bold text-slate-800`}
+                          className="min-w-40 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
                         >
                           {visibleAccountingSheets.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(sheet => (
                             <option key={sheet.id} value={sheet.id}>{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}</option>
                           ))}
                           {!visibleAccountingSheets.length && <option value="">لا توجد قوائم بهذا التصنيف</option>}
-                        </select>
+                        </select>}
                         {!supplierAccountingLists && <button type="button" onClick={() => void createAccountingSheet()} title="إنشاء قائمة حسابية" aria-label="إنشاء قائمة حسابية" className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> قائمة جديدة</button>}
                         {!supplierAccountingLists && <div className="relative">
                           <button type="button" onClick={() => { setAccountingSheetMenuOpen(open => !open); setAccountingCategoryMenuOpen(false); }} aria-label="إجراءات القائمة الحسابية" title="إجراءات القائمة الحسابية" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-4 w-4"/></button>
@@ -3941,6 +3946,39 @@ ${folderCustomers
                       </div>
                     )}
 
+                    {supplierAccountingLists && supplierAccountingPicker && (
+                      <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingPicker(null); }}>
+                        <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-picker-title" className="flex max-h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400">اختيار من حساب المورد</p>
+                              <h3 id="supplier-accounting-picker-title" className="mt-1 text-base font-black text-slate-900">{supplierAccountingPicker === "category" ? "اختر التصنيف" : "اختر القائمة الحسابية"}</h3>
+                            </div>
+                            <button type="button" onClick={() => setSupplierAccountingPicker(null)} aria-label="إغلاق الاختيار" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
+                          </div>
+                          <div className="space-y-1 overflow-y-auto p-3">
+                            {supplierAccountingPicker === "category" ? [
+                              { id: "__uncategorized__", name: "بلا تصنيف", count: currentAccountingSheets.filter(sheet => !sheet.categoryId).length, isPinned: false, isFavorite: false },
+                              ...currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id).length })),
+                            ].map(category => {
+                              const isSelected = (activeAccountingCategoryId || "__uncategorized__") === category.id;
+                              return <button key={category.id} type="button" aria-pressed={isSelected} onClick={() => { setSupplierAccountingPicker(null); void chooseAccountingCategory(category.id); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right transition ${isSelected ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}>
+                                <span className="flex min-w-0 items-center gap-3"><Folder className={`h-5 w-5 shrink-0 ${isSelected ? "text-amber-600" : "text-slate-400"}`}/><span className="truncate text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span>
+                                <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span>{isSelected && <Check className="h-4 w-4 text-amber-600"/>}</span>
+                              </button>;
+                            }) : visibleAccountingSheets.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(sheet => {
+                              const isSelected = activeAccountingSheet?.id === sheet.id;
+                              return <button key={sheet.id} type="button" aria-pressed={isSelected} onClick={() => { setSupplierAccountingPicker(null); void chooseAccountingSheet(sheet.id); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right transition ${isSelected ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}>
+                                <span className="flex min-w-0 items-center gap-3"><BookOpen className={`h-5 w-5 shrink-0 ${isSelected ? "text-blue-600" : "text-slate-400"}`}/><span className="truncate text-sm font-bold">{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}</span></span>
+                                {isSelected && <Check className="h-4 w-4 shrink-0 text-blue-600"/>}
+                              </button>;
+                            })}
+                            {supplierAccountingPicker === "sheet" && !visibleAccountingSheets.length && <p className="py-8 text-center text-sm text-slate-500">ماكو قوائم بهذا التصنيف.</p>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {accountingManagerDialog && (
                       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl">
                         <form role="dialog" aria-modal="true" aria-labelledby="accounting-manager-dialog-title" onSubmit={event => { event.preventDefault(); void submitAccountingManagerDialog().catch(error => { console.error("Failed to update accounting list management:", error); showToast("تعذر حفظ التغيير."); }); }} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
@@ -3959,7 +3997,15 @@ ${folderCustomers
                             </label>
                           )}
                           {accountingManagerDialog.kind === "moveSheet" && (
-                            <label className="mt-4 block text-xs font-bold text-slate-700">
+                            supplierAccountingLists ? <fieldset className="mt-4">
+                              <legend className="mb-2 text-xs font-bold text-slate-700">اختر التصنيف</legend>
+                              <div className="max-h-56 space-y-1 overflow-y-auto">
+                                {[{ id: "__uncategorized__", name: "بلا تصنيف" }, ...currentAccountingCategories].map(category => {
+                                  const isSelected = accountingManagerDialog.targetCategoryId === category.id;
+                                  return <button key={category.id} type="button" aria-pressed={isSelected} onClick={() => setAccountingManagerDialog(current => current ? { ...current, targetCategoryId: category.id } : current)} className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-right text-sm font-bold ${isSelected ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}><span>{category.name}</span>{isSelected && <Check className="h-4 w-4 text-amber-600"/>}</button>;
+                                })}
+                              </div>
+                            </fieldset> : <label className="mt-4 block text-xs font-bold text-slate-700">
                               اختر التصنيف
                               <select value={accountingManagerDialog.targetCategoryId} onChange={event => setAccountingManagerDialog(current => current ? { ...current, targetCategoryId: event.target.value } : current)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
                                 <option value="__uncategorized__">بلا تصنيف</option>
