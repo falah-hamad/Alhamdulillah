@@ -3705,11 +3705,11 @@ ${folderCustomers
                 currentInvoice && (
                   <div className="space-y-4">
                     {/* View Mode Switcher */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print">
-                      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+                    <div className={`${supplierAccountingLists ? "flex items-stretch" : "flex flex-wrap items-center justify-between"} gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print`}>
+                      <div className={`flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg ${supplierAccountingLists ? "w-full" : ""}`}>
                         <button
                           onClick={() => setLedgerDisplayMode("vertical")}
-                          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={`${supplierAccountingLists ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                             ledgerDisplayMode === "vertical"
                               ? "bg-blue-600 text-white shadow-sm"
                               : "text-slate-600 hover:text-slate-900"
@@ -3720,7 +3720,7 @@ ${folderCustomers
                         </button>
 <button
                             onClick={() => setLedgerDisplayMode("accounting")}
-                            className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            className={`${supplierAccountingLists ? "flex-1 justify-center px-2 py-2 text-center sm:px-3.5" : "px-3.5 py-1.5"} rounded-md text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                               ledgerDisplayMode === "accounting"
                                 ? "bg-slate-800 text-white shadow-sm"
                                 : "text-slate-600 hover:text-slate-900"
@@ -3731,7 +3731,7 @@ ${folderCustomers
                           </button>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {!supplierAccountingLists && <div className="flex items-center gap-2">
                         {(ledgerDisplayMode === "vertical" || ledgerDisplayMode === "accounting") && (
                           <div className="flex items-center gap-1.5" dir="rtl" aria-label={ledgerDisplayMode === "vertical" ? "إجراءات سجل الديون" : "إجراءات القائمة الحسابية"}>
                             <button
@@ -3790,7 +3790,7 @@ ${folderCustomers
                           return null;
                         })()}
 
-                      </div>
+                      </div>}
                     </div>
 
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
@@ -3856,6 +3856,15 @@ ${folderCustomers
                             <button type="button" onClick={() => setSupplierAccountingManagerOpen(false)} aria-label="إغلاق الإدارة" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
                           </div>
                           <div className="min-h-0 space-y-2 overflow-y-auto p-4">
+                            <section className="rounded-xl border border-violet-100 bg-violet-50/50 p-3">
+                              <h4 className="mb-2 text-sm font-black text-slate-800">إجراءات الحساب</h4>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button type="button" disabled={ledgerDisplayMode === "vertical" ? isPrinting : isAccountingPrinting} onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-print")) : void handlePrintAccountingSheet(); }} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-blue-800 disabled:opacity-50"><Printer className="h-4 w-4 shrink-0"/>طباعة</button>
+                                <button type="button" disabled={ledgerDisplayMode === "vertical" ? isExportingPDF : isAccountingExportingPDF} onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-export-pdf")) : void handleExportAccountingSheetPDF(); }} className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-emerald-800 disabled:opacity-50"><Download className="h-4 w-4 shrink-0"/>تنزيل PDF</button>
+                                <button type="button" onClick={() => { setSupplierAccountingManagerOpen(false); ledgerDisplayMode === "vertical" ? window.dispatchEvent(new CustomEvent("vertical-ledger-open-history")) : setIsAccountingChangeLogOpen(true); }} className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-amber-800"><History className="h-4 w-4 shrink-0"/>سجل التغييرات</button>
+                                <button type="button" onClick={() => { setSupplierAccountingManagerOpen(false); setProfileCustomerId(selectedCustomer.id); }} className="flex items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-right text-xs font-bold text-violet-800"><ContactRound className="h-4 w-4 shrink-0"/>معلومات المورد</button>
+                              </div>
+                            </section>
                             <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2">
                               <span className="text-sm font-black text-slate-800">تصنيفات المورد وقوائمه</span>
                               <button type="button" onClick={() => void createAccountingCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>تصنيف جديد</button>
