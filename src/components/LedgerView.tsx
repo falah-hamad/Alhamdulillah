@@ -4135,7 +4135,7 @@ ${folderCustomers
                                       <div className="mb-1 flex flex-col items-center justify-center gap-0.5">
                                         <div className="flex items-center justify-center gap-3">
                                           <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
-                                          <h2 className="m-0 whitespace-nowrap text-lg font-black text-[#0A367E] sm:text-2xl">كشف حساب المورد</h2>
+                                          <h2 className="m-0 whitespace-nowrap text-xl font-black text-[#0A367E] sm:text-2xl">كشف حساب المورد</h2>
                                           <span className="h-[3px] w-10 bg-[#E91E63] sm:w-16" />
                                         </div>
                                         <input id="accounting-customer-name" disabled={accountingSheetMode === "view"} key={selectedCustomer.id + "-accounting-name"} aria-label="اسم المورد" title="اسم المورد" defaultValue={selectedCustomer.name || ""} onBlur={(event) => saveCustomerField("name", event.target.value)} className="iraqi-invoice-field iraqi-supplier-name max-w-full text-center text-sm font-black text-[#B4232F]" style={{ borderBottom: accountingSheetMode === "view" ? "none" : undefined, color: "#B4232F", WebkitTextFillColor: "#B4232F" }} />
