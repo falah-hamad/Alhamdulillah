@@ -85,6 +85,7 @@ export interface Customer {
   accountingSheetRows?: AccountingSheetRow[];
   accountingSheets?: AccountingSheet[];
   accountingSheetCategories?: AccountingSheetCategory[];
+  verticalLedgerCategories?: AccountingSheetCategory[];
   activeAccountingSheetId?: string;
   accountingSheetPayments?: AccountingSheetPayment[];
 }
@@ -196,6 +197,7 @@ export interface Supplier {
   accountingSheetRows?: AccountingSheetRow[];
   accountingSheets?: AccountingSheet[];
   accountingSheetCategories?: AccountingSheetCategory[];
+  verticalLedgerCategories?: AccountingSheetCategory[];
   activeAccountingSheetId?: string;
   accountingSheetPayments?: AccountingSheetPayment[];
   isDeleted?: boolean;
@@ -232,6 +234,10 @@ export interface Invoice {
   id: string;
   userId?: string;
   invoiceNumber: string;
+  displayName?: string;
+  verticalCategoryId?: string;
+  isPinned?: boolean;
+  isFavorite?: boolean;
   date: string;
   customerId: string;
   customerName: string;

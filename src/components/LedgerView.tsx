@@ -210,6 +210,13 @@ export default function LedgerView({
   const [supplierAccountingPicker, setSupplierAccountingPicker] = useState<"category" | "sheet" | null>(null);
   const [expandedSupplierAccountingCategories, setExpandedSupplierAccountingCategories] = useState<string[]>(["__uncategorized__"]);
   const [accountingManagerDialog, setAccountingManagerDialog] = useState<AccountingManagerDialog | null>(null);
+  const [verticalLedgerPicker, setVerticalLedgerPicker] = useState<"category" | "statement" | null>(null);
+  const [verticalLedgerManagerOpen, setVerticalLedgerManagerOpen] = useState(false);
+  const [verticalCategoryDraft, setVerticalCategoryDraft] = useState("");
+  const [verticalCategoryEditingId, setVerticalCategoryEditingId] = useState<string | null>(null);
+  const [verticalDeleteConfirmOpen, setVerticalDeleteConfirmOpen] = useState(false);
+  const [verticalMoveCategoryId, setVerticalMoveCategoryId] = useState("__uncategorized__");
+  const [activeVerticalCategoryId, setActiveVerticalCategoryId] = useState("__uncategorized__");
   const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
   accountingDraftRowsRef.current = accountingDraftRows;
   const [accountingRowsDirty, setAccountingRowsDirty] = useState(false);
@@ -804,6 +811,12 @@ ${folderCustomers
     ? currentAccountingSheets.find(sheet => sheet.id === activeAccountingSheetId)
     : accountingSheetSelectionReady ? undefined : currentAccountingSheets[0];
   const visibleAccountingSheets = currentAccountingSheets.filter(sheet => !activeAccountingCategoryId || activeAccountingCategoryId === "__all__" || (activeAccountingCategoryId === "__uncategorized__" ? !sheet.categoryId : sheet.categoryId === activeAccountingCategoryId));
+  const currentVerticalCategories = (selectedCustomer?.verticalLedgerCategories || []).filter(category =>
+    (!category.ownerAccountId || category.ownerAccountId === selectedCustomer?.id) &&
+    (!category.id.startsWith("vertical-category-") || category.id.startsWith(`vertical-category-${selectedCustomer?.id}-`))
+  );
+  const currentVerticalStatements = selectedCustomer ? invoices.filter(invoice => !invoice.isDeleted && invoice.customerId === selectedCustomer.id) : [];
+  const visibleVerticalStatements = currentVerticalStatements.filter(invoice => activeVerticalCategoryId === "__all__" || (activeVerticalCategoryId === "__uncategorized__" ? !invoice.verticalCategoryId : invoice.verticalCategoryId === activeVerticalCategoryId));
   const supplierActionCategoryId = supplierAccountingActionMenu?.startsWith("category:") ? supplierAccountingActionMenu.slice("category:".length) : "";
   const supplierActionSheetId = supplierAccountingActionMenu?.startsWith("sheet:") ? supplierAccountingActionMenu.slice("sheet:".length) : "";
   const supplierActionCategory = currentAccountingCategories.find(category => category.id === supplierActionCategoryId);
@@ -820,6 +833,10 @@ ${folderCustomers
     setExpandedSupplierAccountingCategories(["__uncategorized__"]);
     setAccountingCategoryMenuOpen(false);
     setAccountingSheetMenuOpen(false);
+    setVerticalLedgerPicker(null);
+    setVerticalLedgerManagerOpen(false);
+    setVerticalDeleteConfirmOpen(false);
+    setActiveVerticalCategoryId("__uncategorized__");
     if (!selectedCustomer) {
       setAccountingSheetSelectionReady(false);
       accountingOriginalRowsRef.current = [];
@@ -1051,6 +1068,104 @@ ${folderCustomers
     const nextSheet = currentAccountingSheets.find(sheet => sheet.id === sheetId);
     await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, sheetId, nextSheet?.categoryId || "__uncategorized__");
     setAccountingSheetMenuOpen(false);
+  };
+
+  const persistVerticalCategories = async (categories: AccountingSheetCategory[]) => {
+    if (!selectedCustomer || !updateCustomer) return;
+    await Promise.resolve(updateCustomer({ ...selectedCustomer, verticalLedgerCategories: categories.map(category => ({ ...category, ownerAccountId: selectedCustomer.id })) }));
+  };
+
+  const saveVerticalCategory = async () => {
+    if (!selectedCustomer) return;
+    const name = verticalCategoryDraft.trim();
+    if (!name) { showToast("اكتب اسم التصنيف أولاً."); return; }
+    const next = verticalCategoryEditingId
+      ? currentVerticalCategories.map(category => category.id === verticalCategoryEditingId ? { ...category, name } : category)
+      : [...currentVerticalCategories, { id: `vertical-category-${selectedCustomer.id}-${Date.now()}`, ownerAccountId: selectedCustomer.id, name }];
+    await persistVerticalCategories(next);
+    if (!verticalCategoryEditingId) setActiveVerticalCategoryId(next[next.length - 1].id);
+    setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null);
+    showToast(verticalCategoryEditingId ? "تم تعديل اسم التصنيف." : "تم إنشاء التصنيف.");
+  };
+
+  const toggleVerticalCategoryFlag = async (categoryId: string, key: "isPinned" | "isFavorite") => {
+    await persistVerticalCategories(currentVerticalCategories.map(category => category.id === categoryId ? { ...category, [key]: !category[key] } : category));
+  };
+
+  const toggleCurrentVerticalStatementFlag = async (key: "isPinned" | "isFavorite") => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (current) await Promise.resolve(updateInvoice({ ...current, [key]: !current[key] }));
+  };
+
+  const deleteVerticalCategory = async (categoryId: string) => {
+    const category = currentVerticalCategories.find(item => item.id === categoryId);
+    if (!category) return;
+    await persistVerticalCategories(currentVerticalCategories.filter(item => item.id !== categoryId));
+    for (const invoice of currentVerticalStatements.filter(item => item.verticalCategoryId === categoryId)) {
+      await Promise.resolve(updateInvoice({ ...invoice, verticalCategoryId: undefined }));
+    }
+    if (activeVerticalCategoryId === categoryId) setActiveVerticalCategoryId("__uncategorized__");
+    showToast("حُذف التصنيف وبقيت كشوفه ضمن بلا تصنيف.");
+  };
+
+  const moveCurrentVerticalStatement = async (categoryId: string) => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (!current) return;
+    const verticalCategoryId = categoryId === "__uncategorized__" ? undefined : categoryId;
+    await Promise.resolve(updateInvoice({ ...current, verticalCategoryId }));
+    setActiveVerticalCategoryId(categoryId);
+    showToast("تم نقل الكشف إلى التصنيف.");
+  };
+
+  const createVerticalStatement = () => {
+    if (!selectedCustomer) return;
+    const categoryId = activeVerticalCategoryId === "__uncategorized__" || activeVerticalCategoryId === "__all__" ? undefined : activeVerticalCategoryId;
+    const nextNumber = currentVerticalStatements.length + 1;
+    const created = addInvoice({
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+      displayName: `كشف الحساب ${nextNumber}`,
+      verticalCategoryId: categoryId,
+      date: new Date().toISOString().slice(0, 10), customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name, customerPhone: selectedCustomer.phone,
+      customerAddress: selectedCustomer.address || "", items: [], grandTotal: 0, paidAmount: 0,
+      remainingAmount: 0, notes: "", employeeName: "المحاسب", signature: "",
+    });
+    setSelectedInvoiceId(created.id);
+    setVerticalLedgerManagerOpen(false);
+    showToast("تم إنشاء كشف حساب جديد.");
+  };
+
+  const copyCurrentVerticalStatement = () => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (!current) return;
+    const copy = addInvoice({ ...current, invoiceNumber: `INV-${Date.now().toString().slice(-6)}`, displayName: `${current.displayName || current.invoiceNumber || "كشف الحساب"} - نسخة`, items: current.items.map(item => ({ ...item, id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` })) });
+    setSelectedInvoiceId(copy.id);
+    setVerticalLedgerManagerOpen(false);
+    showToast("تم نسخ الكشف.");
+  };
+
+  const saveCurrentVerticalStatementName = async (name: string) => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (!current || !name.trim()) return;
+    await Promise.resolve(updateInvoice({ ...current, displayName: name.trim() }));
+    showToast("تم حفظ اسم الكشف.");
+  };
+
+  const deleteCurrentVerticalStatement = () => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (!current) return;
+    if (currentVerticalStatements.length <= 1) { showToast("يجب إبقاء كشف واحد على الأقل للحساب."); return; }
+    setVerticalDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteCurrentVerticalStatement = () => {
+    const current = invoices.find(invoice => invoice.id === selectedInvoiceId);
+    if (!current) return;
+    const next = visibleVerticalStatements.find(invoice => invoice.id !== current.id) || currentVerticalStatements.find(invoice => invoice.id !== current.id);
+    deleteInvoice(current.id);
+    if (next) setSelectedInvoiceId(next.id);
+    setVerticalDeleteConfirmOpen(false);
+    showToast("تم حذف الكشف.");
   };
 
   const applyAccountingRowFormat = (patch: Partial<AccountingSheetRow>) => {
@@ -2207,6 +2322,11 @@ ${folderCustomers
 
   // Specific invoice details view
   const currentInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
+
+  useEffect(() => {
+    if (selectedCustomer && currentInvoice?.verticalCategoryId) setActiveVerticalCategoryId(currentInvoice.verticalCategoryId);
+    else setActiveVerticalCategoryId("__uncategorized__");
+  }, [selectedCustomer?.id, selectedInvoiceId]);
 
   const selectedCartProducts = products.filter(
     (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
@@ -3818,6 +3938,46 @@ ${folderCustomers
 
                       </div>}
                     </div>
+
+                    {ledgerDisplayMode === "vertical" && selectedCustomer && (
+                      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وكشف الحساب">
+                        <button type="button" onClick={() => setVerticalLedgerPicker("category")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm"><span className="truncate">{activeVerticalCategoryId === "__all__" ? "كل التصنيفات" : currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.name || "بلا تصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
+                        <button type="button" onClick={() => setVerticalLedgerPicker("statement")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm"><span className="truncate">{currentInvoice?.displayName || `كشف الحساب ${Math.max(1, currentVerticalStatements.findIndex(invoice => invoice.id === currentInvoice?.id) + 1)}`}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
+                        <button type="button" onClick={() => { setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null); setVerticalMoveCategoryId(currentInvoice?.verticalCategoryId || "__uncategorized__"); setVerticalLedgerManagerOpen(true); }} aria-label="إدارة كشوف الحساب" title="إدارة التصنيفات والكشوف" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
+                        <button type="button" onClick={createVerticalStatement} className="inline-flex h-10 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>كشف جديد</button>
+                      </div>
+                    )}
+
+                    {verticalLedgerPicker && selectedCustomer && (
+                      <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setVerticalLedgerPicker(null); }}>
+                        <div role="dialog" aria-modal="true" className="flex max-h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><p className="text-xs font-semibold text-slate-400">حساب {accountingEntityName}</p><h3 className="mt-1 text-base font-black text-slate-900">{verticalLedgerPicker === "category" ? "اختر تصنيف كشف الحساب" : "اختر كشف الحساب"}</h3></div><button type="button" onClick={() => setVerticalLedgerPicker(null)} aria-label="إغلاق" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
+                          <div className="space-y-1 overflow-y-auto p-3">
+                            {verticalLedgerPicker === "category" ? [
+                              { id: "__uncategorized__", name: "بلا تصنيف", count: currentVerticalStatements.filter(invoice => !invoice.verticalCategoryId).length },
+                              { id: "__all__", name: "كل التصنيفات", count: currentVerticalStatements.length },
+                              ...currentVerticalCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentVerticalStatements.filter(invoice => invoice.verticalCategoryId === category.id).length })),
+                            ].map(category => <button key={category.id} type="button" aria-pressed={activeVerticalCategoryId === category.id} onClick={() => { setActiveVerticalCategoryId(category.id); const match = currentVerticalStatements.find(invoice => category.id === "__all__" || (category.id === "__uncategorized__" ? !invoice.verticalCategoryId : invoice.verticalCategoryId === category.id)); if (match) setSelectedInvoiceId(match.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${activeVerticalCategoryId === category.id ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex items-center gap-3"><Folder className="h-5 w-5 text-blue-600"/><span className="text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span></button>) : visibleVerticalStatements.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map((invoice, index) => <button key={invoice.id} type="button" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => { setSelectedInvoiceId(invoice.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${invoice.id === selectedInvoiceId ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex min-w-0 items-center gap-3"><BookOpen className="h-5 w-5 shrink-0 text-amber-600"/><span className="truncate text-sm font-bold">{invoice.isPinned ? "📌 " : ""}{invoice.isFavorite ? "⭐ " : ""}{invoice.displayName || `كشف الحساب ${index + 1}`}</span></span><span className="shrink-0 text-xs text-slate-500">{invoice.date}</span></button>)}
+                            {verticalLedgerPicker === "statement" && !visibleVerticalStatements.length && <p className="py-8 text-center text-sm text-slate-500">ماكو كشوف بهذا التصنيف.</p>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {verticalLedgerManagerOpen && selectedCustomer && (
+                      <div className="fixed inset-0 z-[181] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setVerticalLedgerManagerOpen(false); }}>
+                        <div role="dialog" aria-modal="true" className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                          <div className="flex items-center justify-between border-b px-5 py-4"><div><p className="text-xs text-slate-400">خاص بـ{accountingEntityName}</p><h3 className="text-base font-black text-slate-900">إدارة تصنيفات وكشوف الحساب</h3></div><button type="button" onClick={() => setVerticalLedgerManagerOpen(false)} aria-label="إغلاق" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
+                          <div className="space-y-4 overflow-y-auto p-4">
+                            <section className="rounded-xl border border-blue-100 bg-blue-50/50 p-3"><h4 className="mb-2 text-sm font-black text-slate-800">التصنيفات</h4><div className="flex gap-2"><input value={verticalCategoryDraft} onChange={event => setVerticalCategoryDraft(event.target.value)} placeholder="اسم التصنيف" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"/><button type="button" onClick={() => void saveVerticalCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{verticalCategoryEditingId ? "حفظ الاسم" : "إضافة"}</button></div><div className="mt-2 space-y-1">{currentVerticalCategories.map(category => <div key={category.id} className="flex items-center gap-1 rounded-lg bg-white px-2 py-2"><span className="flex-1 text-sm font-bold">{category.name}</span><button type="button" title="تثبيت التصنيف" onClick={() => void toggleVerticalCategoryFlag(category.id, "isPinned")} className={`rounded-md px-2 py-1 text-xs ${category.isPinned ? "bg-amber-100 text-amber-800" : "text-slate-400 hover:bg-slate-50"}`}>📌</button><button type="button" title="مفضلة" onClick={() => void toggleVerticalCategoryFlag(category.id, "isFavorite")} className={`rounded-md px-2 py-1 text-xs ${category.isFavorite ? "bg-amber-100 text-amber-800" : "text-slate-400 hover:bg-slate-50"}`}>⭐</button><button type="button" onClick={() => { setVerticalCategoryDraft(category.name); setVerticalCategoryEditingId(category.id); }} className="rounded-md px-2 py-1 text-xs font-bold text-blue-700 hover:bg-blue-50">تسمية</button><button type="button" onClick={() => void deleteVerticalCategory(category.id)} className="rounded-md px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50">حذف</button></div>)}</div></section>
+                            <section className="rounded-xl border border-amber-100 bg-amber-50/40 p-3"><h4 className="mb-2 text-sm font-black text-slate-800">الكشف الحالي</h4><input key={currentInvoice?.id} defaultValue={currentInvoice?.displayName || `كشف الحساب ${Math.max(1, currentVerticalStatements.findIndex(invoice => invoice.id === currentInvoice?.id) + 1)}`} onBlur={event => void saveCurrentVerticalStatementName(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="اسم كشف الحساب"/><div className="mt-2 grid grid-cols-2 gap-2">{[{ id: "__uncategorized__", name: "بلا تصنيف" }, ...currentVerticalCategories].map(category => <button key={category.id} type="button" aria-pressed={verticalMoveCategoryId === category.id} onClick={() => setVerticalMoveCategoryId(category.id)} className={`rounded-lg border px-3 py-2 text-right text-xs font-bold ${verticalMoveCategoryId === category.id ? "border-blue-300 bg-blue-50 text-blue-900" : "border-slate-200 bg-white text-slate-700"}`}>{category.name}</button>)}</div><button type="button" onClick={() => void moveCurrentVerticalStatement(verticalMoveCategoryId)} className="mt-2 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700">نقل الكشف إلى التصنيف المحدد</button><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => void toggleCurrentVerticalStatementFlag("isPinned")} className={`rounded-lg border px-3 py-2 text-xs font-bold ${currentInvoice?.isPinned ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600"}`}>{currentInvoice?.isPinned ? "إلغاء تثبيت" : "تثبيت الكشف"}</button><button type="button" onClick={() => void toggleCurrentVerticalStatementFlag("isFavorite")} className={`rounded-lg border px-3 py-2 text-xs font-bold ${currentInvoice?.isFavorite ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600"}`}>{currentInvoice?.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button></div><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={copyCurrentVerticalStatement} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700">نسخ الكشف</button><button type="button" onClick={deleteCurrentVerticalStatement} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700">حذف الكشف</button></div></section>
+                            <button type="button" onClick={createVerticalStatement} className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">＋ إنشاء كشف حساب جديد</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {verticalDeleteConfirmOpen && currentInvoice && <div className="fixed inset-0 z-[182] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl"><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"><h3 className="text-base font-black text-slate-900">تأكيد حذف الكشف</h3><p className="mt-2 text-sm leading-6 text-slate-600">سيُحذف «{currentInvoice.displayName || currentInvoice.invoiceNumber || "كشف الحساب"}» وبنوده.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setVerticalDeleteConfirmOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-slate-700">إلغاء</button><button type="button" onClick={confirmDeleteCurrentVerticalStatement} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white">حذف الكشف</button></div></div></div>}
 
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">

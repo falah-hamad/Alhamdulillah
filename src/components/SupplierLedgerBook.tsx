@@ -74,6 +74,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
     accountingSheetRows: supplier.accountingSheetRows || [],
     accountingSheets: supplier.accountingSheets,
     accountingSheetCategories: supplier.accountingSheetCategories,
+    verticalLedgerCategories: supplier.verticalLedgerCategories,
     activeAccountingSheetId: supplier.activeAccountingSheetId,
     accountingSheetPayments: supplier.accountingSheetPayments || [],
   }), [supplier]);
@@ -205,6 +206,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
     accountingSheetRows: next.accountingSheetRows || [],
     accountingSheets: next.accountingSheets,
     accountingSheetCategories: next.accountingSheetCategories,
+    verticalLedgerCategories: next.verticalLedgerCategories,
     activeAccountingSheetId: next.activeAccountingSheetId,
     accountingSheetPayments: next.accountingSheetPayments || [],
   });
