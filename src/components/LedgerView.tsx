@@ -812,6 +812,14 @@ ${folderCustomers
   let saveAccountingRows: () => Promise<boolean> = async () => true;
 
   useEffect(() => {
+    // The account manager and its selected category/list belong to one customer.
+    // Clear transient UI selection when moving to a different customer.
+    setSupplierAccountingManagerOpen(false);
+    setSupplierAccountingActionMenu(null);
+    setSupplierAccountingPicker(null);
+    setExpandedSupplierAccountingCategories(["__uncategorized__"]);
+    setAccountingCategoryMenuOpen(false);
+    setAccountingSheetMenuOpen(false);
     if (!selectedCustomer) {
       setAccountingSheetSelectionReady(false);
       accountingOriginalRowsRef.current = [];
@@ -859,13 +867,16 @@ ${folderCustomers
   ) => {
     if (!selectedCustomer || !updateCustomer) return false;
     if (accountingRowsDirty && sheets.some(sheet => sheet.id === activeAccountingSheetId)) await saveAccountingRows();
-    const materializedSheets = sheets.map(sheet => sheet.id === activeAccountingSheetId && accountingRowsDirty
-      ? { ...sheet, rows: accountingDraftRows }
-      : sheet);
+    const materializedSheets = sheets.map(sheet => ({
+      ...sheet,
+      ownerAccountId: selectedCustomer.id,
+      ...(sheet.id === activeAccountingSheetId && accountingRowsDirty ? { rows: accountingDraftRows } : {}),
+    }));
+    const materializedCategories = categories.map(category => ({ ...category, ownerAccountId: selectedCustomer.id }));
     await Promise.resolve(updateCustomer({
       ...selectedCustomer,
       accountingSheets: materializedSheets,
-      accountingSheetCategories: categories,
+      accountingSheetCategories: materializedCategories,
       activeAccountingSheetId: nextActiveId,
       accountingSheetRows: flattenAccountingSheets(materializedSheets),
     }));
@@ -946,6 +957,7 @@ ${folderCustomers
     const copy: AccountingSheet = {
       ...activeAccountingSheet,
       id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
+      ownerAccountId: selectedCustomer.id,
       name: `نسخة من ${activeAccountingSheet.name}`,
       createdAt: new Date().toISOString(),
       isPinned: false,
@@ -973,7 +985,7 @@ ${folderCustomers
       return;
     }
     if (kind === "createCategory") {
-      const category: AccountingSheetCategory = { id: `accounting-category-${Date.now()}`, name };
+      const category: AccountingSheetCategory = { id: `accounting-category-${selectedCustomer.id}-${Date.now()}`, ownerAccountId: selectedCustomer.id, name };
       await persistAccountingCollections(currentAccountingSheets, [...currentAccountingCategories, category], activeAccountingSheetId, activeAccountingCategoryId);
       showToast("تمت إضافة التصنيف.");
     } else if (kind === "renameCategory") {
@@ -990,6 +1002,7 @@ ${folderCustomers
     } else if (kind === "createSheet") {
       const sheet: AccountingSheet = {
         id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
+        ownerAccountId: selectedCustomer.id,
         name,
         categoryId: activeAccountingCategoryId && activeAccountingCategoryId !== "__uncategorized__" ? activeAccountingCategoryId : undefined,
         rows: [],
@@ -1071,11 +1084,15 @@ ${folderCustomers
       if (wasPurchase && previous.createdAt) return { ...row, createdAt: previous.createdAt };
       return isPurchase && !wasPurchase ? { ...row, createdAt: previous ? savedAt : (row.createdAt || savedAt) } : row;
     });
-    const nextSheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet?.id ? { ...sheet, rows: nextRows } : sheet);
+    const nextSheets = currentAccountingSheets.map(sheet => ({
+      ...sheet,
+      ownerAccountId: selectedCustomer.id,
+      ...(sheet.id === activeAccountingSheet?.id ? { rows: nextRows } : {}),
+    }));
     await Promise.resolve(updateCustomer({
       ...selectedCustomer,
       accountingSheets: nextSheets,
-      accountingSheetCategories: currentAccountingCategories,
+      accountingSheetCategories: currentAccountingCategories.map(category => ({ ...category, ownerAccountId: selectedCustomer.id })),
       activeAccountingSheetId: activeAccountingSheet?.id,
       accountingSheetRows: flattenAccountingSheets(nextSheets),
     }));

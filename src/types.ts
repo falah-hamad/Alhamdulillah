@@ -44,6 +44,7 @@ export interface AccountingSheetPayment {
 
 export interface AccountingSheetCategory {
   id: string;
+  ownerAccountId?: string;
   name: string;
   isPinned?: boolean;
   isFavorite?: boolean;
@@ -51,6 +52,7 @@ export interface AccountingSheetCategory {
 
 export interface AccountingSheet {
   id: string;
+  ownerAccountId?: string;
   name: string;
   categoryId?: string;
   rows: AccountingSheetRow[];
