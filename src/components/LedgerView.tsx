@@ -799,6 +799,10 @@ ${folderCustomers
     ? currentAccountingSheets.find(sheet => sheet.id === activeAccountingSheetId)
     : accountingSheetSelectionReady ? undefined : currentAccountingSheets[0];
   const visibleAccountingSheets = currentAccountingSheets.filter(sheet => !activeAccountingCategoryId || activeAccountingCategoryId === "__all__" || (activeAccountingCategoryId === "__uncategorized__" ? !sheet.categoryId : sheet.categoryId === activeAccountingCategoryId));
+  const supplierActionCategoryId = supplierAccountingActionMenu?.startsWith("category:") ? supplierAccountingActionMenu.slice("category:".length) : "";
+  const supplierActionSheetId = supplierAccountingActionMenu?.startsWith("sheet:") ? supplierAccountingActionMenu.slice("sheet:".length) : "";
+  const supplierActionCategory = currentAccountingCategories.find(category => category.id === supplierActionCategoryId);
+  const supplierActionSheet = currentAccountingSheets.find(sheet => sheet.id === supplierActionSheetId);
   const accountingOriginalRowsRef = useRef<AccountingSheetRow[]>(activeAccountingSheet?.rows || []);
   let saveAccountingRows: () => Promise<boolean> = async () => true;
 
@@ -3873,22 +3877,15 @@ ${folderCustomers
                               const expanded = expandedSupplierAccountingCategories.includes(group.id);
                               const categoryMenuKey = `category:${group.id}`;
                               const isRealCategory = Boolean(group.category);
-                              return <section key={group.id} className={`overflow-visible rounded-xl border ${activeAccountingCategoryId === group.id ? "border-blue-300 bg-blue-50/30" : "border-slate-200 bg-white"}`}>
-                                <div className="flex items-center gap-1.5 p-2">
+                              return <section key={group.id} className={`overflow-visible rounded-xl border-2 ${activeAccountingCategoryId === group.id ? "border-blue-300 bg-white" : "border-slate-200 bg-white"}`}>
+                                <div className="flex items-center gap-1.5 rounded-t-[10px] border-b border-blue-200 bg-sky-100/70 px-2 py-1">
                                   <button type="button" onClick={() => { setExpandedSupplierAccountingCategories(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id]); void chooseAccountingCategory(group.id); }} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-right hover:bg-slate-50">
                                     <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}/>
-                                    <span className="truncate text-base font-black text-slate-900">{group.category?.isPinned ? "📌 " : ""}{group.category?.isFavorite ? "⭐ " : ""}{group.name}</span>
+                                    <span className="inline-flex max-w-[75%] truncate rounded-md border border-blue-300/80 bg-white/55 px-2.5 py-1 text-base font-black text-blue-950 shadow-sm">{group.category?.isPinned ? "📌 " : ""}{group.category?.isFavorite ? "⭐ " : ""}{group.name}</span>
                                     <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{group.sheets.length}</span>
                                   </button>
                                   {isRealCategory && <div className="relative shrink-0">
                                     <button type="button" onClick={event => { event.stopPropagation(); void chooseAccountingCategory(group.id).then(() => setSupplierAccountingActionMenu(current => current === categoryMenuKey ? null : categoryMenuKey)); }} aria-label={`إجراءات التصنيف ${group.name}`} title="إجراءات التصنيف" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
-                                    {supplierAccountingActionMenu === categoryMenuKey && <div className="absolute left-0 top-10 z-[140] min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-right shadow-xl" onClick={event => event.stopPropagation()}>
-                                      <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void createAccountingSheet(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">＋ قائمة جديدة داخل التصنيف</button>
-                                      <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void renameAccountingCategory(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">إعادة تسمية التصنيف</button>
-                                      <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingCategoryFlag("isPinned"); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">📌 تثبيت / إلغاء التثبيت</button>
-                                      <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingCategoryFlag("isFavorite"); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">⭐ إضافة / إزالة من المفضلة</button>
-                                      <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void deleteAccountingCategory(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50">حذف التصنيف</button>
-                                    </div>}
                                   </div>}
                                 </div>
                                 {expanded && <div className="space-y-1 border-t border-slate-100 p-2">
@@ -3899,21 +3896,44 @@ ${folderCustomers
                                       <button type="button" onClick={() => void chooseAccountingSheet(sheet.id)} className="min-w-0 flex-1 truncate px-2 py-1.5 text-right text-sm font-bold text-slate-800">{sheet.isPinned ? "📌 " : ""}{sheet.isFavorite ? "⭐ " : ""}{sheet.name}</button>
                                       <div className="relative shrink-0">
                                         <button type="button" onClick={event => { event.stopPropagation(); void chooseAccountingSheet(sheet.id).then(() => setSupplierAccountingActionMenu(current => current === sheetMenuKey ? null : sheetMenuKey)); }} aria-label={`إجراءات القائمة ${sheet.name}`} title="إجراءات القائمة الحسابية" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
-                                        {supplierAccountingActionMenu === sheetMenuKey && <div className="absolute left-0 top-10 z-[140] min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-right shadow-xl" onClick={event => event.stopPropagation()}>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); setAccountingSheetMode("view"); setSupplierAccountingManagerOpen(false); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">عرض القائمة الحالية</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void renameAccountingSheet(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">إعادة تسمية القائمة</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void moveAccountingSheet(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">نقل إلى تصنيف</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingSheetFlag("isPinned"); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">📌 تثبيت / إلغاء التثبيت</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingSheetFlag("isFavorite"); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">⭐ إضافة / إزالة من المفضلة</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void copyAccountingSheet(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold hover:bg-blue-50">نسخ القائمة</button>
-                                          <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void deleteAccountingSheet(); }} className="w-full rounded-lg px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50">حذف القائمة</button>
-                                        </div>}
                                       </div>
                                     </div>;
                                   })}
                                 </div>}
                               </section>;
                             })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {supplierAccountingLists && supplierAccountingManagerOpen && supplierAccountingActionMenu && (
+                      <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingActionMenu(null); }}>
+                        <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-actions-title" className="max-h-[82dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+                          <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                            <div>
+                              <h3 id="supplier-accounting-actions-title" className="text-lg font-black text-slate-900">{supplierActionCategory ? "إجراءات التصنيف" : "إجراءات القائمة الحسابية"}</h3>
+                              <p className="mt-1 text-sm font-bold text-blue-800">{supplierActionCategory?.name || supplierActionSheet?.name}</p>
+                            </div>
+                            <button type="button" onClick={() => setSupplierAccountingActionMenu(null)} aria-label="إغلاق الإجراءات" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {supplierActionCategory && <>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void createAccountingSheet(); }} className="min-h-12 rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-right text-sm font-bold text-blue-900 hover:bg-blue-100">＋ قائمة جديدة داخل التصنيف</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void renameAccountingCategory(); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">إعادة تسمية التصنيف</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingCategoryFlag("isPinned"); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">📌 تثبيت / إلغاء التثبيت</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingCategoryFlag("isFavorite"); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">⭐ إضافة / إزالة من المفضلة</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void deleteAccountingCategory(); }} className="min-h-12 rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-right text-sm font-bold text-rose-700 hover:bg-rose-100">حذف التصنيف</button>
+                            </>}
+                            {supplierActionSheet && <>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); setAccountingSheetMode("view"); setSupplierAccountingManagerOpen(false); }} className="min-h-12 rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-right text-sm font-bold text-blue-900 hover:bg-blue-100">عرض القائمة الحالية</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void renameAccountingSheet(); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">إعادة تسمية القائمة</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void moveAccountingSheet(); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">نقل إلى تصنيف</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingSheetFlag("isPinned"); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">📌 تثبيت / إلغاء التثبيت</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void toggleAccountingSheetFlag("isFavorite"); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">⭐ إضافة / إزالة من المفضلة</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void copyAccountingSheet(); }} className="min-h-12 rounded-xl border border-slate-200 px-4 py-3 text-right text-sm font-bold text-slate-800 hover:bg-slate-50">نسخ القائمة</button>
+                              <button type="button" onClick={() => { setSupplierAccountingActionMenu(null); void deleteAccountingSheet(); }} className="min-h-12 rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-right text-sm font-bold text-rose-700 hover:bg-rose-100">حذف القائمة</button>
+                            </>}
                           </div>
                         </div>
                       </div>
