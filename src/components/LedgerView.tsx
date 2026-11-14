@@ -92,6 +92,61 @@ import { flattenAccountingSheets, getCustomerAccountingCategories, getCustomerAc
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
 type AccountingManagerDialog = { kind: "createCategory" | "renameCategory" | "deleteCategory" | "createSheet" | "renameSheet" | "moveSheet" | "deleteSheet"; value: string; targetCategoryId: string };
 
+function AccountPickerDropdown({ anchor, label, onClose, children }: {
+  anchor: HTMLButtonElement | null;
+  label: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const [position, setPosition] = useState<React.CSSProperties>({ visibility: "hidden" });
+  useLayoutEffect(() => {
+    if (!anchor) { closeRef.current(); return; }
+    const viewport = window.visualViewport;
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const left = viewport?.offsetLeft || 0;
+      const top = viewport?.offsetTop || 0;
+      const bottom = top + (viewport?.height || window.innerHeight);
+      const right = left + (viewport?.width || window.innerWidth);
+      const width = Math.min(rect.width, right - left - 16);
+      setPosition({ top: rect.bottom + 6, left: Math.max(left + 8, Math.min(rect.left, right - width - 8)), width, maxHeight: Math.max(0, Math.min(480, bottom - rect.bottom - 14)) });
+    };
+    const outside = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node) && !anchor.contains(event.target as Node)) closeRef.current();
+    };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current(); anchor.focus({ preventScroll: true }); }
+    };
+    place();
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", keyboard);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    viewport?.addEventListener("resize", place);
+    viewport?.addEventListener("scroll", place);
+    const observer = new ResizeObserver(place);
+    observer.observe(anchor);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", keyboard);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+      viewport?.removeEventListener("resize", place);
+      viewport?.removeEventListener("scroll", place);
+    };
+  }, [anchor]);
+  return createPortal(
+    <div ref={menuRef} role="region" aria-label={label} dir="rtl" style={position}
+      className="fixed z-[190] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl no-print">
+      {children}
+    </div>, document.body
+  );
+}
+
 interface LedgerViewProps {
   customers: Customer[];
   products: Product[];
@@ -210,6 +265,10 @@ export default function LedgerView({
   const [supplierAccountingPicker, setSupplierAccountingPicker] = useState<"category" | "sheet" | null>(null);
   const [expandedSupplierAccountingCategories, setExpandedSupplierAccountingCategories] = useState<string[]>(["__uncategorized__"]);
   const [accountingManagerDialog, setAccountingManagerDialog] = useState<AccountingManagerDialog | null>(null);
+  const verticalCategoryButtonRef = useRef<HTMLButtonElement>(null);
+  const verticalStatementButtonRef = useRef<HTMLButtonElement>(null);
+  const accountingCategoryButtonRef = useRef<HTMLButtonElement>(null);
+  const accountingSheetButtonRef = useRef<HTMLButtonElement>(null);
   const [verticalLedgerPicker, setVerticalLedgerPicker] = useState<"category" | "statement" | null>(null);
   const [verticalLedgerManagerOpen, setVerticalLedgerManagerOpen] = useState(false);
   const [verticalCategoryDraft, setVerticalCategoryDraft] = useState("");
@@ -4055,26 +4114,24 @@ ${folderCustomers
 
                     {ledgerDisplayMode === "vertical" && selectedCustomer && (
                       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وكشف الحساب">
-                        <button type="button" onClick={() => setVerticalLedgerPicker("category")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm"><span className="truncate">{activeVerticalCategoryId === "__all__" ? "كل التصنيفات" : currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.name || currentVerticalCategories[0]?.name || "تصنيف 1"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
-                        <button type="button" onClick={() => setVerticalLedgerPicker("statement")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm"><span className="truncate">{visibleVerticalStatements.find(invoice => invoice.id === selectedInvoiceId)?.displayName || visibleVerticalStatements[0]?.displayName || (visibleVerticalStatements.length ? `كشف الحساب ${currentVerticalStatements.findIndex(invoice => invoice.id === visibleVerticalStatements[0].id) + 1}` : "ماكو كشف بهذا التصنيف")}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
+                        <button ref={verticalCategoryButtonRef} type="button" aria-expanded={verticalLedgerPicker === "category"} onClick={() => setVerticalLedgerPicker(current => current === "category" ? null : "category")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm"><span className="truncate">{activeVerticalCategoryId === "__all__" ? "كل التصنيفات" : currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.name || currentVerticalCategories[0]?.name || "تصنيف 1"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
+                        <button ref={verticalStatementButtonRef} type="button" aria-expanded={verticalLedgerPicker === "statement"} onClick={() => setVerticalLedgerPicker(current => current === "statement" ? null : "statement")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm"><span className="truncate">{visibleVerticalStatements.find(invoice => invoice.id === selectedInvoiceId)?.displayName || visibleVerticalStatements[0]?.displayName || (visibleVerticalStatements.length ? `كشف الحساب ${currentVerticalStatements.findIndex(invoice => invoice.id === visibleVerticalStatements[0].id) + 1}` : "ماكو كشف بهذا التصنيف")}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
                         <button type="button" onClick={() => { setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null); setVerticalCategoryFormOpen(false); setVerticalLedgerManagerOpen(true); }} aria-label="إدارة كشوف الحساب" title="إدارة التصنيفات والكشوف" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
                         <button type="button" onClick={createVerticalStatement} className="inline-flex h-10 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>كشف جديد</button>
                       </div>
                     )}
 
                     {verticalLedgerPicker && selectedCustomer && (
-                      <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setVerticalLedgerPicker(null); }}>
-                        <div role="dialog" aria-modal="true" className="flex max-h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><p className="text-xs font-semibold text-slate-400">حساب {accountingEntityName}</p><h3 className="mt-1 text-base font-black text-slate-900">{verticalLedgerPicker === "category" ? "اختر تصنيف كشف الحساب" : "اختر كشف الحساب"}</h3></div><button type="button" onClick={() => setVerticalLedgerPicker(null)} aria-label="إغلاق" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
-                          <div className="space-y-1 overflow-y-auto p-3">
+                      <AccountPickerDropdown anchor={verticalLedgerPicker === "category" ? verticalCategoryButtonRef.current : verticalStatementButtonRef.current}
+                        label={verticalLedgerPicker === "category" ? "اختر تصنيف كشف الحساب" : "اختر كشف الحساب"} onClose={() => setVerticalLedgerPicker(null)}>
+                          <div className="space-y-1">
                             {verticalLedgerPicker === "category" ? [
                               { id: "__all__", name: "كل التصنيفات", count: currentVerticalStatements.length },
                               ...currentVerticalCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentVerticalStatements.filter(invoice => invoice.verticalCategoryId === category.id).length })),
                             ].map(category => <button key={category.id} type="button" aria-pressed={activeVerticalCategoryId === category.id} onClick={() => { setActiveVerticalCategoryId(category.id); const match = currentVerticalStatements.find(invoice => category.id === "__all__" || invoice.verticalCategoryId === category.id); setSelectedInvoiceId(match?.id || null); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${activeVerticalCategoryId === category.id ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex items-center gap-3"><Folder className="h-5 w-5 text-blue-600"/><span className="text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span></button>) : visibleVerticalStatements.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map((invoice, index) => <button key={invoice.id} type="button" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => { setSelectedInvoiceId(invoice.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${invoice.id === selectedInvoiceId ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex min-w-0 items-center gap-3"><BookOpen className="h-5 w-5 shrink-0 text-amber-600"/><span className="truncate text-sm font-bold">{invoice.isPinned ? "📌 " : ""}{invoice.isFavorite ? "⭐ " : ""}{invoice.displayName || `كشف الحساب ${index + 1}`}</span></span><span className="shrink-0 text-xs text-slate-500">{invoice.date}</span></button>)}
                             {verticalLedgerPicker === "statement" && !visibleVerticalStatements.length && <div className="flex flex-col items-center gap-3 py-7 text-center"><p className="text-sm text-slate-500">ماكو كشوف بهذا التصنيف.</p><button type="button" onClick={() => { setVerticalLedgerPicker(null); createVerticalStatement(activeVerticalCategoryId); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>إنشاء كشف حساب</button></div>}
                           </div>
-                        </div>
-                      </div>
+                      </AccountPickerDropdown>
                     )}
 
                     {verticalLedgerManagerOpen && selectedCustomer && (
@@ -4155,7 +4212,7 @@ ${folderCustomers
                     {ledgerDisplayMode === "accounting" && selectedCustomer && (
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
                         {!accountingListManagementEnabled && <span className="text-xs font-black text-slate-600">التصنيف</span>}
-                        {accountingListManagementEnabled ? <button type="button" onClick={() => setSupplierAccountingPicker("category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm">
+                        {accountingListManagementEnabled ? <button ref={accountingCategoryButtonRef} type="button" aria-expanded={supplierAccountingPicker === "category"} onClick={() => setSupplierAccountingPicker(current => current === "category" ? null : "category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm">
                           <span className="truncate">{currentAccountingCategories.find(category => category.id === activeAccountingCategoryId)?.name || currentAccountingCategories[0]?.name || "تصنيف 1"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
                         </button> : <select
                           aria-label="اختيار التصنيف"
@@ -4180,7 +4237,7 @@ ${folderCustomers
 
                         {!accountingListManagementEnabled && <span className="mx-1 hidden h-7 border-r border-blue-200 sm:block" />}
                         {!accountingListManagementEnabled && <span className="text-xs font-black text-slate-600">القائمة الحسابية</span>}
-                        {accountingListManagementEnabled ? <button type="button" onClick={() => setSupplierAccountingPicker("sheet")} aria-label="اختيار القائمة الحسابية" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm">
+                        {accountingListManagementEnabled ? <button ref={accountingSheetButtonRef} type="button" aria-expanded={supplierAccountingPicker === "sheet"} onClick={() => setSupplierAccountingPicker(current => current === "sheet" ? null : "sheet")} aria-label="اختيار القائمة الحسابية" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm">
                           <span className="truncate">{activeAccountingSheet?.name || "اختر قائمة حسابية"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
                         </button> : <select
                           aria-label="اختيار القائمة الحسابية"
@@ -4298,16 +4355,9 @@ ${folderCustomers
                     )}
 
                     {accountingListManagementEnabled && supplierAccountingPicker && (
-                      <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setSupplierAccountingPicker(null); }}>
-                        <div role="dialog" aria-modal="true" aria-labelledby="supplier-accounting-picker-title" className="flex max-h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                            <div>
-                              <p className="text-xs font-semibold text-slate-400">اختيار من حساب {accountingEntityName}</p>
-                              <h3 id="supplier-accounting-picker-title" className="mt-1 text-base font-black text-slate-900">{supplierAccountingPicker === "category" ? "اختر التصنيف" : "اختر القائمة الحسابية"}</h3>
-                            </div>
-                            <button type="button" onClick={() => setSupplierAccountingPicker(null)} aria-label="إغلاق الاختيار" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
-                          </div>
-                          <div className="space-y-1 overflow-y-auto p-3">
+                      <AccountPickerDropdown anchor={supplierAccountingPicker === "category" ? accountingCategoryButtonRef.current : accountingSheetButtonRef.current}
+                        label={supplierAccountingPicker === "category" ? "اختر التصنيف" : "اختر القائمة الحسابية"} onClose={() => setSupplierAccountingPicker(null)}>
+                          <div className="space-y-1">
                             {supplierAccountingPicker === "category" ? [
                               ...currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id).length })),
                             ].map(category => {
@@ -4325,8 +4375,7 @@ ${folderCustomers
                             })}
                             {supplierAccountingPicker === "sheet" && !visibleAccountingSheets.length && <div className="flex flex-col items-center gap-3 py-7 text-center"><p className="text-sm text-slate-500">ماكو قوائم بهذا التصنيف.</p><button type="button" onClick={() => { setSupplierAccountingPicker(null); void createAccountingSheet(); }} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>إنشاء قائمة حسابية</button></div>}
                           </div>
-                        </div>
-                      </div>
+                      </AccountPickerDropdown>
                     )}
 
                     {accountingManagerDialog && (
