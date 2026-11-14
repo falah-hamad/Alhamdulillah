@@ -1002,6 +1002,10 @@ ${folderCustomers
   const deleteAccountingCategory = () => {
     const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
     if (!category) return;
+    if (currentAccountingCategories.length <= 1) {
+      showToast("لا يمكن حذف هذا التصنيف، يجب أن يبقى تصنيف واحد على الأقل.");
+      return;
+    }
     openAccountingManagerDialog("deleteCategory", category.name);
   };
 
@@ -1074,6 +1078,11 @@ ${folderCustomers
     } else if (kind === "deleteCategory") {
       const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
       if (!category) return;
+      if (currentAccountingCategories.length <= 1) {
+        setAccountingManagerDialog(null);
+        showToast("لا يمكن حذف هذا التصنيف، يجب أن يبقى تصنيف واحد على الأقل.");
+        return;
+      }
       const remainingCategories = currentAccountingCategories.filter(item => item.id !== category.id);
       const fallbackCategory = remainingCategories[0] || { id: `accounting-category-${selectedCustomer.id}-default`, ownerAccountId: selectedCustomer.id, name: "تصنيف 1" };
       const nextCategories = remainingCategories.length ? remainingCategories : [fallbackCategory];
@@ -1167,6 +1176,10 @@ ${folderCustomers
   const deleteVerticalCategory = async (categoryId: string) => {
     const category = currentVerticalCategories.find(item => item.id === categoryId);
     if (!category) return;
+    if (currentVerticalCategories.length <= 1) {
+      showToast("لا يمكن حذف هذا التصنيف، يجب أن يبقى تصنيف واحد على الأقل.");
+      return;
+    }
     const remainingCategories = currentVerticalCategories.filter(item => item.id !== categoryId);
     const fallbackCategory = remainingCategories[0] || { id: `vertical-category-${selectedCustomer?.id || "default"}-default`, ownerAccountId: selectedCustomer?.id, name: "تصنيف 1" };
     const nextCategories = remainingCategories.length ? remainingCategories : [fallbackCategory];
@@ -2303,6 +2316,7 @@ ${folderCustomers
         invoiceNumber: newInvNumber,
         date: newInvDate,
         dueDate: newInvDueDate || undefined,
+        verticalCategoryId: currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.id || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer.id}-default`,
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
         customerPhone: selectedCustomer.phone,
