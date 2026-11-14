@@ -2426,9 +2426,11 @@ ${folderCustomers
   const currentInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
 
   useEffect(() => {
-    if (selectedCustomer && currentInvoice?.verticalCategoryId) setActiveVerticalCategoryId(currentInvoice.verticalCategoryId);
-    else setActiveVerticalCategoryId("__uncategorized__");
-  }, [selectedCustomer?.id, selectedInvoiceId]);
+    // Keep an intentionally empty category selected when its statement is cleared.
+    if (selectedCustomer && currentInvoice?.customerId === selectedCustomer.id && currentInvoice.verticalCategoryId) {
+      setActiveVerticalCategoryId(currentInvoice.verticalCategoryId);
+    }
+  }, [selectedCustomer?.id, selectedInvoiceId, currentInvoice?.customerId, currentInvoice?.verticalCategoryId]);
 
   const selectedCartProducts = products.filter(
     (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
@@ -3913,7 +3915,7 @@ ${folderCustomers
 
           {/* Digital Traditional Paper Ledger Book View */}
           <div className="w-full">
-            {!selectedInvoiceId ? (
+            {!selectedCustomer ? (
                 <div className="bg-white p-12 rounded-xl border border-slate-100 text-center text-slate-400 text-xs shadow-sm h-full flex flex-col items-center justify-center gap-4">
                   <BookOpen className="w-12 h-12 text-slate-300" />
                   <div className="space-y-1 text-center">
@@ -3956,7 +3958,7 @@ ${folderCustomers
                   )}
                 </div>
               ) : (
-                currentInvoice && (
+                selectedCustomer && (
                   <div className="space-y-4">
                     {/* View Mode Switcher */}
                     <div className={`${accountingListManagementEnabled ? "flex items-stretch" : "flex flex-wrap items-center justify-between"} gap-3 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm no-print`}>
@@ -4028,7 +4030,7 @@ ${folderCustomers
                                 <FileText className="w-3.5 h-3.5 text-blue-600" />
                                 <span>القائمة:</span>
                                 <select
-                                  value={currentInvoice.id}
+                                  value={currentInvoice?.id || ""}
                                   onChange={(e) => setSelectedInvoiceId(e.target.value)}
                                   className="bg-white border border-slate-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-slate-800 focus:outline-none cursor-pointer"
                                 >
@@ -4601,7 +4603,7 @@ ${folderCustomers
                         <p className="text-sm font-bold text-slate-700">ماكو قوائم حسابية بهذا التصنيف.</p>
                         <button type="button" onClick={() => void createAccountingSheet()} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/> إنشاء قائمة حسابية</button>
                       </div>
-                    )) : ledgerDisplayMode === "vertical" ? (
+                    )) : ledgerDisplayMode === "vertical" ? currentInvoice ? (
                       <VerticalLedgerSheet
                         isSupplierLedger={accountEntityLabel === "المورد"}
                         productUnits={products.filter(product => !product.isDeleted).map(product => product.unitName || "قطعة")}
@@ -4618,6 +4620,13 @@ ${folderCustomers
                         onClearCustomerChangeLogs={clearCustomerChangeLogs}
                         onRevertChangeLog={revertChangeLogAction}
                       />
+                    ) : (
+                      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm" dir="rtl">
+                        <BookOpen className="h-9 w-9 text-blue-500"/>
+                        <p className="text-sm font-bold text-slate-700">ماكو كشف حساب بهذا التصنيف.</p>
+                        <p className="text-xs text-slate-400">اختَر تصنيفاً آخر أو أنشئ كشفاً داخل التصنيف الحالي.</p>
+                        <button type="button" onClick={() => createVerticalStatement(activeVerticalCategoryId)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>إنشاء كشف حساب</button>
+                      </div>
                     ) : (
                       <div className="space-y-4">
                         {/* Action buttons above the ledger */}
