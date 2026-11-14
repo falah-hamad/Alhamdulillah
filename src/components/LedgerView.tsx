@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -802,8 +802,11 @@ ${folderCustomers
     (!category.ownerAccountId || category.ownerAccountId === selectedCustomer?.id) &&
     (!category.id.startsWith("vertical-category-") || category.id.startsWith(`vertical-category-${selectedCustomer?.id}-`))
   );
+  const defaultVerticalCategoryId = currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomerId}-default`;
   const currentVerticalStatements = selectedCustomer ? invoices.filter(invoice => !invoice.isDeleted && invoice.customerId === selectedCustomer.id) : [];
-  const visibleVerticalStatements = currentVerticalStatements.filter(invoice => activeVerticalCategoryId === "__all__" || (activeVerticalCategoryId === "__uncategorized__" ? !invoice.verticalCategoryId : invoice.verticalCategoryId === activeVerticalCategoryId));
+  const getVerticalCategoryId = (invoice: Invoice) => invoice.verticalCategoryId && currentVerticalCategories.some(category => category.id === invoice.verticalCategoryId)
+    ? invoice.verticalCategoryId : defaultVerticalCategoryId;
+  const visibleVerticalStatements = currentVerticalStatements.filter(invoice => activeVerticalCategoryId === "__all__" || (activeVerticalCategoryId === "__uncategorized__" ? !getVerticalCategoryId(invoice) : getVerticalCategoryId(invoice) === activeVerticalCategoryId));
   const verticalActionCategoryId = verticalLedgerActionMenu?.startsWith("category:") ? verticalLedgerActionMenu.slice("category:".length) : "";
   const verticalActionStatementId = verticalLedgerActionMenu?.startsWith("statement:") ? verticalLedgerActionMenu.slice("statement:".length) : "";
   const verticalActionCategory = currentVerticalCategories.find(category => category.id === verticalActionCategoryId);
@@ -815,7 +818,8 @@ ${folderCustomers
   const accountingOriginalRowsRef = useRef<AccountingSheetRow[]>(activeAccountingSheet?.rows || []);
   let saveAccountingRows: () => Promise<boolean> = async () => true;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Resolve customer-owned selection and rows before the first visible frame.
     // The account manager and its selected category/list belong to one customer.
     // Clear transient UI selection when moving to a different customer.
     setSupplierAccountingManagerOpen(false);
@@ -840,7 +844,7 @@ ${folderCustomers
       setAccountingDraftRows([]);
       return;
     }
-    const sheets = getCustomerAccountingSheets(selectedCustomer);
+    const sheets = currentAccountingSheets;
     const chosen = sheets.find(sheet => sheet.id === selectedCustomer.activeAccountingSheetId) || sheets[0];
     setAccountingSheetSelectionReady(true);
     setActiveAccountingSheetId(chosen?.id || "");
@@ -852,9 +856,9 @@ ${folderCustomers
     setEditingAccountingRowId(null);
   }, [selectedCustomer?.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selectedCustomer || !activeAccountingSheetId) return;
-    const chosen = getCustomerAccountingSheets(selectedCustomer).find(sheet => sheet.id === activeAccountingSheetId);
+    const chosen = currentAccountingSheets.find(sheet => sheet.id === activeAccountingSheetId);
     if (!chosen) return;
     accountingOriginalRowsRef.current = chosen.rows;
     setAccountingDraftRows(chosen.rows);
@@ -1470,13 +1474,13 @@ ${folderCustomers
 
   // Keep the selected statement inside the active category. A category with
   // no statements intentionally stays empty so its create action can be shown.
-  React.useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedCustomerId && selectedCustomer) {
       const custInvs = invoices.filter((inv) => inv.customerId === selectedCustomerId && !inv.isDeleted);
       if (custInvs.length > 0) {
         const isCategoryScoped = ledgerDisplayMode === "vertical" && activeVerticalCategoryId !== "__all__";
         const scopedInvoices = isCategoryScoped
-          ? custInvs.filter(invoice => activeVerticalCategoryId === "__uncategorized__" ? !invoice.verticalCategoryId : invoice.verticalCategoryId === activeVerticalCategoryId)
+          ? custInvs.filter(invoice => activeVerticalCategoryId === "__uncategorized__" ? !getVerticalCategoryId(invoice) : getVerticalCategoryId(invoice) === activeVerticalCategoryId)
           : custInvs;
         if (scopedInvoices.length > 0) {
           if (!selectedInvoiceId || !scopedInvoices.some((inv) => inv.id === selectedInvoiceId)) setSelectedInvoiceId(scopedInvoices[0].id);
@@ -2425,7 +2429,7 @@ ${folderCustomers
   // Specific invoice details view
   const currentInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Keep an intentionally empty category selected when its statement is cleared.
     if (selectedCustomer && currentInvoice?.customerId === selectedCustomer.id && currentInvoice.verticalCategoryId) {
       setActiveVerticalCategoryId(currentInvoice.verticalCategoryId);
