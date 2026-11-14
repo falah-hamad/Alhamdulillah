@@ -1029,7 +1029,31 @@ export function useAccountingData() {
 
   // Supplier directory and each supplier's purchase/payment account.
   const addSupplier = (supplier: Omit<Supplier, "id" | "createdAt" | "transactions">): Supplier => {
-    const nextSupplier: Supplier = { ...supplier, id: createUniqueRecordId("supplier"), userId: currentUser?.uid, createdAt: new Date().toISOString(), transactions: [] };
+    const id = createUniqueRecordId("supplier");
+    const createdAt = new Date().toISOString();
+    const accountingCategory: AccountingSheetCategory = { id: `accounting-category-${id}-default`, ownerAccountId: id, name: "تصنيف 1" };
+    const verticalCategory: AccountingSheetCategory = { id: `vertical-category-${id}-default`, ownerAccountId: id, name: "تصنيف 1" };
+    const accountingCategories = supplier.accountingSheetCategories?.length ? supplier.accountingSheetCategories : [accountingCategory];
+    const verticalCategories = supplier.verticalLedgerCategories?.length ? supplier.verticalLedgerCategories : [verticalCategory];
+    const accountingSheets = supplier.accountingSheets?.length ? supplier.accountingSheets : [{
+      id: `accounting-sheet-${id}-default`, ownerAccountId: id, name: "القائمة الحسابية 1",
+      categoryId: accountingCategories[0]?.id || accountingCategory.id, rows: [], createdAt,
+    }];
+    const ledgerInvoices = supplier.ledgerInvoices?.length ? supplier.ledgerInvoices : [{
+      id: `supplier-ledger-${id}-default`, invoiceNumber: `SUP-${Date.now().toString().slice(-6)}`,
+      displayName: "كشف الحساب 1", verticalCategoryId: verticalCategories[0]?.id || verticalCategory.id,
+      date: createdAt.slice(0, 10), customerId: id, customerName: supplier.name,
+      customerPhone: supplier.phone || "", customerAddress: supplier.address || "", items: [],
+      grandTotal: 0, paidAmount: 0, remainingAmount: 0, notes: "", employeeName: "المحاسب",
+      signature: "", createdAt, userId: currentUser?.uid,
+    }];
+    const nextSupplier: Supplier = {
+      ...supplier, id, userId: currentUser?.uid, createdAt, transactions: [],
+      accountingSheetCategories: accountingCategories, verticalLedgerCategories: verticalCategories,
+      accountingSheets, accountingSheetRows: accountingSheets.flatMap(sheet => Array.isArray(sheet.rows) ? sheet.rows : []),
+      activeAccountingSheetId: supplier.activeAccountingSheetId || accountingSheets[0]?.id,
+      ledgerInvoices,
+    };
     latestState.current.suppliers = [nextSupplier, ...latestState.current.suppliers];
     setSuppliers((prev) => {
       const next = [nextSupplier, ...prev];

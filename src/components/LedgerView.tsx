@@ -821,7 +821,7 @@ ${folderCustomers
     setSupplierAccountingManagerOpen(false);
     setSupplierAccountingActionMenu(null);
     setSupplierAccountingPicker(null);
-    setExpandedSupplierAccountingCategories(["__uncategorized__"]);
+    setExpandedSupplierAccountingCategories([currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomerId}-default`]);
     setAccountingCategoryMenuOpen(false);
     setAccountingSheetMenuOpen(false);
     setVerticalLedgerPicker(null);
@@ -832,8 +832,8 @@ ${folderCustomers
     setVerticalCategoryFormOpen(false);
     setVerticalCategoryDraft("");
     setVerticalCategoryEditingId(null);
-    setVerticalLedgerExpandedCategories(["__uncategorized__"]);
-    setActiveVerticalCategoryId("__uncategorized__");
+    setVerticalLedgerExpandedCategories([currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomerId}-default`]);
+    setActiveVerticalCategoryId(currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomerId}-default`);
     if (!selectedCustomer) {
       setAccountingSheetSelectionReady(false);
       accountingOriginalRowsRef.current = [];
@@ -844,7 +844,7 @@ ${folderCustomers
     const chosen = sheets.find(sheet => sheet.id === selectedCustomer.activeAccountingSheetId) || sheets[0];
     setAccountingSheetSelectionReady(true);
     setActiveAccountingSheetId(chosen?.id || "");
-    setActiveAccountingCategoryId(chosen?.categoryId || "__uncategorized__");
+    setActiveAccountingCategoryId(chosen?.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`);
     accountingOriginalRowsRef.current = chosen?.rows || [];
     setAccountingDraftRows(accountingOriginalRowsRef.current);
     setAccountingRowsDirty(false);
@@ -864,7 +864,7 @@ ${folderCustomers
   useEffect(() => {
     // Move each pre-feature customer's existing default account records into
     // one default category, without replacing or duplicating their records.
-    if (accountEntityLabel === "المورد" || !selectedCustomer || !updateCustomer || isCloudSyncing) return;
+    if (!selectedCustomer || !updateCustomer || isCloudSyncing) return;
     const customerId = selectedCustomer.id;
     if (legacyCategoryMigrationInFlightRef.current.has(customerId)) return;
 
@@ -874,17 +874,17 @@ ${folderCustomers
     const verticalCategories = currentVerticalCategories.length
       ? currentVerticalCategories
       : [{ id: `vertical-category-${customerId}-default`, ownerAccountId: customerId, name: "تصنيف 1" }];
-    const shouldAttachAccountingSheets = currentAccountingCategories.length === 0 || (currentAccountingCategories.length === 1 && currentAccountingCategories[0].name === "تصنيف 1");
-    const shouldAttachVerticalStatements = currentVerticalCategories.length === 0 || (currentVerticalCategories.length === 1 && currentVerticalCategories[0].name === "تصنيف 1");
+    const shouldAttachAccountingSheets = true;
+    const shouldAttachVerticalStatements = true;
     const targetAccountingCategoryId = accountingCategories[0].id;
     const targetVerticalCategoryId = verticalCategories[0].id;
     const nextSheets = currentAccountingSheets.map(sheet => ({
       ...sheet,
       ownerAccountId: customerId,
-      ...(shouldAttachAccountingSheets && !sheet.categoryId ? { categoryId: targetAccountingCategoryId } : {}),
+      ...(shouldAttachAccountingSheets && (!sheet.categoryId || !accountingCategories.some(category => category.id === sheet.categoryId)) ? { categoryId: targetAccountingCategoryId } : {}),
     }));
     const nextInvoices = shouldAttachVerticalStatements
-      ? currentVerticalStatements.filter(statement => !statement.verticalCategoryId)
+      ? currentVerticalStatements.filter(statement => !statement.verticalCategoryId || !verticalCategories.some(category => category.id === statement.verticalCategoryId))
       : [];
     const accountingNeedsSave = !Array.isArray(selectedCustomer.accountingSheetCategories)
       || selectedCustomer.accountingSheetCategories.length === 0
@@ -922,7 +922,7 @@ ${folderCustomers
         legacyCategoryMigrationInFlightRef.current.delete(customerId);
       }
     })();
-  }, [accountEntityLabel, selectedCustomer?.id, selectedCustomer?.accountingSheets, selectedCustomer?.accountingSheetCategories, selectedCustomer?.verticalLedgerCategories, invoices, updateCustomer, updateInvoice, isCloudSyncing]);
+  }, [selectedCustomer?.id, selectedCustomer?.accountingSheets, selectedCustomer?.accountingSheetCategories, selectedCustomer?.verticalLedgerCategories, invoices, updateCustomer, updateInvoice, isCloudSyncing]);
 
   const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
     if (!selectedCustomer || !updateCustomer) {
@@ -980,7 +980,7 @@ ${folderCustomers
     setAccountingCategoryMenuOpen(false);
     setAccountingSheetMenuOpen(false);
     setSupplierAccountingManagerOpen(false);
-    setAccountingManagerDialog({ kind, value, targetCategoryId: "__uncategorized__" });
+      setAccountingManagerDialog({ kind, value, targetCategoryId: currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer?.id || "default"}-default` });
   };
 
   const createAccountingCategory = () => openAccountingManagerDialog("createCategory");
@@ -1036,13 +1036,14 @@ ${folderCustomers
       id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
       ownerAccountId: selectedCustomer.id,
       name: `نسخة من ${activeAccountingSheet.name}`,
+      categoryId: activeAccountingSheet.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`,
       createdAt: new Date().toISOString(),
       isPinned: false,
       isFavorite: false,
       rows: accountingRowsDirty ? accountingDraftRows : activeAccountingSheet.rows,
     };
     copy.rows = copy.rows.map((row, index) => ({ ...row, id: `${copy.id}-row-${index + 1}-${Date.now()}` }));
-    await persistAccountingCollections([...currentAccountingSheets, copy], currentAccountingCategories, copy.id, copy.categoryId || "__uncategorized__");
+    await persistAccountingCollections([...currentAccountingSheets, copy], currentAccountingCategories, copy.id, copy.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`);
     setAccountingSheetMenuOpen(false);
     setAccountingSelectedRow(0);
     showToast("تم نسخ القائمة دون نسخ التسديدات.");
@@ -1073,19 +1074,22 @@ ${folderCustomers
     } else if (kind === "deleteCategory") {
       const category = currentAccountingCategories.find(item => item.id === activeAccountingCategoryId);
       if (!category) return;
-      const sheets = currentAccountingSheets.map(sheet => sheet.categoryId === category.id ? { ...sheet, categoryId: undefined } : sheet);
-      await persistAccountingCollections(sheets, currentAccountingCategories.filter(item => item.id !== category.id), activeAccountingSheetId, "__uncategorized__");
-      showToast("حُذف التصنيف وبقيت قوائمه محفوظة.");
+      const remainingCategories = currentAccountingCategories.filter(item => item.id !== category.id);
+      const fallbackCategory = remainingCategories[0] || { id: `accounting-category-${selectedCustomer.id}-default`, ownerAccountId: selectedCustomer.id, name: "تصنيف 1" };
+      const nextCategories = remainingCategories.length ? remainingCategories : [fallbackCategory];
+      const sheets = currentAccountingSheets.map(sheet => sheet.categoryId === category.id || !sheet.categoryId ? { ...sheet, categoryId: fallbackCategory.id } : sheet);
+      await persistAccountingCollections(sheets, nextCategories, activeAccountingSheetId, activeAccountingCategoryId === category.id ? fallbackCategory.id : activeAccountingCategoryId);
+      showToast("حُذف التصنيف ونُقلت قوائمه إلى التصنيف المتبقي.");
     } else if (kind === "createSheet") {
       const sheet: AccountingSheet = {
         id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
         ownerAccountId: selectedCustomer.id,
         name,
-        categoryId: activeAccountingCategoryId && activeAccountingCategoryId !== "__uncategorized__" ? activeAccountingCategoryId : undefined,
+        categoryId: currentAccountingCategories.some(category => category.id === activeAccountingCategoryId) ? activeAccountingCategoryId : currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`,
         rows: [],
         createdAt: new Date().toISOString(),
       };
-      await persistAccountingCollections([...currentAccountingSheets, sheet], currentAccountingCategories, sheet.id, sheet.categoryId || "__uncategorized__");
+      await persistAccountingCollections([...currentAccountingSheets, sheet], currentAccountingCategories, sheet.id, sheet.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`);
       setAccountingSelectedRow(0);
       showToast("تم إنشاء القائمة الحسابية الجديدة.");
     } else if (kind === "renameSheet") {
@@ -1095,9 +1099,9 @@ ${folderCustomers
       showToast("تمت إعادة تسمية القائمة.");
     } else if (kind === "moveSheet") {
       if (!activeAccountingSheet) return;
-      const categoryId = accountingManagerDialog.targetCategoryId === "__uncategorized__" ? undefined : accountingManagerDialog.targetCategoryId;
+      const categoryId = accountingManagerDialog.targetCategoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`;
       const sheets = currentAccountingSheets.map(sheet => sheet.id === activeAccountingSheet.id ? { ...sheet, categoryId } : sheet);
-      await persistAccountingCollections(sheets, currentAccountingCategories, activeAccountingSheet.id, categoryId || "__uncategorized__");
+      await persistAccountingCollections(sheets, currentAccountingCategories, activeAccountingSheet.id, categoryId);
       showToast("تم نقل القائمة إلى التصنيف.");
     } else if (kind === "deleteSheet") {
       if (!activeAccountingSheet) return;
@@ -1105,11 +1109,12 @@ ${folderCustomers
     if (!nextSheets.length) nextSheets = [{
       id: `accounting-sheet-${selectedCustomer.id}-${Date.now()}`,
       name: "القائمة الحسابية 1",
+      categoryId: currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`,
       rows: [],
       createdAt: new Date().toISOString(),
     }];
     const nextActive = nextSheets.find(sheet => sheet.categoryId === activeAccountingCategoryId) || nextSheets[0];
-    await persistAccountingCollections(nextSheets, currentAccountingCategories, nextActive.id, nextActive.categoryId || "__uncategorized__");
+    await persistAccountingCollections(nextSheets, currentAccountingCategories, nextActive.id, nextActive.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`);
     setAccountingSelectedRow(0);
     showToast("تم حذف القائمة.");
     }
@@ -1117,16 +1122,17 @@ ${folderCustomers
   };
 
   const chooseAccountingCategory = async (categoryId: string) => {
+    const resolvedCategoryId = categoryId === "__uncategorized__" ? currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer?.id || "default"}-default` : categoryId;
     const nextSheet = currentAccountingSheets
-      .filter(sheet => !categoryId || (categoryId === "__uncategorized__" ? !sheet.categoryId : sheet.categoryId === categoryId))
+      .filter(sheet => !resolvedCategoryId || sheet.categoryId === resolvedCategoryId)
       .sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite)))[0];
-    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, nextSheet?.id || "", categoryId);
+    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, nextSheet?.id || "", resolvedCategoryId);
   };
 
   const chooseAccountingSheet = async (sheetId: string) => {
     if (!sheetId) return;
     const nextSheet = currentAccountingSheets.find(sheet => sheet.id === sheetId);
-    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, sheetId, nextSheet?.categoryId || "__uncategorized__");
+    await persistAccountingCollections(currentAccountingSheets, currentAccountingCategories, sheetId, nextSheet?.categoryId || currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer?.id || "default"}-default`);
     setAccountingSheetMenuOpen(false);
   };
 
@@ -1161,27 +1167,34 @@ ${folderCustomers
   const deleteVerticalCategory = async (categoryId: string) => {
     const category = currentVerticalCategories.find(item => item.id === categoryId);
     if (!category) return;
-    await persistVerticalCategories(currentVerticalCategories.filter(item => item.id !== categoryId));
+    const remainingCategories = currentVerticalCategories.filter(item => item.id !== categoryId);
+    const fallbackCategory = remainingCategories[0] || { id: `vertical-category-${selectedCustomer?.id || "default"}-default`, ownerAccountId: selectedCustomer?.id, name: "تصنيف 1" };
+    const nextCategories = remainingCategories.length ? remainingCategories : [fallbackCategory];
+    await persistVerticalCategories(nextCategories);
     for (const invoice of currentVerticalStatements.filter(item => item.verticalCategoryId === categoryId)) {
-      await Promise.resolve(updateInvoice({ ...invoice, verticalCategoryId: undefined }));
+      await Promise.resolve(updateInvoice({ ...invoice, verticalCategoryId: fallbackCategory.id }));
     }
-    if (activeVerticalCategoryId === categoryId) setActiveVerticalCategoryId("__uncategorized__");
-    showToast("حُذف التصنيف وبقيت كشوفه ضمن بلا تصنيف.");
+    if (activeVerticalCategoryId === categoryId) setActiveVerticalCategoryId(fallbackCategory.id);
+    showToast("حُذف التصنيف ونُقلت كشوفه إلى التصنيف المتبقي.");
   };
 
   const moveVerticalStatement = async (statementId: string, categoryId: string) => {
     const current = invoices.find(invoice => invoice.id === statementId);
     if (!current) return;
-    const verticalCategoryId = categoryId === "__uncategorized__" ? undefined : categoryId;
+    const verticalCategoryId = categoryId === "__uncategorized__" || categoryId === "__all__"
+      ? currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer?.id || "default"}-default`
+      : categoryId;
     await Promise.resolve(updateInvoice({ ...current, verticalCategoryId }));
-    setActiveVerticalCategoryId(categoryId);
+    setActiveVerticalCategoryId(verticalCategoryId);
     showToast("تم نقل الكشف إلى التصنيف.");
   };
 
   const createVerticalStatement = (categoryOverride?: string, keepManagerOpen = false) => {
     if (!selectedCustomer) return;
     const selectedCategoryId = categoryOverride || activeVerticalCategoryId;
-    const categoryId = selectedCategoryId === "__uncategorized__" || selectedCategoryId === "__all__" ? undefined : selectedCategoryId;
+    const categoryId = selectedCategoryId === "__uncategorized__" || selectedCategoryId === "__all__"
+      ? currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer.id}-default`
+      : selectedCategoryId;
     const nextNumber = currentVerticalStatements.length + 1;
     const created = addInvoice({
       invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
@@ -1193,7 +1206,7 @@ ${folderCustomers
       remainingAmount: 0, notes: "", employeeName: "المحاسب", signature: "",
     });
     setSelectedInvoiceId(created.id);
-    setActiveVerticalCategoryId(categoryId || "__uncategorized__");
+    setActiveVerticalCategoryId(categoryId);
     if (!keepManagerOpen) setVerticalLedgerManagerOpen(false);
     showToast("تم إنشاء كشف حساب جديد.");
   };
@@ -1203,7 +1216,7 @@ ${folderCustomers
     if (!current) return;
     const copy = addInvoice({ ...current, invoiceNumber: `INV-${Date.now().toString().slice(-6)}`, displayName: `${current.displayName || current.invoiceNumber || "كشف الحساب"} - نسخة`, items: current.items.map(item => ({ ...item, id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` })) });
     setSelectedInvoiceId(copy.id);
-    setActiveVerticalCategoryId(copy.verticalCategoryId || "__uncategorized__");
+    setActiveVerticalCategoryId(copy.verticalCategoryId || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer?.id || "default"}-default`);
     showToast("تم نسخ الكشف.");
   };
 
@@ -1226,9 +1239,10 @@ ${folderCustomers
   const confirmDeleteVerticalStatement = () => {
     const current = invoices.find(invoice => invoice.id === verticalDeleteConfirmId);
     if (!current) return;
-    const next = currentVerticalStatements.find(invoice => invoice.id !== current.id && (invoice.verticalCategoryId || "__uncategorized__") === (current.verticalCategoryId || "__uncategorized__")) || currentVerticalStatements.find(invoice => invoice.id !== current.id);
+    const currentCategoryId = current.verticalCategoryId || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer?.id || "default"}-default`;
+    const next = currentVerticalStatements.find(invoice => invoice.id !== current.id && (invoice.verticalCategoryId || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer?.id || "default"}-default`) === currentCategoryId) || currentVerticalStatements.find(invoice => invoice.id !== current.id);
     deleteInvoice(current.id);
-    if (next) { setSelectedInvoiceId(next.id); setActiveVerticalCategoryId(next.verticalCategoryId || "__uncategorized__"); }
+    if (next) { setSelectedInvoiceId(next.id); setActiveVerticalCategoryId(next.verticalCategoryId || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer?.id || "default"}-default`); }
     setVerticalDeleteConfirmId(null);
     showToast("تم حذف الكشف.");
   };
@@ -4008,7 +4022,7 @@ ${folderCustomers
 
                     {ledgerDisplayMode === "vertical" && selectedCustomer && (
                       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وكشف الحساب">
-                        <button type="button" onClick={() => setVerticalLedgerPicker("category")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm"><span className="truncate">{activeVerticalCategoryId === "__all__" ? "كل التصنيفات" : currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.name || "بلا تصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
+                        <button type="button" onClick={() => setVerticalLedgerPicker("category")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm"><span className="truncate">{activeVerticalCategoryId === "__all__" ? "كل التصنيفات" : currentVerticalCategories.find(category => category.id === activeVerticalCategoryId)?.name || currentVerticalCategories[0]?.name || "تصنيف 1"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
                         <button type="button" onClick={() => setVerticalLedgerPicker("statement")} className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-right text-sm font-bold text-amber-950 shadow-sm"><span className="truncate">{currentInvoice?.displayName || `كشف الحساب ${Math.max(1, currentVerticalStatements.findIndex(invoice => invoice.id === currentInvoice?.id) + 1)}`}</span><ChevronDown className="h-4 w-4 shrink-0"/></button>
                         <button type="button" onClick={() => { setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null); setVerticalCategoryFormOpen(false); setVerticalLedgerManagerOpen(true); }} aria-label="إدارة كشوف الحساب" title="إدارة التصنيفات والكشوف" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
                         <button type="button" onClick={createVerticalStatement} className="inline-flex h-10 items-center gap-1 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700"><Plus className="h-4 w-4"/>كشف جديد</button>
@@ -4021,10 +4035,9 @@ ${folderCustomers
                           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><p className="text-xs font-semibold text-slate-400">حساب {accountingEntityName}</p><h3 className="mt-1 text-base font-black text-slate-900">{verticalLedgerPicker === "category" ? "اختر تصنيف كشف الحساب" : "اختر كشف الحساب"}</h3></div><button type="button" onClick={() => setVerticalLedgerPicker(null)} aria-label="إغلاق" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
                           <div className="space-y-1 overflow-y-auto p-3">
                             {verticalLedgerPicker === "category" ? [
-                              { id: "__uncategorized__", name: "بلا تصنيف", count: currentVerticalStatements.filter(invoice => !invoice.verticalCategoryId).length },
                               { id: "__all__", name: "كل التصنيفات", count: currentVerticalStatements.length },
                               ...currentVerticalCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentVerticalStatements.filter(invoice => invoice.verticalCategoryId === category.id).length })),
-                            ].map(category => <button key={category.id} type="button" aria-pressed={activeVerticalCategoryId === category.id} onClick={() => { setActiveVerticalCategoryId(category.id); const match = currentVerticalStatements.find(invoice => category.id === "__all__" || (category.id === "__uncategorized__" ? !invoice.verticalCategoryId : invoice.verticalCategoryId === category.id)); if (match) setSelectedInvoiceId(match.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${activeVerticalCategoryId === category.id ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex items-center gap-3"><Folder className="h-5 w-5 text-blue-600"/><span className="text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span></button>) : visibleVerticalStatements.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map((invoice, index) => <button key={invoice.id} type="button" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => { setSelectedInvoiceId(invoice.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${invoice.id === selectedInvoiceId ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex min-w-0 items-center gap-3"><BookOpen className="h-5 w-5 shrink-0 text-amber-600"/><span className="truncate text-sm font-bold">{invoice.isPinned ? "📌 " : ""}{invoice.isFavorite ? "⭐ " : ""}{invoice.displayName || `كشف الحساب ${index + 1}`}</span></span><span className="shrink-0 text-xs text-slate-500">{invoice.date}</span></button>)}
+                            ].map(category => <button key={category.id} type="button" aria-pressed={activeVerticalCategoryId === category.id} onClick={() => { setActiveVerticalCategoryId(category.id); const match = currentVerticalStatements.find(invoice => category.id === "__all__" || invoice.verticalCategoryId === category.id); if (match) setSelectedInvoiceId(match.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${activeVerticalCategoryId === category.id ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex items-center gap-3"><Folder className="h-5 w-5 text-blue-600"/><span className="text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span></button>) : visibleVerticalStatements.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map((invoice, index) => <button key={invoice.id} type="button" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => { setSelectedInvoiceId(invoice.id); setVerticalLedgerPicker(null); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right ${invoice.id === selectedInvoiceId ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}><span className="flex min-w-0 items-center gap-3"><BookOpen className="h-5 w-5 shrink-0 text-amber-600"/><span className="truncate text-sm font-bold">{invoice.isPinned ? "📌 " : ""}{invoice.isFavorite ? "⭐ " : ""}{invoice.displayName || `كشف الحساب ${index + 1}`}</span></span><span className="shrink-0 text-xs text-slate-500">{invoice.date}</span></button>)}
                             {verticalLedgerPicker === "statement" && !visibleVerticalStatements.length && <p className="py-8 text-center text-sm text-slate-500">ماكو كشوف بهذا التصنيف.</p>}
                           </div>
                         </div>
@@ -4047,13 +4060,13 @@ ${folderCustomers
                             </section>
                             <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2"><span className="text-sm font-black text-slate-800">تصنيفات {accountingEntityName} وكشوفه</span><button type="button" onClick={() => { setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null); setVerticalCategoryFormOpen(true); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>تصنيف جديد</button></div>
                             {verticalCategoryFormOpen && <div className="flex gap-2 rounded-xl border border-blue-100 bg-white p-2"><input autoFocus value={verticalCategoryDraft} onChange={event => setVerticalCategoryDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void saveVerticalCategory(); }} placeholder="اسم التصنيف" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"/><button type="button" onClick={() => void saveVerticalCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{verticalCategoryEditingId ? "حفظ" : "إضافة"}</button><button type="button" onClick={() => { setVerticalCategoryDraft(""); setVerticalCategoryEditingId(null); setVerticalCategoryFormOpen(false); }} className="rounded-lg border px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button></div>}
-                            {[{ id: "__uncategorized__", name: "بلا تصنيف", category: undefined, statements: currentVerticalStatements.filter(statement => !statement.verticalCategoryId) }, ...currentVerticalCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ id: category.id, name: category.name, category, statements: currentVerticalStatements.filter(statement => statement.verticalCategoryId === category.id) }))].map(group => {
+                            {currentVerticalCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ id: category.id, name: category.name, category, statements: currentVerticalStatements.filter(statement => statement.verticalCategoryId === category.id) })).map(group => {
                               const expanded = verticalLedgerExpandedCategories.includes(group.id);
                               const categoryMenuKey = `category:${group.id}`;
                               const isRealCategory = Boolean(group.category);
                               return <section key={group.id} className={`overflow-visible rounded-xl border-2 ${activeVerticalCategoryId === group.id ? "border-blue-300 bg-white" : "border-slate-200 bg-white"}`}>
                                 <div className="flex items-center gap-1.5 rounded-t-[10px] border-b border-blue-200 bg-blue-100/70 px-2 py-1">
-                                  <button type="button" onClick={() => { setVerticalLedgerExpandedCategories(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id]); setActiveVerticalCategoryId(group.id); const match = currentVerticalStatements.find(statement => group.id === "__uncategorized__" ? !statement.verticalCategoryId : statement.verticalCategoryId === group.id); if (match) setSelectedInvoiceId(match.id); }} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-right hover:bg-slate-50">
+                                  <button type="button" onClick={() => { setVerticalLedgerExpandedCategories(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id]); setActiveVerticalCategoryId(group.id); const match = currentVerticalStatements.find(statement => statement.verticalCategoryId === group.id); if (match) setSelectedInvoiceId(match.id); }} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-right hover:bg-slate-50">
                                     <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}/><span className="inline-flex max-w-[75%] truncate rounded-md border border-blue-300/80 bg-white/70 px-2.5 py-1 text-base font-black text-blue-950 shadow-sm">{group.category?.isPinned ? "📌 " : ""}{group.category?.isFavorite ? "⭐ " : ""}{group.name}</span><span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{group.statements.length}</span>
                                   </button>
                                   <button type="button" onClick={event => { event.stopPropagation(); setActiveVerticalCategoryId(group.id); setVerticalLedgerActionMenu(current => current === categoryMenuKey ? null : categoryMenuKey); }} aria-label={`إجراءات التصنيف ${group.name}`} title="إجراءات التصنيف" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"><MoreVertical className="h-5 w-5"/></button>
@@ -4079,9 +4092,9 @@ ${folderCustomers
                     {verticalLedgerManagerOpen && verticalLedgerActionMenu && (
                       <div className="fixed inset-0 z-[183] flex items-center justify-center bg-slate-950/45 p-4" dir="rtl" onMouseDown={event => { if (event.target === event.currentTarget) setVerticalLedgerActionMenu(null); }}>
                         <div role="dialog" aria-modal="true" aria-labelledby="vertical-ledger-actions-title" className="max-h-[86dvh] w-full max-w-xl overflow-y-auto rounded-[26px] border border-slate-200 bg-white px-5 py-4 shadow-2xl sm:px-7">
-                          <div className="mb-1 flex items-start justify-between gap-3 border-b border-slate-100 pb-3"><div className="min-w-0"><p id="vertical-ledger-actions-title" className="text-xs font-semibold text-slate-400">{verticalActionCategory || verticalActionCategoryId === "__uncategorized__" ? "خيارات التصنيف" : "خيارات كشف الحساب"}</p><h3 className="mt-1 truncate text-base font-black text-slate-900">{verticalActionCategory?.name || (verticalActionCategoryId === "__uncategorized__" ? "بلا تصنيف" : verticalActionStatement?.displayName || verticalActionStatement?.invoiceNumber || "كشف الحساب")}</h3></div><button type="button" onClick={() => setVerticalLedgerActionMenu(null)} aria-label="إغلاق الإجراءات" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
+                          <div className="mb-1 flex items-start justify-between gap-3 border-b border-slate-100 pb-3"><div className="min-w-0"><p id="vertical-ledger-actions-title" className="text-xs font-semibold text-slate-400">{verticalActionCategory ? "خيارات التصنيف" : "خيارات كشف الحساب"}</p><h3 className="mt-1 truncate text-base font-black text-slate-900">{verticalActionCategory?.name || verticalActionStatement?.displayName || verticalActionStatement?.invoiceNumber || "كشف الحساب"}</h3></div><button type="button" onClick={() => setVerticalLedgerActionMenu(null)} aria-label="إغلاق الإجراءات" className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
                           <div className="divide-y divide-slate-100">
-                            {(verticalActionCategory || verticalActionCategoryId === "__uncategorized__") && <>
+                            {verticalActionCategory && <>
                               <button type="button" onClick={() => { setVerticalLedgerActionMenu(null); setVerticalLedgerExpandedCategories(current => current.includes(verticalActionCategoryId) ? current : [...current, verticalActionCategoryId]); createVerticalStatement(verticalActionCategoryId, true); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Plus className="h-5 w-5 shrink-0 text-blue-600"/>كشف حساب جديد داخل التصنيف</button>
                               {verticalActionCategory && <>
                                 <button type="button" onClick={() => { setVerticalCategoryDraft(verticalActionCategory.name); setVerticalCategoryEditingId(verticalActionCategory.id); setVerticalCategoryFormOpen(true); setVerticalLedgerActionMenu(null); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Pencil className="h-5 w-5 shrink-0 text-blue-600"/>إعادة تسمية التصنيف</button>
@@ -4091,9 +4104,9 @@ ${folderCustomers
                               </>}
                             </>}
                             {verticalActionStatement && <>
-                              <button type="button" onClick={() => { setSelectedInvoiceId(verticalActionStatement.id); setActiveVerticalCategoryId(verticalActionStatement.verticalCategoryId || "__uncategorized__"); setVerticalLedgerActionMenu(null); setVerticalLedgerManagerOpen(false); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-blue-700 hover:bg-slate-50"><Eye className="h-5 w-5 shrink-0 text-blue-600"/>عرض كشف الحساب</button>
+                              <button type="button" onClick={() => { setSelectedInvoiceId(verticalActionStatement.id); setActiveVerticalCategoryId(verticalActionStatement.verticalCategoryId || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer.id}-default`); setVerticalLedgerActionMenu(null); setVerticalLedgerManagerOpen(false); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-blue-700 hover:bg-slate-50"><Eye className="h-5 w-5 shrink-0 text-blue-600"/>عرض كشف الحساب</button>
                               <button type="button" onClick={() => { setVerticalStatementEditingId(verticalActionStatement.id); setVerticalStatementNameDraft(verticalActionStatement.displayName || verticalActionStatement.invoiceNumber || "كشف الحساب"); setVerticalLedgerActionMenu(null); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Pencil className="h-5 w-5 shrink-0 text-blue-600"/>إعادة تسمية الكشف</button>
-                              <div className="px-2 py-3"><p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700"><Folder className="h-5 w-5 text-blue-600"/>نقل الكشف إلى تصنيف</p><div className="grid grid-cols-2 gap-2">{[{ id: "__uncategorized__", name: "بلا تصنيف" }, ...currentVerticalCategories].map(category => <button key={category.id} type="button" onClick={() => { void moveVerticalStatement(verticalActionStatement.id, category.id); setVerticalLedgerActionMenu(null); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-xs font-bold text-slate-700 hover:border-blue-300 hover:bg-blue-50">{category.name}</button>)}</div></div>
+                              <div className="px-2 py-3"><p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700"><Folder className="h-5 w-5 text-blue-600"/>نقل الكشف إلى تصنيف</p><div className="grid grid-cols-2 gap-2">{currentVerticalCategories.map(category => <button key={category.id} type="button" onClick={() => { void moveVerticalStatement(verticalActionStatement.id, category.id); setVerticalLedgerActionMenu(null); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-xs font-bold text-slate-700 hover:border-blue-300 hover:bg-blue-50">{category.name}</button>)}</div></div>
                               <button type="button" onClick={() => { void toggleVerticalStatementFlag(verticalActionStatement.id, "isPinned"); setVerticalLedgerActionMenu(null); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Pin className="h-5 w-5 shrink-0 text-amber-500"/>{verticalActionStatement.isPinned ? "إلغاء تثبيت الكشف" : "تثبيت الكشف"}</button>
                               <button type="button" onClick={() => { void toggleVerticalStatementFlag(verticalActionStatement.id, "isFavorite"); setVerticalLedgerActionMenu(null); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Star className="h-5 w-5 shrink-0 text-amber-500"/>{verticalActionStatement.isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}</button>
                               <button type="button" onClick={() => { copyVerticalStatement(verticalActionStatement.id); setVerticalLedgerActionMenu(null); }} className="flex min-h-11 w-full items-center gap-3 px-2 py-2.5 text-right text-sm font-bold text-slate-700 hover:bg-slate-50"><Copy className="h-5 w-5 shrink-0 text-emerald-600"/>نسخ كشف الحساب</button>
@@ -4110,14 +4123,13 @@ ${folderCustomers
                       <div className="relative z-30 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-2 shadow-sm no-print" dir="rtl" aria-label="اختيار تصنيف وقائمة حسابية">
                         {!accountingListManagementEnabled && <span className="text-xs font-black text-slate-600">التصنيف</span>}
                         {accountingListManagementEnabled ? <button type="button" onClick={() => setSupplierAccountingPicker("category")} aria-label="اختيار التصنيف" className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-base font-bold text-blue-950 shadow-sm">
-                          <span className="truncate">{currentAccountingCategories.find(category => category.id === activeAccountingCategoryId)?.name || "بلا تصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
+                          <span className="truncate">{currentAccountingCategories.find(category => category.id === activeAccountingCategoryId)?.name || currentAccountingCategories[0]?.name || "تصنيف 1"}</span><ChevronDown className="h-4 w-4 shrink-0"/>
                         </button> : <select
                           aria-label="اختيار التصنيف"
-                          value={activeAccountingCategoryId || "__uncategorized__"}
-                          onChange={event => { void chooseAccountingCategory(event.target.value === "__uncategorized__" ? "__uncategorized__" : event.target.value); }}
+                          value={currentAccountingCategories.some(category => category.id === activeAccountingCategoryId) ? activeAccountingCategoryId : currentAccountingCategories[0]?.id || `accounting-category-${selectedCustomer.id}-default`}
+                          onChange={event => { void chooseAccountingCategory(event.target.value); }}
                           className="min-w-32 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800"
                         >
-                          <option value="__uncategorized__">بلا تصنيف</option>
                           {currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => (
                             <option key={category.id} value={category.id}>{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</option>
                           ))}
@@ -4186,7 +4198,7 @@ ${folderCustomers
                               <span className="text-sm font-black text-slate-800">تصنيفات {accountingEntityName} وقوائمه</span>
                               <button type="button" onClick={() => void createAccountingCategory()} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus className="me-1 inline h-3.5 w-3.5"/>تصنيف جديد</button>
                             </div>
-                            {[{ id: "__uncategorized__", name: "بلا تصنيف", category: undefined, sheets: currentAccountingSheets.filter(sheet => !sheet.categoryId) }, ...currentAccountingCategories.map(category => ({ id: category.id, name: category.name, category, sheets: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id) }))].map(group => {
+                            {currentAccountingCategories.map(category => ({ id: category.id, name: category.name, category, sheets: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id) })).map(group => {
                               const expanded = expandedSupplierAccountingCategories.includes(group.id);
                               const categoryMenuKey = `category:${group.id}`;
                               const isRealCategory = Boolean(group.category);
@@ -4264,10 +4276,9 @@ ${folderCustomers
                           </div>
                           <div className="space-y-1 overflow-y-auto p-3">
                             {supplierAccountingPicker === "category" ? [
-                              { id: "__uncategorized__", name: "بلا تصنيف", count: currentAccountingSheets.filter(sheet => !sheet.categoryId).length, isPinned: false, isFavorite: false },
                               ...currentAccountingCategories.slice().sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) || Number(Boolean(b.isFavorite)) - Number(Boolean(a.isFavorite))).map(category => ({ ...category, count: currentAccountingSheets.filter(sheet => sheet.categoryId === category.id).length })),
                             ].map(category => {
-                              const isSelected = (activeAccountingCategoryId || "__uncategorized__") === category.id;
+                              const isSelected = activeAccountingCategoryId === category.id;
                               return <button key={category.id} type="button" aria-pressed={isSelected} onClick={() => { setSupplierAccountingPicker(null); void chooseAccountingCategory(category.id); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-right transition ${isSelected ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50"}`}>
                                 <span className="flex min-w-0 items-center gap-3"><Folder className={`h-5 w-5 shrink-0 ${isSelected ? "text-blue-600" : "text-slate-400"}`}/><span className="truncate text-sm font-bold">{category.isPinned ? "📌 " : ""}{category.isFavorite ? "⭐ " : ""}{category.name}</span></span>
                                 <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{category.count}</span>{isSelected && <Check className="h-4 w-4 text-blue-600"/>}</span>
@@ -4306,7 +4317,7 @@ ${folderCustomers
                             accountingListManagementEnabled ? <fieldset className="mt-4">
                               <legend className="mb-2 text-xs font-bold text-slate-700">اختر التصنيف</legend>
                               <div className="max-h-56 space-y-1 overflow-y-auto">
-                                {[{ id: "__uncategorized__", name: "بلا تصنيف" }, ...currentAccountingCategories].map(category => {
+                                {currentAccountingCategories.map(category => {
                                   const isSelected = accountingManagerDialog.targetCategoryId === category.id;
                                   return <button key={category.id} type="button" aria-pressed={isSelected} onClick={() => setAccountingManagerDialog(current => current ? { ...current, targetCategoryId: category.id } : current)} className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-right text-sm font-bold ${isSelected ? "border-blue-300 bg-blue-50 text-blue-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}><span>{category.name}</span>{isSelected && <Check className="h-4 w-4 text-blue-600"/>}</button>;
                                 })}
@@ -4314,12 +4325,11 @@ ${folderCustomers
                             </fieldset> : <label className="mt-4 block text-xs font-bold text-slate-700">
                               اختر التصنيف
                               <select value={accountingManagerDialog.targetCategoryId} onChange={event => setAccountingManagerDialog(current => current ? { ...current, targetCategoryId: event.target.value } : current)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
-                                <option value="__uncategorized__">بلا تصنيف</option>
                                 {currentAccountingCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                               </select>
                             </label>
                           )}
-                          {accountingManagerDialog.kind === "deleteCategory" && <p className="mt-3 text-sm leading-6 text-slate-600">سيُحذف التصنيف «{accountingManagerDialog.value}»، وتبقى قوائمه محفوظة وتنتقل إلى «بلا تصنيف».</p>}
+                          {accountingManagerDialog.kind === "deleteCategory" && <p className="mt-3 text-sm leading-6 text-slate-600">سيُحذف التصنيف «{accountingManagerDialog.value}»، وتُنقل قوائمه المحفوظة إلى تصنيف آخر تلقائياً.</p>}
                           {accountingManagerDialog.kind === "deleteSheet" && <p className="mt-3 text-sm leading-6 text-slate-600">سيتم حذف «{accountingManagerDialog.value}» وبنودها من حساب العميل.</p>}
                           <div className="mt-5 flex justify-end gap-2">
                             <button type="button" onClick={() => setAccountingManagerDialog(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">إلغاء</button>
