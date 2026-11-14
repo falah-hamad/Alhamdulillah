@@ -8,6 +8,8 @@ import {
   Payment,
   SystemSettings,
   CustomerChangeLogItem,
+  AccountingSheet,
+  AccountingSheetCategory,
   AccountingSheetRow,
   CloudBackupItem,
   Supplier,
@@ -706,11 +708,33 @@ export function useAccountingData() {
 
   // Customers actions
   const addCustomer = (customer: Omit<Customer, "id" | "createdAt">): Customer => {
+    const id = `cust-${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    const accountingCategory: AccountingSheetCategory = {
+      id: `accounting-category-${id}-default`, ownerAccountId: id, name: "تصنيف 1",
+    };
+    const verticalCategory: AccountingSheetCategory = {
+      id: `vertical-category-${id}-default`, ownerAccountId: id, name: "تصنيف 1",
+    };
+    const initialSheet: AccountingSheet = {
+      id: `accounting-sheet-${id}-default`, ownerAccountId: id, name: "القائمة الحسابية 1",
+      categoryId: accountingCategory.id, rows: [], createdAt,
+    };
+    const accountingCategories = customer.accountingSheetCategories?.length ? customer.accountingSheetCategories : [accountingCategory];
+    const verticalCategories = customer.verticalLedgerCategories?.length ? customer.verticalLedgerCategories : [verticalCategory];
+    const accountingSheets = customer.accountingSheets?.length
+      ? customer.accountingSheets
+      : [{ ...initialSheet, categoryId: accountingCategories[0]?.id || accountingCategory.id }];
     const newCustomer: Customer = {
       ...customer,
-      id: `cust-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      id,
+      createdAt,
       userId: currentUser?.uid,
+      accountingSheets,
+      accountingSheetCategories: accountingCategories,
+      verticalLedgerCategories: verticalCategories,
+      activeAccountingSheetId: customer.activeAccountingSheetId || accountingSheets[0]?.id,
+      accountingSheetRows: accountingSheets.flatMap(sheet => Array.isArray(sheet.rows) ? sheet.rows : []),
     };
     setCustomers((prev) => {
       const next = [newCustomer, ...prev];
@@ -733,6 +757,21 @@ export function useAccountingData() {
         )
         .catch((e) => console.warn("Customer save/notification failed; no notification was sent:", e));
     }
+    // Every new customer starts with one categorized vertical account statement.
+    // Keep the invoice as the same statement record used by the debt register.
+    const initialVerticalCategory = verticalCategories[0] || verticalCategory;
+    addInvoice({
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+      displayName: "كشف الحساب 1",
+      verticalCategoryId: initialVerticalCategory.id,
+      date: createdAt.slice(0, 10),
+      customerId: newCustomer.id,
+      customerName: newCustomer.name,
+      customerPhone: newCustomer.phone,
+      customerAddress: newCustomer.address || "",
+      items: [], grandTotal: 0, paidAmount: 0, remainingAmount: 0,
+      notes: "", employeeName: "المحاسب", signature: "",
+    });
     return newCustomer;
   };
 

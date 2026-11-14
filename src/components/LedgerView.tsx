@@ -221,6 +221,7 @@ export default function LedgerView({
   const [verticalStatementNameDraft, setVerticalStatementNameDraft] = useState("");
   const [verticalDeleteConfirmId, setVerticalDeleteConfirmId] = useState<string | null>(null);
   const [activeVerticalCategoryId, setActiveVerticalCategoryId] = useState("__uncategorized__");
+  const legacyCategoryMigrationInFlightRef = useRef(new Set<string>());
   const accountingDraftRowsRef = useRef<AccountingSheetRow[]>(accountingDraftRows);
   accountingDraftRowsRef.current = accountingDraftRows;
   const [accountingRowsDirty, setAccountingRowsDirty] = useState(false);
@@ -650,24 +651,6 @@ export default function LedgerView({
 
     if (addCustomer) {
       const created = addCustomer(newCustomerPayload);
-      if (addInvoice) {
-        const initialEmptyInv = addInvoice({
-          invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-          date: new Date().toISOString().split("T")[0],
-          customerId: created.id,
-          customerName: created.name,
-          customerPhone: created.phone,
-          customerAddress: created.address || "",
-          items: [],
-          grandTotal: 0,
-          paidAmount: 0,
-          remainingAmount: 0,
-          notes: "",
-          employeeName: "",
-          signature: "",
-        });
-        setSelectedInvoiceId(initialEmptyInv.id);
-      }
       setIsAddCustomerModalOpen(false);
       setNewCustName("");
       setNewCustPhone("");
@@ -877,6 +860,69 @@ ${folderCustomers
     setAccountingDraftRows(chosen.rows);
     setAccountingRowsDirty(false);
   }, [selectedCustomer?.id, selectedCustomer?.accountingSheets, activeAccountingSheetId]);
+
+  useEffect(() => {
+    // Move each pre-feature customer's existing default account records into
+    // one default category, without replacing or duplicating their records.
+    if (accountEntityLabel === "المورد" || !selectedCustomer || !updateCustomer || isCloudSyncing) return;
+    const customerId = selectedCustomer.id;
+    if (legacyCategoryMigrationInFlightRef.current.has(customerId)) return;
+
+    const accountingCategories = currentAccountingCategories.length
+      ? currentAccountingCategories
+      : [{ id: `accounting-category-${customerId}-default`, ownerAccountId: customerId, name: "تصنيف 1" }];
+    const verticalCategories = currentVerticalCategories.length
+      ? currentVerticalCategories
+      : [{ id: `vertical-category-${customerId}-default`, ownerAccountId: customerId, name: "تصنيف 1" }];
+    const shouldAttachAccountingSheets = currentAccountingCategories.length === 0 || (currentAccountingCategories.length === 1 && currentAccountingCategories[0].name === "تصنيف 1");
+    const shouldAttachVerticalStatements = currentVerticalCategories.length === 0 || (currentVerticalCategories.length === 1 && currentVerticalCategories[0].name === "تصنيف 1");
+    const targetAccountingCategoryId = accountingCategories[0].id;
+    const targetVerticalCategoryId = verticalCategories[0].id;
+    const nextSheets = currentAccountingSheets.map(sheet => ({
+      ...sheet,
+      ownerAccountId: customerId,
+      ...(shouldAttachAccountingSheets && !sheet.categoryId ? { categoryId: targetAccountingCategoryId } : {}),
+    }));
+    const nextInvoices = shouldAttachVerticalStatements
+      ? currentVerticalStatements.filter(statement => !statement.verticalCategoryId)
+      : [];
+    const accountingNeedsSave = !Array.isArray(selectedCustomer.accountingSheetCategories)
+      || selectedCustomer.accountingSheetCategories.length === 0
+      || !Array.isArray(selectedCustomer.accountingSheets)
+      || nextSheets.some((sheet, index) => sheet.categoryId !== currentAccountingSheets[index]?.categoryId || sheet.ownerAccountId !== currentAccountingSheets[index]?.ownerAccountId);
+    const verticalNeedsSave = !Array.isArray(selectedCustomer.verticalLedgerCategories)
+      || selectedCustomer.verticalLedgerCategories.length === 0;
+    if (!accountingNeedsSave && !verticalNeedsSave && !nextInvoices.length) return;
+
+    legacyCategoryMigrationInFlightRef.current.add(customerId);
+    void (async () => {
+      try {
+        if (accountingNeedsSave || verticalNeedsSave) {
+          await Promise.resolve(updateCustomer({
+            ...selectedCustomer,
+            accountingSheets: accountingNeedsSave ? nextSheets : selectedCustomer.accountingSheets,
+            accountingSheetCategories: accountingNeedsSave ? accountingCategories.map(category => ({ ...category, ownerAccountId: customerId })) : selectedCustomer.accountingSheetCategories,
+            activeAccountingSheetId: selectedCustomer.activeAccountingSheetId || currentAccountingSheets[0]?.id,
+            accountingSheetRows: accountingNeedsSave ? flattenAccountingSheets(nextSheets) : selectedCustomer.accountingSheetRows,
+            verticalLedgerCategories: verticalNeedsSave ? verticalCategories.map(category => ({ ...category, ownerAccountId: customerId })) : selectedCustomer.verticalLedgerCategories,
+          }));
+        }
+        for (const [index, statement] of nextInvoices.entries()) {
+          await Promise.resolve(updateInvoice({
+            ...statement,
+            displayName: statement.displayName || `كشف الحساب ${currentVerticalStatements.findIndex(item => item.id === statement.id) + 1 || index + 1}`,
+            verticalCategoryId: targetVerticalCategoryId,
+          }));
+        }
+        if (shouldAttachVerticalStatements) setActiveVerticalCategoryId(targetVerticalCategoryId);
+        if (shouldAttachAccountingSheets) setActiveAccountingCategoryId(targetAccountingCategoryId);
+      } catch (error) {
+        console.error("تعذر تنظيم الحسابات القديمة ضمن التصنيف الافتراضي:", error);
+      } finally {
+        legacyCategoryMigrationInFlightRef.current.delete(customerId);
+      }
+    })();
+  }, [accountEntityLabel, selectedCustomer?.id, selectedCustomer?.accountingSheets, selectedCustomer?.accountingSheetCategories, selectedCustomer?.verticalLedgerCategories, invoices, updateCustomer, updateInvoice, isCloudSyncing]);
 
   const persistAccountingRows = (nextRows: AccountingSheetRow[]) => {
     if (!selectedCustomer || !updateCustomer) {
@@ -1406,6 +1452,8 @@ ${folderCustomers
       } else {
         const newInv = addInvoice({
           invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+          displayName: "كشف الحساب 1",
+          verticalCategoryId: currentVerticalCategories.find(category => category.name === "تصنيف 1")?.id || currentVerticalCategories[0]?.id || `vertical-category-${selectedCustomer.id}-default`,
           date: new Date().toISOString().split("T")[0],
           customerId: selectedCustomer.id,
           customerName: selectedCustomer.name,
