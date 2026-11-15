@@ -1053,6 +1053,7 @@ export default function App() {
               updateSupplier={updateSupplier}
               deleteSupplier={deleteSupplier}
               updateProduct={updateProduct}
+              selectionStorageScope={currentUser?.uid || (isGuest ? "guest" : "local")}
             />
           )}
 
