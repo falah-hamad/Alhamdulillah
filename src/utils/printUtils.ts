@@ -527,9 +527,11 @@ export async function printElement(
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 auto !important;
-          border: 1.5px solid rgba(120, 53, 15, 0.25) !important;
-          border-radius: 16px !important;
-          padding: 24px 28px !important;
+          /* The A4 page already owns its border and inner print padding.
+             Padding the outer ledger as well squeezes the banner twice. */
+          border: 0 !important;
+          border-radius: 0 !important;
+          padding: 0 !important;
           box-shadow: none !important;
           height: auto !important;
           min-height: 0 !important;
