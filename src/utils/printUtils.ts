@@ -531,7 +531,7 @@ export async function printElement(
              Padding the outer ledger as well squeezes the banner twice. */
           border: 0 !important;
           border-radius: 0 !important;
-          padding: 3.18mm 2.12mm !important;
+          padding: 0 !important;
           box-shadow: none !important;
           height: auto !important;
           min-height: 0 !important;
@@ -672,7 +672,7 @@ export async function printElement(
           height: auto !important;
           min-height: 274.2mm !important;
           max-height: none !important;
-          padding: 0 !important;
+          padding: 3.18mm 2.12mm !important;
           margin: 0 auto !important;
           box-sizing: border-box !important;
           overflow: visible !important;
