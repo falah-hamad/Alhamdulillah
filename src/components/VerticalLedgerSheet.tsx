@@ -1633,13 +1633,17 @@ export default function VerticalLedgerSheet({
           .debt-ledger-modern .debt-ledger-meta{min-height:68px}
           .debt-ledger-modern .debt-ledger-meta span:first-child{font-size:13px!important;font-weight:700!important;line-height:1.35!important}
           .debt-ledger-modern .debt-ledger-meta span:last-child{font-size:19px!important;font-weight:800!important;line-height:1.35!important}
-          .debt-ledger-modern .debt-ledger-table-head{font-size:16px!important;font-weight:800!important;line-height:1.35!important;padding-top:9px!important;padding-bottom:9px!important}
-          .debt-ledger-modern .debt-ledger-row{min-height:36px!important;padding-top:4px!important;padding-bottom:4px!important;border-radius:2px!important;border-bottom:1px solid #fff!important;margin-bottom:1px!important;line-height:1.3!important}
-          .debt-ledger-modern .debt-ledger-row>div:not(:first-child),.debt-ledger-modern .debt-ledger-row>div:not(:first-child) *{font-size:16px!important;font-weight:700!important;line-height:1.35!important}
+          .debt-ledger-modern .font-mono{font-family:Arial,"Segoe UI",sans-serif!important;font-variant-numeric:tabular-nums!important;letter-spacing:0!important}
+          .debt-ledger-modern .debt-ledger-table-head{font-size:17px!important;font-weight:800!important;line-height:1.35!important;padding-top:9px!important;padding-bottom:9px!important}
+          .debt-ledger-modern .debt-ledger-row{min-height:40px!important;padding-top:6px!important;padding-bottom:6px!important;border-radius:2px!important;border-bottom:1px solid #fff!important;margin-bottom:1px!important;line-height:1.35!important}
+          .debt-ledger-modern .debt-ledger-row>div:not(:first-child),.debt-ledger-modern .debt-ledger-row>div:not(:first-child) *{font-size:18px!important;font-weight:700!important;line-height:1.35!important}
           .debt-ledger-modern .debt-ledger-row>div:first-child{font-size:11px!important;font-weight:600!important}
-          .debt-ledger-modern .debt-ledger-summary .vertical-ledger-grid>div:not(:first-child){font-size:17px!important;font-weight:800!important;line-height:1.35!important}
+          .debt-ledger-modern .debt-ledger-summary-total-row,.debt-ledger-modern .debt-ledger-summary-remaining-row{min-height:34px!important}
+          .debt-ledger-modern .debt-ledger-summary-total-row>div:not(:first-child),.debt-ledger-modern .debt-ledger-summary-total-row>div:not(:first-child) *,.debt-ledger-modern .debt-ledger-summary-remaining-row>div:not(:first-child),.debt-ledger-modern .debt-ledger-summary-remaining-row>div:not(:first-child) *{font-size:20px!important;font-weight:800!important;line-height:1.35!important}
+          .debt-ledger-modern .debt-ledger-summary-paid-row{min-height:32px!important}
+          .debt-ledger-modern .debt-ledger-summary-paid-row>div:not(:first-child),.debt-ledger-modern .debt-ledger-summary-paid-row>div:not(:first-child) *{font-size:17px!important;font-weight:700!important;line-height:1.35!important}
           .debt-ledger-modern .debt-ledger-summary .vertical-ledger-grid>div:first-child{font-size:11px!important;font-weight:600!important}
-          @media print{.debt-ledger-modern .debt-ledger-row{min-height:30px!important;padding-top:3px!important;padding-bottom:3px!important}}
+          @media print{.debt-ledger-modern .debt-ledger-row{min-height:38px!important;padding-top:5px!important;padding-bottom:5px!important}}
         `}</style>}
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
@@ -2032,7 +2036,7 @@ export default function VerticalLedgerSheet({
                       <div className={`w-full h-[1.5px] rounded-full my-1.5 ${isSupplierLedger ? "bg-slate-700/80" : "debt-ledger-summary-top-rule bg-[#087e70]"}`}></div>
 
                       {/* المجموع (Subtotal) */}
-                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1">
+                      <div className="debt-ledger-summary-total-row grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
@@ -2049,7 +2053,7 @@ export default function VerticalLedgerSheet({
                       </div>
 
                       {/* الواصل (Paid Amount) */}
-                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1">
+                      <div className="debt-ledger-summary-paid-row grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1 text-center text-[11px] font-mono font-medium text-slate-400">
                           {sec.separatorLineIndex ?? ""}
                         </div>
@@ -2179,7 +2183,7 @@ export default function VerticalLedgerSheet({
                       <div className={`w-full h-[1.5px] rounded-full my-1.5 ${isSupplierLedger ? "bg-slate-700/80" : "debt-ledger-summary-rule bg-[#087e70]"}`}></div>
 
                       {/* المتبقي (Remaining) */}
-                      <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
+                      <div className="debt-ledger-summary-remaining-row grid grid-cols-12 vertical-ledger-grid items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 2}px` }}
