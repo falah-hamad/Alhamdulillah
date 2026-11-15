@@ -18,6 +18,7 @@ type Props = {
   updateSupplier: (supplier: Supplier) => Promise<void>;
   deleteSupplier: (id: string) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
+  selectionStorageScope: string;
 };
 
 const money = (value: number) => formatThousands((Number(value) || 0), { maximumFractionDigits: 2 });
@@ -41,9 +42,21 @@ const dateLabel = (value: string) => {
   return `${weekday} — ${time} — ${get("year")}/${get("month")}/${get("day")}`;
 };
 
-export default function SuppliersView({ suppliers, products, settings, addSupplier, updateSupplier, deleteSupplier, updateProduct }: Props) {
+export default function SuppliersView({ suppliers, products, settings, addSupplier, updateSupplier, deleteSupplier, updateProduct, selectionStorageScope }: Props) {
   const [query, setQuery] = useState("");
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const supplierSelectionKey = `alhamdulillah:suppliers-last-opened:v1:${selectionStorageScope}`;
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(() => {
+    try { return window.localStorage.getItem(supplierSelectionKey); } catch { return null; }
+  });
+  const rememberSelectedSupplier = (supplierId: string | null) => {
+    setSelectedSupplierId(supplierId);
+    try {
+      if (supplierId) window.localStorage.setItem(supplierSelectionKey, supplierId);
+      else window.localStorage.removeItem(supplierSelectionKey);
+    } catch {
+      // Keep supplier navigation usable if browser storage is unavailable.
+    }
+  };
   const [contextSupplierId, setContextSupplierId] = useState<string | null>(null);
   const [supplierFormOpen, setSupplierFormOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -174,7 +187,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
   // Reuse the complete debt-register notebook for a supplier, while the adapter
   // stores its invoices, payments and accounting sheet inside that supplier only.
   if (selectedSupplier) {
-    return <SupplierLedgerBook supplier={selectedSupplier} products={products} settings={settings} updateSupplier={updateSupplier} updateProduct={updateProduct} onBack={() => setSelectedSupplierId(null)} />;
+    return <SupplierLedgerBook supplier={selectedSupplier} products={products} settings={settings} updateSupplier={updateSupplier} updateProduct={updateProduct} selectionStorageScope={selectionStorageScope} onBack={() => rememberSelectedSupplier(null)} />;
   }
 
   const openNewSupplier = () => {
@@ -507,7 +520,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
     return (
       <div className="space-y-4" dir="rtl">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد الخروج وإلغاءها؟")) return; setSelectedSupplierId(null); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى الموردين</button>
+          <button type="button" onClick={() => { if (supplierRowsDirty && !window.confirm("عندك تعديلات غير محفوظة. تريد الخروج وإلغاءها؟")) return; rememberSelectedSupplier(null); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><ArrowRight className="h-4 w-4" /> رجوع إلى الموردين</button>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void printElement("supplier-ledger-print", { title: `حساب ${selectedSupplier.name}` })} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100"><Printer className="h-4 w-4" /> طباعة</button>
             <button type="button" disabled={supplierPdfBusy} onClick={() => { setSupplierPdfBusy(true); void exportElementToPDF("supplier-ledger-print", { filename: `كشف_حساب_${selectedSupplier.name}` }).finally(() => setSupplierPdfBusy(false)); }} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 disabled:opacity-50"><FileText className="h-4 w-4" /> {supplierPdfBusy ? "جارٍ تجهيز PDF" : "حفظ PDF"}</button>
@@ -673,7 +686,7 @@ export default function SuppliersView({ suppliers, products, settings, addSuppli
         <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">عدد الموردين: {visibleSuppliers.length} — اضغط مطولاً على السطر لعرض الإجراءات.</div>
       </div>
       </section>
-      {contextSupplier && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/30 p-3 sm:items-center" onClick={() => setContextSupplierId(null)}><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="mb-2 flex items-center justify-between border-b border-slate-100 px-2 pb-3"><div><p className="text-xs text-slate-500">إجراءات المورد</p><strong>{contextSupplier.name}</strong></div><button onClick={() => setContextSupplierId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button></div><button onClick={() => { setSelectedSupplierId(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-bold text-blue-700 hover:bg-blue-50"><BookOpenIcon /> فتح الحساب</button><button onClick={() => openEditSupplier(contextSupplier)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-slate-700 hover:bg-slate-50"><UserRound className="h-4 w-4" /> تعديل التفاصيل</button><button onClick={() => { if (window.confirm(`إخفاء المورد «${contextSupplier.name}» من القائمة؟ سيبقى حسابه محفوظاً.`)) void deleteSupplier(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> إخفاء المورد</button></div></div>}
+      {contextSupplier && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/30 p-3 sm:items-center" onClick={() => setContextSupplierId(null)}><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="mb-2 flex items-center justify-between border-b border-slate-100 px-2 pb-3"><div><p className="text-xs text-slate-500">إجراءات المورد</p><strong>{contextSupplier.name}</strong></div><button onClick={() => setContextSupplierId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button></div><button onClick={() => { rememberSelectedSupplier(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-bold text-blue-700 hover:bg-blue-50"><BookOpenIcon /> فتح الحساب</button><button onClick={() => openEditSupplier(contextSupplier)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-slate-700 hover:bg-slate-50"><UserRound className="h-4 w-4" /> تعديل التفاصيل</button><button onClick={() => { if (window.confirm(`إخفاء المورد «${contextSupplier.name}» من القائمة؟ سيبقى حسابه محفوظاً.`)) void deleteSupplier(contextSupplier.id); setContextSupplierId(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> إخفاء المورد</button></div></div>}
       {supplierFormOpen && <SupplierFormModal title={editingSupplier ? "تعديل تفاصيل المورد" : "إضافة مورد"} form={supplierForm} setForm={setSupplierForm} onSubmit={saveSupplier} onClose={() => setSupplierFormOpen(false)} />}
     </div>
   );
