@@ -26,8 +26,6 @@ import {
   Type,
   Palette,
   Zap,
-  Lightbulb,
-  Phone,
   Download,
   Loader2,
   ChevronRight,
@@ -52,8 +50,8 @@ import FormattedNumberInput from "./FormattedNumberInput";
 
 
 const BG_COLOR_PRESETS = [
-  { id: "white", name: "أبيض صافي", color: "#ffffff" },
   { id: "classic", name: "ورقي دافئ (دفتر كلاسيكي)", color: "#faf6ef" },
+  { id: "white", name: "أبيض ناصع", color: "#ffffff" },
   { id: "cream", name: "بيج عاجي", color: "#fdfbf7" },
   { id: "slate", name: "رمادي هادئ", color: "#f8fafc" },
   { id: "mint", name: "أخضر دفتري", color: "#f2f8f2" },
@@ -273,9 +271,9 @@ export default function VerticalLedgerSheet({
   // Background Color State (لون خلفية الكشف وورقة الدفتر)
   const [sheetBgColor, setSheetBgColor] = useState<string>(() => {
     try {
-      return localStorage.getItem("ledger_sheet_bg_color") || "#ffffff";
+      return localStorage.getItem("ledger_sheet_bg_color") || "#faf6ef";
     } catch {
-      return "#ffffff";
+      return "#faf6ef";
     }
   });
   const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
@@ -1624,11 +1622,12 @@ export default function VerticalLedgerSheet({
       <div
         key={`a4-page-${pageData.pageNum}`}
         id={`vertical-ledger-page-${pageData.pageNum}`}
-        className="a4-page w-full max-w-[794px] min-h-[1123px] border border-amber-900/25 shadow-xl rounded-2xl p-6 sm:p-8 text-slate-900 font-sans relative transition-all flex flex-col justify-between mx-auto"
-        style={{ background: sheetBgColor }}
+        className={`a4-page w-full max-w-[794px] min-h-[1123px] border shadow-xl rounded-2xl p-6 sm:p-8 text-slate-900 font-sans relative transition-all flex flex-col justify-between mx-auto ${isSupplierLedger ? "border-amber-900/25" : "debt-ledger-modern border-emerald-100"}`}
+        style={{ backgroundColor: isSupplierLedger ? sheetBgColor : "#ffffff" }}
         data-ledger-font="true"
       >
         <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        {!isSupplierLedger && <style>{`.debt-ledger-modern{border-radius:14px!important;border-color:#d7e8e9!important;box-shadow:0 8px 24px rgba(15,75,79,.08)!important}.debt-ledger-modern .debt-ledger-banner{background-color:#006b60;background-image:linear-gradient(90deg,rgba(0,73,66,.1),rgba(0,73,66,.06)),url('/ledger-header-green.webp');background-position:center;background-size:cover;background-repeat:no-repeat;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-ident{border-color:#0cae62!important}.debt-ledger-modern .debt-ledger-meta{background:#e5f5fc!important;border-color:#93d1e5!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-meta-cell{border-color:#0a947c!important}.debt-ledger-modern .debt-ledger-table-head{background:linear-gradient(90deg,#005c53,#087e70)!important;color:#fff!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-table-head>div{color:#fff!important}.debt-ledger-modern .debt-ledger-row{border-color:#fff!important;border-radius:3px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-summary{background:linear-gradient(110deg,#dcf8ee,#e2f5f7)!important;border-left:5px solid #09ad59!important;border-radius:6px!important;padding:5px 7px!important;margin-top:8px!important;margin-bottom:10px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-summary>div:last-child{background:transparent!important;border:0!important;border-radius:0!important}.debt-ledger-modern .debt-ledger-summary-top-rule{display:none!important}.debt-ledger-modern .debt-ledger-summary-rule{height:2px!important;background:#087e70!important}.debt-ledger-modern .debt-ledger-footer{border-color:#0cae62!important}.debt-ledger-modern .debt-ledger-page-note{color:#006b60!important;background:#e4f7f0!important;border-color:#9ee2c4!important}.debt-ledger-modern .debt-ledger-due-badge{display:none!important}@media print{.debt-ledger-modern{box-shadow:none!important;border-radius:0!important}.debt-ledger-modern .debt-ledger-banner,.debt-ledger-modern .debt-ledger-meta,.debt-ledger-modern .debt-ledger-table-head,.debt-ledger-modern .debt-ledger-row,.debt-ledger-modern .debt-ledger-summary{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}}`}</style>}
         {/* TOP SECTION OF THE A4 SHEET */}
         <div>
           {isSupplierLedger ? (
@@ -1667,80 +1666,33 @@ export default function VerticalLedgerSheet({
               </div>
             </div>
           ) : (
-          /* Header Box: محلات العاشق للكهربائيات (Store Brand & Debt Ledger Header) */
-          <div id={`ledger-sheet-brand-header-${pageData.pageNum}`} className="border-b-2 border-amber-900/25 pb-3.5 mb-4 select-none">
-            {/* Top Row: Store Branding, Logo, and Electrical Slogan */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-amber-900/15">
-              <div className="flex items-center gap-3 text-right">
-                {/* Store Electrical Logo Emblem */}
-                <div className="relative shrink-0 flex items-center justify-center">
-                  <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-700 via-amber-800 to-slate-950 text-amber-300 flex items-center justify-center shadow-md ring-2 ring-amber-400/50 border border-amber-300/30">
-                    <Zap className="w-7 h-7 sm:w-8 sm:h-8 fill-amber-400 text-amber-300 drop-shadow" />
-                  </div>
-                  <div className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center ring-2 ring-white shadow-xs" title="إنارة وتأسيسات">
-                    <Lightbulb className="w-3 h-3 text-amber-200 fill-amber-300" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center ring-1 ring-white shadow-2xs">
-                    <Sparkles className="w-2.5 h-2.5" />
-                  </div>
-                </div>
-
-                {/* Store Name & Description */}
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-950 font-sans leading-tight">
-                      {settings.companyName || "اسم المتجر"}
-                    </h1>
-                  </div>
-                  {settings.companyDescription?.trim() && <p className="text-[10px] sm:text-xs font-semibold text-slate-700 mt-1 leading-relaxed whitespace-normal break-words max-w-2xl">{settings.companyDescription}</p>}
-                </div>
-              </div>
-
-              {/* Document Identity Badge: سجل حساب الديون ورقم الصفحة */}
-              <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-1 bg-amber-950/5 border border-amber-900/15 p-2 rounded-xl">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-900/15 border border-amber-900/25 rounded-lg text-amber-950 font-black text-xs">
-                  <BookOpen className="w-3.5 h-3.5 text-amber-800" />
-                  <span>سجل حساب الديون</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-md border border-amber-300/80">
-                    ورقة A4 — صفحة {pageData.pageNum} من {pageCount}
-                  </span>
-                  <div className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
-                    <span dir="ltr" className="font-mono">
-                      {invoice.invoiceNumber || "INV-501380"}
-                    </span>
-                  </div>
-                </div>
+          <div id={`ledger-sheet-brand-header-${pageData.pageNum}`} className="mb-4 select-none">
+            <div className="debt-ledger-banner relative flex min-h-[84px] items-center justify-center overflow-hidden rounded-lg px-3 py-3 text-center text-white sm:min-h-[96px] sm:px-6">
+              <span aria-hidden="true" className="absolute bottom-1/4 left-[22%] top-1/4 w-0.5 bg-white/60" />
+              <div className="max-w-[76%]">
+                <h1 className="text-base font-black leading-tight drop-shadow sm:text-2xl">{settings.companyName || "محلات العاشق للكهربائيات"}</h1>
+                {settings.companyDescription?.trim() && <p className="mt-1 text-[9px] font-bold leading-snug drop-shadow sm:text-xs">{settings.companyDescription}</p>}
               </div>
             </div>
-
-            {/* Bottom Row: Customer Information & Transaction Date */}
-            <div className="pt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 bg-white/70 border border-amber-900/20 px-3 py-1 rounded-lg shadow-2xs">
-                  <span className="text-slate-500 font-bold text-[11px]">حساب السيد:</span>
-                  <span className="font-black text-slate-950 text-sm">
-                    {customer.name}
-                  </span>
-                </div>
-
-                {customer.phone && (
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-white/70 border border-amber-900/20 px-2.5 py-1 rounded-lg shadow-2xs">
-                    <Phone className="w-3 h-3 text-amber-800 shrink-0" />
-                    <span dir="ltr" className="font-mono">
-                      {customer.phone}
-                    </span>
-                  </div>
-                )}
+            <div className="mb-2 mt-3 flex items-center justify-between gap-2 px-1" dir="rtl">
+              <h2 className="debt-ledger-ident border-r-4 pr-2 text-base font-black text-slate-900 sm:text-xl">سجل حساب الديون</h2>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-700 sm:text-xs">
+                <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 font-mono text-slate-900" dir="ltr">{invoice.invoiceNumber || "INV-501380"}</span>
+                <span>صفحة {pageData.pageNum} من {pageCount}</span>
               </div>
-
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 bg-white/70 border border-amber-900/20 px-3 py-1 rounded-lg shadow-2xs">
-                <Calendar className="w-3.5 h-3.5 text-amber-800 shrink-0" />
-                <span>التاريخ:</span>
-                <span dir="ltr" className="font-mono">
-                  {invoice.date || new Date().toISOString().split("T")[0]}
-                </span>
+            </div>
+            <div className="debt-ledger-meta grid grid-cols-3 overflow-hidden rounded-lg border text-center" dir="rtl">
+              <div className="debt-ledger-meta-cell flex min-w-0 flex-col justify-center gap-1 border-l px-1.5 py-2 sm:py-2.5">
+                <span className="text-[9px] font-bold text-slate-700 sm:text-xs">حساب السيد</span>
+                <span className="truncate text-[11px] font-black text-slate-950 sm:text-base">{customer.name || "—"}</span>
+              </div>
+              <div className="debt-ledger-meta-cell flex min-w-0 flex-col justify-center gap-1 border-l px-1.5 py-2 sm:py-2.5">
+                <span className="text-[9px] font-bold text-slate-700 sm:text-xs">رقم الهاتف</span>
+                <span dir="ltr" className="truncate text-[10px] font-black text-slate-950 sm:text-base">{customer.phone || "—"}</span>
+              </div>
+              <div className="flex min-w-0 flex-col justify-center gap-1 px-1.5 py-2 sm:py-2.5">
+                <span className="text-[9px] font-bold text-slate-700 sm:text-xs">التاريخ</span>
+                <span dir="ltr" className="truncate text-[10px] font-black text-slate-950 sm:text-base">{invoice.date || new Date().toISOString().split("T")[0]}</span>
               </div>
             </div>
           </div>
@@ -1748,7 +1700,7 @@ export default function VerticalLedgerSheet({
 
           {/* CARRIED-FORWARD BALANCE BANNER (الرصيد المدور من الصفحة السابقة) */}
           {!isFirstPage && (
-            <div className="bg-amber-100/80 border border-amber-300 rounded-xl px-3.5 py-2.5 mb-3.5 flex items-center justify-between shadow-2xs">
+            <div className={`${isSupplierLedger ? "bg-amber-100/80 border border-amber-300" : "debt-ledger-page-note border"} rounded-xl px-3.5 py-2.5 mb-3.5 flex items-center justify-between shadow-2xs`}>
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-amber-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -1777,9 +1729,9 @@ export default function VerticalLedgerSheet({
           {/* The Ledger Table */}
           <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "5rem" : "0px" } as React.CSSProperties}>
             {/* Supplier sheets omit the quantity column; customer ledgers keep it. */}
-            <div className="grid grid-cols-12 vertical-ledger-grid border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600 select-none">
+            <div className={`grid grid-cols-12 vertical-ledger-grid select-none ${isSupplierLedger ? "border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600" : "debt-ledger-table-head rounded-md px-1 py-2 text-xs font-bold text-white"}`}>
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
-              <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
+              <div className="col-span-3 text-center font-bold text-xs">{isSupplierLedger ? "المبلغ" : "البيان"}</div>
               <div className={`${isSupplierLedger ? "col-span-8" : "col-span-5"} text-right pr-1 font-bold text-xs`}>التفاصيل والبيان</div>
               {!isSupplierLedger && <div className="col-span-3 text-center font-bold text-xs">الكمية</div>}
               {sheetMode === "edit" && <div aria-hidden="true" className="no-print" style={{ gridColumn: 13 }} />}
@@ -1854,7 +1806,7 @@ export default function VerticalLedgerSheet({
                             handleCommitRowDebtLog(item.id);
                           }
                         }}
-                        className={`grid grid-cols-12 vertical-ledger-grid items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${
+                        className={`grid grid-cols-12 vertical-ledger-grid items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${!isSupplierLedger ? `debt-ledger-row ${lineIndex % 2 === 0 ? "bg-[#e5f5ff]" : "bg-[#e4f8f2]"}` : ""} ${
                           rowSelectionMode && isMultiSelected
                             ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
                              : sheetMode === "edit" && isSelected
@@ -2052,7 +2004,7 @@ export default function VerticalLedgerSheet({
                       onPointerLeave={() => { clearViewLongPress(); setPressedViewRowId(null); }}
                       onPointerCancel={() => { clearViewLongPress(); setPressedViewRowId(null); }}
                       onContextMenu={event => { if (sheetMode === "view") event.preventDefault(); }}
-                      className={`pt-1.5 pb-2.5 transition-all rounded-lg ${
+                        className={`${isSupplierLedger ? "" : "debt-ledger-summary"} pt-1.5 pb-2.5 transition-all rounded-lg ${
                         sheetMode === "edit" && selectedRowId === sec.separator.id
                           ? "ring-1 ring-blue-500 bg-blue-50/40 p-2 my-1.5 shadow-2xs"
                           : sheetMode === "view" && (pressedViewRowId === sec.separator.id || detailRowId === sec.separator.id)
@@ -2062,20 +2014,20 @@ export default function VerticalLedgerSheet({
                     >
                       {sheetMode === "edit" && <button type="button" className="no-print float-left rounded-md bg-white/90 p-1 text-slate-500" aria-label="تفاصيل المجموع والتسديد" onClick={event => { event.stopPropagation(); openRowDetails(sec.separator!); }}><Info className="h-3.5 w-3.5"/></button>}
                       {/* ━━━━━━━━━ Line 1: Refined clean divider ━━━━━━━━━ */}
-                      <div className="w-full h-[1.5px] bg-slate-700/80 rounded-full my-1.5"></div>
+                      <div className={`w-full h-[1.5px] rounded-full my-1.5 ${isSupplierLedger ? "bg-slate-700/80" : "debt-ledger-summary-top-rule bg-[#087e70]"}`}></div>
 
                       {/* المجموع (Subtotal) */}
                       <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
-                          className="col-span-3 text-center font-mono font-bold text-slate-900"
+                          className={`col-span-3 text-center font-mono font-bold ${isSupplierLedger ? "text-slate-900" : "text-[#102b35]"}`}
                         >
                           {formatThousands(sec.subtotal)}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize}px` }}
-                          className="col-span-8 pr-1 font-bold text-slate-800 flex items-center justify-between"
+                          className={`col-span-8 pr-1 font-bold flex items-center justify-between ${isSupplierLedger ? "text-slate-800" : "text-[#102b35]"}`}
                         >
                           <span>المجموع</span>
                         </div>
@@ -2090,7 +2042,7 @@ export default function VerticalLedgerSheet({
                           {sheetMode === "view" ? (
                             <span
                               style={{ fontSize: `${fontSize + 1}px` }}
-                              className="font-mono font-bold text-emerald-800 py-0.5 select-text"
+                              className={`font-mono font-bold py-0.5 select-text ${isSupplierLedger ? "text-emerald-800" : "text-green-800"}`}
                             >
                               {sec.paid ? formatThousands(Number(sec.paid)) : "0"}
                             </span>
@@ -2128,13 +2080,13 @@ export default function VerticalLedgerSheet({
                           <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap shrink-0">
                             <span
                               style={{ fontSize: `${fontSize}px` }}
-                              className="font-bold text-slate-800 select-text whitespace-nowrap shrink-0"
+                              className={`font-bold select-text whitespace-nowrap shrink-0 ${isSupplierLedger ? "text-slate-800" : "text-[#102b35]"}`}
                             >
-                              الواصل
+                              {isSupplierLedger ? "الواصل" : "التسديد"}
                             </span>
 
                             {/* كتابة تفاصيل الواصل (اليوم والتاريخ والساعة) */}
-                            {(() => {
+                            {(isSupplierLedger || sheetMode === "edit") && (() => {
                               const autoDate = sec.separator.paidDate || getCurrentDateFormatted();
                               const autoDay = sec.separator.paidDay || getArabicDayName(autoDate);
                               const autoTime = sec.separator.paidTime || getCurrentTimeFormatted();
@@ -2209,20 +2161,20 @@ export default function VerticalLedgerSheet({
                       </div>
 
                       {/* ━━━━━━━━━ Line 2: Refined clean divider ━━━━━━━━━ */}
-                      <div className="w-full h-[1.5px] bg-slate-700/80 rounded-full my-1.5"></div>
+                      <div className={`w-full h-[1.5px] rounded-full my-1.5 ${isSupplierLedger ? "bg-slate-700/80" : "debt-ledger-summary-rule bg-[#087e70]"}`}></div>
 
                       {/* المتبقي (Remaining) */}
                       <div className="grid grid-cols-12 vertical-ledger-grid items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
                         <div className="col-span-1"></div>
                         <div
                           style={{ fontSize: `${fontSize + 2}px` }}
-                          className="col-span-3 text-center font-mono font-black text-slate-950"
+                          className={`col-span-3 text-center font-mono font-black ${isSupplierLedger ? "text-slate-950" : "text-[#102b35]"}`}
                         >
                           {formatThousands(sec.remaining)}
                         </div>
                         <div
                           style={{ fontSize: `${fontSize + 1}px` }}
-                          className="col-span-8 pr-1 font-black text-slate-950 flex items-center gap-2"
+                          className={`col-span-8 pr-1 font-black flex items-center gap-2 ${isSupplierLedger ? "text-slate-950" : "text-[#102b35]"}`}
                         >
                           <span>المتبقي</span>
                           {sec.remaining === 0 ? (
@@ -2230,7 +2182,7 @@ export default function VerticalLedgerSheet({
                               مسدد بالكامل ✓
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full font-sans">
+                            <span className={`debt-ledger-due-badge text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full font-sans ${isSupplierLedger ? "" : "hidden"}`}>
                               {isSupplierLedger ? "مطلوب للمورد" : "مطلوب بذمة الزبون"}
                             </span>
                           )}
@@ -2246,7 +2198,7 @@ export default function VerticalLedgerSheet({
         </div>
 
         {/* BOTTOM FOOTER OF THE A4 SHEET (Clean, Authentic Ledger Page Footer) */}
-        <div className={`pt-4 mt-6 border-t-2 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 select-none ${isSupplierLedger ? "border-rose-200" : "border-amber-900/20"}`}>
+        <div className={`pt-4 mt-6 border-t-2 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 select-none ${isSupplierLedger ? "border-rose-200" : "debt-ledger-footer border-emerald-500"}`}>
           <div className="flex items-center gap-2">
             {isSupplierLedger ? (
               <span className="font-bold text-slate-700">سجل حساب المورد: {customer.name}</span>
@@ -2262,7 +2214,7 @@ export default function VerticalLedgerSheet({
 
           <div className="flex items-center gap-3 font-bold">
             {!isLastPage ? (
-              <div className="text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
+              <div className={`${isSupplierLedger ? "text-amber-800 bg-amber-100/90 border-amber-300" : "debt-ledger-page-note border"} px-2.5 py-0.5 rounded-md border flex items-center gap-1`}>
                 <span>يتبع باقي الديون في الصفحة رقم {pageData.pageNum + 1}</span>
                 <ChevronLeft className="w-3.5 h-3.5" />
               </div>
@@ -2273,7 +2225,7 @@ export default function VerticalLedgerSheet({
               </div>
             )}
 
-            <div className="bg-amber-950/10 text-amber-950 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
+            <div className={`${isSupplierLedger ? "bg-amber-950/10 text-amber-950" : "debt-ledger-page-note"} px-2 py-0.5 rounded text-[10px] font-mono font-bold`}>
               صفحة {pageData.pageNum} / {pageCount}
             </div>
           </div>
@@ -2509,7 +2461,7 @@ export default function VerticalLedgerSheet({
             {sheetMode === "edit" && toolbarTab === "move" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => handleMoveRowUp()} disabled={selectedIndex <= 0} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل للأعلى</button><button type="button" onClick={() => handleMoveRowDown()} disabled={selectedIndex === -1 || selectedIndex >= items.length - 1} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowDown className="inline h-3.5 w-3.5 me-1"/>نقل للأسفل</button></div>}
             {sheetMode === "edit" && toolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{ledgerToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") setLedgerFontBold(x => !x); else if (key === "italic") setLedgerFontItalic(x => !x); else if (key === "underline") setLedgerFontUnderline(x => !x); else if (key === "strike") setLedgerFontStrike(x => !x); else if (key === "addAbove") handleInsertRowAbove(); else if (key === "addBelow") handleInsertRowBelow(); else if (key === "deleteRow") handleDeleteRow(); else if (key === "clear") handleClearAllItems(); else if (key === "moveUp") handleMoveRowUp(); else if (key === "moveDown") handleMoveRowDown(); else if (key === "cart") openLedgerProductCart(); else if (key === "page") setToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUpToLine className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setLedgerFavoritesDraft([...ledgerToolbarFavorites]); setShowLedgerFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showLedgerFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={ledgerFavoritesDraft.includes(key)} onChange={() => setLedgerFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowLedgerFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setLedgerToolbarFavorites(ledgerFavoritesDraft); setShowLedgerFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{sheetMode === "edit" && toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={sheetBgColor} onChange={(e) => handleSelectBgColor(e.target.value)} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
-              <div className="flex flex-wrap gap-1.5">{BG_COLOR_PRESETS.slice(0,8).map((preset) => <button key={preset.id} type="button" title={preset.name} aria-label={preset.name} onClick={() => handleSelectBgColor(preset.color)} aria-pressed={sheetBgColor.toLowerCase() === preset.color} className={`h-7 rounded-lg border border-black/10 ${preset.id === "white" ? "w-auto px-3 text-[11px] font-bold text-slate-900" : "w-7"} ${sheetBgColor.toLowerCase() === preset.color ? "ring-2 ring-blue-600 ring-offset-1" : ""}`} style={{backgroundColor:preset.color}}>{preset.id === "white" ? preset.name : null}</button>)}</div>
+              <div className="flex flex-wrap gap-1.5">{BG_COLOR_PRESETS.slice(0,8).map((preset) => <button key={preset.id} type="button" title={preset.name} aria-label={preset.name} onClick={() => handleSelectBgColor(preset.color)} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.color}}/>)}</div>
             </div>}
             {saveStatus && <div className="text-[10px] font-bold text-emerald-700">{saveStatus}</div>}
           </div>
