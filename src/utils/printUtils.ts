@@ -255,6 +255,27 @@ export function sanitizeClonedPage(clonedEl: HTMLElement): void {
 export function preparePrintableClone(element: HTMLElement): HTMLElement {
   const clone = element.cloneNode(true) as HTMLElement;
 
+  // Keep the customer / phone / date header in three columns in the standalone
+  // Android print WebView as well. Some Android WebView print adapters do not
+  // consistently apply the copied responsive stylesheet, so encode this small
+  // structural layout on the clone itself instead of relying on print CSS.
+  if (element.id === "vertical-ledger-sheet") {
+    const metadata = clone.querySelector<HTMLElement>(".debt-ledger-meta");
+    if (metadata) {
+      metadata.style.setProperty("display", "grid", "important");
+      metadata.style.setProperty("grid-template-columns", "repeat(3, minmax(0, 1fr))", "important");
+      metadata.style.setProperty("grid-auto-flow", "column", "important");
+      metadata.style.setProperty("direction", "rtl", "important");
+      metadata.style.setProperty("width", "100%", "important");
+      metadata.style.setProperty("min-width", "0", "important");
+      Array.from(metadata.children).forEach((child) => {
+        if (!(child instanceof HTMLElement)) return;
+        child.style.setProperty("min-width", "0", "important");
+        child.style.setProperty("width", "auto", "important");
+      });
+    }
+  }
+
   // 1. Sync all input and textarea values into styled vector spans
   const origInputs = element.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
   const cloneInputs = clone.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
@@ -465,6 +486,27 @@ export async function printElement(
           overflow: visible !important;
         }
 
+        /* Let the print adapter decide its printable width. A fixed 210mm
+           wrapper can be wider than Android's printable area and overflow to
+           the left; the sheet still stops at the physical A4 width. */
+        ${element.id === "vertical-ledger-sheet" ? `
+        html, body, .print-voucher-wrapper, #vertical-ledger-sheet {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 210mm !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          direction: ltr !important;
+        }
+        #vertical-ledger-sheet .a4-page {
+          width: 100% !important;
+          max-width: 210mm !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          direction: rtl !important;
+        }
+        ` : ""}
+
         /* Typography & Numbers - Complete Arabic Script Preservation */
         .font-mono {
           font-family: 'JetBrains Mono', monospace !important;
@@ -606,9 +648,9 @@ export async function printElement(
         }
 
         #vertical-ledger-sheet .a4-page {
-          /* The card spans the full A4 page; its 7.82mm padding on each side
-             leaves the intended 194mm content width inside the page. */
-          width: 210mm !important;
+          /* Fill the actual printable width, up to A4. This avoids the RTL
+             overflow-left behavior of a fixed-width page on Android. */
+          width: 100% !important;
           max-width: 210mm !important;
           height: auto !important;
           min-height: 274.2mm !important;
