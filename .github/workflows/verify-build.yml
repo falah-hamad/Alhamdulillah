@@ -23,6 +23,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Ledger selection regression checks
+        run: node tests/ledger-selection.mjs
       - name: TypeScript check
         run: npm run lint
       - name: Install Firebase Functions dependencies

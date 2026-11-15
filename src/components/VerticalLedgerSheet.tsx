@@ -257,6 +257,7 @@ export default function VerticalLedgerSheet({
 
   // Font Size: Dynamic numeric font size in pixels (default 13, range 10 to 22)
   const [fontSize, setFontSize] = useState<number>(13);
+  const defaultFontSize = 13;
   const [toolbarTab, setToolbarTab] = useState<"font" | "add" | "delete" | "move" | "page" | "favorites">("font");
   const [ledgerFontColor, setLedgerFontColor] = useState("#111827");
   const [ledgerFontBold, setLedgerFontBold] = useState(true);
@@ -303,6 +304,7 @@ export default function VerticalLedgerSheet({
   }, [showColorPicker]);
 
   const handleSelectBgColor = (color: string) => {
+    if (rowSelectionMode) { applyLedgerRowFormat({ rowBackgroundColor: color }); return; }
     setSheetBgColor(color);
     try {
       localStorage.setItem("ledger_sheet_bg_color", color);
@@ -454,8 +456,41 @@ export default function VerticalLedgerSheet({
   useEffect(() => () => clearRowLongPress(), []);
   useEffect(() => { if (sheetMode !== "edit" && rowSelectionMode) exitRowSelectionMode(); }, [sheetMode, rowSelectionMode]);
 
+  const actionRowIds = rowSelectionMode
+    ? items.filter(item => selectedRowIds.includes(item.id) && !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow).sort((a, b) => (a.pageNumber || 1) - (b.pageNumber || 1)).map(item => item.id)
+    : selectedRowId ? [selectedRowId] : [];
+
+  const insertAtSelectedRows = (below: boolean) => {
+    if (!actionRowIds.length) return;
+    const updated = items.flatMap(item => {
+      if (!actionRowIds.includes(item.id)) return [item];
+      const row: InvoiceItem = {
+        id: `op-${crypto.randomUUID()}`, details: "", quantity: 1, unitPrice: 0, total: 0,
+        pageNumber: item.pageNumber || 1, isLoggedDebt: false, createdAt: new Date().toISOString(),
+      };
+      return below ? [item, row] : [row, item];
+    });
+    persistChanges(updated);
+  };
+
+  const moveSelectedRows = (direction: -1 | 1) => {
+    const targets = new Set(actionRowIds);
+    if (!targets.size) return;
+    // Match the page order shown on screen and preserve order within each selected group.
+    const updated = [...items].sort((a, b) => (a.pageNumber || 1) - (b.pageNumber || 1));
+    const start = direction === -1 ? 1 : updated.length - 2;
+    for (let index = start; direction === -1 ? index < updated.length : index >= 0; index -= direction) {
+      const neighbor = index + direction;
+      if (!targets.has(updated[index].id) || targets.has(updated[neighbor].id)) continue;
+      const moved = { ...updated[index], pageNumber: updated[neighbor].pageNumber || 1 };
+      updated[index] = updated[neighbor];
+      updated[neighbor] = moved;
+    }
+    persistChanges(updated);
+  };
+
   const applyLedgerRowFormat = (patch: Partial<InvoiceItem>) => {
-    const targetIds = rowSelectionMode && selectedRowIds.length ? selectedRowIds : selectedRowId ? [selectedRowId] : [];
+    const targetIds = rowSelectionMode ? selectedRowIds : selectedRowId ? [selectedRowId] : [];
     if (!targetIds.length) return;
     setItems((previous) => previous.map((item) => targetIds.includes(item.id) ? { ...item, ...patch } : item));
     setHasUnsavedChanges(true);
@@ -601,12 +636,17 @@ export default function VerticalLedgerSheet({
     !row.isSeparator && !row.isPaymentRow && !row.isRemainingRow &&
     !row.details.trim() && !row.productId && !Number(row.total || 0) && !Number(row.unitPrice || 0));
   const openLedgerProductCart = () => {
-    const row = items.find(item => item.id === selectedRowId);
-    if (sheetMode !== "edit" || !hasExplicitRowSelection || !selectedRowId || !isEmptyCartRow(row)) {
+    if (rowSelectionMode && actionRowIds.length !== 1) {
+      alert("حدّد صفًا فارغًا واحدًا فقط لإدراج البضاعة.");
+      return;
+    }
+    const cartRowId = rowSelectionMode ? actionRowIds[0] : selectedRowId;
+    const row = items.find(item => item.id === cartRowId);
+    if (sheetMode !== "edit" || !hasExplicitRowSelection || !cartRowId || !isEmptyCartRow(row)) {
       alert("حدّد صفًا فارغًا في وضع التعديل أولًا، ثم افتح عربة البضاعة.");
       return;
     }
-    const targetRowId = selectedRowId;
+    const targetRowId = cartRowId;
     const targetInvoiceId = invoice.id;
     onOpenProductCart?.(targetRowId, cartItems => {
       const draft = cartDraftRef.current;
@@ -927,11 +967,13 @@ export default function VerticalLedgerSheet({
 
   // 1. Insert separator according to cursor / selected row position
   const handleInsertSeparator = (targetPageNum?: number) => {
+    const anchorId = rowSelectionMode ? actionRowIds.at(-1) : selectedRowId;
+    if (rowSelectionMode && !anchorId) return;
     const todayStr = getCurrentDateFormatted();
     const timeStr = getCurrentTimeFormatted();
     const dayStr = getArabicDayName(todayStr);
 
-    const selectedItem = items.find((it) => it.id === selectedRowId);
+    const selectedItem = items.find((it) => it.id === anchorId);
     const pageToAssign =
       targetPageNum || (selectedItem ? selectedItem.pageNumber || 1 : currentPage);
 
@@ -952,14 +994,14 @@ export default function VerticalLedgerSheet({
       isLoggedPaid: false,
     };
 
-    if (!selectedRowId) {
+    if (!anchorId) {
       const updated = [...items, newSeparator];
       persistChanges(updated);
       setSelectedRowId(newSeparator.id);
       return;
     }
 
-    const idx = items.findIndex((it) => it.id === selectedRowId);
+    const idx = items.findIndex((it) => it.id === anchorId);
     if (idx === -1) {
       const updated = [...items, newSeparator];
       persistChanges(updated);
@@ -991,6 +1033,7 @@ export default function VerticalLedgerSheet({
 
   // 2. Insert row ABOVE the selected row
   const handleInsertRowAbove = (targetId?: string) => {
+    if (rowSelectionMode) { insertAtSelectedRows(false); return; }
     const idToUse = targetId || selectedRowId;
     const targetItem = items.find((it) => it.id === idToUse);
     const newRow: InvoiceItem = {
@@ -1025,6 +1068,7 @@ export default function VerticalLedgerSheet({
 
   // 3. Insert row BELOW the selected row
   const handleInsertRowBelow = (targetId?: string) => {
+    if (rowSelectionMode) { insertAtSelectedRows(true); return; }
     const idToUse = targetId || selectedRowId;
     const targetItem = items.find((it) => it.id === idToUse);
     const newRow: InvoiceItem = {
@@ -1059,6 +1103,7 @@ export default function VerticalLedgerSheet({
 
   // 4. Move row UP
   const handleMoveRowUp = (idToMove?: string) => {
+    if (rowSelectionMode) { moveSelectedRows(-1); return; }
     const targetId = idToMove || selectedRowId;
     if (!targetId) return;
 
@@ -1076,6 +1121,7 @@ export default function VerticalLedgerSheet({
 
   // 5. Move row DOWN
   const handleMoveRowDown = (idToMove?: string) => {
+    if (rowSelectionMode) { moveSelectedRows(1); return; }
     const targetId = idToMove || selectedRowId;
     if (!targetId) return;
 
@@ -1134,57 +1180,51 @@ export default function VerticalLedgerSheet({
 
   // 7. Delete row completely with automatic Change Log entry
   const handleDeleteRow = (idToDelete?: string) => {
-    const targetId = idToDelete || selectedRowId;
-    if (!targetId) return;
-
-    const itemToDelete = items.find((it) => it.id === targetId);
-    if (itemToDelete && onAddChangeLog) {
-      if (itemToDelete.isSeparator) {
-        const paid = Number(itemToDelete.paidAmount || 0);
-        if (paid > 0) {
-          onAddChangeLog({
-            customerId: customer.id,
-            invoiceId: invoice.id,
-            actionType: "حذف واصل",
-            details: formatPaymentChangeLogDetails(paid, settings.currency),
-            rawAmount: paid,
-            targetItemId: itemToDelete.id,
-            previousState: {
-              ...itemToDelete,
-              subtotal: calculateSeparatorTotal(items, itemToDelete.id),
-            },
-          });
-        }
-      } else {
-        const amount = Number(itemToDelete.total || itemToDelete.unitPrice || 0);
-        const name = (itemToDelete.details || "").trim();
-        if (name.length > 0 || amount > 0) {
-          onAddChangeLog({
-            customerId: customer.id,
-            invoiceId: invoice.id,
-            actionType: "حذف دين",
-            details: formatDebtChangeLogDetails(name, amount, settings.currency),
-            rawAmount: amount,
-            itemName: name,
-            targetItemId: itemToDelete.id,
-            previousState: itemToDelete,
-          });
+    const targetIds = rowSelectionMode ? actionRowIds : [idToDelete || selectedRowId].filter((id): id is string => Boolean(id));
+    if (!targetIds.length) return;
+    for (const targetId of targetIds) {
+      const itemToDelete = items.find((it) => it.id === targetId);
+      if (itemToDelete && onAddChangeLog) {
+        if (itemToDelete.isSeparator) {
+          const paid = Number(itemToDelete.paidAmount || 0);
+          if (paid > 0) {
+            onAddChangeLog({
+              customerId: customer.id,
+              invoiceId: invoice.id,
+              actionType: "حذف واصل",
+              details: formatPaymentChangeLogDetails(paid, settings.currency),
+              rawAmount: paid,
+              targetItemId: itemToDelete.id,
+              previousState: {
+                ...itemToDelete,
+                subtotal: calculateSeparatorTotal(items, itemToDelete.id),
+              },
+            });
+          }
+        } else {
+          const amount = Number(itemToDelete.total || itemToDelete.unitPrice || 0);
+          const name = (itemToDelete.details || "").trim();
+          if (name.length > 0 || amount > 0) {
+            onAddChangeLog({
+              customerId: customer.id,
+              invoiceId: invoice.id,
+              actionType: "حذف دين",
+              details: formatDebtChangeLogDetails(name, amount, settings.currency),
+              rawAmount: amount,
+              itemName: name,
+              targetItemId: itemToDelete.id,
+              previousState: itemToDelete,
+            });
+          }
         }
       }
     }
-
-    const idx = items.findIndex((it) => it.id === targetId);
-    const updated = items.filter((it) => it.id !== targetId);
-
+    const idx = items.findIndex(it => targetIds.includes(it.id));
+    const updated = items.filter(it => !targetIds.includes(it.id));
     persistChanges(updated);
-
-    if (selectedRowId === targetId) {
-      if (updated.length > 0) {
-        const nextIdx = Math.min(idx, updated.length - 1);
-        setSelectedRowId(updated[nextIdx].id);
-      } else {
-        setSelectedRowId(null);
-      }
+    setSelectedRowIds(previous => previous.filter(id => !targetIds.includes(id)));
+    if (selectedRowId && targetIds.includes(selectedRowId)) {
+      setSelectedRowId(updated[Math.min(idx, updated.length - 1)]?.id || null);
     }
   };
 
@@ -1419,6 +1459,10 @@ export default function VerticalLedgerSheet({
 
   // 11. Clear all items from this ledger sheet
   const handleClearAllItems = () => {
+    if (rowSelectionMode) {
+      if (actionRowIds.length && window.confirm(`هل أنت متأكد من حذف الصفوف المحددة فقط (${actionRowIds.length})؟`)) handleDeleteRow();
+      return;
+    }
     if (items.length === 0) return;
     const confirmClear = window.confirm(
       `هل أنت متأكد من تفريغ كافة بنود وأصناف حساب الزبون "${customer.name}" وجعل الحساب فارغاً؟`
@@ -1827,7 +1871,7 @@ export default function VerticalLedgerSheet({
                         className={`grid grid-cols-12 vertical-ledger-grid items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${!isSupplierLedger ? `debt-ledger-row ${lineIndex % 2 === 0 ? "bg-[#e5f5ff]" : "bg-[#e4f8f2]"}` : ""} ${
                           rowSelectionMode && isMultiSelected
                             ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
-                             : sheetMode === "edit" && isSelected
+                             : sheetMode === "edit" && !rowSelectionMode && isSelected
                             ? "bg-amber-100/70 ring-1 ring-amber-500/80 shadow-2xs"
                             : sheetMode === "view" && (pressedViewRowId === item.id || detailRowId === item.id)
                             ? "ring-1 ring-blue-300/60"
@@ -1876,7 +1920,7 @@ export default function VerticalLedgerSheet({
                         <div className="col-span-3 px-1">
                           {sheetMode === "view" ? (
                             <div
-                              style={{ fontSize: `${fontSize}px` }}
+                              style={{ fontSize: `${defaultFontSize}px` }}
                               className="w-full text-center font-mono font-bold text-slate-900 py-0.5 select-text"
                             >
                               {item.total !== undefined && item.total !== 0
@@ -1888,7 +1932,7 @@ export default function VerticalLedgerSheet({
                               type="text"
                               inputMode="numeric"
                               dir="ltr"
-                              style={{ fontSize: `${fontSize}px`, direction: "ltr", minWidth: isSupplierLedger ? "10ch" : undefined }}
+                              style={{ fontSize: `${defaultFontSize}px`, direction: "ltr", minWidth: isSupplierLedger ? "10ch" : undefined }}
                               value={
                                 editingAmounts[item.id] !== undefined
                                   ? editingAmounts[item.id]
@@ -1919,7 +1963,7 @@ export default function VerticalLedgerSheet({
                         <div className={`${isSupplierLedger ? "col-span-8" : "col-span-5"} min-w-0 pr-1 pl-1 flex items-center justify-between`}>
                           {sheetMode === "view" ? (
                             <div
-                              style={{ fontSize: `${fontSize}px` }}
+                              style={{ fontSize: `${defaultFontSize}px` }}
                               className="w-full text-right font-medium text-slate-800 py-0.5 select-text"
                             >
                               {item.details || "—"}
@@ -1928,7 +1972,7 @@ export default function VerticalLedgerSheet({
                             <>
                               <input
                                 type="text"
-                                style={{ fontSize: `${fontSize}px` }}
+                                style={{ fontSize: `${defaultFontSize}px` }}
                                 value={item.details}
                                 placeholder="اسم المادة أو البيان..."
                                 onClick={(e) => {
@@ -1950,7 +1994,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        {!isSupplierLedger && <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${fontSize}px` }}>
+                        {!isSupplierLedger && <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${defaultFontSize}px` }}>
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
@@ -2038,13 +2082,13 @@ export default function VerticalLedgerSheet({
                       <div className="debt-ledger-summary-total-row grid grid-cols-12 vertical-ledger-grid items-center py-1">
                         <div className="col-span-1"></div>
                         <div
-                          style={{ fontSize: `${fontSize + 1}px` }}
+                          style={{ fontSize: `${defaultFontSize + 1}px` }}
                           className={`col-span-3 text-center font-mono font-bold ${isSupplierLedger ? "text-slate-900" : "text-[#102b35]"}`}
                         >
                           {formatThousands(sec.subtotal)}
                         </div>
                         <div
-                          style={{ fontSize: `${fontSize}px` }}
+                          style={{ fontSize: `${defaultFontSize}px` }}
                           className={`col-span-8 pr-1 font-bold flex items-center justify-between ${isSupplierLedger ? "text-slate-800" : "text-[#102b35]"}`}
                         >
                           <span>المجموع</span>
@@ -2059,7 +2103,7 @@ export default function VerticalLedgerSheet({
                         <div className="col-span-3 text-center flex items-center justify-center">
                           {sheetMode === "view" ? (
                             <span
-                              style={{ fontSize: `${fontSize + 1}px` }}
+                              style={{ fontSize: `${defaultFontSize + 1}px` }}
                               className={`font-mono font-bold py-0.5 select-text ${isSupplierLedger ? "text-emerald-800" : "text-green-800"}`}
                             >
                               {sec.paid ? formatThousands(Number(sec.paid)) : "0"}
@@ -2069,7 +2113,7 @@ export default function VerticalLedgerSheet({
                               type="text"
                               inputMode="numeric"
                               dir="ltr"
-                              style={{ fontSize: `${fontSize + 1}px`, direction: "ltr" }}
+                              style={{ fontSize: `${defaultFontSize + 1}px`, direction: "ltr" }}
                               value={
                                 editingAmounts[sec.separator!.id] !== undefined
                                   ? editingAmounts[sec.separator!.id]
@@ -2097,7 +2141,7 @@ export default function VerticalLedgerSheet({
                         <div className="col-span-8 pr-1 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap shrink-0">
                             <span
-                              style={{ fontSize: `${fontSize}px` }}
+                              style={{ fontSize: `${defaultFontSize}px` }}
                               className={`font-bold select-text whitespace-nowrap shrink-0 ${isSupplierLedger ? "text-slate-800" : "text-[#102b35]"}`}
                             >
                               {isSupplierLedger ? "الواصل" : "التسديد"}
@@ -2112,7 +2156,7 @@ export default function VerticalLedgerSheet({
                               return (
                                 <span
                                   id={`paid-text-${sec.separator.id}`}
-                                  style={{ fontSize: `${fontSize}px` }}
+                                  style={{ fontSize: `${defaultFontSize}px` }}
                                   onClick={(e) => {
                                     if (sheetMode === "edit") {
                                       e.stopPropagation();
@@ -2185,13 +2229,13 @@ export default function VerticalLedgerSheet({
                       <div className="debt-ledger-summary-remaining-row grid grid-cols-12 vertical-ledger-grid items-center py-1.5 px-1 bg-black/5 rounded-md border border-slate-300/40">
                         <div className="col-span-1"></div>
                         <div
-                          style={{ fontSize: `${fontSize + 2}px` }}
+                          style={{ fontSize: `${defaultFontSize + 2}px` }}
                           className={`col-span-3 text-center font-mono font-black ${isSupplierLedger ? "text-slate-950" : "text-[#102b35]"}`}
                         >
                           {formatThousands(sec.remaining)}
                         </div>
                         <div
-                          style={{ fontSize: `${fontSize + 1}px` }}
+                          style={{ fontSize: `${defaultFontSize + 1}px` }}
                           className={`col-span-8 pr-1 font-black flex items-center gap-2 ${isSupplierLedger ? "text-slate-950" : "text-[#102b35]"}`}
                         >
                           <span>المتبقي</span>
@@ -2439,11 +2483,11 @@ export default function VerticalLedgerSheet({
             <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="أدوات سجل الحساب العمودي">
               {sheetMode === "edit" && <>
               <button type="button" role="tab" aria-selected={toolbarTab === "font"} onClick={() => setToolbarTab("font")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "font" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Type className="inline h-3.5 w-3.5 me-1"/>تنسيق الخط</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => !rowSelectionMode && setToolbarTab("add")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => !rowSelectionMode && setToolbarTab("delete")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => !rowSelectionMode && setToolbarTab("move")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => !rowSelectionMode && setToolbarTab("page")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>لون الصفحة</button>
-              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => !rowSelectionMode && setToolbarTab("favorites")} disabled={rowSelectionMode} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "add"} onClick={() => setToolbarTab("add")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "add" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "delete"} onClick={() => setToolbarTab("delete")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "delete" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Trash2 className="inline h-3.5 w-3.5 me-1"/>حذف</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "move"} onClick={() => setToolbarTab("move")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "move" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "page"} onClick={() => setToolbarTab("page")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "page" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Palette className="inline h-3.5 w-3.5 me-1"/>{rowSelectionMode ? "لون المحدد" : "لون الصفحة"}</button>
+              <button type="button" role="tab" aria-selected={toolbarTab === "favorites"} onClick={() => setToolbarTab("favorites")} className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${toolbarTab === "favorites" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-700 border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"}`}><Zap className="inline h-3.5 w-3.5 me-1"/>المفضلة</button>
               </>}
 
             </div>
@@ -2473,12 +2517,12 @@ export default function VerticalLedgerSheet({
               <button type="button" id="btn-insert-separator" onClick={() => handleInsertSeparator()} title="إضافة تسديد (المجموع / الواصل / المتبقي)" className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white"><HandCoins className="inline h-3.5 w-3.5 me-1"/>إضافة تسديد</button>
             </div>}
             {sheetMode === "edit" && toolbarTab === "delete" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-              {selectedItem && <button type="button" onClick={() => handleDeleteRow()} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700"><Eraser className="inline h-3.5 w-3.5 me-1"/>حذف الصف</button>}
-              <button type="button" onClick={handleClearAllItems} disabled={items.length === 0} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-40"><Eraser className="inline h-3.5 w-3.5 me-1"/>تفريغ السجل</button>
+              {(rowSelectionMode ? actionRowIds.length > 0 : selectedItem) && <button type="button" onClick={() => handleDeleteRow()} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700"><Eraser className="inline h-3.5 w-3.5 me-1"/>{rowSelectionMode ? "حذف المحدد" : "حذف الصف"}</button>}
+              <button type="button" onClick={handleClearAllItems} disabled={items.length === 0} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-40"><Eraser className="inline h-3.5 w-3.5 me-1"/>{rowSelectionMode ? "تفريغ المحدد" : "تفريغ السجل"}</button>
             </div>}
-            {sheetMode === "edit" && toolbarTab === "move" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => handleMoveRowUp()} disabled={selectedIndex <= 0} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل للأعلى</button><button type="button" onClick={() => handleMoveRowDown()} disabled={selectedIndex === -1 || selectedIndex >= items.length - 1} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowDown className="inline h-3.5 w-3.5 me-1"/>نقل للأسفل</button></div>}
-            {sheetMode === "edit" && toolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{ledgerToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") setLedgerFontBold(x => !x); else if (key === "italic") setLedgerFontItalic(x => !x); else if (key === "underline") setLedgerFontUnderline(x => !x); else if (key === "strike") setLedgerFontStrike(x => !x); else if (key === "addAbove") handleInsertRowAbove(); else if (key === "addBelow") handleInsertRowBelow(); else if (key === "deleteRow") handleDeleteRow(); else if (key === "clear") handleClearAllItems(); else if (key === "moveUp") handleMoveRowUp(); else if (key === "moveDown") handleMoveRowDown(); else if (key === "cart") openLedgerProductCart(); else if (key === "page") setToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUpToLine className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setLedgerFavoritesDraft([...ledgerToolbarFavorites]); setShowLedgerFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showLedgerFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={ledgerFavoritesDraft.includes(key)} onChange={() => setLedgerFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowLedgerFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setLedgerToolbarFavorites(ledgerFavoritesDraft); setShowLedgerFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{sheetMode === "edit" && toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
-              <label className="flex items-center gap-2 text-[11px] font-bold">لون الصفحة <input type="color" value={sheetBgColor} onChange={(e) => handleSelectBgColor(e.target.value)} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
+            {sheetMode === "edit" && toolbarTab === "move" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" onClick={() => handleMoveRowUp()} disabled={rowSelectionMode ? !actionRowIds.some(id => items.findIndex(item => item.id === id) > 0) : selectedIndex <= 0} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowUp className="inline h-3.5 w-3.5 me-1"/>نقل للأعلى</button><button type="button" onClick={() => handleMoveRowDown()} disabled={rowSelectionMode ? !actionRowIds.some(id => items.findIndex(item => item.id === id) < items.length - 1) : selectedIndex === -1 || selectedIndex >= items.length - 1} className="rounded-lg border bg-white px-3 py-2 text-[11px] font-bold disabled:opacity-40"><ArrowDown className="inline h-3.5 w-3.5 me-1"/>نقل للأسفل</button></div>}
+            {sheetMode === "edit" && toolbarTab === "favorites" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">{ledgerToolbarFavorites.map(key => <button key={key} type="button" onClick={() => { if (key === "bold") { const value = !ledgerFontBold; setLedgerFontBold(value); applyLedgerRowFormat({ rowFontBold: value }); } else if (key === "italic") { const value = !ledgerFontItalic; setLedgerFontItalic(value); applyLedgerRowFormat({ rowFontItalic: value }); } else if (key === "underline") { const value = !ledgerFontUnderline; setLedgerFontUnderline(value); applyLedgerRowFormat({ rowFontUnderline: value }); } else if (key === "strike") { const value = !ledgerFontStrike; setLedgerFontStrike(value); applyLedgerRowFormat({ rowFontStrike: value }); } else if (key === "addAbove") handleInsertRowAbove(); else if (key === "addBelow") handleInsertRowBelow(); else if (key === "deleteRow") handleDeleteRow(); else if (key === "clear") handleClearAllItems(); else if (key === "moveUp") handleMoveRowUp(); else if (key === "moveDown") handleMoveRowDown(); else if (key === "cart") openLedgerProductCart(); else if (key === "page") setToolbarTab("page"); }} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[11px] font-bold text-blue-700">{({bold:<Type className="inline h-3.5 w-3.5 me-1"/>,addAbove:<ArrowUpToLine className="inline h-3.5 w-3.5 me-1"/>,addBelow:<Plus className="inline h-3.5 w-3.5 me-1"/>,moveUp:<ArrowUp className="inline h-3.5 w-3.5 me-1"/>,italic:<Type className="inline h-3.5 w-3.5 me-1 italic"/>,underline:<Type className="inline h-3.5 w-3.5 me-1 underline"/>,strike:<Type className="inline h-3.5 w-3.5 me-1 line-through"/>,cart:<ShoppingCart className="inline h-3.5 w-3.5 me-1"/>,deleteRow:<Trash2 className="inline h-3.5 w-3.5 me-1"/>,clear:<Eraser className="inline h-3.5 w-3.5 me-1"/>,moveDown:<ArrowDown className="inline h-3.5 w-3.5 me-1"/>,page:<Palette className="inline h-3.5 w-3.5 me-1"/>} as Record<string, React.ReactNode>)[key]} <span>{({bold:"غامق",addAbove:"إضافة صف أعلى",addBelow:"إضافة صف",moveUp:"نقل للأعلى",italic:"مائل",underline:"تسطير",strike:"شطب",cart:"عربة التسوق",deleteRow:"حذف الصف",clear:"تفريغ السجل",moveDown:"نقل للأسفل",page:"لون الصفحة"} as Record<string,string>)[key]}</span></button>)}<button type="button" onClick={() => { setLedgerFavoritesDraft([...ledgerToolbarFavorites]); setShowLedgerFavoritesEditor(true); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800"><Pencil className="inline h-3.5 w-3.5 me-1"/>تعديل</button></div>}{showLedgerFavoritesEditor && createPortal(<div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-3" role="dialog" aria-modal="true" aria-label="تعديل الأدوات المفضلة"><div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl" dir="rtl"><div className="border-b p-3"><h3 className="text-sm font-bold text-slate-800">تعديل الأدوات المفضلة</h3><p className="mt-1 text-[11px] text-slate-500">ضع علامة ✓ لإظهار الأداة، وأزلها لإخفائها.</p></div><div className="min-h-0 space-y-3 overflow-y-auto p-3 sm:p-4">{[[ "تنسيق الخط", [["bold","غامق"],["italic","مائل"],["underline","تسطير"],["strike","شطب النص"]] ],[ "إضافة", [["addAbove","إضافة صف أعلى"],["addBelow","إضافة صف أسفل"],["cart","عربة التسوق"]] ],[ "حذف", [["deleteRow","حذف الصف"],["clear","تفريغ السجل"]] ],[ "نقل", [["moveUp","نقل للأعلى"],["moveDown","نقل للأسفل"]] ],[ "لون الصفحة", [["page","لون الصفحة"]] ]].map(([category,tools]) => <section key={category as string}><h4 className="mb-1.5 border-b pb-1 text-xs font-bold text-slate-700">{category as string}</h4><div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{(tools as string[][]).map(([key,label]) => <label key={key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={ledgerFavoritesDraft.includes(key)} onChange={() => setLedgerFavoritesDraft(old => old.includes(key) ? old.filter(item => item !== key) : [...old,key])}/><span>{label}</span></label>)}</div></section>)}</div><div className="flex justify-end gap-2 border-t bg-slate-50 p-2.5"><button type="button" onClick={() => setShowLedgerFavoritesEditor(false)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-600">إلغاء</button><button type="button" onClick={() => { setLedgerToolbarFavorites(ledgerFavoritesDraft); setShowLedgerFavoritesEditor(false); }} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">حفظ</button></div></div></div>, document.body)}{sheetMode === "edit" && toolbarTab === "page" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
+              <label className="flex items-center gap-2 text-[11px] font-bold">{rowSelectionMode ? "لون الصفوف المحددة" : "لون الصفحة"} <input type="color" value={rowSelectionMode ? items.find(item => actionRowIds.includes(item.id))?.rowBackgroundColor || "#ffffff" : sheetBgColor} onChange={(e) => handleSelectBgColor(e.target.value)} className="h-8 w-10 cursor-pointer rounded border bg-white p-0.5"/></label>
               <div className="flex flex-wrap gap-1.5">{BG_COLOR_PRESETS.slice(0,8).map((preset) => <button key={preset.id} type="button" title={preset.name} aria-label={preset.name} onClick={() => handleSelectBgColor(preset.color)} className="h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.color}}/>)}</div>
             </div>}
             {saveStatus && <div className="text-[10px] font-bold text-emerald-700">{saveStatus}</div>}
