@@ -991,6 +991,7 @@ export default function App() {
               onOpenNewCustomerModal={handleOpenNewCustomerDashboard}
               targetCustomerId={ledgerTargetCustomerId}
               targetInvoiceId={ledgerTargetInvoiceId}
+              selectionStorageScope={currentUser?.uid || (isGuest ? "guest" : "local")}
               onReturnToCustomerDataTable={customerDataTableReturnRequested ? () => setCurrentTab("customers") : undefined}
               clearTargets={() => {
                 setLedgerTargetCustomerId(null);
@@ -1186,6 +1187,41 @@ export default function App() {
   );
 }
 
+// Keep the last opened customer and the selected statement for each customer
+// while LedgerWrapper is unmounted when the user changes app sections.
+interface StoredLedgerSelection {
+  lastCustomerId: string | null;
+  invoiceByCustomer: Record<string, string | null>;
+}
+
+function ledgerSelectionStorageKey(scope: string) {
+  return `alhamdulillah:ledger-selection:v1:${scope}`;
+}
+
+function readLedgerSelection(scope: string): StoredLedgerSelection {
+  try {
+    const raw = window.localStorage.getItem(ledgerSelectionStorageKey(scope));
+    if (!raw) return { lastCustomerId: null, invoiceByCustomer: {} };
+    const parsed = JSON.parse(raw) as Partial<StoredLedgerSelection>;
+    return {
+      lastCustomerId: typeof parsed.lastCustomerId === "string" ? parsed.lastCustomerId : null,
+      invoiceByCustomer: parsed.invoiceByCustomer && typeof parsed.invoiceByCustomer === "object"
+        ? parsed.invoiceByCustomer
+        : {},
+    };
+  } catch {
+    return { lastCustomerId: null, invoiceByCustomer: {} };
+  }
+}
+
+function writeLedgerSelection(scope: string, selection: StoredLedgerSelection) {
+  try {
+    window.localStorage.setItem(ledgerSelectionStorageKey(scope), JSON.stringify(selection));
+  } catch {
+    // Keep ledger navigation usable if browser storage is unavailable.
+  }
+}
+
 // LedgerWrapper to handle target selections cleanly when redirecting from other screens
 interface LedgerWrapperProps {
   customers: any[];
@@ -1217,6 +1253,7 @@ interface LedgerWrapperProps {
   onOpenNewCustomerModal: any;
   targetCustomerId: string | null;
   targetInvoiceId: string | null;
+  selectionStorageScope: string;
   onReturnToCustomerDataTable?: () => void;
   clearTargets: () => void;
   changeLogs?: any[];
@@ -1257,6 +1294,7 @@ function LedgerWrapper({
   onOpenNewCustomerModal,
   targetCustomerId,
   targetInvoiceId,
+  selectionStorageScope,
   onReturnToCustomerDataTable,
   clearTargets,
   changeLogs,
@@ -1266,19 +1304,48 @@ function LedgerWrapper({
   clearCustomerChangeLogs,
   revertChangeLogAction,
 }: LedgerWrapperProps) {
-  // We can initialize LedgerView with a custom internal state that listens to these props
-  const [internalCustomerId, setInternalCustomerId] = useState<string | null>(targetCustomerId);
-  const [internalInvoiceId, setInternalInvoiceId] = useState<string | null>(targetInvoiceId);
+  // LedgerWrapper unmounts when another app section is opened, so restore the
+  // last customer and its statement from per-user local storage on re-entry.
+  const [internalCustomerId, setInternalCustomerId] = useState<string | null>(() => {
+    const saved = readLedgerSelection(selectionStorageScope);
+    return targetCustomerId ?? saved.lastCustomerId;
+  });
+  const [internalInvoiceId, setInternalInvoiceId] = useState<string | null>(() => {
+    const saved = readLedgerSelection(selectionStorageScope);
+    const customerId = targetCustomerId ?? saved.lastCustomerId;
+    return targetInvoiceId ?? (customerId ? saved.invoiceByCustomer[customerId] : null) ?? null;
+  });
 
-  // Simple interceptor component to synchronize target props
+  const handleSelectedCustomerChange = (customerId: string | null) => {
+    const saved = readLedgerSelection(selectionStorageScope);
+    const invoiceId = customerId ? saved.invoiceByCustomer[customerId] ?? null : null;
+    setInternalCustomerId(customerId);
+    setInternalInvoiceId(invoiceId);
+    writeLedgerSelection(selectionStorageScope, {
+      ...saved,
+      lastCustomerId: customerId,
+    });
+  };
+
+  const handleSelectedInvoiceChange = (invoiceId: string | null) => {
+    setInternalInvoiceId(invoiceId);
+    if (!internalCustomerId) return;
+    const saved = readLedgerSelection(selectionStorageScope);
+    writeLedgerSelection(selectionStorageScope, {
+      lastCustomerId: internalCustomerId,
+      invoiceByCustomer: { ...saved.invoiceByCustomer, [internalCustomerId]: invoiceId },
+    });
+  };
+
+  // Apply explicit navigation targets (for example, opening an account from
+  // a notification or customer table) while retaining that customer's last list.
   React.useEffect(() => {
     if (targetCustomerId) {
-      setInternalCustomerId(targetCustomerId);
+      handleSelectedCustomerChange(targetCustomerId);
     }
     if (targetInvoiceId) {
-      setInternalInvoiceId(targetInvoiceId);
+      handleSelectedInvoiceChange(targetInvoiceId);
     }
-    // Clear once consumed
     clearTargets();
   }, [targetCustomerId, targetInvoiceId]);
 
@@ -1312,9 +1379,9 @@ function LedgerWrapper({
       permanentDeleteCustomer={permanentDeleteCustomer}
       onOpenNewCustomerModal={onOpenNewCustomerModal}
       selectedCustomerId={internalCustomerId}
-      setSelectedCustomerId={setInternalCustomerId}
+      setSelectedCustomerId={handleSelectedCustomerChange}
       selectedInvoiceId={internalInvoiceId}
-      setSelectedInvoiceId={setInternalInvoiceId}
+      setSelectedInvoiceId={handleSelectedInvoiceChange}
       onReturnToCustomerDataTable={onReturnToCustomerDataTable}
       changeLogs={changeLogs}
       isCloudSyncing={isCloudSyncing}
