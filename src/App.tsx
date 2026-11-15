@@ -1327,13 +1327,13 @@ function LedgerWrapper({
     });
   };
 
-  const handleSelectedInvoiceChange = (invoiceId: string | null) => {
+  const handleSelectedInvoiceChange = (invoiceId: string | null, customerId: string | null = internalCustomerId) => {
     setInternalInvoiceId(invoiceId);
-    if (!internalCustomerId) return;
+    if (!customerId) return;
     const saved = readLedgerSelection(selectionStorageScope);
     writeLedgerSelection(selectionStorageScope, {
-      lastCustomerId: internalCustomerId,
-      invoiceByCustomer: { ...saved.invoiceByCustomer, [internalCustomerId]: invoiceId },
+      lastCustomerId: customerId,
+      invoiceByCustomer: { ...saved.invoiceByCustomer, [customerId]: invoiceId },
     });
   };
 
@@ -1344,7 +1344,7 @@ function LedgerWrapper({
       handleSelectedCustomerChange(targetCustomerId);
     }
     if (targetInvoiceId) {
-      handleSelectedInvoiceChange(targetInvoiceId);
+      handleSelectedInvoiceChange(targetInvoiceId, targetCustomerId ?? internalCustomerId);
     }
     clearTargets();
   }, [targetCustomerId, targetInvoiceId]);
