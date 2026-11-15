@@ -606,10 +606,10 @@ export async function printElement(
         }
 
         #vertical-ledger-sheet .a4-page {
-          /* Preserve the A4 card's minimum printable area, but never force
-             overflowing ledger rows outside its white/bordered container. */
-          width: 194mm !important;
-          max-width: 194mm !important;
+          /* The card spans the full A4 page; its 7.82mm padding on each side
+             leaves the intended 194mm content width inside the page. */
+          width: 210mm !important;
+          max-width: 210mm !important;
           height: auto !important;
           min-height: 274.2mm !important;
           max-height: none !important;
@@ -621,6 +621,13 @@ export async function printElement(
           break-after: page !important;
           page-break-inside: auto !important;
           break-inside: auto !important;
+        }
+        /* Global print rules neutralize position:relative on overflow-hidden
+           elements. Restore it here so the banner's decorative stripe stays
+           clipped inside the banner instead of crossing the printed pages. */
+        #vertical-ledger-sheet .debt-ledger-banner {
+          position: relative !important;
+          overflow: hidden !important;
         }
         #vertical-ledger-sheet .a4-page:last-child {
           page-break-after: auto !important;
