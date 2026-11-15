@@ -545,18 +545,33 @@ export async function printElement(
           print-color-adjust: exact !important;
         }
 
-        /* Header Layout: logo, store name, customer info */
-        #ledger-sheet-brand-header {
-          border-bottom: 2px solid rgba(120, 53, 15, 0.25) !important;
-          padding-bottom: 14px !important;
+        /* The rendered header id includes the page number (for example, -1).
+           Target each real page header instead of a non-existent unsuffixed id. */
+        #vertical-ledger-sheet [id^="ledger-sheet-brand-header-"] {
           margin-bottom: 16px !important;
         }
-
-        #ledger-sheet-brand-header .flex-col,
-        #ledger-sheet-brand-header .sm\\:flex-row {
-          flex-direction: row !important;
-          align-items: center !important;
-          justify-content: space-between !important;
+        /* The responsive min-height utility was collapsing in Android's print
+           WebView. Use the same desktop banner dimensions for the A4 output. */
+        #vertical-ledger-sheet .debt-ledger-banner {
+          box-sizing: border-box !important;
+          width: 100% !important;
+          height: 96px !important;
+          min-height: 96px !important;
+          max-height: none !important;
+          padding: 12px 24px !important;
+          flex-shrink: 0 !important;
+        }
+        #vertical-ledger-sheet .debt-ledger-banner h1 {
+          font-size: 24px !important;
+          line-height: 1.2 !important;
+        }
+        #vertical-ledger-sheet .debt-ledger-banner p {
+          font-size: 12px !important;
+          line-height: 1.35 !important;
+        }
+        #vertical-ledger-sheet .debt-ledger-banner svg {
+          width: 48px !important;
+          height: 48px !important;
         }
 
         /* CSS Grid 12-column preservation */
@@ -657,7 +672,7 @@ export async function printElement(
           height: auto !important;
           min-height: 274.2mm !important;
           max-height: none !important;
-          padding: 5.87mm 7.82mm !important;
+          padding: 0 !important;
           margin: 0 auto !important;
           box-sizing: border-box !important;
           overflow: visible !important;
