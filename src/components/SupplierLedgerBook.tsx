@@ -9,6 +9,7 @@ type Props = {
   updateSupplier: (supplier: Supplier) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   onBack: () => void;
+  selectionStorageScope: string;
 };
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -58,10 +59,22 @@ function paymentFromTransaction(supplier: Supplier, transaction: SupplierTransac
   };
 }
 
-export default function SupplierLedgerBook({ supplier, products, settings, updateSupplier, updateProduct, onBack }: Props) {
+export default function SupplierLedgerBook({ supplier, products, settings, updateSupplier, updateProduct, onBack, selectionStorageScope }: Props) {
   const supplierRef = useRef(supplier);
   supplierRef.current = supplier;
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const supplierSelectionKey = `alhamdulillah:supplier-ledger-selection:v1:${selectionStorageScope}:${supplier.id}`;
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(() => {
+    try { return window.localStorage.getItem(supplierSelectionKey); } catch { return null; }
+  });
+  const rememberSelectedInvoiceId = (invoiceId: string | null) => {
+    setSelectedInvoiceId(invoiceId);
+    try {
+      if (invoiceId) window.localStorage.setItem(supplierSelectionKey, invoiceId);
+      else window.localStorage.removeItem(supplierSelectionKey);
+    } catch {
+      // Keep the supplier ledger usable if browser storage is unavailable.
+    }
+  };
   const [savedError, setSavedError] = useState("");
 
   const customer: Customer = useMemo(() => ({
@@ -234,7 +247,7 @@ export default function SupplierLedgerBook({ supplier, products, settings, updat
       selectedCustomerId={supplier.id}
       setSelectedCustomerId={() => onBack()}
       selectedInvoiceId={selectedInvoiceId || invoices[0]?.id || null}
-      setSelectedInvoiceId={setSelectedInvoiceId}
+      setSelectedInvoiceId={rememberSelectedInvoiceId}
       onReturnToCustomerDataTable={onBack}
       returnToListLabel="العودة إلى قائمة الموردين"
       accountEntityLabel="المورد"
