@@ -629,6 +629,19 @@ export async function printElement(
           position: relative !important;
           overflow: hidden !important;
         }
+        /* Do not depend on responsive utility classes inside print WebViews;
+           keep the customer, phone, and date cells side by side on every page. */
+        #vertical-ledger-sheet .debt-ledger-meta {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          grid-auto-flow: column !important;
+          direction: rtl !important;
+          width: 100% !important;
+        }
+        #vertical-ledger-sheet .debt-ledger-meta > div {
+          min-width: 0 !important;
+          width: auto !important;
+        }
         #vertical-ledger-sheet .a4-page:last-child {
           page-break-after: auto !important;
           break-after: auto !important;
