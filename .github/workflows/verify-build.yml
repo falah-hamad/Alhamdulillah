@@ -24,7 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Ledger selection regression checks
-        run: node tests/ledger-selection.mjs
+        run: |
+          node tests/ledger-selection.mjs
+          node tests/ledger-colors.mjs
       - name: TypeScript check
         run: npm run lint
       - name: Install Firebase Functions dependencies
