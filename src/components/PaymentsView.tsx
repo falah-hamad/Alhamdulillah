@@ -97,70 +97,66 @@ function paymentOrdinal(index: number) {
   return names[index] || `رقم ${index + 1}`;
 }
 
-/** Rebuild each account balance from the same debt ledger events used by the app. */
+/** Read receipt balance snapshots from the exact payment rows shown in customer statistics. */
 function buildPaymentBalances(customers: Customer[], invoices: Invoice[], payments: Payment[]) {
-  const events: BalanceEvent[] = [];
-  let order = 0;
-
-  for (const invoice of invoices) {
-    const items = Array.isArray(invoice.items) ? invoice.items : [];
-    for (const item of items) {
-      if (item.isSeparator || item.isPaymentRow || item.isRemainingRow) continue;
-      const amount = safeAmount(item.total || item.unitPrice);
-      if (!amount) continue;
-      events.push({
-        kind: "debt",
-        accountKey: `invoice:${invoice.id}`,
-        amount,
-        date: dateValue(item.createdAt || invoice.date || invoice.createdAt),
-        order: order++,
-      });
-    }
-  }
-
-  for (const customer of customers) {
-    const rows = Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : [];
-    for (const row of rows) {
-      if (row.isSeparator) continue;
-      const amount = safeAmount(row.total || row.unitPrice);
-      if (!amount) continue;
-      events.push({
-        kind: "debt",
-        accountKey: `sheet:${customer.id}`,
-        amount,
-        date: dateValue(row.createdAt || customer.accountingSheetDate || customer.createdAt),
-        order: order++,
-      });
-    }
-  }
-
-  for (const payment of payments) {
-    events.push({
-      kind: "payment",
-      accountKey: payment.invoiceId ? `invoice:${payment.invoiceId}` : `sheet:${payment.customerId}`,
-      amount: safeAmount(payment.amount),
-      date: dateValue(payment.date || payment.createdAt),
-      order: order++,
-      paymentId: payment.id,
-    });
-  }
-
-  events.sort((left, right) => left.date - right.date
-    || (left.kind === right.kind ? left.order - right.order : left.kind === "debt" ? -1 : 1));
-
-  const balances = new Map<string, number>();
   const snapshots = new Map<string, PaymentBalance>();
-  for (const event of events) {
-    const accountBalance = balances.get(event.accountKey) || 0;
-    if (event.kind === "debt") {
-      balances.set(event.accountKey, accountBalance + event.amount);
-      continue;
+  const paymentIds = new Set(payments.map(payment => payment.id));
+
+  // Vertical ledger receipts are recorded at separator rows. Rebuild the
+  // carried balance plus the sales entered since the preceding separator,
+  // matching CustomerStatisticsProfile's payment history row-for-row.
+  for (const invoice of invoices) {
+    const orderedItems = (Array.isArray(invoice.items) ? invoice.items : [])
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => (a.item.pageNumber || 1) - (b.item.pageNumber || 1) || a.index - b.index);
+    let carriedBalance = 0;
+    let currentSectionTotal = 0;
+
+    for (const { item } of orderedItems) {
+      if (item.isSeparator) {
+        const paymentId = `ledger-vertical-${invoice.id}-${item.id}`;
+        const paidAmount = safeAmount(item.paidAmount);
+        const total = carriedBalance + currentSectionTotal;
+        const remaining = Math.max(0, total - paidAmount);
+        if (paidAmount > 0 && paymentIds.has(paymentId)) {
+          snapshots.set(paymentId, { before: total, remaining });
+        }
+        carriedBalance = remaining;
+        currentSectionTotal = 0;
+      } else if (!item.isPaymentRow && !item.isRemainingRow) {
+        const amount = Number(item.total || item.unitPrice || 0);
+        if (Number.isFinite(amount)) currentSectionTotal += amount;
+      }
     }
-    const before = Array.from(balances.values()).reduce((sum, value) => sum + value, 0);
-    balances.set(event.accountKey, Math.max(0, accountBalance - event.amount));
-    const remaining = Array.from(balances.values()).reduce((sum, value) => sum + value, 0);
-    if (event.paymentId) snapshots.set(event.paymentId, { before, remaining });
   }
+
+  // Standalone accounting-sheet payments use the same total and running
+  // payment order as CustomerStatisticsProfile's accounting payment table.
+  for (const customer of customers) {
+    const accountingRows = Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : [];
+    const accountingSales = accountingRows
+      .filter(row => !row.isSeparator && (String(row.details || "").trim() || row.total !== 0))
+      .reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+    const accountingPayments = Array.isArray(customer.accountingSheetPayments)
+      ? customer.accountingSheetPayments.filter(payment => !(payment as typeof payment & { isDeleted?: boolean }).isDeleted)
+      : [];
+    let runningPaid = 0;
+
+    [...accountingPayments]
+      .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+      .forEach(payment => {
+        const amount = safeAmount(payment.amount);
+        runningPaid += amount;
+        const paymentId = `ledger-accounting-${customer.id}-${payment.id}`;
+        if (paymentIds.has(paymentId)) {
+          snapshots.set(paymentId, {
+            before: accountingSales,
+            remaining: Math.max(0, accountingSales - runningPaid),
+          });
+        }
+      });
+  }
+
   return snapshots;
 }
 
