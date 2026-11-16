@@ -1059,7 +1059,10 @@ export default function App() {
 
           {currentTab === "payments" && (
             <PaymentsView
+              customers={activeCustomers}
+              invoices={activeInvoices}
               payments={activePayments}
+              folders={folders}
               settings={settings}
               onOpenLedger={() => setCurrentTab("ledger")}
             />
