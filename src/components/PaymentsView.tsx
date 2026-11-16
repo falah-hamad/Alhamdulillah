@@ -1,342 +1,514 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  DollarSign,
-  Search,
-  Printer,
-  FileCheck,
-  Building,
-  UserCheck,
+  ArrowRight,
+  ChevronDown,
   Download,
-  Loader2
+  FileCheck,
+  Lightbulb,
+  Loader2,
+  Printer,
+  ReceiptText,
+  Search,
+  UserRound,
+  Wallet,
 } from "lucide-react";
-import { Payment, SystemSettings } from "../types";
-import { printElement, exportElementToPDF } from "../utils/printUtils";
-import { FilterButton, FilterPanel } from "./FilterPanel";
-import FormattedNumberInput from "./FormattedNumberInput";
+import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../types";
+import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
+import { exportElementToPDF, printElement } from "../utils/printUtils";
 import { formatThousands } from "../utils/numberFormatting";
 
-
 interface PaymentsViewProps {
+  customers: Customer[];
+  invoices: Invoice[];
   payments: Payment[];
+  folders: CustomerFolder[];
   settings: SystemSettings;
   onOpenLedger: () => void;
 }
 
-export default function PaymentsView({ payments, settings, onOpenLedger }: PaymentsViewProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMethod, setSelectedMethod] = useState<string>("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [minimumAmount, setMinimumAmount] = useState("");
-  const [maximumAmount, setMaximumAmount] = useState("");
-  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+type PaymentBalance = { before: number; remaining: number };
+type BalanceEvent = {
+  kind: "debt" | "payment";
+  accountKey: string;
+  amount: number;
+  date: number;
+  order: number;
+  paymentId?: string;
+};
 
-  // Print & PDF Export State
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
+function safeAmount(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function dateValue(value?: string) {
+  if (!value) return 0;
+  const ymd = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[T ])/);
+  if (ymd) {
+    const localDate = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+    const time = value.match(/[T ](\d{1,2}):(\d{2})/);
+    if (time) localDate.setHours(Number(time[1]), Number(time[2]), 0, 0);
+    return localDate.getTime();
+  }
+  const dmy = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmy) return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])).getTime();
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatArabicDate(value?: string) {
+  if (!value) return "غير محدد";
+  const timestamp = dateValue(value);
+  if (!timestamp) return value;
+  return new Intl.DateTimeFormat("ar-IQ", {
+    weekday: "long",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date(timestamp));
+}
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatArabicTimestamp(value?: string) {
+  if (!value) return "غير محدد";
+  const timestamp = dateValue(value);
+  if (!timestamp) return value;
+  return new Intl.DateTimeFormat("ar-IQ", {
+    weekday: "long",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function paymentOrdinal(index: number) {
+  const names = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+  return names[index] || `رقم ${index + 1}`;
+}
+
+/** Rebuild each account balance from the same debt ledger events used by the app. */
+function buildPaymentBalances(customers: Customer[], invoices: Invoice[], payments: Payment[]) {
+  const events: BalanceEvent[] = [];
+  let order = 0;
+
+  for (const invoice of invoices) {
+    const items = Array.isArray(invoice.items) ? invoice.items : [];
+    for (const item of items) {
+      if (item.isSeparator || item.isPaymentRow || item.isRemainingRow) continue;
+      const amount = safeAmount(item.total || item.unitPrice);
+      if (!amount) continue;
+      events.push({
+        kind: "debt",
+        accountKey: `invoice:${invoice.id}`,
+        amount,
+        date: dateValue(item.createdAt || invoice.date || invoice.createdAt),
+        order: order++,
+      });
+    }
+  }
+
+  for (const customer of customers) {
+    const rows = Array.isArray(customer.accountingSheetRows) ? customer.accountingSheetRows : [];
+    for (const row of rows) {
+      if (row.isSeparator) continue;
+      const amount = safeAmount(row.total || row.unitPrice);
+      if (!amount) continue;
+      events.push({
+        kind: "debt",
+        accountKey: `sheet:${customer.id}`,
+        amount,
+        date: dateValue(row.createdAt || customer.accountingSheetDate || customer.createdAt),
+        order: order++,
+      });
+    }
+  }
+
+  for (const payment of payments) {
+    events.push({
+      kind: "payment",
+      accountKey: payment.invoiceId ? `invoice:${payment.invoiceId}` : `sheet:${payment.customerId}`,
+      amount: safeAmount(payment.amount),
+      date: dateValue(payment.date || payment.createdAt),
+      order: order++,
+      paymentId: payment.id,
+    });
+  }
+
+  events.sort((left, right) => left.date - right.date
+    || (left.kind === right.kind ? left.order - right.order : left.kind === "debt" ? -1 : 1));
+
+  const balances = new Map<string, number>();
+  const snapshots = new Map<string, PaymentBalance>();
+  for (const event of events) {
+    const accountBalance = balances.get(event.accountKey) || 0;
+    if (event.kind === "debt") {
+      balances.set(event.accountKey, accountBalance + event.amount);
+      continue;
+    }
+    const before = Array.from(balances.values()).reduce((sum, value) => sum + value, 0);
+    balances.set(event.accountKey, Math.max(0, accountBalance - event.amount));
+    const remaining = Array.from(balances.values()).reduce((sum, value) => sum + value, 0);
+    if (event.paymentId) snapshots.set(event.paymentId, { before, remaining });
+  }
+  return snapshots;
+}
+
+function ReceiptBrand({ settings }: { settings: SystemSettings }) {
+  return (
+    <div className="flex items-center justify-center gap-4 border-b-2 border-[#b49a65] pb-4">
+      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-[3px] border-slate-800 bg-white text-[#b49a65]">
+        {settings.logoUrl ? (
+          <img src={settings.logoUrl} alt="شعار المحل" className="h-full w-full object-contain" />
+        ) : (
+          <Lightbulb className="h-10 w-10" strokeWidth={1.8} />
+        )}
+      </div>
+      <div className="text-center">
+        <h2 className="text-xl font-black text-slate-900">{settings.companyName || "اسم المحل"}</h2>
+        <p className="mt-1 text-sm font-bold text-[#a88c54]">{settings.companyDescription || "تجارة وتجهيز المواد الكهربائية ومستلزماتها"}</p>
+        <p className="mt-1 text-xs text-slate-600">
+          {[settings.companyAddress, settings.companyPhone].filter(Boolean).join(" — ") || ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ReceiptActions({
+  elementId,
+  fileName,
+}: {
+  elementId: string;
+  fileName: string;
+}) {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  return (
+    <div className="no-print flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          setIsPrinting(true);
+          printElement(elementId, { title: fileName, onComplete: () => setIsPrinting(false) });
+          window.setTimeout(() => setIsPrinting(false), 2000);
+        }}
+        disabled={isPrinting}
+        className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+      >
+        <Printer className="h-4 w-4" />{isPrinting ? "جاري التجهيز" : "طباعة"}
+      </button>
+      <button
+        type="button"
+        onClick={async () => {
+          setIsExporting(true);
+          try {
+            await exportElementToPDF(elementId, { filename: fileName });
+          } catch (error) {
+            console.error("Receipt PDF export failed", error);
+            alert("تعذر إنشاء ملف PDF.");
+          } finally {
+            setIsExporting(false);
+          }
+        }}
+        disabled={isExporting}
+        className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+      >
+        {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        {isExporting ? "جاري الإنشاء" : "تنزيل PDF"}
+      </button>
+    </div>
+  );
+}
 
-  // Filter payments
-  const activeFilterCount = [selectedMethod !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(minimumAmount), Boolean(maximumAmount)].filter(Boolean).length;
-  const filteredPayments = payments.filter((p) => {
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q || [p.customerName, p.notes || "", p.method || ""].some(value => value.toLowerCase().includes(q));
-    const matchesMethod = selectedMethod === "all" || p.method === selectedMethod;
-    const paymentDate = (p.date || "").slice(0, 10);
-    const matchesFrom = !dateFrom || paymentDate >= dateFrom;
-    const matchesTo = !dateTo || paymentDate <= dateTo;
-    const amountValue = Number(p.amount) || 0;
-    const matchesMinimum = !minimumAmount || amountValue >= Number(minimumAmount);
-    const matchesMaximum = !maximumAmount || amountValue <= Number(maximumAmount);
-    return matchesSearch && matchesMethod && matchesFrom && matchesTo && matchesMinimum && matchesMaximum;
-  });
+function ReceiptShell({ children, settings, title }: { children: React.ReactNode; settings: SystemSettings; title: string }) {
+  return (
+    <div className="print-container rounded-2xl border-[5px] border-double border-slate-800 bg-white p-5 text-slate-900 shadow-sm sm:p-7" dir="rtl">
+      <ReceiptBrand settings={settings} />
+      <div className="py-4 text-center">
+        <h3 className="text-2xl font-black text-slate-900">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
 
-  const selectedReceipt = payments.find((p) => p.id === selectedReceiptId);
+export default function PaymentsView({ customers, invoices, payments, folders, settings, onOpenLedger }: PaymentsViewProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFolderId, setSelectedFolderId] = useState("all");
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [showCombinedStatement, setShowCombinedStatement] = useState(false);
+
+  const paymentsByCustomer = useMemo(() => {
+    const grouped = new Map<string, Payment[]>();
+    for (const payment of payments) {
+      const current = grouped.get(payment.customerId) || [];
+      current.push(payment);
+      grouped.set(payment.customerId, current);
+    }
+    for (const customerPayments of grouped.values()) {
+      customerPayments.sort((left, right) => dateValue(left.date || left.createdAt) - dateValue(right.date || right.createdAt)
+        || left.id.localeCompare(right.id));
+    }
+    return grouped;
+  }, [payments]);
+
+  const balanceSnapshots = useMemo(
+    () => buildPaymentBalances(customers, invoices, payments),
+    [customers, invoices, payments]
+  );
+
+  const folderById = useMemo(() => new Map(folders.map(folder => [folder.id, folder.name])), [folders]);
+  const customerRows = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    return customers
+      .map(customer => {
+        const customerPayments = paymentsByCustomer.get(customer.id) || [];
+        const totals = getCustomerLedgerTotals(customer, invoices);
+        return {
+          customer,
+          customerPayments,
+          totals,
+          paid: customerPayments.reduce((sum, payment) => sum + safeAmount(payment.amount), 0),
+          lastPayment: customerPayments[customerPayments.length - 1],
+        };
+      })
+      .filter(row => showAllCustomers || row.customerPayments.length > 0)
+      .filter(row => selectedFolderId === "all" || row.customer.folderId === selectedFolderId)
+      .filter(row => !query || [row.customer.name, row.customer.phone || "", row.customer.address || "", folderById.get(row.customer.folderId || "") || ""]
+        .some(value => value.toLocaleLowerCase().includes(query)))
+      .sort((left, right) => dateValue(right.lastPayment?.date || right.lastPayment?.createdAt)
+        - dateValue(left.lastPayment?.date || left.lastPayment?.createdAt)
+        || left.customer.name.localeCompare(right.customer.name, "ar"));
+  }, [customers, invoices, paymentsByCustomer, searchQuery, selectedFolderId, showAllCustomers, folderById]);
+
+  const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId) || null;
+  const selectedPayments = selectedCustomer ? (paymentsByCustomer.get(selectedCustomer.id) || []) : [];
+  const selectedTotals = selectedCustomer ? getCustomerLedgerTotals(selectedCustomer, invoices) : null;
+  const selectedPaidTotal = selectedPayments.reduce((sum, payment) => sum + safeAmount(payment.amount), 0);
+  const selectedPayment = selectedPayments.find(payment => payment.id === selectedPaymentId) || null;
+  const selectedPaymentIndex = selectedPayment ? selectedPayments.findIndex(payment => payment.id === selectedPayment.id) : -1;
+  const selectedSnapshot = selectedPayment ? balanceSnapshots.get(selectedPayment.id) : undefined;
+  const selectedBalanceAfter = selectedSnapshot?.remaining ?? selectedTotals?.remaining ?? 0;
+  const selectedBalanceBefore = selectedSnapshot?.before ?? (selectedBalanceAfter + safeAmount(selectedPayment?.amount));
+  const activeFolders = folders.filter(folder => !folder.isDeleted);
+  const customersWithPayments = customers.filter(customer => (paymentsByCustomer.get(customer.id) || []).length > 0).length;
+  const totalReceived = payments.reduce((sum, payment) => sum + safeAmount(payment.amount), 0);
+
+  const openCustomer = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setSelectedPaymentId(null);
+    setShowCombinedStatement(false);
+  };
+
+  const renderIndividualReceipt = () => {
+    if (!selectedCustomer || !selectedPayment) return null;
+    const ordinal = selectedPaymentIndex + 1;
+    const receiptCode = selectedPayment.id.slice(-8).toUpperCase();
+    return (
+      <div className="space-y-3">
+        <div className="no-print flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800">
+            <ReceiptText className="h-5 w-5 text-[#a88c54]" /> وصل التسديد {paymentOrdinal(selectedPaymentIndex)}
+          </div>
+          <ReceiptActions elementId="customer-payment-receipt" fileName={`وصل_تسديد_${selectedCustomer.name}_${receiptCode}`} />
+        </div>
+        <div id="customer-payment-receipt">
+          <ReceiptShell settings={settings} title="وصل تسديد">
+            <div className="mb-4 grid grid-cols-1 gap-2 border border-slate-300 sm:grid-cols-3">
+              <div className="p-3"><span className="text-xs text-slate-500">اسم العميل</span><p className="mt-1 font-extrabold">{selectedCustomer.name}</p></div>
+              <div className="border-t border-slate-300 p-3 sm:border-r sm:border-t-0"><span className="text-xs text-slate-500">عنوان السكن</span><p className="mt-1 font-bold">{selectedCustomer.address || "غير مسجل"}</p></div>
+              <div className="border-t border-slate-300 p-3 sm:border-r sm:border-t-0"><span className="text-xs text-slate-500">رقم الهاتف</span><p className="mt-1 font-bold" dir="ltr">{selectedCustomer.phone || "غير مسجل"}</p></div>
+            </div>
+            <div className="mb-3 flex flex-wrap justify-between gap-2 text-sm font-semibold">
+              <span>رقم الوصل: <b dir="ltr">{receiptCode}</b></span>
+              <span>الطابع الزمني: <b>{formatArabicTimestamp(selectedPayment.date || selectedPayment.createdAt)}</b></span>
+            </div>
+            <table className="w-full border-collapse border border-slate-400 text-sm">
+              <thead><tr className="bg-slate-800 text-[#d8c18e]"><th className="border border-slate-400 p-3 text-right">التفاصيل</th><th className="w-2/5 border border-slate-400 p-3 text-center">المبلغ</th></tr></thead>
+              <tbody>
+                <tr><td className="border border-slate-300 p-3">المجموع قبل التسديد</td><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedBalanceBefore)} {settings.currency}</td></tr>
+                <tr className="bg-slate-100"><td className="border border-slate-300 p-3">التسديد</td><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedPayment.amount)} {settings.currency}</td></tr>
+                <tr><td className="border border-slate-300 p-3 font-black">المتبقي</td><td className="border border-slate-300 p-3 text-center font-black">{formatThousands(selectedBalanceAfter)} {settings.currency}</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-4 grid grid-cols-1 gap-2 bg-[#e5e1d7] p-3 text-sm sm:grid-cols-3 sm:text-center">
+              <p><b>اسم المستلم:</b> {settings.signaturePlaceholder || "المستلم"}</p>
+              <p><b>نوع الدفع:</b> {selectedPayment.method || "غير محدد"}</p>
+              <p><b>تسلسل التسديد:</b> {paymentOrdinal(selectedPaymentIndex)}</p>
+            </div>
+            {selectedPayment.notes && <p className="mt-3 text-xs text-slate-600"><b>ملاحظات:</b> {selectedPayment.notes}</p>}
+            <div className="mt-8 grid grid-cols-2 gap-8 text-center text-sm">
+              <div><p className="mb-8">توقيع المستلم</p><div className="border-t border-slate-500 pt-1">{settings.signaturePlaceholder || ""}</div></div>
+              <div><p className="mb-8">توقيع العميل</p><div className="border-t border-slate-500 pt-1">{selectedCustomer.name}</div></div>
+            </div>
+          </ReceiptShell>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCombinedStatement = () => {
+    if (!selectedCustomer || !selectedTotals) return null;
+    return (
+      <div className="space-y-3">
+        <div className="no-print flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800"><FileCheck className="h-5 w-5 text-[#a88c54]" /> كشف جميع التسديدات</div>
+          <ReceiptActions elementId="customer-all-payments-statement" fileName={`كشف_تسديدات_${selectedCustomer.name}`} />
+        </div>
+        <div id="customer-all-payments-statement">
+          <ReceiptShell settings={settings} title="كشف جميع التسديدات">
+            <div className="mb-4 flex flex-wrap justify-between gap-2 border border-slate-300 p-3 text-sm">
+              <span><b>اسم العميل:</b> {selectedCustomer.name}</span>
+              <span><b>عدد الوصولات:</b> {selectedPayments.length}</span>
+              <span><b>تاريخ الكشف:</b> {formatArabicDate(localDateKey())}</span>
+            </div>
+            <div className="mb-4 grid grid-cols-1 gap-2 bg-[#e5e1d7] p-3 text-sm sm:grid-cols-3 sm:text-center">
+              <p><b>مجموع التسديدات:</b><br />{formatThousands(selectedPaidTotal)} {settings.currency}</p>
+              <p><b>إجمالي الحساب:</b><br />{formatThousands(selectedTotals.sales)} {settings.currency}</p>
+              <p><b>المتبقي الحالي:</b><br />{formatThousands(selectedTotals.remaining)} {settings.currency}</p>
+            </div>
+            <table className="w-full border-collapse border border-slate-400 text-xs sm:text-sm">
+              <thead><tr className="bg-slate-800 text-[#d8c18e]"><th className="border border-slate-400 p-2">ت</th><th className="border border-slate-400 p-2">رقم الوصل</th><th className="border border-slate-400 p-2">الطابع الزمني</th><th className="border border-slate-400 p-2">التسديد</th><th className="border border-slate-400 p-2">المتبقي بعده</th></tr></thead>
+              <tbody>
+                {selectedPayments.map((payment, index) => {
+                  const snapshot = balanceSnapshots.get(payment.id);
+                  const remaining = snapshot?.remaining ?? selectedTotals.remaining;
+                  return <tr key={payment.id} className={index % 2 ? "bg-slate-100" : "bg-white"}>
+                    <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
+                    <td className="border border-slate-300 p-2 text-center" dir="ltr">{payment.id.slice(-8).toUpperCase()}</td>
+                    <td className="border border-slate-300 p-2 text-center">{formatArabicTimestamp(payment.date || payment.createdAt)}</td>
+                    <td className="border border-slate-300 p-2 text-center font-bold">{formatThousands(payment.amount)} {settings.currency}</td>
+                    <td className="border border-slate-300 p-2 text-center font-bold">{formatThousands(remaining)} {settings.currency}</td>
+                  </tr>;
+                })}
+                <tr className="bg-[#e5e1d7] font-black"><td className="border border-slate-300 p-2 text-center" colSpan={3}>مجموع التسديدات والمتبقي الحالي</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedPaidTotal)} {settings.currency}</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedTotals.remaining)} {settings.currency}</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-8 grid grid-cols-2 gap-8 text-center text-sm"><div><p className="mb-8">توقيع المستلم</p><div className="border-t border-slate-500 pt-1">{settings.signaturePlaceholder || ""}</div></div><div><p className="mb-8">توقيع العميل</p><div className="border-t border-slate-500 pt-1">{selectedCustomer.name}</div></div></div>
+          </ReceiptShell>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="payments-view space-y-6 min-w-0">
-      {/* Search and Action Bar */}
-      <div className="payments-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm no-print">
-        <div className="space-y-1">
-          <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-blue-600" />
-            حركة الدفعات والتسديدات (المقبوضات)
-          </h1>
-          <p className="text-slate-500 text-xs">
-            يعرض هذا القسم التسديدات المثبتة في سجل الديون فقط. سجّل أو عدّل التسديد من سجل العميل ليظهر هنا تلقائيًا.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenLedger}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer transition-colors"
-        >
-          <FileCheck className="w-4 h-4" />
-          فتح سجل الديون للتسديد
-        </button>
-      </div>
-
-      {/* Grid Layout for Split receipts & history */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Payments History List */}
-        <div className={`lg:col-span-7 space-y-4 no-print`}>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div className="relative sm:col-span-2">
-                <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="ابحث باسم العميل..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
-                />
-              </div>
-
-              <div>
-                <select
-                  value={selectedMethod}
-                  onChange={(e) => setSelectedMethod(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-blue-500"
-                >
-                  <option value="all">💳 جميع الطرق</option>
-                  <option value="نقدي">💵 نقدي (كاش)</option>
-                  <option value="تحويل بنكي">🏦 تحويل بنكي</option>
-                  <option value="شيك">✍️ شيك</option>
-                  <option value="مدى">💳 بطاقة مدى / الكتروني</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-start"><FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} /></div>
+    <div className="payments-view min-w-0 space-y-5" dir="rtl">
+      {!selectedCustomer ? (
+        <>
+          <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="flex items-center gap-2 text-lg font-black text-slate-900"><Wallet className="h-5 w-5 text-emerald-700" /> التسديدات ووصولات القبض</h1>
+              <p className="mt-1 text-xs text-slate-500">اختر اسم العميل لعرض وصولات تسديده أو طباعة كشف شامل. البيانات مستمدة من سجل الديون.</p>
             </div>
-            <FilterPanel open={filtersOpen} title="تصفية التسديدات" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedMethod("all"); setDateFrom(""); setDateTo(""); setMinimumAmount(""); setMaximumAmount(""); setSearchQuery(""); }}>
-              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">من تاريخ<input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">إلى تاريخ<input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-              <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل مبلغ<FormattedNumberInput type="number" min="0" value={minimumAmount} onChange={e => setMinimumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى مبلغ<FormattedNumberInput type="number" min="0" value={maximumAmount} onChange={e => setMaximumAmount(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
-              <p className="text-xs text-slate-500">استخدم البحث و«طريقة التسديد» بجانب زر التصفية لاختيار العميل والطريقة.</p>
-            </FilterPanel>
+            <button type="button" onClick={onOpenLedger} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-800"><FileCheck className="h-4 w-4" /> فتح سجل الديون</button>
+          </header>
 
-            {filteredPayments.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs">
-                لم يتم العثور على أي دفعات مسجلة.
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">إجمالي التسديدات المسجلة</p><p className="mt-1 text-lg font-black text-emerald-800">{formatThousands(totalReceived)} {settings.currency}</p></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">عدد العملاء الذين لديهم تسديدات</p><p className="mt-1 text-lg font-black text-slate-800">{customersWithPayments}</p></div>
+          </div>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <h2 className="text-sm font-black text-slate-800">قائمة العملاء والتسديدات</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[210px] flex-1">
+                  <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input type="search" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="ابحث باسم العميل أو الهاتف" className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-9 text-xs outline-none focus:border-emerald-600" />
+                </div>
+                <label className="relative flex items-center">
+                  <select value={selectedFolderId} onChange={event => setSelectedFolderId(event.target.value)} className="min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs">
+                    <option value="all">كل المجلدات</option>
+                    {activeFolders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                  </select><ChevronDown className="pointer-events-none absolute left-2 h-4 w-4 text-slate-500" />
+                </label>
+                <div className="inline-flex rounded-lg border border-slate-200 p-1 text-xs">
+                  <button type="button" onClick={() => setShowAllCustomers(false)} className={`rounded-md px-3 py-1.5 ${!showAllCustomers ? "bg-emerald-700 text-white" : "text-slate-600"}`}>لديهم تسديدات</button>
+                  <button type="button" onClick={() => setShowAllCustomers(true)} className={`rounded-md px-3 py-1.5 ${showAllCustomers ? "bg-emerald-700 text-white" : "text-slate-600"}`}>كل العملاء</button>
+                </div>
               </div>
+            </div>
+            {customerRows.length === 0 ? (
+              <div className="rounded-xl bg-slate-50 py-12 text-center text-sm text-slate-500">ماكو عملاء مطابقين للبحث أو ما مسجلين تسديدات بعد.</div>
             ) : (
-              <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
-                {filteredPayments.map((p) => (
-                  <div
-                    key={p.id}
-                    onClick={() => setSelectedReceiptId(p.id)}
-                    className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 cursor-pointer ${
-                      selectedReceiptId === p.id
-                        ? "bg-slate-900 text-white border-slate-900 shadow-md"
-                        : "bg-slate-50 hover:bg-slate-100/60 text-slate-700 border-slate-100 shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg shrink-0 ${selectedReceiptId === p.id ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700"}`}>
-                        <DollarSign className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className={`text-xs font-bold ${selectedReceiptId === p.id ? "text-white" : "text-slate-800"}`}>
-                          {p.customerName}
-                        </p>
-                        <p className="text-[10px] opacity-70 mt-1 font-mono">
-                          {p.date} • {p.method}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-left font-mono shrink-0 flex items-center gap-3">
-                      <div>
-                        <p className={`text-sm font-extrabold ${selectedReceiptId === p.id ? "text-blue-400" : "text-blue-600"}`}>
-                          +{formatThousands(p.amount)} {settings.currency}
-                        </p>
-                        {p.notes && (
-                          <p className="text-[9px] opacity-75 max-w-[150px] truncate font-sans">
-                            {p.notes}
-                          </p>
-                        )}
-                      </div>
-
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[850px] border-collapse text-right text-xs">
+                  <thead className="bg-slate-800 text-white"><tr><th className="p-3">ت</th><th className="p-3">اسم العميل</th><th className="p-3">المجلد</th><th className="p-3 text-center">عدد الوصولات</th><th className="p-3 text-center">مجموع التسديدات</th><th className="p-3 text-center">المتبقي</th><th className="p-3">آخر تسديد</th></tr></thead>
+                  <tbody>{customerRows.map((row, index) => (
+                    <tr key={row.customer.id} className="border-t border-slate-200 odd:bg-white even:bg-slate-50 hover:bg-emerald-50/70">
+                      <td className="p-3 text-slate-500">{index + 1}</td>
+                      <td className="p-3"><button type="button" onClick={() => openCustomer(row.customer.id)} className="font-extrabold text-emerald-800 underline-offset-2 hover:underline">{row.customer.name}</button><p className="mt-1 text-[10px] text-slate-500" dir="ltr">{row.customer.phone || ""}</p></td>
+                      <td className="p-3">{folderById.get(row.customer.folderId || "") || "الرئيسي"}</td>
+                      <td className="p-3 text-center">{row.customerPayments.length}</td>
+                      <td className="p-3 text-center font-bold">{formatThousands(row.paid)} {settings.currency}</td>
+                      <td className="p-3 text-center font-bold text-amber-800">{formatThousands(row.totals.remaining)} {settings.currency}</td>
+                      <td className="p-3">{row.lastPayment ? formatArabicDate(row.lastPayment.date || row.lastPayment.createdAt) : "لا يوجد"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Selected Payment Receipt Voucher Display (Right Side) */}
-        <div className="lg:col-span-5">
-          {!selectedReceiptId ? (
-            <div className="bg-white rounded-xl border border-slate-100 p-12 text-center text-slate-400 text-xs shadow-sm h-[300px] flex flex-col items-center justify-center gap-3 no-print">
-              <FileCheck className="w-10 h-10 text-slate-200" />
-              <span>اختر دفعة أو سند قبض مالي من القائمة لإظهار نموذج السند الرسمي وإمكانية طباعته الفورية.</span>
+          </section>
+        </>
+      ) : (
+        <>
+          <header className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => { setSelectedCustomerId(null); setSelectedPaymentId(null); setShowCombinedStatement(false); }} className="rounded-lg bg-slate-100 p-2 text-slate-700 hover:bg-slate-200" aria-label="العودة إلى قائمة العملاء"><ArrowRight className="h-4 w-4" /></button>
+              <div><h1 className="text-base font-black text-slate-900">{selectedCustomer.name}</h1><p className="mt-1 text-xs text-slate-500">{folderById.get(selectedCustomer.folderId || "") || "الرئيسي"}{selectedCustomer.phone ? ` — ${selectedCustomer.phone}` : ""}</p></div>
             </div>
-          ) : (
-            selectedReceipt && (
-              <div className="space-y-4">
-                {/* Printing and Export actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2 no-print bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-1.5 text-slate-700 text-xs font-bold">
-                    <FileCheck className="w-4 h-4 text-emerald-600" />
-                    <span>وصل سند قبض مالي</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsPrinting(true);
-                        printElement("receipt-voucher", {
-                          title: `سند_قبض_${selectedReceipt.customerName}_${selectedReceipt.id.slice(-6)}`,
-                          onComplete: () => setIsPrinting(false),
-                        });
-                        setTimeout(() => setIsPrinting(false), 2000);
-                      }}
-                      disabled={isPrinting}
-                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                      title="طباعة الوصل مباشرة دون صفحات فارغة"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      {isPrinting ? "جاري التجهيز..." : "طباعة الوصل"}
-                    </button>
+            <button type="button" onClick={() => { setShowCombinedStatement(true); setSelectedPaymentId(null); }} disabled={!selectedPayments.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a88c54] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><FileCheck className="h-4 w-4" /> كشف جميع التسديدات</button>
+          </header>
 
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setIsExportingPDF(true);
-                        try {
-                          await exportElementToPDF("receipt-voucher", {
-                            filename: `سند_قبض_${selectedReceipt.customerName}_${selectedReceipt.id.slice(-6)}`,
-                          });
-                        } catch (err) {
-                          console.error("PDF export error", err);
-                          alert("تعذر إنشاء ملف PDF: " + (err instanceof Error ? err.message : String(err)));
-                        } finally {
-                          setIsExportingPDF(false);
-                        }
-                      }}
-                      disabled={isExportingPDF}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                      title="حفظ الوصل كملف PDF على جهازك"
-                    >
-                      {isExportingPDF ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Download className="w-3.5 h-3.5" />
-                      )}
-                      {isExportingPDF ? "جاري الإنشاء..." : "حفظ كـ PDF"}
-                    </button>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">عدد الوصولات</p><p className="mt-1 font-black">{selectedPayments.length}</p></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">مجموع التسديدات</p><p className="mt-1 font-black text-emerald-800">{formatThousands(selectedPaidTotal)} {settings.currency}</p></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">المتبقي الحالي</p><p className="mt-1 font-black text-amber-800">{formatThousands(selectedTotals?.remaining || 0)} {settings.currency}</p></div>
+          </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedReceiptId(null)}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer"
-                    >
-                      إغلاق
-                    </button>
-                  </div>
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-12">
+            <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-6">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800"><ReceiptText className="h-4 w-4 text-[#a88c54]" /> وصولات التسديد بالترتيب</h2>
+              {selectedPayments.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">ماكو وصولات تسديد لهذا العميل.</p> : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[650px] border-collapse text-right text-xs">
+                    <thead className="bg-slate-800 text-white"><tr><th className="p-3">تسلسل الوصل</th><th className="p-3">التاريخ</th><th className="p-3 text-center">التسديد</th><th className="p-3 text-center">المتبقي بعده</th><th className="p-3">الإجراء</th></tr></thead>
+                    <tbody>{selectedPayments.map((payment, index) => {
+                      const snapshot = balanceSnapshots.get(payment.id);
+                      const remaining = snapshot?.remaining ?? selectedTotals?.remaining ?? 0;
+                      const isSelected = selectedPaymentId === payment.id && !showCombinedStatement;
+                      return <tr key={payment.id} className={`border-t border-slate-200 ${isSelected ? "bg-emerald-50" : index % 2 ? "bg-slate-50" : "bg-white"}`}>
+                        <td className="p-3 font-bold">وصل التسديد {paymentOrdinal(index)}</td>
+                        <td className="p-3">{formatArabicDate(payment.date || payment.createdAt)}</td>
+                        <td className="p-3 text-center font-bold">{formatThousands(payment.amount)} {settings.currency}</td>
+                        <td className="p-3 text-center font-bold text-amber-800">{formatThousands(remaining)} {settings.currency}</td>
+                        <td className="p-3"><button type="button" onClick={() => { setSelectedPaymentId(payment.id); setShowCombinedStatement(false); }} className="rounded-md bg-emerald-700 px-3 py-1.5 font-bold text-white">عرض الوصل</button></td>
+                      </tr>;
+                    })}</tbody>
+                  </table>
                 </div>
-
-                {/* Receipt Voucher Card */}
-                <div
-                  id="receipt-voucher"
-                  className="print-container bg-white border-2 border-slate-300 rounded-xl shadow-lg p-6 text-slate-800 space-y-5 relative"
-                  style={{
-                    backgroundImage: "linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px)",
-                    backgroundSize: "100% 24px",
-                  }}
-                >
-                  {/* Decorative design border */}
-                  <div className="absolute top-0 right-0 bottom-0 w-2.5 bg-blue-600" />
-
-                  {/* Voucher Header */}
-                  <div className="flex justify-between items-start pb-4 border-b border-dashed border-slate-200 mr-2.5">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <Building className="w-4 h-4 text-blue-600" />
-                        <h2 className="text-sm font-extrabold text-slate-900">
-                          {settings.companyName}
-                        </h2>
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        تلفون: {settings.companyPhone || "غير مسجل"}
-                      </p>
-                    </div>
-
-                    <div className="text-left font-mono text-[10px] space-y-0.5">
-                      <p className="font-bold text-slate-900 bg-blue-50 text-blue-800 px-2 py-0.5 rounded">
-                        سند قبض مالي رقم: {selectedReceipt.id.slice(-8).toUpperCase()}
-                      </p>
-                      <p className="text-slate-500">
-                        التاريخ: {selectedReceipt.date}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Receipt Body */}
-                  <div className="mr-2.5 space-y-4 text-xs font-sans">
-                    <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100 font-mono">
-                      <span className="font-sans font-semibold text-slate-500">المبلغ المستلم:</span>
-                      <span className="text-lg font-black text-blue-600">
-                        {formatThousands(selectedReceipt.amount)} {settings.currency}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5 leading-relaxed">
-                      <p className="flex items-baseline gap-2 border-b border-dotted border-slate-300 pb-1">
-                        <span className="text-slate-400 font-semibold shrink-0">استلمنا من السيد/ة:</span>
-                        <span className="font-extrabold text-slate-800">{selectedReceipt.customerName}</span>
-                      </p>
-
-                      <p className="flex items-baseline gap-2 border-b border-dotted border-slate-300 pb-1">
-                        <span className="text-slate-400 font-semibold shrink-0">مبلغ وقدره:</span>
-                        <span className="font-bold text-slate-700">
-                          {formatThousands(selectedReceipt.amount)} {settings.currency} فقط لا غير.
-                        </span>
-                      </p>
-
-                      <p className="flex items-baseline gap-2 border-b border-dotted border-slate-300 pb-1">
-                        <span className="text-slate-400 font-semibold shrink-0">وذلك عن لقاء:</span>
-                        <span className="font-medium text-slate-600">
-                          {selectedReceipt.notes || "تسديد مبالغ ودفعات من الحساب الدفتري لأجل"}
-                        </span>
-                      </p>
-
-                      <p className="flex items-baseline gap-2">
-                        <span className="text-slate-400 font-semibold shrink-0">طريقة القبض:</span>
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded font-bold font-mono">
-                          {selectedReceipt.method}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Receipt Signatures */}
-                  <div className="mr-2.5 pt-6 border-t border-dashed border-slate-200 grid grid-cols-2 gap-4 text-[11px] text-slate-600 text-center">
-                    <div>
-                      <p className="font-semibold flex items-center justify-center gap-1">
-                        <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-                        المستلم المسؤول
-                      </p>
-                      <p className="mt-8 border-t border-dotted border-slate-300 pt-1 font-bold text-slate-800">
-                        {settings.signaturePlaceholder || "أمين الخزينة"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-semibold">المسدد (العميل)</p>
-                      <p className="mt-8 border-t border-dotted border-slate-300 pt-1 font-bold text-slate-800">
-                        {selectedReceipt.customerName.split(" ")[0]}
-                      </p>
-                    </div>
-                  </div>
+              )}
+            </section>
+            <section className="min-w-0 xl:col-span-6">
+              {showCombinedStatement ? renderCombinedStatement() : selectedPayment ? renderIndividualReceipt() : (
+                <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+                  <UserRound className="h-9 w-9 text-slate-300" /><span>اختار وصل من الجدول حتى يظهر نموذج الوصل، أو اضغط كشف جميع التسديدات.</span>
                 </div>
-              </div>
-            )
-          )}
-        </div>
-
-      </div>
-
+              )}
+            </section>
+          </div>
+        </>
+      )}
     </div>
   );
 }
