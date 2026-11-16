@@ -664,13 +664,21 @@ export default function VerticalLedgerSheet({
         return false;
       }
       const pageNumber = target.pageNumber || 1;
-      const inserted = cartItems.map((item, itemIndex) => ({
-        ...(itemIndex === 0 ? target : {}),
-        ...item,
-        id: itemIndex === 0 ? targetRowId : item.id,
-        pageNumber,
-        isLoggedDebt: true,
-      }));
+      const inserted = cartItems.map((item, itemIndex) => {
+        const quantity = Math.max(0, Number(item.quantity ?? 1) || 0);
+        const singleUnitPrice = Math.max(0, Number(item.singleUnitPrice ?? item.unitPrice) || 0);
+        const total = singleUnitPrice * quantity;
+        return {
+          ...(itemIndex === 0 ? target : {}),
+          ...item,
+          id: itemIndex === 0 ? targetRowId : item.id,
+          pageNumber,
+          isLoggedDebt: true,
+          singleUnitPrice,
+          unitPrice: singleUnitPrice,
+          total,
+        };
+      });
       const nextItems = [...draft.items];
       nextItems.splice(index, 1, ...inserted);
       cartDraftRef.current.items = nextItems;
@@ -1375,7 +1383,13 @@ export default function VerticalLedgerSheet({
     const quantity = normalized === "" ? 0 : Number(normalized);
     if (!Number.isFinite(quantity) || quantity < 0) return;
     setEditingQuantities(previous => ({ ...previous, [id]: value }));
-    persistChanges(items.map(item => item.id === id ? { ...item, quantity } : item));
+    persistChanges(items.map(item => {
+      if (item.id !== id) return item;
+      if (item.singleUnitPrice === undefined) return { ...item, quantity };
+      const singleUnitPrice = Math.max(0, Number(item.singleUnitPrice) || 0);
+      const total = singleUnitPrice * quantity;
+      return { ...item, quantity, unitPrice: singleUnitPrice, total };
+    }));
   };
 
   const handleUpdateUnit = (id: string, unit: string) => {
@@ -1391,7 +1405,12 @@ export default function VerticalLedgerSheet({
     if (normalized && !/^\d*\.?\d*$/.test(normalized)) return;
     const price = normalized === "" ? 0 : Number(normalized);
     if (!Number.isFinite(price) || price < 0) return;
-    persistChanges(items.map(item => item.id === id ? { ...item, singleUnitPrice: price } : item));
+    persistChanges(items.map(item => {
+      if (item.id !== id) return item;
+      const quantity = Math.max(0, Number(item.quantity ?? 1) || 0);
+      const total = price * quantity;
+      return { ...item, singleUnitPrice: price, unitPrice: price, total };
+    }));
   };
 
   const handleUpdateAmount = (id: string, amountStr: string) => {
@@ -1962,6 +1981,8 @@ export default function VerticalLedgerSheet({
                                   ? String(item.total)
                                   : ""
                               }
+                              readOnly={item.singleUnitPrice !== undefined}
+                              title={item.singleUnitPrice !== undefined ? "يُحسب المبلغ من سعر المفرد × الكمية" : undefined}
                               placeholder="0"
                               onClick={(e) => {
                                 e.stopPropagation();
