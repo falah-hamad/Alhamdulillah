@@ -16,6 +16,8 @@ import { Customer, CustomerFolder, Invoice, Payment, SystemSettings } from "../t
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import { exportElementToPDF, printElement } from "../utils/printUtils";
 import { formatThousands } from "../utils/numberFormatting";
+import { FilterButton, FilterPanel } from "./FilterPanel";
+import FormattedNumberInput from "./FormattedNumberInput";
 
 interface PaymentsViewProps {
   customers: Customer[];
@@ -245,9 +247,33 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState("all");
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minimumAmount, setMinimumAmount] = useState("");
+  const [maximumAmount, setMaximumAmount] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [showCombinedStatement, setShowCombinedStatement] = useState(false);
+
+  const paymentDateKey = (payment: Payment) => {
+    const timestamp = dateValue(payment.date || payment.createdAt);
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+  const paymentMatchesFilters = (payment: Payment) => {
+    const date = paymentDateKey(payment);
+    const min = Number(minimumAmount.replace(/,/g, "")) || 0;
+    const max = Number(maximumAmount.replace(/,/g, "")) || 0;
+    return (selectedMethod === "all" || payment.method === selectedMethod)
+      && (!dateFrom || (date && date >= dateFrom))
+      && (!dateTo || (date && date <= dateTo))
+      && (!minimumAmount || safeAmount(payment.amount) >= min)
+      && (!maximumAmount || safeAmount(payment.amount) <= max);
+  };
+  const activeFilterCount = [selectedMethod !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(minimumAmount), Boolean(maximumAmount)].filter(Boolean).length;
 
   const paymentsByCustomer = useMemo(() => {
     const grouped = new Map<string, Payment[]>();
@@ -273,7 +299,7 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
     const query = searchQuery.trim().toLocaleLowerCase();
     return customers
       .map(customer => {
-        const customerPayments = paymentsByCustomer.get(customer.id) || [];
+        const customerPayments = (paymentsByCustomer.get(customer.id) || []).filter(paymentMatchesFilters);
         const totals = getCustomerLedgerTotals(customer, invoices);
         return {
           customer,
@@ -285,19 +311,21 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
       })
       .filter(row => showAllCustomers || row.customerPayments.length > 0)
       .filter(row => selectedFolderId === "all" || row.customer.folderId === selectedFolderId)
-      .filter(row => !query || [row.customer.name, row.customer.phone || "", row.customer.address || "", folderById.get(row.customer.folderId || "") || ""]
+      .filter(row => !query || [row.customer.name, row.customer.phone || "", row.customer.address || "", folderById.get(row.customer.folderId || "") || "", ...row.customerPayments.flatMap(payment => [payment.notes || "", payment.method || ""])]
         .some(value => value.toLocaleLowerCase().includes(query)))
       .sort((left, right) => dateValue(right.lastPayment?.date || right.lastPayment?.createdAt)
         - dateValue(left.lastPayment?.date || left.lastPayment?.createdAt)
         || left.customer.name.localeCompare(right.customer.name, "ar"));
-  }, [customers, invoices, paymentsByCustomer, searchQuery, selectedFolderId, showAllCustomers, folderById]);
+  }, [customers, invoices, paymentsByCustomer, searchQuery, selectedFolderId, showAllCustomers, folderById, selectedMethod, dateFrom, dateTo, minimumAmount, maximumAmount]);
 
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId) || null;
-  const selectedPayments = selectedCustomer ? (paymentsByCustomer.get(selectedCustomer.id) || []) : [];
+  const selectedCustomerPayments = selectedCustomer ? (paymentsByCustomer.get(selectedCustomer.id) || []) : [];
+  const selectedPayments = selectedCustomerPayments.filter(paymentMatchesFilters);
   const selectedTotals = selectedCustomer ? getCustomerLedgerTotals(selectedCustomer, invoices) : null;
   const selectedPaidTotal = selectedPayments.reduce((sum, payment) => sum + safeAmount(payment.amount), 0);
+  const selectedAllPaidTotal = selectedCustomerPayments.reduce((sum, payment) => sum + safeAmount(payment.amount), 0);
   const selectedPayment = selectedPayments.find(payment => payment.id === selectedPaymentId) || null;
-  const selectedPaymentIndex = selectedPayment ? selectedPayments.findIndex(payment => payment.id === selectedPayment.id) : -1;
+  const selectedPaymentIndex = selectedPayment ? selectedCustomerPayments.findIndex(payment => payment.id === selectedPayment.id) : -1;
   const selectedSnapshot = selectedPayment ? balanceSnapshots.get(selectedPayment.id) : undefined;
   const selectedBalanceAfter = selectedSnapshot?.remaining ?? selectedTotals?.remaining ?? 0;
   const selectedBalanceBefore = selectedSnapshot?.before ?? (selectedBalanceAfter + safeAmount(selectedPayment?.amount));
@@ -370,18 +398,18 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
           <ReceiptShell settings={settings} title="كشف جميع التسديدات">
             <div className="mb-4 flex flex-wrap justify-between gap-2 border border-slate-300 p-3 text-sm">
               <span><b>اسم العميل:</b> {selectedCustomer.name}</span>
-              <span><b>عدد الوصولات:</b> {selectedPayments.length}</span>
+              <span><b>عدد الوصولات:</b> {selectedCustomerPayments.length}</span>
               <span><b>تاريخ الكشف:</b> {formatArabicDate(localDateKey())}</span>
             </div>
             <div className="mb-4 grid grid-cols-1 gap-2 bg-[#e5e1d7] p-3 text-sm sm:grid-cols-3 sm:text-center">
-              <p><b>مجموع التسديدات:</b><br />{formatThousands(selectedPaidTotal)} {settings.currency}</p>
+              <p><b>مجموع التسديدات:</b><br />{formatThousands(selectedAllPaidTotal)} {settings.currency}</p>
               <p><b>إجمالي الحساب:</b><br />{formatThousands(selectedTotals.sales)} {settings.currency}</p>
               <p><b>المتبقي الحالي:</b><br />{formatThousands(selectedTotals.remaining)} {settings.currency}</p>
             </div>
             <table className="w-full border-collapse border border-slate-400 text-xs sm:text-sm">
               <thead><tr className="bg-slate-800 text-[#d8c18e]"><th className="border border-slate-400 p-2">ت</th><th className="border border-slate-400 p-2">رقم الوصل</th><th className="border border-slate-400 p-2">الطابع الزمني</th><th className="border border-slate-400 p-2">التسديد</th><th className="border border-slate-400 p-2">المتبقي بعده</th></tr></thead>
               <tbody>
-                {selectedPayments.map((payment, index) => {
+                {selectedCustomerPayments.map((payment, index) => {
                   const snapshot = balanceSnapshots.get(payment.id);
                   const remaining = snapshot?.remaining ?? selectedTotals.remaining;
                   return <tr key={payment.id} className={index % 2 ? "bg-slate-100" : "bg-white"}>
@@ -392,7 +420,7 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
                     <td className="border border-slate-300 p-2 text-center font-bold">{formatThousands(remaining)} {settings.currency}</td>
                   </tr>;
                 })}
-                <tr className="bg-[#e5e1d7] font-black"><td className="border border-slate-300 p-2 text-center" colSpan={3}>مجموع التسديدات والمتبقي الحالي</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedPaidTotal)} {settings.currency}</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedTotals.remaining)} {settings.currency}</td></tr>
+                <tr className="bg-[#e5e1d7] font-black"><td className="border border-slate-300 p-2 text-center" colSpan={3}>مجموع التسديدات والمتبقي الحالي</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedAllPaidTotal)} {settings.currency}</td><td className="border border-slate-300 p-2 text-center">{formatThousands(selectedTotals.remaining)} {settings.currency}</td></tr>
               </tbody>
             </table>
             <div className="mt-8 grid grid-cols-2 gap-8 text-center text-sm"><div><p className="mb-8">توقيع المستلم</p><div className="border-t border-slate-500 pt-1">{settings.signaturePlaceholder || ""}</div></div><div><p className="mb-8">توقيع العميل</p><div className="border-t border-slate-500 pt-1">{selectedCustomer.name}</div></div></div>
@@ -437,7 +465,17 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
                   <button type="button" onClick={() => setShowAllCustomers(false)} className={`rounded-md px-3 py-1.5 ${!showAllCustomers ? "bg-emerald-700 text-white" : "text-slate-600"}`}>لديهم تسديدات</button>
                   <button type="button" onClick={() => setShowAllCustomers(true)} className={`rounded-md px-3 py-1.5 ${showAllCustomers ? "bg-emerald-700 text-white" : "text-slate-600"}`}>كل العملاء</button>
                 </div>
+                <FilterButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
               </div>
+              <FilterPanel open={filtersOpen} title="تصفية التسديدات" activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedMethod("all"); setDateFrom(""); setDateTo(""); setMinimumAmount(""); setMaximumAmount(""); }}>
+                <label className="text-xs font-semibold text-slate-700">طريقة التسديد
+                  <select value={selectedMethod} onChange={event => setSelectedMethod(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2">
+                    <option value="all">جميع الطرق</option><option value="نقدي">نقدي</option><option value="تحويل بنكي">تحويل بنكي</option><option value="شيك">شيك</option><option value="مدى">بطاقة أو إلكتروني</option>
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold text-slate-700">من تاريخ<input type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-xs font-semibold text-slate-700">إلى تاريخ<input type="date" value={dateTo} onChange={event => setDateTo(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+                <div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold text-slate-700">أقل مبلغ<FormattedNumberInput type="number" min="0" value={minimumAmount} onChange={event => setMinimumAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-xs font-semibold text-slate-700">أعلى مبلغ<FormattedNumberInput type="number" min="0" value={maximumAmount} onChange={event => setMaximumAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
+              </FilterPanel>
             </div>
             {customerRows.length === 0 ? (
               <div className="rounded-xl bg-slate-50 py-12 text-center text-sm text-slate-500">ماكو عملاء مطابقين للبحث أو ما مسجلين تسديدات بعد.</div>
@@ -468,7 +506,7 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
               <button type="button" onClick={() => { setSelectedCustomerId(null); setSelectedPaymentId(null); setShowCombinedStatement(false); }} className="rounded-lg bg-slate-100 p-2 text-slate-700 hover:bg-slate-200" aria-label="العودة إلى قائمة العملاء"><ArrowRight className="h-4 w-4" /></button>
               <div><h1 className="text-base font-black text-slate-900">{selectedCustomer.name}</h1><p className="mt-1 text-xs text-slate-500">{folderById.get(selectedCustomer.folderId || "") || "الرئيسي"}{selectedCustomer.phone ? ` — ${selectedCustomer.phone}` : ""}</p></div>
             </div>
-            <button type="button" onClick={() => { setShowCombinedStatement(true); setSelectedPaymentId(null); }} disabled={!selectedPayments.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a88c54] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><FileCheck className="h-4 w-4" /> كشف جميع التسديدات</button>
+            <button type="button" onClick={() => { setShowCombinedStatement(true); setSelectedPaymentId(null); }} disabled={!selectedCustomerPayments.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a88c54] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><FileCheck className="h-4 w-4" /> كشف جميع التسديدات</button>
           </header>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
