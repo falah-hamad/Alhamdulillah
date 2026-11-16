@@ -216,6 +216,10 @@ export default function VerticalLedgerSheet({
 
   // Mode: "view" (عرض علامة عين) or "edit" (تعديل علامة قلم) - الافتراضي هو وضع العرض
   const [sheetMode, setSheetMode] = useState<"edit" | "view">("view");
+  const [showSingleUnitPrice, setShowSingleUnitPrice] = useState(() => {
+    try { return localStorage.getItem("vertical_ledger_show_single_unit_price") !== "false"; }
+    catch { return true; }
+  });
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [detailIsPayment, setDetailIsPayment] = useState(false);
   const [pressedViewRowId, setPressedViewRowId] = useState<string | null>(null);
@@ -269,6 +273,7 @@ export default function VerticalLedgerSheet({
   const [showLedgerFavoritesEditor, setShowLedgerFavoritesEditor] = useState(false);
   const [ledgerFavoritesDraft, setLedgerFavoritesDraft] = useState<string[]>([]);
   useEffect(() => { try { localStorage.setItem("vertical_ledger_favorites", JSON.stringify(ledgerToolbarFavorites)); } catch {} }, [ledgerToolbarFavorites]);
+  useEffect(() => { try { localStorage.setItem("vertical_ledger_show_single_unit_price", String(showSingleUnitPrice)); } catch {} }, [showSingleUnitPrice]);
 
   // Background Color State (لون خلفية الكشف وورقة الدفتر)
   const [sheetBgColor, setSheetBgColor] = useState<string>(() => {
@@ -747,12 +752,14 @@ export default function VerticalLedgerSheet({
       const newQuantity = Number(item.quantity ?? 1);
       const oldUnit = previous.unit || "";
       const newUnit = item.unit || "";
-      if (oldAmount === newAmount && oldName === newName && oldQuantity === newQuantity && oldUnit === newUnit) return [];
+      const oldSingleUnitPrice = Number(previous.singleUnitPrice || 0);
+      const newSingleUnitPrice = Number(item.singleUnitPrice || 0);
+      if (oldAmount === newAmount && oldName === newName && oldQuantity === newQuantity && oldUnit === newUnit && oldSingleUnitPrice === newSingleUnitPrice) return [];
       return [{
         customerId: customer.id,
         invoiceId: invoice.id,
         actionType: "تعديل دين",
-        details: `تعديل: ${formatDebtChangeLogDetails(oldName, oldAmount, settings.currency)} (${oldQuantity} ${oldUnit}) ← ${formatDebtChangeLogDetails(newName, newAmount, settings.currency)} (${newQuantity} ${newUnit})`,
+        details: `تعديل: ${formatDebtChangeLogDetails(oldName, oldAmount, settings.currency)} (${oldQuantity} ${oldUnit})، سعر المفرد ${formatThousands(oldSingleUnitPrice)} ← ${formatDebtChangeLogDetails(newName, newAmount, settings.currency)} (${newQuantity} ${newUnit})، سعر المفرد ${formatThousands(newSingleUnitPrice)}`,
         rawAmount: newAmount,
         itemName: newName,
         targetItemId: item.id,
@@ -1375,6 +1382,18 @@ export default function VerticalLedgerSheet({
     persistChanges(items.map(item => item.id === id ? { ...item, unit } : item));
   };
 
+  const handleUpdateSingleUnitPrice = (id: string, value: string) => {
+    const normalized = value
+      .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+      .replace(/٫/g, ".")
+      .replace(/[^\d.]/g, "");
+    if (normalized && !/^\d*\.?\d*$/.test(normalized)) return;
+    const price = normalized === "" ? 0 : Number(normalized);
+    if (!Number.isFinite(price) || price < 0) return;
+    persistChanges(items.map(item => item.id === id ? { ...item, singleUnitPrice: price } : item));
+  };
+
   const handleUpdateAmount = (id: string, amountStr: string) => {
     // Keep exact user draft text so cursor, typing, backspace, and deletion work smoothly
     setEditingAmounts((prev) => ({ ...prev, [id]: amountStr }));
@@ -1671,7 +1690,7 @@ export default function VerticalLedgerSheet({
         style={{ backgroundColor: sheetBgColor }}
         data-ledger-font="true"
       >
-        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
+        <style>{`#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) var(--ledger-row-tools-width,0px)" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) var(--ledger-row-tools-width,0px)"}!important}#vertical-ledger-sheet .vertical-ledger-grid.vertical-ledger-grid-with-single-unit-price{grid-template-columns:minmax(0,.5fr) repeat(2,minmax(0,.65fr)) repeat(5,minmax(0,1.2fr)) repeat(2,minmax(0,.8fr)) repeat(2,minmax(0,.8fr)) var(--ledger-row-tools-width,0px)!important}@media print{#vertical-ledger-sheet .vertical-ledger-grid{grid-template-columns:${isSupplierLedger ? "minmax(0,.5fr) repeat(3,minmax(0,.85fr)) repeat(8,minmax(0,1.25fr)) 0px" : "minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px"}!important}#vertical-ledger-sheet .vertical-ledger-grid.vertical-ledger-grid-with-single-unit-price{grid-template-columns:minmax(0,.5fr) repeat(3,minmax(0,.65fr)) repeat(5,minmax(0,1.35fr)) repeat(3,minmax(2.5rem,1fr)) 0px!important}}[data-row-font-color="true"] .text-slate-900,[data-row-font-color="true"] .text-slate-800,[data-row-font-color="true"] .text-slate-700,[data-row-font-color="true"] .text-slate-600,[data-row-font-color="true"] input{color:var(--row-font-color)!important}[data-row-font-size="true"] .text-slate-900,[data-row-font-size="true"] .text-slate-800,[data-row-font-size="true"] .text-slate-700,[data-row-font-size="true"] .text-slate-600,[data-row-font-size="true"] input{font-size:var(--row-font-size)!important}[data-row-font-bold="true"] .text-slate-900,[data-row-font-bold="true"] .text-slate-800,[data-row-font-bold="true"] .text-slate-700,[data-row-font-bold="true"] .text-slate-600,[data-row-font-bold="true"] input{font-weight:var(--row-font-weight)!important}[data-row-font-italic="true"] .text-slate-900,[data-row-font-italic="true"] .text-slate-800,[data-row-font-italic="true"] .text-slate-700,[data-row-font-italic="true"] .text-slate-600,[data-row-font-italic="true"] input{font-style:var(--row-font-style)!important}[data-row-font-decoration="true"] .text-slate-900,[data-row-font-decoration="true"] .text-slate-800,[data-row-font-decoration="true"] .text-slate-700,[data-row-font-decoration="true"] .text-slate-600,[data-row-font-decoration="true"] input{text-decoration:var(--row-text-decoration)!important}`}</style>
         {!isSupplierLedger && <style>{`.debt-ledger-modern{border-radius:14px!important;border-color:#d7e8e9!important;box-shadow:0 8px 24px rgba(15,75,79,.08)!important}.debt-ledger-modern .debt-ledger-banner{background-color:#006b60;background-image:linear-gradient(110deg,#00574f 0%,#007b68 58%,#006755 100%);background-position:center;background-size:cover;background-repeat:no-repeat;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-ident{border-color:#0cae62!important}.debt-ledger-modern .debt-ledger-meta{background:#e5f5fc!important;border-color:#93d1e5!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-meta-cell{border-color:#0a947c!important}.debt-ledger-modern .debt-ledger-table-head{background:linear-gradient(90deg,#005c53,#087e70)!important;color:#fff!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-table-head>div{color:#fff!important}.debt-ledger-modern .debt-ledger-row{border-color:#fff!important;border-radius:3px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-summary{background:linear-gradient(110deg,#dcf8ee,#e2f5f7)!important;border-left:5px solid #09ad59!important;border-radius:6px!important;padding:5px 7px!important;margin-top:8px!important;margin-bottom:10px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.debt-ledger-modern .debt-ledger-summary>div:last-child{background:transparent!important;border:0!important;border-radius:0!important}.debt-ledger-modern .debt-ledger-summary-top-rule{display:none!important}.debt-ledger-modern .debt-ledger-summary-rule{height:2px!important;background:#087e70!important;margin-top:6px!important;margin-bottom:6px!important}.debt-ledger-modern .debt-ledger-footer{border-color:#0cae62!important}.debt-ledger-modern .debt-ledger-page-note{color:#006b60!important;background:#e4f7f0!important;border-color:#9ee2c4!important}.debt-ledger-modern .debt-ledger-due-badge{display:none!important}@media print{.debt-ledger-modern{box-shadow:none!important;border-radius:0!important}.debt-ledger-modern .debt-ledger-banner,.debt-ledger-modern .debt-ledger-meta,.debt-ledger-modern .debt-ledger-table-head,.debt-ledger-modern .debt-ledger-row,.debt-ledger-modern .debt-ledger-summary{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}}`}</style>}
         {!isSupplierLedger && <style>{`
           .debt-ledger-white-rows .debt-ledger-row{background:#fff!important;background-color:#fff!important;background-image:none!important}
@@ -1793,11 +1812,12 @@ export default function VerticalLedgerSheet({
           {/* The Ledger Table */}
           <div className="w-full" style={{ "--ledger-row-tools-width": sheetMode === "edit" ? "5rem" : "0px" } as React.CSSProperties}>
             {/* Supplier sheets omit the quantity column; customer ledgers keep it. */}
-            <div className={`grid grid-cols-12 vertical-ledger-grid select-none ${isSupplierLedger ? "border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600" : "debt-ledger-table-head rounded-md px-1 py-2 text-xs font-bold text-white"}`}>
+            <div className={`grid grid-cols-12 vertical-ledger-grid ${showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger ? "vertical-ledger-grid-with-single-unit-price" : ""} select-none ${isSupplierLedger ? "border-b border-amber-900/30 pb-2 text-xs font-bold text-slate-600" : "debt-ledger-table-head rounded-md px-1 py-2 text-xs font-bold text-white"}`}>
               <div className="col-span-1 text-center font-bold text-slate-500 text-xs">ت</div>
-              <div className="col-span-3 text-center font-bold text-xs">المبلغ</div>
+              <div className={`${showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger ? "col-span-2" : "col-span-3"} text-center font-bold text-xs`}>المبلغ</div>
               <div className={`${isSupplierLedger ? "col-span-8" : "col-span-5"} text-right pr-1 font-bold text-xs`}>التفاصيل والبيان</div>
-              {!isSupplierLedger && <div className="col-span-3 text-center font-bold text-xs">الكمية</div>}
+              {showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger && <div className="col-span-2 text-center font-bold text-xs">سعر المفرد</div>}
+              {!isSupplierLedger && <div className={`${showSingleUnitPrice && sheetMode === "edit" ? "col-span-2" : "col-span-3"} text-center font-bold text-xs`}>الكمية</div>}
               {sheetMode === "edit" && <div aria-hidden="true" className="no-print" style={{ gridColumn: 13 }} />}
             </div>
 
@@ -1870,7 +1890,7 @@ export default function VerticalLedgerSheet({
                             handleCommitRowDebtLog(item.id);
                           }
                         }}
-                        className={`grid grid-cols-12 vertical-ledger-grid items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${!isSupplierLedger ? `debt-ledger-row ${lineIndex % 2 === 0 ? "bg-[#e5f5ff]" : "bg-[#e4f8f2]"}` : ""} ${
+                        className={`grid grid-cols-12 vertical-ledger-grid ${showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger ? "vertical-ledger-grid-with-single-unit-price" : ""} items-center py-1 border-b border-amber-900/10 transition-all rounded-md group relative cursor-pointer ${!isSupplierLedger ? `debt-ledger-row ${lineIndex % 2 === 0 ? "bg-[#e5f5ff]" : "bg-[#e4f8f2]"}` : ""} ${
                           rowSelectionMode && isMultiSelected
                             ? "bg-blue-100/80 ring-1 ring-blue-500/80 shadow-2xs"
                              : sheetMode === "edit" && !rowSelectionMode && isSelected
@@ -1919,7 +1939,7 @@ export default function VerticalLedgerSheet({
                         </div>
 
                         {/* 2. المبلغ (Amount) */}
-                        <div className="col-span-3 px-1">
+                        <div className={`${showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger ? "col-span-2" : "col-span-3"} px-1`}>
                           {sheetMode === "view" ? (
                             <div
                               style={{ fontSize: `${defaultFontSize}px` }}
@@ -1995,8 +2015,13 @@ export default function VerticalLedgerSheet({
                           )}
                         </div>
 
+                        {/* Per-unit price is optional and shown only in edit mode; the row amount remains independent. */}
+                        {showSingleUnitPrice && sheetMode === "edit" && !isSupplierLedger && <div className="col-span-2 min-w-0 px-0.5 text-center" style={{ fontSize: `${defaultFontSize}px` }} onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
+                          <FormattedNumberInput type="text" inputMode="numeric" dir="ltr" aria-label={`سعر المفرد للصف ${lineIndex}`} value={item.singleUnitPrice ? String(item.singleUnitPrice) : ""} placeholder="0" onChange={event => handleUpdateSingleUnitPrice(item.id, event.target.value)} className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-center font-mono font-bold text-slate-900 hover:border-slate-300/70 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        </div>}
+
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
-                        {!isSupplierLedger && <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${defaultFontSize}px` }}>
+                        {!isSupplierLedger && <div className={`${showSingleUnitPrice && sheetMode === "edit" ? "col-span-2" : "col-span-3"} min-w-0 px-0.5 text-center`} style={{ fontSize: `${defaultFontSize}px` }}>
                           {sheetMode === "view" ? (
                             <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
                               <span dir="ltr">{item.quantity ?? 1}</span>
@@ -2363,6 +2388,10 @@ export default function VerticalLedgerSheet({
           >
             <Pencil className="h-4 w-4" /> تعديل
           </button>
+          {sheetMode === "edit" && !isSupplierLedger && <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-900">
+            <input type="checkbox" className="h-4 w-4 accent-blue-700" checked={showSingleUnitPrice} onChange={event => setShowSingleUnitPrice(event.target.checked)} />
+            <span>إظهار سعر المفرد</span>
+          </label>}
           <FilterButton activeCount={ledgerFilterCount} onClick={() => setLedgerFiltersOpen(true)} />
         </div>
         {sheetMode === "edit" && (

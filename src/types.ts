@@ -205,6 +205,7 @@ export interface Supplier {
 
 export interface InvoiceItem {
   unitCost?: number; // Historical purchase cost captured when the item is sold.
+  singleUnitPrice?: number; // Optional single-item price recorded in the vertical debt statement.
   id: string;
   details: string; // Product name or custom detail
   productId?: string; // Optional reference to standard product
