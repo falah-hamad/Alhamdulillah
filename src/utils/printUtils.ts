@@ -610,7 +610,7 @@ export async function printElement(
           padding: 3.5mm 4mm !important;
           line-height: 1.5 !important;
         }
-        #customer-payment-receipt .print-container > div:nth-last-child(2) {
+        #customer-payment-receipt .print-container > div:nth-child(6) {
           display: grid !important;
           grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
           align-items: center !important;
