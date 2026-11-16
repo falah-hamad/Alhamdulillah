@@ -424,7 +424,7 @@ export default function DashboardView({
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-700">أحدث قوائم حساب ديون العملاء</h2>
               <button
-                onClick={() => setCurrentTab("invoices")}
+                onClick={() => setCurrentTab("ledger")}
                 className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
               >
                 عرض الكل <ArrowUpRight className="w-3.5 h-3.5" />

@@ -6,7 +6,6 @@ import {
   Package,
   Truck,
   DollarSign,
-  FileText,
   BarChart3,
   Settings,
   Menu,
@@ -70,7 +69,6 @@ export default function Sidebar({
     { id: "products", label: "البضائع", icon: Package },
     { id: "suppliers", label: "الموردون", icon: Truck },
     { id: "payments", label: "الدفعات", icon: DollarSign },
-    { id: "invoices", label: "الفواتير", icon: FileText },
     { id: "stats", label: "الإحصائيات", icon: BarChart3 },
     { id: "downloads", label: "التنزيلات", icon: Download },
     { id: "notes", label: "سجل الملاحظات", icon: StickyNote },
@@ -156,7 +154,7 @@ export default function Sidebar({
                       {(item as any).badge}
                     </span>
                   )}
-                  {(item.id === "home" || item.id === "invoices" || item.id === "overdue") && overdueInvoicesCount > 0 && (
+                  {(item.id === "home" || item.id === "overdue") && overdueInvoicesCount > 0 && (
                     <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-600 text-white animate-pulse">
                       {overdueInvoicesCount}
                     </span>

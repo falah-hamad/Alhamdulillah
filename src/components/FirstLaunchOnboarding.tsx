@@ -27,7 +27,7 @@ const onboardingSlides: OnboardingSlide[] = [
     id: "features-core",
     icon: <CheckCircle2 className="w-8 h-8 text-blue-600" />,
     title: "إدارة متكاملة",
-    body: "إدارة سجل الديون والعملاء والفواتير والدفعات، مع البحث السريع، التقارير، والطباعة.",
+    body: "إدارة سجل الديون والعملاء والتسديدات، مع البحث السريع، التقارير، والطباعة.",
   },
   {
     id: "features-cloud",

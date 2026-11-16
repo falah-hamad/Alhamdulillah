@@ -46,7 +46,6 @@ import CustomersView from "./components/CustomersView";
 import ProductsView from "./components/ProductsView";
 import SuppliersView from "./components/SuppliersView";
 import PaymentsView from "./components/PaymentsView";
-import InvoicesView from "./components/InvoicesView";
 import StatsView from "./components/StatsView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
@@ -754,7 +753,6 @@ export default function App() {
                 {currentTab === "products" && "جرد البضائع والمستودع"}
                 {currentTab === "suppliers" && "حسابات الموردين والمشتريات"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
-                {currentTab === "invoices" && "دفتر مبيعات الفواتير"}
                 {currentTab === "stats" && "التقارير البيانية والإحصائيات"}
                 {currentTab === "downloads" && "التنزيلات"}
                 {currentTab === "settings" && "الإعدادات وتأمين البيانات"}
@@ -1065,15 +1063,6 @@ export default function App() {
               folders={folders}
               settings={settings}
               onOpenLedger={() => setCurrentTab("ledger")}
-            />
-          )}
-
-          {currentTab === "invoices" && (
-            <InvoicesView
-              invoices={activeInvoices}
-              settings={settings}
-              deleteInvoice={deleteInvoice}
-              onSelectInvoiceForLedger={handleSelectInvoiceForLedger}
             />
           )}
 
