@@ -77,6 +77,7 @@ function localDateKey(date = new Date()) {
 
 function formatArabicTimestamp(value?: string) {
   if (!value) return "غير محدد";
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(value.trim())) return formatArabicDate(value);
   const timestamp = dateValue(value);
   if (!timestamp) return value;
   return new Intl.DateTimeFormat("ar-IQ", {
