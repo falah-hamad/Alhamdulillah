@@ -535,6 +535,18 @@ export async function printElement(
           direction: rtl !important;
           text-align: right !important;
         }
+        /* Keep receipt text at the same readable scale as the in-app preview. */
+        #customer-payment-receipt .print-container {
+          font-size: 12pt !important;
+        }
+        #customer-payment-receipt .print-container [class~="text-xs"] {
+          font-size: 10pt !important;
+          line-height: 1.45 !important;
+        }
+        #customer-payment-receipt .print-container [class~="text-sm"] {
+          font-size: 11pt !important;
+          line-height: 1.5 !important;
+        }
         #customer-payment-receipt .print-container > div:first-child {
           display: grid !important;
           grid-template-columns: 17mm minmax(0, 1fr) !important;
