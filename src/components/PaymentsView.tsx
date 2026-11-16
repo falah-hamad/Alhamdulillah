@@ -361,12 +361,12 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
               <span>رقم الوصل: <b dir="ltr">{receiptCode}</b></span>
               <span>الطابع الزمني: <b>{formatArabicTimestamp(selectedPayment.date || selectedPayment.createdAt)}</b></span>
             </div>
-            <table className="w-full border-collapse border border-slate-400 text-sm">
-              <thead><tr className="bg-slate-800 text-[#d8c18e]"><th className="border border-slate-400 p-3 text-right">التفاصيل</th><th className="w-2/5 border border-slate-400 p-3 text-center">المبلغ</th></tr></thead>
+            <table dir="rtl" className="w-full border-collapse border border-slate-400 text-sm">
+              <thead><tr className="bg-slate-800 text-[#d8c18e]"><th className="w-2/5 border border-slate-400 p-3 text-center">المبلغ</th><th className="border border-slate-400 p-3 text-right">التفاصيل</th></tr></thead>
               <tbody>
-                <tr><td className="border border-slate-300 p-3">المجموع قبل التسديد</td><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedBalanceBefore)} {settings.currency}</td></tr>
-                <tr className="bg-slate-100"><td className="border border-slate-300 p-3">التسديد</td><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedPayment.amount)} {settings.currency}</td></tr>
-                <tr><td className="border border-slate-300 p-3 font-black">المتبقي</td><td className="border border-slate-300 p-3 text-center font-black">{formatThousands(selectedBalanceAfter)} {settings.currency}</td></tr>
+                <tr><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedBalanceBefore)} {settings.currency}</td><td className="border border-slate-300 p-3">المجموع قبل التسديد</td></tr>
+                <tr className="bg-slate-100"><td className="border border-slate-300 p-3 text-center font-bold">{formatThousands(selectedPayment.amount)} {settings.currency}</td><td className="border border-slate-300 p-3">التسديد</td></tr>
+                <tr><td className="border border-slate-300 p-3 text-center font-black">{formatThousands(selectedBalanceAfter)} {settings.currency}</td><td className="border border-slate-300 p-3 font-black">المتبقي</td></tr>
               </tbody>
             </table>
             <div className="mt-4 grid grid-cols-1 gap-2 bg-[#e5e1d7] p-3 text-sm sm:grid-cols-3 sm:text-center">
