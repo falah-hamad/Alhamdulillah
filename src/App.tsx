@@ -749,7 +749,7 @@ export default function App() {
                 {currentTab === "ledger" && "دفتر الديون وسجل العملاء الورقي"}
                 {currentTab === "overdue" && "قسم الزبائن المتأخرين عن السداد"}
                 {currentTab === "folders" && "مدير المجلدات والملفات (File Manager)"}
-                {currentTab === "customers" && "ملفات حسابات العملاء"}
+                {currentTab === "customers" && "بيانات العملاء"}
                 {currentTab === "products" && "جرد البضائع والمستودع"}
                 {currentTab === "suppliers" && "حسابات الموردين والمشتريات"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
@@ -1025,7 +1025,7 @@ export default function App() {
                 setLedgerTargetCustomerId(customerId);
                 setLedgerTargetInvoiceId(null);
               }}
-              initialShowCustomerData={customerDataTableReturnRequested}
+              initialShowCustomerData={true}
               onCustomerDataTableReturnConsumed={() => setCustomerDataTableReturnRequested(false)}
             />
           )}

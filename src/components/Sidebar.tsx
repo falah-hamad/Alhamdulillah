@@ -65,7 +65,7 @@ export default function Sidebar({
     { id: "ai", label: "المساعد الذكي (AI)", icon: Sparkles, badge: "جديد" },
     { id: "ledger", label: "سجل الديون", icon: BookOpen },
     { id: "overdue", label: "المتأخرين", icon: AlertTriangle },
-    { id: "customers", label: "العملاء", icon: Users },
+    { id: "customers", label: "بيانات العملاء", icon: Users },
     { id: "products", label: "البضائع", icon: Package },
     { id: "suppliers", label: "الموردون", icon: Truck },
     { id: "payments", label: "الدفعات", icon: DollarSign },
