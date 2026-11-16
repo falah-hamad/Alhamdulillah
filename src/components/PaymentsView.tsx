@@ -341,7 +341,6 @@ export default function PaymentsView({ customers, invoices, payments, folders, s
 
   const renderIndividualReceipt = () => {
     if (!selectedCustomer || !selectedPayment) return null;
-    const ordinal = selectedPaymentIndex + 1;
     const receiptCode = selectedPayment.id.slice(-8).toUpperCase();
     return (
       <div className="space-y-3">
