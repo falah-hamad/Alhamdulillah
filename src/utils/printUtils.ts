@@ -507,6 +507,133 @@ export async function printElement(
         }
         ` : ""}
 
+        /* Match the individual payment receipt to its in-app card in Android print/PDF. */
+        ${element.id === "customer-payment-receipt" ? `
+        #customer-payment-receipt {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          direction: rtl !important;
+        }
+        #customer-payment-receipt .print-container {
+          box-sizing: border-box !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          gap: 3mm !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          min-height: 208mm !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 7mm !important;
+          overflow: visible !important;
+          border: 1.25mm double #1e293b !important;
+          border-radius: 5mm !important;
+          background: #ffffff !important;
+          box-shadow: none !important;
+          direction: rtl !important;
+          text-align: right !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child {
+          display: grid !important;
+          grid-template-columns: 17mm minmax(0, 1fr) !important;
+          align-items: center !important;
+          justify-content: initial !important;
+          gap: 4mm !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          flex: 0 0 auto !important;
+          padding-bottom: 4mm !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child > div:first-child {
+          box-sizing: border-box !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 17mm !important;
+          min-width: 17mm !important;
+          max-width: 17mm !important;
+          height: 17mm !important;
+          min-height: 17mm !important;
+          max-height: 17mm !important;
+          flex: none !important;
+          overflow: hidden !important;
+          border-radius: 50% !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child > div:first-child img,
+        #customer-payment-receipt .print-container > div:first-child > div:first-child svg {
+          display: block !important;
+          width: 100% !important;
+          height: 100% !important;
+          max-width: 100% !important;
+          max-height: 100% !important;
+          object-fit: contain !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child > div:last-child {
+          min-width: 0 !important;
+          width: auto !important;
+          text-align: center !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child h2 {
+          margin: 0 !important;
+          font-size: 18pt !important;
+          line-height: 1.35 !important;
+        }
+        #customer-payment-receipt .print-container > div:first-child p {
+          margin-top: 1mm !important;
+          line-height: 1.45 !important;
+        }
+        #customer-payment-receipt .print-container > div:nth-child(2) {
+          flex: 0 0 auto !important;
+          padding-top: 2mm !important;
+          padding-bottom: 2mm !important;
+        }
+        #customer-payment-receipt .print-container > div:nth-child(2) h3 {
+          margin: 0 !important;
+          font-size: 19pt !important;
+          line-height: 1.4 !important;
+        }
+        #customer-payment-receipt .print-container > div:nth-child(3) {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          gap: 0 !important;
+          flex: 0 0 auto !important;
+        }
+        #customer-payment-receipt table {
+          width: 100% !important;
+          table-layout: fixed !important;
+          flex: 0 0 auto !important;
+        }
+        #customer-payment-receipt th,
+        #customer-payment-receipt td {
+          padding: 3.5mm 4mm !important;
+          line-height: 1.5 !important;
+        }
+        #customer-payment-receipt .print-container > div:nth-last-child(2) {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          align-items: center !important;
+          gap: 2mm !important;
+          margin-top: 0 !important;
+          flex: 0 0 auto !important;
+          text-align: center !important;
+        }
+        #customer-payment-receipt .print-container > div:last-child {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10mm !important;
+          margin-top: 0 !important;
+          flex: 0 0 auto !important;
+          text-align: center !important;
+        }
+        #customer-payment-receipt .print-container > div:last-child p {
+          margin-bottom: 8mm !important;
+        }
+        #customer-payment-receipt .print-container > div:last-child > div > div {
+          padding-top: 1.5mm !important;
+        }
+        ` : ""}
         /* Typography & Numbers - Complete Arabic Script Preservation */
         .font-mono {
           font-family: 'JetBrains Mono', monospace !important;
