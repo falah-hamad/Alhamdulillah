@@ -2413,10 +2413,6 @@ export default function VerticalLedgerSheet({
           >
             <Pencil className="h-4 w-4" /> تعديل
           </button>
-          {sheetMode === "edit" && !isSupplierLedger && <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-900">
-            <input type="checkbox" className="h-4 w-4 accent-blue-700" checked={showSingleUnitPrice} onChange={event => setShowSingleUnitPrice(event.target.checked)} />
-            <span>إظهار سعر المفرد</span>
-          </label>}
           <FilterButton activeCount={ledgerFilterCount} onClick={() => setLedgerFiltersOpen(true)} />
         </div>
         {sheetMode === "edit" && (
@@ -2571,6 +2567,10 @@ export default function VerticalLedgerSheet({
               <button type="button" onClick={() => handleInsertRowBelow()} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white"><Plus className="inline h-3.5 w-3.5 me-1"/>إضافة صف أدناه</button>
               <button type="button" onClick={openLedgerProductCart} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white"><ShoppingCart className="inline h-3.5 w-3.5 me-1"/>عربة التسوق</button>
               <button type="button" id="btn-insert-separator" onClick={() => handleInsertSeparator()} title="إضافة تسديد (المجموع / الواصل / المتبقي)" className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white"><HandCoins className="inline h-3.5 w-3.5 me-1"/>إضافة تسديد</button>
+          {sheetMode === "edit" && toolbarTab === "add" && !isSupplierLedger && <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-900">
+            <input type="checkbox" className="h-4 w-4 accent-blue-700" checked={showSingleUnitPrice} onChange={event => setShowSingleUnitPrice(event.target.checked)} />
+            <span>إظهار سعر المفرد</span>
+          </label>}
             </div>}
             {sheetMode === "edit" && toolbarTab === "delete" && sheetMode === "edit" && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
               {(rowSelectionMode ? actionRowIds.length > 0 : selectedItem) && <button type="button" onClick={() => handleDeleteRow()} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700"><Eraser className="inline h-3.5 w-3.5 me-1"/>{rowSelectionMode ? "حذف المحدد" : "حذف الصف"}</button>}
