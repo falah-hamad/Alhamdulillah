@@ -6282,7 +6282,7 @@ ${folderCustomers
                             <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
                             <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
                             <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands(getCartUnitPrice(product))} {settings.currency} <span className="font-normal text-slate-400">للوحدة قبل الخصم</span></p>
-                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع قبل الخصم: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>
+                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع قبل الخصم: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"><Minus className="w-3.5 h-3.5" /></button>
