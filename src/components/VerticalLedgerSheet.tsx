@@ -667,7 +667,7 @@ export default function VerticalLedgerSheet({
       const inserted = cartItems.map((item, itemIndex) => {
         const quantity = Math.max(0, Number(item.quantity ?? 1) || 0);
         const singleUnitPrice = Math.max(0, Number(item.singleUnitPrice ?? item.unitPrice) || 0);
-        const total = singleUnitPrice * quantity;
+        const total = Math.round(singleUnitPrice * quantity);
         return {
           ...(itemIndex === 0 ? target : {}),
           ...item,
@@ -1387,7 +1387,7 @@ export default function VerticalLedgerSheet({
       if (item.id !== id) return item;
       if (item.singleUnitPrice === undefined) return { ...item, quantity };
       const singleUnitPrice = Math.max(0, Number(item.singleUnitPrice) || 0);
-      const total = singleUnitPrice * quantity;
+      const total = Math.round(singleUnitPrice * quantity);
       return { ...item, quantity, unitPrice: singleUnitPrice, total };
     }));
   };
@@ -1403,12 +1403,12 @@ export default function VerticalLedgerSheet({
       .replace(/٫/g, ".")
       .replace(/[^\d.]/g, "");
     if (normalized && !/^\d*\.?\d*$/.test(normalized)) return;
-    const price = normalized === "" ? 0 : Number(normalized);
+    const price = normalized === "" ? 0 : Math.round(Number(normalized));
     if (!Number.isFinite(price) || price < 0) return;
     persistChanges(items.map(item => {
       if (item.id !== id) return item;
       const quantity = Math.max(0, Number(item.quantity ?? 1) || 0);
-      const total = price * quantity;
+      const total = Math.round(price * quantity);
       return { ...item, singleUnitPrice: price, unitPrice: price, total };
     }));
   };
@@ -1424,14 +1424,20 @@ export default function VerticalLedgerSheet({
     const cleanNum = normalizedStr === "" ? 0 : Number(normalizedStr) || 0;
 
     const updated = items.map((it) => {
-      if (it.id === id) {
-        return {
-          ...it,
-          unitPrice: cleanNum,
-          total: cleanNum,
-        };
+      if (it.id !== id) return it;
+      if (it.singleUnitPrice === undefined) {
+        return { ...it, unitPrice: cleanNum, total: cleanNum };
       }
-      return it;
+      const quantity = Math.max(0, Number(it.quantity ?? 1) || 0);
+      const singleUnitPrice = quantity > 0
+        ? Math.round(cleanNum / quantity)
+        : Math.max(0, Number(it.singleUnitPrice) || 0);
+      return {
+        ...it,
+        singleUnitPrice,
+        unitPrice: singleUnitPrice,
+        total: cleanNum,
+      };
     });
     persistChanges(updated);
   };
