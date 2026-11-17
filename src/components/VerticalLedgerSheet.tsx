@@ -1981,8 +1981,6 @@ export default function VerticalLedgerSheet({
                                   ? String(item.total)
                                   : ""
                               }
-                              readOnly={item.singleUnitPrice !== undefined}
-                              title={item.singleUnitPrice !== undefined ? "يُحسب المبلغ من سعر المفرد × الكمية" : undefined}
                               placeholder="0"
                               onClick={(e) => {
                                 e.stopPropagation();
