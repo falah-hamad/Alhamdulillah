@@ -358,6 +358,9 @@ export default function LedgerView({
   const [showProductCartScanner, setShowProductCartScanner] = useState(false);
   const [productCartSearch, setProductCartSearch] = useState("");
   const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
+  const [productCartStage, setProductCartStage] = useState<"select" | "review">("select");
+  const [productCartUnitPrices, setProductCartUnitPrices] = useState<Record<string, number>>({});
+  const [productCartTotals, setProductCartTotals] = useState<Record<string, number>>({});
   const [isAddingCartItems, setIsAddingCartItems] = useState(false);
 
   // New Invoice Form State
@@ -2498,10 +2501,29 @@ ${folderCustomers
   const selectedCartProducts = products.filter(
     (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
   );
-  const productCartTotal = selectedCartProducts.reduce(
-    (sum, product) => sum + (Number(product.salePrice) || 0) * (Number(productCartQuantities[product.id]) || 0),
-    0
-  );
+  const getCartUnitPrice = (product: Product) => Math.max(0, Math.round(Number(productCartUnitPrices[product.id] ?? product.salePrice) || 0));
+  const getCartLineTotal = (product: Product) => {
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    return Math.max(0, Math.round(Number(productCartTotals[product.id] ?? (getCartUnitPrice(product) * quantity)) || 0));
+  };
+  const updateCartQuantity = (product: Product, nextQuantity: number) => {
+    const quantity = Math.max(0, Math.min(Math.max(0, Number(product.quantity) || 0), Math.floor(Number(nextQuantity) || 0)));
+    setProductCartQuantities((current) => ({ ...current, [product.id]: quantity }));
+    setProductCartTotals((current) => ({ ...current, [product.id]: getCartUnitPrice(product) * quantity }));
+  };
+  const updateCartUnitPrice = (product: Product, rawValue: number) => {
+    const unitPrice = Math.max(0, Math.round(Number(rawValue) || 0));
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    setProductCartUnitPrices((current) => ({ ...current, [product.id]: unitPrice }));
+    setProductCartTotals((current) => ({ ...current, [product.id]: unitPrice * quantity }));
+  };
+  const updateCartLineTotal = (product: Product, rawValue: number) => {
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    const total = Math.max(0, Math.round(Number(rawValue) || 0));
+    setProductCartTotals((current) => ({ ...current, [product.id]: total }));
+    if (quantity > 0) setProductCartUnitPrices((current) => ({ ...current, [product.id]: Math.round(total / quantity) }));
+  };
+  const productCartTotal = selectedCartProducts.reduce((sum, product) => sum + getCartLineTotal(product), 0);
   const productCartCount = selectedCartProducts.reduce(
     (sum, product) => sum + (Number(productCartQuantities[product.id]) || 0),
     0
@@ -2546,6 +2568,9 @@ ${folderCustomers
     setProductCartInsertContext(context || null);
     setProductCartSearch("");
     setProductCartQuantities({});
+    setProductCartUnitPrices({});
+    setProductCartTotals({});
+    setProductCartStage("select");
     setIsProductCartOpen(true);
   };
 
@@ -2611,6 +2636,21 @@ ${folderCustomers
       }
     }
 
+    if (productCartStage === "select") {
+      setProductCartUnitPrices((current) => {
+        const next = { ...current };
+        selectedProducts.forEach((product) => { if (next[product.id] === undefined) next[product.id] = Math.max(0, Math.round(Number(product.salePrice) || 0)); });
+        return next;
+      });
+      setProductCartTotals((current) => {
+        const next = { ...current };
+        selectedProducts.forEach((product) => { if (next[product.id] === undefined) next[product.id] = Math.max(0, Math.round(Number(product.salePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0); });
+        return next;
+      });
+      setProductCartStage("review");
+      return;
+    }
+
     setIsAddingCartItems(true);
     try {
       if (!productCartInsertContext || productCartInsertContext.customerId !== selectedCustomer.id ||
@@ -2621,7 +2661,7 @@ ${folderCustomers
       const now = Date.now();
       const cartItems: InvoiceItem[] = selectedProducts.map((product, index) => {
         const quantity = Number(productCartQuantities[product.id]) || 0;
-        const unitPrice = Number(product.salePrice) || 0;
+        const unitPrice = getCartUnitPrice(product);
         return {
           createdAt: new Date(now).toISOString(),
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
@@ -2631,7 +2671,7 @@ ${folderCustomers
           quantity,
           unit: product.unitName || "قطعة",
           unitPrice,
-          total: quantity * unitPrice,
+          total: getCartLineTotal(product),
         };
       });
 
@@ -2641,7 +2681,7 @@ ${folderCustomers
         const existingRows = [...accountingDraftRowsRef.current];
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
-          const unitPrice = Number(product.salePrice) || 0;
+          const unitPrice = getCartUnitPrice(product);
           return {
             id: "asr-cart-" + selectedCustomer.id + "-" + Date.now() + "-" + index,
             details: product.name,
@@ -2650,7 +2690,7 @@ ${folderCustomers
             quantity,
             unit: product.unitName || "قطعة",
             unitPrice,
-            total: quantity * unitPrice,
+            total: getCartLineTotal(product),
             isManual: true,
           };
         });
@@ -6144,7 +6184,7 @@ ${folderCustomers
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base sm:text-lg font-black text-slate-900">عربة البضاعة</h3>
-                  <p className="text-xs text-slate-500 mt-1">اختر من مخزون التطبيق، وحدد الكمية، ثم أدرج الأصناف مباشرة في سجل الدين.</p>
+                  <p className="text-xs text-slate-500 mt-1">{productCartStage === "select" ? "اختر البضائع والكميات أولًا، ثم راجع الأسعار قبل إدراجها." : "راجع رأس المال والبيع والربح وحدّ الخصم لكل بضاعة قبل الإدراج."}</p>
                   <p className="text-xs font-bold text-emerald-800 mt-1.5">الزبون: {selectedCustomer?.name || "غير محدد"}</p>
                 </div>
               </div>
@@ -6159,7 +6199,7 @@ ${folderCustomers
               </button>
             </div>
 
-            <div className="p-3 sm:p-4 border-b border-slate-100 flex gap-2">
+            {productCartStage === "select" && <div className="p-3 sm:p-4 border-b border-slate-100 flex gap-2">
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -6180,77 +6220,94 @@ ${folderCustomers
                 <ScanBarcode className="w-5 h-5" />
                 <span>مسح وإضافة</span>
               </button>
-            </div>
+            </div>}
 
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
-              {cartVisibleProducts.length === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-400">
-                  {products.some((product) => !product.isDeleted)
-                    ? "ما لقينا صنف يطابق البحث."
-                    : "ماكو بضاعة مسجلة حالياً. أضف الأصناف من قسم البضاعة أولاً."}
-                </div>
-              ) : (
-                cartVisibleProducts.map((product) => {
-                  const quantity = Number(productCartQuantities[product.id]) || 0;
-                  const available = Math.max(0, Number(product.quantity) || 0);
-                  const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
-                  return (
-                    <div key={product.id} className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-slate-100 hover:border-emerald-200 bg-white">
-                      {imageSource ? (
-                        <img src={imageSource} alt={product.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover bg-slate-100 shrink-0" />
-                      ) : (
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
-                          <Package className="w-5 h-5" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
-                        <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands((Number(product.salePrice) || 0))} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
-                        {quantity > 0 && (
-                          <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {formatThousands((quantity * (Number(product.salePrice) || 0)))} {settings.currency}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          aria-label={"تقليل كمية " + product.name}
-                          disabled={quantity <= 0 || isAddingCartItems}
-                          onClick={() => setProductCartQuantities((current) => ({ ...current, [product.id]: Math.max(0, (Number(current[product.id]) || 0) - 1) }))}
-                          className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <FormattedNumberInput
-                          aria-label={"كمية " + product.name}
-                          type="number"
-                          min="0"
-                          max={available}
-                          step="1"
-                          value={quantity}
-                          disabled={available <= 0 || isAddingCartItems}
-                          onChange={(event) => {
-                            const parsed = Math.floor(Number(event.target.value) || 0);
-                            setProductCartQuantities((current) => ({
-                              ...current,
-                              [product.id]: Math.max(0, Math.min(available, parsed)),
-                            }));
-                          }}
-                          className="w-12 sm:w-14 h-8 text-center text-sm font-bold rounded-lg border border-slate-200 focus:border-emerald-500 focus:outline-none disabled:bg-slate-100"
-                        />
-                        <button
-                          type="button"
-                          aria-label={"زيادة كمية " + product.name}
-                          disabled={quantity >= available || isAddingCartItems}
-                          onClick={() => setProductCartQuantities((current) => ({ ...current, [product.id]: Math.min(available, (Number(current[product.id]) || 0) + 1) }))}
-                          className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center disabled:opacity-30 hover:bg-emerald-700"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+              {productCartStage === "select" ? (
+                <>
+                  {cartVisibleProducts.length === 0 ? (
+                    <div className="py-10 text-center text-sm text-slate-400">
+                      {products.some((product) => !product.isDeleted)
+                        ? "ما لقينا صنف يطابق البحث."
+                        : "ماكو بضاعة مسجلة حالياً. أضف الأصناف من قسم البضاعة أولاً."}
                     </div>
-                  );
-                })
+                  ) : (
+                    cartVisibleProducts.map((product) => {
+                      const quantity = Number(productCartQuantities[product.id]) || 0;
+                      const available = Math.max(0, Number(product.quantity) || 0);
+                      const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
+                      return (
+                        <div key={product.id} className={`flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border ${quantity > 0 ? "border-emerald-200 bg-emerald-50/50" : "border-slate-100 bg-white"}`}>
+                          {imageSource ? (
+                            <img src={imageSource} alt={product.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover bg-slate-100 shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0"><Package className="w-5 h-5" /></div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
+                            <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands(getCartUnitPrice(product))} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
+                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"><Minus className="w-3.5 h-3.5" /></button>
+                            <FormattedNumberInput aria-label={"كمية " + product.name} type="number" min="0" max={available} step="1" value={quantity} disabled={available <= 0 || isAddingCartItems} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="w-12 sm:w-14 h-8 text-center text-sm font-bold rounded-lg border border-slate-200 focus:border-emerald-500 focus:outline-none disabled:bg-slate-100" />
+                            <button type="button" aria-label={"زيادة كمية " + product.name} disabled={quantity >= available || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity + 1)} className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center disabled:opacity-30 hover:bg-emerald-700"><Plus className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              ) : selectedCartProducts.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500">ماكو بضاعة محددة. ارجع للاختيار وأضف الأصناف المطلوبة.</div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedCartProducts.map((product) => {
+                    const quantity = Number(productCartQuantities[product.id]) || 0;
+                    const unitCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0));
+                    const totalCost = unitCost * quantity;
+                    const unitSale = getCartUnitPrice(product);
+                    const totalSale = getCartLineTotal(product);
+                    const unitProfit = unitSale - unitCost;
+                    const totalProfit = totalSale - totalCost;
+                    const maxUnitDiscount = Math.max(0, unitSale - unitCost);
+                    const maxTotalDiscount = Math.max(0, totalSale - totalCost);
+                    return (
+                      <section key={product.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
+                            <p className="text-[11px] text-slate-500">الكمية: {formatThousands(quantity)} {product.unitName || "قطعة"} · المتوفر: {formatThousands(Math.max(0, Number(product.quantity) || 0))}</p>
+                          </div>
+                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[600px]">
+                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] bg-emerald-800 text-[11px] font-bold text-white">
+                              <div className="px-2 py-2">الحساب</div><div className="px-2 py-2 text-center">رأس المال</div><div className="px-2 py-2 text-center">سعر البيع</div><div className="px-2 py-2 text-center">الربح</div><div className="px-2 py-2 text-center">حد الخصم</div>
+                            </div>
+                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] border-b border-slate-100 text-xs">
+                              <div className="bg-slate-50 px-2 py-3 font-black text-slate-700">للمفرد</div>
+                              <div className="px-2 py-3 text-center font-bold text-slate-700">{formatThousands(unitCost)}</div>
+                              <div className="px-1.5 py-2"><FormattedNumberInput aria-label={"سعر البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded-lg border border-emerald-300 bg-emerald-50 px-1.5 py-2 text-center text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none" /></div>
+                              <div className={`px-2 py-3 text-center font-black ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</div>
+                              <div className="px-2 py-3 text-center font-bold text-amber-700">{formatThousands(maxUnitDiscount)}</div>
+                            </div>
+                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] text-xs">
+                              <div className="bg-slate-50 px-2 py-3 font-black text-slate-700">للجميع</div>
+                              <div className="px-2 py-3 text-center font-bold text-slate-700">{formatThousands(totalCost)}</div>
+                              <div className="px-1.5 py-2"><FormattedNumberInput aria-label={"سعر البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded-lg border border-blue-300 bg-blue-50 px-1.5 py-2 text-center text-sm font-black text-slate-900 focus:border-blue-600 focus:outline-none" /></div>
+                              <div className={`px-2 py-3 text-center font-black ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</div>
+                              <div className="px-2 py-3 text-center font-bold text-amber-700">{formatThousands(maxTotalDiscount)}</div>
+                            </div>
+                          </div>
+                        </div>
+                        {unitSale < unitCost && <p className="border-t border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">سعر البيع أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
+                      </section>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
@@ -6266,20 +6323,26 @@ ${folderCustomers
                 </div>
               </div>
               <div className="flex gap-2">
+                {productCartStage === "review" && (
+                  <button type="button" disabled={isAddingCartItems} onClick={() => setProductCartStage("select")} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 disabled:opacity-40">رجوع للاختيار</button>
+                )}
                 <button
                   type="button"
                   disabled={isAddingCartItems || selectedCartProducts.length === 0}
                   onClick={handleConfirmProductCart}
                   className="flex-1 min-h-11 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isAddingCartItems ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {isAddingCartItems ? "جاري تسجيل البضاعة..." : "إدراج في سجل الدين"}
+                  {isAddingCartItems ? <Loader2 className="w-4 h-4 animate-spin" /> : productCartStage === "select" ? <ArrowLeft className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                  {isAddingCartItems ? "جاري الإدراج..." : productCartStage === "select" ? "مراجعة الأسعار" : "إدراج في سجل الدين"}
                 </button>
                 <button
                   type="button"
                   disabled={isAddingCartItems}
                   onClick={() => {
                     setProductCartQuantities({});
+                    setProductCartUnitPrices({});
+                    setProductCartTotals({});
+                    setProductCartStage("select");
                     setIsProductCartOpen(false);
                   }}
                   className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold disabled:opacity-40"
@@ -6287,7 +6350,7 @@ ${folderCustomers
                   إلغاء
                 </button>
               </div>
-              <p className="text-[10px] leading-relaxed text-slate-400">يُملأ الصف الفارغ المحدد بأول صنف، وتُضاف بقية الأصناف أسفله. تُحفظ العملية وتُخصم الكمية عند حفظ الورقة.</p>
+              <p className="text-[10px] leading-relaxed text-slate-400">{productCartStage === "select" ? "اختَر البضاعة وحدد الكميات، ثم انتقل لمراجعة أسعار كل صنف." : "تعديل السعر هنا يخص هذه العملية فقط. بعد الإدراج تُضاف الأصناف للورقة، ويثبت حفظ الورقة التغييرات."}</p>
             </div>
           </div>
         </div>

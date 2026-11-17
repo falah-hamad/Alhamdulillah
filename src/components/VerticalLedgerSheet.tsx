@@ -667,7 +667,7 @@ export default function VerticalLedgerSheet({
       const inserted = cartItems.map((item, itemIndex) => {
         const quantity = Math.max(0, Number(item.quantity ?? 1) || 0);
         const singleUnitPrice = Math.max(0, Number(item.singleUnitPrice ?? item.unitPrice) || 0);
-        const total = Math.round(singleUnitPrice * quantity);
+        const total = Math.max(0, Math.round(Number(item.total ?? singleUnitPrice * quantity) || 0));
         return {
           ...(itemIndex === 0 ? target : {}),
           ...item,
