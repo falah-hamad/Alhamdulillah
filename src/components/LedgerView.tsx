@@ -2528,6 +2528,8 @@ ${folderCustomers
     (sum, product) => sum + (Number(productCartQuantities[product.id]) || 0),
     0
   );
+  const productCartTotalCapital = selectedCartProducts.reduce((sum, product) => sum + Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0), 0);
+  const productCartTotalProfit = productCartTotal - productCartTotalCapital;
   const cartVisibleProducts = products
     .filter((product) => {
       if (product.isDeleted) return false;
@@ -6274,39 +6276,76 @@ ${folderCustomers
                     const maxUnitDiscount = Math.max(0, unitSale - unitCost);
                     const maxTotalDiscount = Math.max(0, totalSale - totalCost);
                     return (
-                      <section key={product.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5">
-                          <div className="min-w-0">
-                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
-                            <p className="text-[11px] text-slate-500">الكمية: {formatThousands(quantity)} {product.unitName || "قطعة"} · المتوفر: {formatThousands(Math.max(0, Number(product.quantity) || 0))}</p>
-                          </div>
-                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
+                      <section key={product.id} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-emerald-800 px-3 py-2">
+                          <h4 className="min-w-0 flex-1 text-center text-sm font-black text-white">{product.name}</h4>
+                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/20">إزالة</button>
                         </div>
-                        <div className="overflow-x-auto">
-                          <div className="min-w-[600px]">
-                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] bg-emerald-800 text-[11px] font-bold text-white">
-                              <div className="px-2 py-2">الحساب</div><div className="px-2 py-2 text-center">رأس المال</div><div className="px-2 py-2 text-center">سعر البيع</div><div className="px-2 py-2 text-center">الربح</div><div className="px-2 py-2 text-center">حد الخصم</div>
-                            </div>
-                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] border-b border-slate-100 text-xs">
-                              <div className="bg-slate-50 px-2 py-3 font-black text-slate-700">للمفرد</div>
-                              <div className="px-2 py-3 text-center font-bold text-slate-700">{formatThousands(unitCost)}</div>
-                              <div className="px-1.5 py-2"><FormattedNumberInput aria-label={"سعر البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded-lg border border-emerald-300 bg-emerald-50 px-1.5 py-2 text-center text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none" /></div>
-                              <div className={`px-2 py-3 text-center font-black ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</div>
-                              <div className="px-2 py-3 text-center font-bold text-amber-700">{formatThousands(maxUnitDiscount)}</div>
-                            </div>
-                            <div className="grid grid-cols-[76px_repeat(4,minmax(0,1fr))] text-xs">
-                              <div className="bg-slate-50 px-2 py-3 font-black text-slate-700">للجميع</div>
-                              <div className="px-2 py-3 text-center font-bold text-slate-700">{formatThousands(totalCost)}</div>
-                              <div className="px-1.5 py-2"><FormattedNumberInput aria-label={"سعر البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded-lg border border-blue-300 bg-blue-50 px-1.5 py-2 text-center text-sm font-black text-slate-900 focus:border-blue-600 focus:outline-none" /></div>
-                              <div className={`px-2 py-3 text-center font-black ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</div>
-                              <div className="px-2 py-3 text-center font-bold text-amber-700">{formatThousands(maxTotalDiscount)}</div>
-                            </div>
-                          </div>
+                        <div className="overflow-hidden">
+                          <table dir="rtl" className="w-full table-fixed border-collapse text-center text-xs sm:text-sm">
+                            <thead>
+                              <tr className="bg-emerald-50 text-slate-800">
+                                <th className="w-[34%] border border-slate-300 px-1.5 py-2 font-black">المبلغ</th>
+                                <th className="w-[33%] border border-slate-300 px-1.5 py-2 font-black">للمفرد</th>
+                                <th className="w-[33%] border border-slate-300 px-1.5 py-2 font-black">الجمع (العدد)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">العدد</th>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">1 {product.unitName || "قطعة"}</td>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(quantity)} {product.unitName || "قطعة"}</td>
+                              </tr>
+                              <tr>
+                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">رأس المال</th>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(unitCost)}</td>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(totalCost)}</td>
+                              </tr>
+                              <tr>
+                                <th className="border border-slate-200 bg-blue-50 px-1.5 py-2 text-right font-bold text-slate-700">سعر البيع</th>
+                                <td className="border border-slate-200 px-1 py-1.5">
+                                  <FormattedNumberInput aria-label={"سعر البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded-md border border-emerald-300 bg-emerald-50 px-1 py-2 text-center text-xs sm:text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none" />
+                                </td>
+                                <td className="border border-slate-200 px-1 py-1.5">
+                                  <FormattedNumberInput aria-label={"سعر البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded-md border border-blue-300 bg-blue-50 px-1 py-2 text-center text-xs sm:text-sm font-black text-slate-900 focus:border-blue-600 focus:outline-none" />
+                                </td>
+                              </tr>
+                              <tr>
+                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">الربح</th>
+                                <td className={`border border-slate-200 px-1.5 py-2 font-black ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</td>
+                                <td className={`border border-slate-200 px-1.5 py-2 font-black ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</td>
+                              </tr>
+                              <tr>
+                                <th className="border border-slate-200 bg-amber-50 px-1.5 py-2 text-right font-bold text-slate-700">حد الخصم</th>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-amber-700">{formatThousands(maxUnitDiscount)}</td>
+                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-amber-700">{formatThousands(maxTotalDiscount)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
+                          الكمية المحددة: {formatThousands(quantity)} {product.unitName || "قطعة"} · المتوفر بالمخزون: {formatThousands(Math.max(0, Number(product.quantity) || 0))}
                         </div>
                         {unitSale < unitCost && <p className="border-t border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">سعر البيع أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
                       </section>
                     );
                   })}
+                  <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
+                    <h4 className="mb-2 text-xs font-black text-emerald-900">إجمالي البضائع المحددة</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ["إجمالي عدد البضاعة", formatThousands(productCartCount)],
+                        ["إجمالي رأس المال", formatThousands(productCartTotalCapital)],
+                        ["إجمالي مبلغ البيع", formatThousands(productCartTotal)],
+                        ["إجمالي مبلغ الربح", formatThousands(productCartTotalProfit)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-emerald-100 bg-white px-2 py-2 text-center">
+                          <p className="text-[10px] font-bold text-slate-500">{label}</p>
+                          <p className="mt-0.5 text-sm font-black text-slate-900">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               )}
             </div>
