@@ -6321,40 +6321,40 @@ ${folderCustomers
                           </div>
                           <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
                         </div>
-                        <div className="overflow-x-auto">
-                          <table dir="rtl" className="min-w-[1120px] w-full table-fixed border-collapse text-center text-xs">
+                        <div className="w-full overflow-hidden">
+                          <table dir="rtl" className="w-full table-fixed border-collapse text-center text-[9px] leading-tight">
                             <thead>
                               <tr className="bg-[#b6c8e4] text-slate-900">
-                                <th className="w-[100px] border border-slate-500 px-2 py-2"></th>
-                                <th className="w-[85px] border border-slate-500 px-2 py-2">العدد</th>
-                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ رأس المال</th>
-                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ البيع</th>
-                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ الربح</th>
-                                <th className="w-[120px] border border-slate-500 px-2 py-2">مبلغ الخصم</th>
-                                <th className="w-[150px] border border-slate-500 px-2 py-2">مبلغ البيع بعد الخصم</th>
-                                <th className="w-[155px] border border-slate-500 px-2 py-2">مبلغ الربح بعد الخصم</th>
+                                <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight"></th>
+                                <th className="w-[7%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">العدد</th>
+                                <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ رأس المال</th>
+                                <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ البيع</th>
+                                <th className="w-[9%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ الربح</th>
+                                <th className="w-[9%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ الخصم</th>
+                                <th className="w-[22.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ البيع بعد الخصم</th>
+                                <th className="w-[22.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[8px] leading-tight">مبلغ الربح بعد الخصم</th>
                               </tr>
                             </thead>
                             <tbody>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-2 py-2 font-black">المفرد</th>
-                                <td className="border border-slate-400 px-2 py-2">1</td>
-                                <td className="border border-slate-400 px-2 py-2">{formatThousands(unitCost)}</td>
-                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center font-bold focus:border-blue-500 focus:outline-none" /></td>
-                                <td className={`border border-slate-400 px-2 py-2 font-bold ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</td>
-                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ الخصم للمفرد " + product.name} type="number" min="0" max={unitSale} step="1" value={unitDiscount} onChange={(event) => updateCartUnitDiscount(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center font-bold focus:border-amber-500 focus:outline-none" /></td>
-                                <td className="border border-slate-400 px-2 py-2 font-bold">{formatThousands(netSaleUnit)}</td>
-                                <td className={`border border-slate-400 px-2 py-2 font-bold ${netProfitUnit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitUnit)}</td>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-black">المفرد</th>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere]">1</td>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere]">{formatThousands(unitCost)}</td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center text-[8px] font-bold focus:border-blue-500 focus:outline-none" /></td>
+                                <td className={`border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الخصم للمفرد " + product.name} type="number" min="0" max={unitSale} step="1" value={unitDiscount} onChange={(event) => updateCartUnitDiscount(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center text-[8px] font-bold focus:border-amber-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold">{formatThousands(netSaleUnit)}</td>
+                                <td className={`border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold ${netProfitUnit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitUnit)}</td>
                               </tr>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-2 py-2 font-black">الجمع</th>
-                                <td className="border border-slate-400 px-2 py-2">{formatThousands(quantity)}</td>
-                                <td className="border border-slate-400 px-2 py-2">{formatThousands(totalCost)}</td>
-                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center font-bold focus:border-blue-500 focus:outline-none" /></td>
-                                <td className={`border border-slate-400 px-2 py-2 font-bold ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</td>
-                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ الخصم للجميع " + product.name} type="number" min="0" max={totalSale} step="1" value={totalDiscount} onChange={(event) => updateCartDiscountTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center font-bold focus:border-amber-500 focus:outline-none" /></td>
-                                <td className="border border-slate-400 px-2 py-2 font-bold">{formatThousands(netSaleTotal)}</td>
-                                <td className={`border border-slate-400 px-2 py-2 font-bold ${netProfitTotal < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitTotal)}</td>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-black">الجمع</th>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere]">{formatThousands(quantity)}</td>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere]">{formatThousands(totalCost)}</td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center text-[8px] font-bold focus:border-blue-500 focus:outline-none" /></td>
+                                <td className={`border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الخصم للجميع " + product.name} type="number" min="0" max={totalSale} step="1" value={totalDiscount} onChange={(event) => updateCartDiscountTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center text-[8px] font-bold focus:border-amber-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold">{formatThousands(netSaleTotal)}</td>
+                                <td className={`border border-slate-400 px-0.5 py-1 text-[9px] leading-tight [overflow-wrap:anywhere] font-bold ${netProfitTotal < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitTotal)}</td>
                               </tr>
                             </tbody>
                           </table>
