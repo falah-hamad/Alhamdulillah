@@ -2048,10 +2048,12 @@ export default function VerticalLedgerSheet({
                         {/* Quantity and unit share one compact cell. Amount remains the entered row total. */}
                         {!isSupplierLedger && <div className="col-span-3 min-w-0 px-0.5 text-center" style={{ fontSize: `${defaultFontSize}px` }}>
                           {sheetMode === "view" ? (
-                            <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
-                              <span dir="ltr">{item.quantity ?? 1}</span>
-                              <span>{item.unit || ""}</span>
-                            </span>
+                            Number(item.quantity ?? 1) > 0 ? (
+                              <span className="inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap select-text">
+                                <span dir="ltr">{item.quantity ?? 1}</span>
+                                <span>{item.unit || ""}</span>
+                              </span>
+                            ) : null
                           ) : (
                             <div className="flex w-full min-w-0 items-center justify-center gap-1" onClick={event => { event.stopPropagation(); setSelectedRowId(item.id); setHasExplicitRowSelection(true); }}>
                               <LedgerComboBox label="الكمية" numeric
