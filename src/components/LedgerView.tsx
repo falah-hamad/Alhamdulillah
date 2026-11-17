@@ -361,6 +361,8 @@ export default function LedgerView({
   const [productCartStage, setProductCartStage] = useState<"select" | "review">("select");
   const [productCartUnitPrices, setProductCartUnitPrices] = useState<Record<string, number>>({});
   const [productCartTotals, setProductCartTotals] = useState<Record<string, number>>({});
+  const [productCartUnitDiscounts, setProductCartUnitDiscounts] = useState<Record<string, number>>({});
+  const [productCartDiscountTotals, setProductCartDiscountTotals] = useState<Record<string, number>>({});
   const [isAddingCartItems, setIsAddingCartItems] = useState(false);
 
   // New Invoice Form State
@@ -2506,10 +2508,15 @@ ${folderCustomers
     const quantity = Number(productCartQuantities[product.id]) || 0;
     return Math.max(0, Math.round(Number(productCartTotals[product.id] ?? (getCartUnitPrice(product) * quantity)) || 0));
   };
+  const getCartUnitDiscount = (product: Product) => Math.min(getCartUnitPrice(product), Math.max(0, Math.round(Number(productCartUnitDiscounts[product.id]) || 0)));
+  const getCartDiscountTotal = (product: Product) => Math.min(getCartLineTotal(product), Math.max(0, Math.round(Number(productCartDiscountTotals[product.id] ?? (getCartUnitDiscount(product) * (Number(productCartQuantities[product.id]) || 0))) || 0)));
+  const getCartNetUnitPrice = (product: Product) => Math.max(0, getCartUnitPrice(product) - getCartUnitDiscount(product));
+  const getCartNetTotal = (product: Product) => Math.max(0, getCartLineTotal(product) - getCartDiscountTotal(product));
   const updateCartQuantity = (product: Product, nextQuantity: number) => {
     const quantity = Math.max(0, Math.min(Math.max(0, Number(product.quantity) || 0), Math.floor(Number(nextQuantity) || 0)));
     setProductCartQuantities((current) => ({ ...current, [product.id]: quantity }));
     setProductCartTotals((current) => ({ ...current, [product.id]: getCartUnitPrice(product) * quantity }));
+    setProductCartDiscountTotals((current) => ({ ...current, [product.id]: getCartUnitDiscount(product) * quantity }));
   };
   const updateCartUnitPrice = (product: Product, rawValue: number) => {
     const unitPrice = Math.max(0, Math.round(Number(rawValue) || 0));
@@ -2523,12 +2530,28 @@ ${folderCustomers
     setProductCartTotals((current) => ({ ...current, [product.id]: total }));
     if (quantity > 0) setProductCartUnitPrices((current) => ({ ...current, [product.id]: Math.round(total / quantity) }));
   };
-  const productCartTotal = selectedCartProducts.reduce((sum, product) => sum + getCartLineTotal(product), 0);
+  const updateCartUnitDiscount = (product: Product, rawValue: number) => {
+    const discount = Math.max(0, Math.round(Number(rawValue) || 0));
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    const appliedDiscount = Math.min(getCartUnitPrice(product), discount);
+    setProductCartUnitDiscounts((current) => ({ ...current, [product.id]: appliedDiscount }));
+    setProductCartDiscountTotals((current) => ({ ...current, [product.id]: appliedDiscount * quantity }));
+  };
+  const updateCartDiscountTotal = (product: Product, rawValue: number) => {
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    const discount = Math.min(getCartLineTotal(product), Math.max(0, Math.round(Number(rawValue) || 0)));
+    setProductCartDiscountTotals((current) => ({ ...current, [product.id]: discount }));
+    if (quantity > 0) setProductCartUnitDiscounts((current) => ({ ...current, [product.id]: Math.min(getCartUnitPrice(product), Math.round(discount / quantity)) }));
+  };
+  const productCartTotalBeforeDiscount = selectedCartProducts.reduce((sum, product) => sum + getCartLineTotal(product), 0);
+  const productCartDiscountTotal = selectedCartProducts.reduce((sum, product) => sum + getCartDiscountTotal(product), 0);
+  const productCartTotal = Math.max(0, productCartTotalBeforeDiscount - productCartDiscountTotal);
   const productCartCount = selectedCartProducts.reduce(
     (sum, product) => sum + (Number(productCartQuantities[product.id]) || 0),
     0
   );
   const productCartTotalCapital = selectedCartProducts.reduce((sum, product) => sum + Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0), 0);
+  const productCartProfitBeforeDiscount = productCartTotalBeforeDiscount - productCartTotalCapital;
   const productCartTotalProfit = productCartTotal - productCartTotalCapital;
   const cartVisibleProducts = products
     .filter((product) => {
@@ -2572,6 +2595,8 @@ ${folderCustomers
     setProductCartQuantities({});
     setProductCartUnitPrices({});
     setProductCartTotals({});
+    setProductCartUnitDiscounts({});
+    setProductCartDiscountTotals({});
     setProductCartStage("select");
     setIsProductCartOpen(true);
   };
@@ -2663,7 +2688,7 @@ ${folderCustomers
       const now = Date.now();
       const cartItems: InvoiceItem[] = selectedProducts.map((product, index) => {
         const quantity = Number(productCartQuantities[product.id]) || 0;
-        const unitPrice = getCartUnitPrice(product);
+        const unitPrice = getCartNetUnitPrice(product);
         return {
           createdAt: new Date(now).toISOString(),
           id: "cart-item-" + now + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
@@ -2673,7 +2698,7 @@ ${folderCustomers
           quantity,
           unit: product.unitName || "قطعة",
           unitPrice,
-          total: getCartLineTotal(product),
+          total: getCartNetTotal(product),
         };
       });
 
@@ -2683,7 +2708,7 @@ ${folderCustomers
         const existingRows = [...accountingDraftRowsRef.current];
         const cartRows: AccountingSheetRow[] = selectedProducts.map((product, index) => {
           const quantity = Number(productCartQuantities[product.id]) || 0;
-          const unitPrice = getCartUnitPrice(product);
+          const unitPrice = getCartNetUnitPrice(product);
           return {
             id: "asr-cart-" + selectedCustomer.id + "-" + Date.now() + "-" + index,
             details: product.name,
@@ -2692,7 +2717,7 @@ ${folderCustomers
             quantity,
             unit: product.unitName || "قطعة",
             unitPrice,
-            total: getCartLineTotal(product),
+            total: getCartNetTotal(product),
             isManual: true,
           };
         });
@@ -2710,6 +2735,10 @@ ${folderCustomers
         setAccountingCursorSelected(true);
         setIsProductCartOpen(false);
         setProductCartQuantities({});
+        setProductCartUnitPrices({});
+        setProductCartTotals({});
+        setProductCartUnitDiscounts({});
+        setProductCartDiscountTotals({});
         setProductCartSearch("");
         const total = cartRows.reduce((sum, row) => sum + row.total, 0);
         // Do not write history for draft cart rows; saveAccountingRows owns the final audit entries.
@@ -2726,6 +2755,10 @@ ${folderCustomers
       setIsProductCartOpen(false);
       setProductCartInsertContext(null);
       setProductCartQuantities({});
+      setProductCartUnitPrices({});
+      setProductCartTotals({});
+      setProductCartUnitDiscounts({});
+      setProductCartDiscountTotals({});
       setProductCartSearch("");
       showToast("تم إدراج " + cartItems.length + " صنف في الصف المحدد وتحته. اضغط حفظ لتثبيت التغييرات.");
     } catch (error) {
@@ -6186,7 +6219,7 @@ ${folderCustomers
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base sm:text-lg font-black text-slate-900">عربة البضاعة</h3>
-                  <p className="text-xs text-slate-500 mt-1">{productCartStage === "select" ? "اختر البضائع والكميات أولًا، ثم راجع الأسعار قبل إدراجها." : "راجع رأس المال والبيع والربح وحدّ الخصم لكل بضاعة قبل الإدراج."}</p>
+                  <p className="text-xs text-slate-500 mt-1">{productCartStage === "select" ? "اختر البضائع والكميات أولًا، ثم راجع الأسعار قبل إدراجها." : "راجع البيع والخصم والربح لكل بضاعة قبل إدراجها."}</p>
                   <p className="text-xs font-bold text-emerald-800 mt-1.5">الزبون: {selectedCustomer?.name || "غير محدد"}</p>
                 </div>
               </div>
@@ -6248,8 +6281,8 @@ ${folderCustomers
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
                             <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
-                            <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands(getCartUnitPrice(product))} {settings.currency} <span className="font-normal text-slate-400">للوحدة</span></p>
-                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>}
+                            <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands(getCartUnitPrice(product))} {settings.currency} <span className="font-normal text-slate-400">للوحدة قبل الخصم</span></p>
+                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع قبل الخصم: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"><Minus className="w-3.5 h-3.5" /></button>
@@ -6273,78 +6306,78 @@ ${folderCustomers
                     const totalSale = getCartLineTotal(product);
                     const unitProfit = unitSale - unitCost;
                     const totalProfit = totalSale - totalCost;
-                    const maxUnitDiscount = Math.max(0, unitSale - unitCost);
-                    const maxTotalDiscount = Math.max(0, totalSale - totalCost);
+                    const unitDiscount = getCartUnitDiscount(product);
+                    const totalDiscount = getCartDiscountTotal(product);
+                    const netSaleUnit = getCartNetUnitPrice(product);
+                    const netSaleTotal = getCartNetTotal(product);
+                    const netProfitUnit = netSaleUnit - unitCost;
+                    const netProfitTotal = netSaleTotal - totalCost;
                     return (
                       <section key={product.id} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-emerald-800 px-3 py-2">
-                          <h4 className="min-w-0 flex-1 text-center text-sm font-black text-white">{product.name}</h4>
-                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/20">إزالة</button>
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
+                            <p className="text-[10px] text-slate-500">الكمية المحددة: {formatThousands(quantity)} {product.unitName || "قطعة"}</p>
+                          </div>
+                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
                         </div>
-                        <div className="overflow-hidden">
-                          <table dir="rtl" className="w-full table-fixed border-collapse text-center text-xs sm:text-sm">
+                        <div className="overflow-x-auto">
+                          <table dir="rtl" className="min-w-[1120px] w-full table-fixed border-collapse text-center text-xs">
                             <thead>
-                              <tr className="bg-emerald-50 text-slate-800">
-                                <th className="w-[34%] border border-slate-300 px-1.5 py-2 font-black">المبلغ</th>
-                                <th className="w-[33%] border border-slate-300 px-1.5 py-2 font-black">للمفرد</th>
-                                <th className="w-[33%] border border-slate-300 px-1.5 py-2 font-black">الجمع (العدد)</th>
+                              <tr className="bg-[#b6c8e4] text-slate-900">
+                                <th className="w-[100px] border border-slate-500 px-2 py-2"></th>
+                                <th className="w-[85px] border border-slate-500 px-2 py-2">العدد</th>
+                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ رأس المال</th>
+                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ البيع</th>
+                                <th className="w-[130px] border border-slate-500 px-2 py-2">مبلغ الربح</th>
+                                <th className="w-[120px] border border-slate-500 px-2 py-2">مبلغ الخصم</th>
+                                <th className="w-[150px] border border-slate-500 px-2 py-2">مبلغ البيع بعد الخصم</th>
+                                <th className="w-[155px] border border-slate-500 px-2 py-2">مبلغ الربح بعد الخصم</th>
                               </tr>
                             </thead>
                             <tbody>
-                              <tr>
-                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">العدد</th>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">1 {product.unitName || "قطعة"}</td>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(quantity)} {product.unitName || "قطعة"}</td>
+                              <tr className="bg-white">
+                                <th className="border border-slate-400 px-2 py-2 font-black">المفرد</th>
+                                <td className="border border-slate-400 px-2 py-2">1</td>
+                                <td className="border border-slate-400 px-2 py-2">{formatThousands(unitCost)}</td>
+                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center font-bold focus:border-blue-500 focus:outline-none" /></td>
+                                <td className={`border border-slate-400 px-2 py-2 font-bold ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</td>
+                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ الخصم للمفرد " + product.name} type="number" min="0" max={unitSale} step="1" value={unitDiscount} onChange={(event) => updateCartUnitDiscount(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center font-bold focus:border-amber-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-2 py-2 font-bold">{formatThousands(netSaleUnit)}</td>
+                                <td className={`border border-slate-400 px-2 py-2 font-bold ${netProfitUnit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitUnit)}</td>
                               </tr>
-                              <tr>
-                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">رأس المال</th>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(unitCost)}</td>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-slate-700">{formatThousands(totalCost)}</td>
-                              </tr>
-                              <tr>
-                                <th className="border border-slate-200 bg-blue-50 px-1.5 py-2 text-right font-bold text-slate-700">سعر البيع</th>
-                                <td className="border border-slate-200 px-1 py-1.5">
-                                  <FormattedNumberInput aria-label={"سعر البيع للمفرد " + product.name} type="number" min="0" step="1" value={unitSale} onChange={(event) => updateCartUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded-md border border-emerald-300 bg-emerald-50 px-1 py-2 text-center text-xs sm:text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none" />
-                                </td>
-                                <td className="border border-slate-200 px-1 py-1.5">
-                                  <FormattedNumberInput aria-label={"سعر البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded-md border border-blue-300 bg-blue-50 px-1 py-2 text-center text-xs sm:text-sm font-black text-slate-900 focus:border-blue-600 focus:outline-none" />
-                                </td>
-                              </tr>
-                              <tr>
-                                <th className="border border-slate-200 bg-slate-50 px-1.5 py-2 text-right font-bold text-slate-700">الربح</th>
-                                <td className={`border border-slate-200 px-1.5 py-2 font-black ${unitProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(unitProfit)}</td>
-                                <td className={`border border-slate-200 px-1.5 py-2 font-black ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</td>
-                              </tr>
-                              <tr>
-                                <th className="border border-slate-200 bg-amber-50 px-1.5 py-2 text-right font-bold text-slate-700">حد الخصم</th>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-amber-700">{formatThousands(maxUnitDiscount)}</td>
-                                <td className="border border-slate-200 px-1.5 py-2 font-bold text-amber-700">{formatThousands(maxTotalDiscount)}</td>
+                              <tr className="bg-white">
+                                <th className="border border-slate-400 px-2 py-2 font-black">الجمع</th>
+                                <td className="border border-slate-400 px-2 py-2">{formatThousands(quantity)}</td>
+                                <td className="border border-slate-400 px-2 py-2">{formatThousands(totalCost)}</td>
+                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ البيع للجميع " + product.name} type="number" min="0" step="1" value={totalSale} onChange={(event) => updateCartLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-1 py-1.5 text-center font-bold focus:border-blue-500 focus:outline-none" /></td>
+                                <td className={`border border-slate-400 px-2 py-2 font-bold ${totalProfit < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(totalProfit)}</td>
+                                <td className="border border-slate-400 px-1 py-1"><FormattedNumberInput aria-label={"مبلغ الخصم للجميع " + product.name} type="number" min="0" max={totalSale} step="1" value={totalDiscount} onChange={(event) => updateCartDiscountTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center font-bold focus:border-amber-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-2 py-2 font-bold">{formatThousands(netSaleTotal)}</td>
+                                <td className={`border border-slate-400 px-2 py-2 font-bold ${netProfitTotal < 0 ? "text-rose-600" : "text-emerald-700"}`}>{formatThousands(netProfitTotal)}</td>
                               </tr>
                             </tbody>
                           </table>
                         </div>
-                        <div className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
-                          الكمية المحددة: {formatThousands(quantity)} {product.unitName || "قطعة"} · المتوفر بالمخزون: {formatThousands(Math.max(0, Number(product.quantity) || 0))}
-                        </div>
-                        {unitSale < unitCost && <p className="border-t border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">سعر البيع أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
+                        {netSaleTotal < totalCost && <p className="border-t border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">البيع بعد الخصم أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
                       </section>
                     );
                   })}
-                  <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
-                    <h4 className="mb-2 text-xs font-black text-emerald-900">إجمالي البضائع المحددة</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        ["إجمالي عدد البضاعة", formatThousands(productCartCount)],
-                        ["إجمالي رأس المال", formatThousands(productCartTotalCapital)],
-                        ["إجمالي مبلغ البيع", formatThousands(productCartTotal)],
-                        ["إجمالي مبلغ الربح", formatThousands(productCartTotalProfit)],
-                      ].map(([label, value]) => (
-                        <div key={label} className="rounded-lg border border-emerald-100 bg-white px-2 py-2 text-center">
-                          <p className="text-[10px] font-bold text-slate-500">{label}</p>
-                          <p className="mt-0.5 text-sm font-black text-slate-900">{value}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <section className="overflow-hidden rounded-xl border border-slate-300 bg-white">
+                    <table dir="rtl" className="w-full table-fixed border-collapse text-xs sm:text-sm">
+                      <thead><tr><th colSpan={2} className="border border-slate-400 bg-[#b6c8e4] px-3 py-2 text-center text-sm font-black text-slate-900">الإجمالي</th></tr></thead>
+                      <tbody>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">الإجمالي قبل الخصم</th></tr>
+                        <tr><th className="w-[42%] border border-slate-300 px-3 py-2 text-right font-bold">إجمالي عدد البضاعة</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartCount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ رأس المال</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalCapital)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">الإجمالي بعد الخصم</th></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الخصم</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartDiscountTotal)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotal)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartTotalProfit)}</td></tr>
+                      </tbody>
+                    </table>
                   </section>
                 </div>
               )}
@@ -6357,8 +6390,8 @@ ${folderCustomers
                   <span className="font-bold text-slate-900"> {formatThousands(productCartCount)}</span> وحدة محددة
                 </div>
                 <div className="text-left">
-                  <p className="text-[11px] text-slate-500">إجمالي العربة</p>
-                  <p className="text-lg font-black text-emerald-700">{formatThousands(productCartTotal)} {settings.currency}</p>
+                  <p className="text-[11px] text-slate-500">{productCartStage === "review" ? "الإجمالي بعد الخصم" : "الإجمالي قبل الخصم"}</p>
+                  <p className="text-lg font-black text-emerald-700">{formatThousands(productCartStage === "review" ? productCartTotal : productCartTotalBeforeDiscount)} {settings.currency}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -6381,6 +6414,8 @@ ${folderCustomers
                     setProductCartQuantities({});
                     setProductCartUnitPrices({});
                     setProductCartTotals({});
+                    setProductCartUnitDiscounts({});
+                    setProductCartDiscountTotals({});
                     setProductCartStage("select");
                     setIsProductCartOpen(false);
                   }}
