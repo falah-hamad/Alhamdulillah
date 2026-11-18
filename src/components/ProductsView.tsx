@@ -265,6 +265,9 @@ function ProductsViewContent({
   const [movementNote, setMovementNote] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [expandedCategoryPaths, setExpandedCategoryPaths] = useState<string[]>([]);
   type ProductCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
@@ -363,6 +366,47 @@ function ProductsViewContent({
     });
     return numbers.join(".");
   };
+  const categoryChildrenPaths = (parentPath: string) => allCategoryPaths.filter(path => path.includes(" / ") ? path.slice(0, path.lastIndexOf(" / ")) === parentPath : parentPath === "");
+  const compareCategoryPaths = (left: string, right: string) => {
+    const leftParts = categoryNumber(left).split(".").map(Number);
+    const rightParts = categoryNumber(right).split(".").map(Number);
+    for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index++) {
+      const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+      if (difference) return difference;
+    }
+    return 0;
+  };
+  const managerCategoryPaths = useMemo(() => allCategoryPaths.filter(path => path && path !== "بدون تصنيف").sort(compareCategoryPaths), [allCategoryPaths, categoryNodes]);
+  const managerVisiblePaths = useMemo(() => {
+    const query = categorySearch.trim().toLocaleLowerCase();
+    const matching = query ? managerCategoryPaths.filter(path =>
+      path.toLocaleLowerCase().includes(query) ||
+      activeProducts.some(product => product.category === path && product.name.toLocaleLowerCase().includes(query))
+    ) : managerCategoryPaths;
+    const relevant = new Set<string>();
+    matching.forEach(path => {
+      const parts = path.split(" / ");
+      for (let index = 0; index < parts.length; index++) relevant.add(parts.slice(0, index + 1).join(" / "));
+    });
+    return managerCategoryPaths.filter(path => {
+      if (query && !relevant.has(path)) return false;
+      if (query) return true;
+      const parts = path.split(" / ");
+      for (let index = 1; index < parts.length; index++) {
+        if (!expandedCategoryPaths.includes(parts.slice(0, index).join(" / "))) return false;
+      }
+      return true;
+    });
+  }, [managerCategoryPaths, categorySearch, activeProducts, expandedCategoryPaths]);
+  const toggleCategoryExpanded = (path: string) => setExpandedCategoryPaths(current =>
+    current.includes(path) ? current.filter(item => item !== path) : [...current, path]
+  );
+  const productsAtCategory = (path: string) => activeProducts.filter(product => product.category === path);
+  useEffect(() => {
+    if (!showCategoryManager) return;
+    setExpandedCategoryPaths(current => current.length ? current : managerCategoryPaths.filter(path => !path.includes(" / ")));
+  }, [showCategoryManager, managerCategoryPaths]);
+
   const totalItemsCount = activeProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
   const totalCostValue = activeProducts.reduce((sum, p) => sum + (Number(p.purchasePrice) || 0) * (Number(p.quantity) || 0), 0);
   const totalRetailValue = activeProducts.reduce((sum, p) => sum + (Number(p.salePrice) || 0) * (Number(p.quantity) || 0), 0);
@@ -694,11 +738,17 @@ function ProductsViewContent({
     if (categories.includes(path)) { setCategorySyncError("هذا التصنيف موجود بالفعل في هذا المسار."); return; }
     const node: ProductCategoryNode = { id: `cat-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, path, parentPath, name, order: categoryChildren(parentPath).length };
     await persistCategoryNode(node);
+    setExpandedCategoryPaths(current => Array.from(new Set([...current, ...parentPath.split(" / ").filter(Boolean).map((_part, index, parts) => parts.slice(0, index + 1).join(" / ")), path])));
+    setCategorySearch("");
     setNewCategoryName("");
+    setCategoryFormOpen(false);
   };
   const addChildCategory = (parentPath: string) => {
     setNewCategoryParent(parentPath);
     setNewCategoryName("");
+    setCategorySearch("");
+    setExpandedCategoryPaths(current => Array.from(new Set([...current, ...parentPath.split(" / ").filter(Boolean).map((_part, index, parts) => parts.slice(0, index + 1).join(" / "))])));
+    setCategoryFormOpen(true);
     setOpenCategoryMenuPath(null);
     setShowCategoryManager(true);
   };
@@ -1064,13 +1114,96 @@ function ProductsViewContent({
         )}
       </section>
 
-      {showCategoryManager && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-bold text-lg">شجرة تصنيفات البضاعة</h3><p className="text-xs text-slate-500 mt-1">أنشئ مستويات مفتوحة مثل محل ← رف ← خانة ← أي مستوى تحتاجه.</p></div><button type="button" onClick={() => setShowCategoryManager(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-2"><p className="text-sm font-bold text-slate-800">إضافة مستوى تصنيف</p><input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="w-full rounded-lg border bg-white p-2.5 text-sm" placeholder="اسم التصنيف، مثلاً: محل 1 أو خانة 1" /><select value={newCategoryParent} onChange={e => setNewCategoryParent(e.target.value)} className="w-full rounded-lg border bg-white p-2.5 text-sm"><option value="">تصنيف رئيسي</option>{categories.filter(path => path !== "all").map(path => <option key={path} value={path}>فرع من: {categoryLabel(path)}</option>)}</select><button type="button" onClick={createCategory} disabled={!newCategoryName.trim()} className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">إضافة التصنيف</button></div>
-          {categorySyncError && <p role="alert" className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{categorySyncError}</p>}
-          <div className="space-y-2">{categories.filter(path => path !== "all").length === 0 ? <p className="text-sm text-slate-500">لا توجد تصنيفات بعد. أضف أول تصنيف رئيسي أعلاه.</p> : categories.filter(path => path !== "all").map(path => { const node = categoryNodes.find(item => item.path === path); const level = categoryDepth(path); const count = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `)).length; return <div key={path} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3" style={{ marginRight: `${Math.min(level - 1, 5) * 14}px` }}><div className="min-w-0"><div className="font-bold text-sm text-slate-800">{node ? "↳ ".repeat(Math.min(level - 1, 5)) : ""}{path.split(" / ").slice(-1)[0]}</div><div className="truncate text-[11px] text-slate-500">{categoryLabel(path)} · {count} بضاعة</div></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => { setNewCategoryParent(path); setNewCategoryName(""); }} className="rounded-md border px-2 py-1.5 text-xs">فرع +</button>{node && <><button type="button" onClick={() => renameCategory(path)} className="rounded-md border px-2 py-1.5 text-xs">تسمية</button><button type="button" onClick={() => deleteCategory(path)} className="rounded-md border border-rose-200 px-2 py-1.5 text-xs text-rose-700">حذف</button></>}</div></div>; })}</div>
-          <button type="button" onClick={() => setShowCategoryManager(false)} className="w-full rounded-lg border py-2.5 text-sm">تم</button></section></div>}
+      {showCategoryManager && <div className="fixed inset-0 z-[60] bg-slate-100" dir="rtl">
+        <section className="mx-auto flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden bg-slate-50">
+          <header className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-[max(env(safe-area-inset-top),12px)] shadow-sm sm:px-6">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => { setShowCategoryManager(false); setCategoryFormOpen(false); setOpenCategoryMenuPath(null); }} aria-label="رجوع" className="rounded-xl border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"><ChevronRight className="h-5 w-5"/></button>
+              <div className="min-w-0 flex-1"><h2 className="truncate text-lg font-extrabold text-slate-900 sm:text-xl">إدارة التصنيفات</h2><p className="mt-0.5 text-xs text-slate-500">رتّب المحلات والرفوف والخانات والبضائع</p></div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">{managerCategoryPaths.length} تصنيف</span>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <label className="relative block"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={categorySearch} onChange={event => setCategorySearch(event.target.value)} placeholder="ابحث عن تصنيف أو بضاعة" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pe-10 ps-3 text-sm outline-none focus:border-emerald-500 focus:bg-white"/></label>
+              <button type="button" onClick={() => { setNewCategoryParent(""); setNewCategoryName(""); setCategoryFormOpen(value => !value); setOpenCategoryMenuPath(null); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"><PlusCircle className="h-4 w-4"/> تصنيف رئيسي</button>
+            </div>
+          </header>
 
-      {openCategoryMenuPath && <><button type="button" aria-label="إغلاق قائمة إجراءات التصنيف" onClick={() => setOpenCategoryMenuPath(null)} className="fixed inset-0 z-[99999] cursor-default bg-transparent"/><div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 100000 }} className="w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
+          {categoryFormOpen && <div className="shrink-0 border-b border-emerald-200 bg-emerald-50 p-3 sm:px-6">
+            <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 text-xs font-bold text-emerald-900">{newCategoryParent ? "إضافة فرع داخل" : "إضافة تصنيف رئيسي"}</div>
+                {newCategoryParent && <div className="mb-1 truncate text-xs text-slate-600">{categoryLabel(newCategoryParent)}</div>}
+                <input autoFocus value={newCategoryName} onChange={event => setNewCategoryName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void createCategory(); }} placeholder={newCategoryParent ? "اسم التصنيف الفرعي" : "اسم التصنيف الرئيسي"} className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"/>
+              </div>
+              <div className="flex gap-2 sm:pt-5"><button type="button" onClick={() => void createCategory()} disabled={!newCategoryName.trim()} className="flex-1 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">حفظ التصنيف</button><button type="button" onClick={() => { setCategoryFormOpen(false); setNewCategoryName(""); }} className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm">إلغاء</button></div>
+            </div>
+          </div>}
+
+          {categorySyncError && <p role="alert" className="mx-4 mt-3 shrink-0 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 sm:mx-6">{categorySyncError}</p>}
+
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-6 sm:py-5">
+            {managerCategoryPaths.length === 0 ? <div className="mx-auto mt-8 max-w-md rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center"><Layers className="mx-auto h-10 w-10 text-emerald-600"/><h3 className="mt-3 font-bold text-slate-800">ابدأ بأول تصنيف رئيسي</h3><p className="mt-1 text-sm text-slate-500">مثلاً: محل 1، ثم أضف تحته رفوفاً وخانات.</p><button type="button" onClick={() => { setNewCategoryParent(""); setCategoryFormOpen(true); }} className="mt-4 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white">+ إضافة تصنيف رئيسي</button></div>
+            : managerVisiblePaths.length === 0 ? <div className="rounded-xl bg-white p-8 text-center text-sm text-slate-500">ما لقيت تصنيفاً أو بضاعة بهذا الاسم.</div>
+            : <div className="mx-auto max-w-3xl space-y-1.5">
+              <div className="mb-2 hidden grid-cols-[1fr_auto] items-center px-3 text-[11px] font-bold text-slate-400 sm:grid"><span>التصنيف والبضائع التابعة له</span><span>الإجراءات</span></div>
+              {managerVisiblePaths.map(path => {
+                const depth = categoryDepth(path);
+                const children = categoryChildrenPaths(path);
+                const directGoods = productsAtCategory(path);
+                const totalGoods = activeProducts.filter(product => product.category === path || product.category.startsWith(path + " / ")).length;
+                const expanded = Boolean(categorySearch.trim()) || expandedCategoryPaths.includes(path);
+                const tones = ["border-blue-200 bg-blue-50 text-blue-950", "border-emerald-200 bg-emerald-50 text-emerald-950", "border-orange-200 bg-orange-50 text-orange-950", "border-violet-200 bg-violet-50 text-violet-950"];
+                const visibleGoods = categorySearch.trim() && !path.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())
+                  ? directGoods.filter(product => product.name.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase()))
+                  : directGoods;
+                return <React.Fragment key={path}>
+                  <div
+                    className={"group flex min-h-[58px] items-center gap-2 rounded-xl border px-2 py-2 shadow-sm transition hover:shadow " + tones[(depth - 1) % tones.length]}
+                    style={{ marginRight: Math.min(depth - 1, 5) * 15 }}
+                    onClick={() => { if (suppressNextClick.current) { suppressNextClick.current = false; return; } toggleCategoryExpanded(path); }}
+                    onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenCategoryMenuPath(path); }}
+                    onTouchStart={event => startLongPress(event, 360, "category-manager:" + path, () => setOpenCategoryMenuPath(path))}
+                    onTouchEnd={clearLongPress} onTouchMove={clearLongPress} onTouchCancel={clearLongPress}
+                    title="اضغط للفتح أو الطي، أو اضغط مطولاً للإجراءات"
+                  >
+                    <button type="button" onClick={event => { event.stopPropagation(); toggleCategoryExpanded(path); }} aria-label={expanded ? "طي التصنيف" : "فتح التصنيف"} className="grid h-9 w-8 shrink-0 place-items-center rounded-lg bg-white/70 text-current">
+                      <ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")}/>
+                    </button>
+                    <span className="min-w-[48px] border-l border-current/15 px-2 text-center text-xs font-extrabold" dir="ltr">{categoryNumber(path)}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-extrabold">{path.split(" / ").slice(-1)[0]}</div>
+                      <div className="mt-0.5 truncate text-[10px] font-medium opacity-65">{depth > 1 ? categoryLabel(path) : "تصنيف رئيسي"}</div>
+                    </div>
+                    <span className="hidden shrink-0 rounded-full bg-white/75 px-2.5 py-1 text-[10px] font-bold sm:inline-flex">{totalGoods} بضاعة</span>
+                    <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
+                  </div>
+                  {expanded && visibleGoods.map(product => <button type="button" key={product.id} onClick={() => openDetails(product)} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-right text-sm text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40" style={{ marginRight: Math.min(depth, 5) * 15, width: "calc(100% - " + (Math.min(depth, 5) * 15) + "px)" }}><Package className="h-4 w-4 shrink-0 text-emerald-700"/><span className="min-w-0 flex-1 truncate">{product.name}</span><span className="shrink-0 text-xs text-slate-500">{money(product.quantity)} {product.unitName || "قطعة"}</span></button>)}
+                  {expanded && !directGoods.length && !children.length && <div className="rounded-lg px-4 py-2 text-xs text-slate-400" style={{ marginRight: Math.min(depth, 5) * 15 }}>لا توجد بضاعة داخل هذا الفرع بعد.</div>}
+                </React.Fragment>;
+              })}
+            </div>}
+          </main>
+          <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 pb-[max(env(safe-area-inset-bottom),12px)] text-center text-[11px] text-slate-500">اضغط على السهم لفتح الفروع والبضائع · اضغط مطولاً أو ⋮ لإجراءات التصنيف</footer>
+        </section>
+      </div>}
+
+      {openCategoryMenuPath && (showCategoryManager ? <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-slate-950/45 p-3 sm:items-center" onClick={() => setOpenCategoryMenuPath(null)}>
+        <section dir="rtl" role="dialog" aria-modal="true" aria-label="إجراءات التصنيف" onClick={event => event.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden"/>
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div><div className="text-xs font-semibold text-slate-500">إجراءات التصنيف</div><div className="mt-1 text-base font-extrabold text-slate-900">{categoryLabel(openCategoryMenuPath)}</div></div>
+            <button type="button" aria-label="إغلاق" onClick={() => setOpenCategoryMenuPath(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-3">
+            <button type="button" onClick={() => addChildCategory(openCategoryMenuPath)} className="flex min-h-16 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 text-right text-sm font-bold text-emerald-900"><PlusCircle className="h-5 w-5 shrink-0 text-emerald-700"/>إضافة تصنيف فرعي</button>
+            <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); openAdd(path); }} className="flex min-h-16 items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 text-right text-sm font-bold text-blue-900"><PackagePlus className="h-5 w-5 shrink-0 text-blue-700"/>إضافة بضاعة</button>
+            <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); void renameCategory(path); }} className="flex min-h-14 items-center gap-2 rounded-2xl border border-slate-200 px-3 text-right text-sm font-semibold text-slate-800 hover:bg-slate-50"><SquarePen className="h-4 w-4 shrink-0"/>إعادة تسمية</button>
+            <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); beginCategoryTransfer(path, "move"); }} className="flex min-h-14 items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-3 text-right text-sm font-semibold text-amber-900"><Layers className="h-4 w-4 shrink-0"/>نقل التصنيف</button>
+            <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); beginCategoryTransfer(path, "copy"); }} className="flex min-h-14 items-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-3 text-right text-sm font-semibold text-violet-900"><ClipboardList className="h-4 w-4 shrink-0"/>نسخ شجرة التصنيف</button>
+            <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); void deleteCategory(path); }} className="flex min-h-14 items-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-3 text-right text-sm font-semibold text-rose-800"><Trash2 className="h-4 w-4 shrink-0"/>حذف التصنيف</button>
+          </div>
+        </section>
+      </div> : <><button type="button" aria-label="إغلاق قائمة إجراءات التصنيف" onClick={() => setOpenCategoryMenuPath(null)} className="fixed inset-0 z-[99999] cursor-default bg-transparent"/><div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 100000 }} className="w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
         <div className="border-b px-2 pb-2"><div className="text-xs font-bold text-slate-500">إجراءات التصنيف</div><div className="mt-1 truncate text-sm font-extrabold text-slate-800">{categoryLabel(openCategoryMenuPath)}</div></div>
         <button type="button" onClick={() => addChildCategory(openCategoryMenuPath)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-emerald-50"><PlusCircle className="h-4 w-4 text-emerald-700"/> إضافة تصنيف فرعي</button>
         <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); openAdd(path); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="h-4 w-4 text-blue-700"/> إضافة بضاعة لهذا التصنيف</button>
@@ -1080,7 +1213,8 @@ function ProductsViewContent({
         <div className="my-1 border-t border-slate-100"/>
         <button type="button" onClick={() => void deleteCategory(openCategoryMenuPath)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4"/> حذف التصنيف</button>
         <button type="button" onClick={() => setOpenCategoryMenuPath(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs text-slate-500 hover:bg-slate-50"><X className="h-4 w-4"/> إغلاق</button>
-      </div></>}
+      </div></>)}
+
 
       {showTrash && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">مهملات البضائع ({trashedProducts.length})</h3><button type="button" onClick={() => setShowTrash(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">الحذف هنا مؤقت. الاستعادة تعيد الصنف إلى القائمة، والحذف النهائي لا يمسح الفواتير التاريخية.</p>{trashedProducts.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">المهملات فارغة.</p> : <div className="space-y-2">{trashedProducts.map(product => <div key={product.id} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg p-3"><div className="flex items-center gap-3 min-w-0">{product.imageUrl ? <img src={product.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg" /> : <Package className="w-8 h-8 text-slate-300" />}<div className="min-w-0"><b>{product.name}</b><p className="text-xs text-slate-500">التصنيف: {product.originalCategory || product.category || "بدون تصنيف"} • حذف: {product.deletedAt ? new Date(product.deletedAt).toLocaleString("ar-IQ") : "غير معروف"}</p></div></div><div className="flex gap-2"><button type="button" onClick={() => restoreProduct(product)} className="px-3 py-2 border rounded-lg text-xs">استعادة</button><button type="button" onClick={() => { if (confirm(`حذف "${product.name}" نهائياً من قائمة البضائع؟ ستبقى تفاصيل الفواتير التاريخية كما هي.`)) deleteProduct(product.id); }} className="px-3 py-2 border border-rose-200 text-rose-700 rounded-lg text-xs">حذف نهائي</button></div></div>)}</div>}{trashedProducts.length > 0 && <button type="button" onClick={() => { if (confirm(`حذف ${trashedProducts.length} صنف نهائياً من قائمة البضائع؟ لا يمكن التراجع عن ذلك.`)) trashedProducts.forEach(p => deleteProduct(p.id)); }} className="w-full py-2.5 border border-rose-200 text-rose-700 rounded-lg text-sm">إفراغ المهملات نهائياً</button>}</section></div>}
 
