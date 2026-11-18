@@ -82,13 +82,31 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import HierarchicalFolderNav from "./HierarchicalFolderNav";
 import FileManagerView from "./FileManagerView";
 import BarcodeScannerModal from "./BarcodeScannerModal";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { dispatchPaidAmountNotification } from "../lib/notifications";
 import { getCustomerLedgerTotals } from "../lib/debtLedgerSources";
 import FormattedNumberInput from "./FormattedNumberInput";
 import { formatThousands } from "../utils/numberFormatting";
 import { flattenAccountingSheets, getCustomerAccountingCategories, getCustomerAccountingSheets } from "../lib/accountingSheets";
 
+type ProductCartSavedRecord = {
+  id: string;
+  name: string;
+  customerId: string;
+  customerName: string;
+  ledgerMode: "accounting" | "vertical";
+  createdAt: number;
+  updatedAt: number;
+  quantities: Record<string, number>;
+  unitPrices: Record<string, number>;
+  totals: Record<string, number>;
+  unitDiscounts: Record<string, number>;
+  discountTotals: Record<string, number>;
+  productSnapshots: Record<string, Product>;
+  insertionCount: number;
+  lastInsertedAt?: number;
+};
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
 type AccountingManagerDialog = { kind: "createCategory" | "renameCategory" | "deleteCategory" | "createSheet" | "renameSheet" | "moveSheet" | "deleteSheet"; value: string; targetCategoryId: string };
 
@@ -363,7 +381,28 @@ export default function LedgerView({
   const [productCartTotals, setProductCartTotals] = useState<Record<string, number>>({});
   const [productCartUnitDiscounts, setProductCartUnitDiscounts] = useState<Record<string, number>>({});
   const [productCartDiscountTotals, setProductCartDiscountTotals] = useState<Record<string, number>>({});
+  const [productCartProductSnapshots, setProductCartProductSnapshots] = useState<Record<string, Product>>({});
+  const [productCartRecords, setProductCartRecords] = useState<ProductCartSavedRecord[]>([]);
+  const [activeProductCartRecordId, setActiveProductCartRecordId] = useState<string | null>(null);
+  const [showProductCartHistory, setShowProductCartHistory] = useState(false);
+  const [renamingProductCartRecordId, setRenamingProductCartRecordId] = useState<string | null>(null);
+  const [productCartRecordNameDraft, setProductCartRecordNameDraft] = useState("");
   const [isAddingCartItems, setIsAddingCartItems] = useState(false);
+  const [isSavingProductCartRecord, setIsSavingProductCartRecord] = useState(false);
+
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      setProductCartRecords([]);
+      return;
+    }
+    return onSnapshot(
+      collection(db, "users", userId, "productCartRecords"),
+      (snapshot) => setProductCartRecords(snapshot.docs.map((savedDoc) => ({ id: savedDoc.id, ...(savedDoc.data() as Omit<ProductCartSavedRecord, "id">) }))
+        .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0))),
+      (error) => console.error("Unable to load product cart records:", error)
+    );
+  }, [auth.currentUser?.uid]);
 
   // New Invoice Form State
   const [newInvDate, setNewInvDate] = useState(new Date().toISOString().split("T")[0]);
@@ -2500,9 +2539,80 @@ ${folderCustomers
     }
   }, [selectedCustomer?.id, selectedInvoiceId, currentInvoice?.customerId, currentInvoice?.verticalCategoryId]);
 
-  const selectedCartProducts = products.filter(
-    (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
-  );
+  const selectedCartProducts = Object.entries(productCartQuantities)
+    .filter(([, quantity]) => (Number(quantity) || 0) > 0)
+    .map(([productId]) => products.find((product) => product.id === productId && !product.isDeleted) || productCartProductSnapshots[productId])
+    .filter((product): product is Product => Boolean(product));
+  const captureProductCartSnapshots = (items: Product[]) => Object.fromEntries(items.map((product) => [product.id, {
+    id: product.id,
+    name: product.name,
+    purchasePrice: Math.max(0, Math.round(Number(product.purchasePrice) || 0)),
+    salePrice: Math.max(0, Math.round(Number(product.salePrice) || 0)),
+    quantity: Math.max(0, Number(product.quantity) || 0),
+    category: String(product.category || ""),
+    unitName: String(product.unitName || "قطعة"),
+    isDeleted: false,
+    ...(product.barcode ? { barcode: product.barcode } : {}),
+    ...(product.description ? { description: product.description } : {}),
+  } as Product]));
+  const persistProductCartReview = async (
+    items: Product[],
+    unitPrices: Record<string, number>,
+    totals: Record<string, number>,
+    unitDiscounts: Record<string, number>,
+    discountTotals: Record<string, number>
+  ) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !selectedCustomer || !productCartInsertContext) {
+      alert("تعذر حفظ سجل العربة. تأكد من تسجيل الدخول واختيار الزبون ومكان الإدراج.");
+      return false;
+    }
+    const recordsCollection = collection(db, "users", userId, "productCartRecords");
+    const recordId = activeProductCartRecordId || doc(recordsCollection).id;
+    const existing = productCartRecords.find((record) => record.id === recordId);
+    const now = Date.now();
+    const productSnapshots = captureProductCartSnapshots(items);
+    const recordName = existing?.name || ("عربة " + selectedCustomer.name + " — " + new Date(now).toLocaleString("ar-IQ"));
+    await setDoc(doc(recordsCollection, recordId), {
+      name: recordName,
+      customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name,
+      ledgerMode: productCartInsertContext.mode,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      quantities: { ...productCartQuantities },
+      unitPrices: { ...unitPrices },
+      totals: { ...totals },
+      unitDiscounts: { ...unitDiscounts },
+      discountTotals: { ...discountTotals },
+      productSnapshots,
+      insertionCount: Number(existing?.insertionCount) || 0,
+      ...(existing?.lastInsertedAt ? { lastInsertedAt: existing.lastInsertedAt } : {}),
+    }, { merge: true });
+    setActiveProductCartRecordId(recordId);
+    setProductCartProductSnapshots(productSnapshots);
+    return true;
+  };
+
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !activeProductCartRecordId || !isProductCartOpen || !selectedCustomer) return;
+    const timer = window.setTimeout(() => {
+      const productSnapshots = captureProductCartSnapshots(selectedCartProducts);
+      void setDoc(doc(db, "users", userId, "productCartRecords", activeProductCartRecordId), {
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        quantities: { ...productCartQuantities },
+        unitPrices: { ...productCartUnitPrices },
+        totals: { ...productCartTotals },
+        unitDiscounts: { ...productCartUnitDiscounts },
+        discountTotals: { ...productCartDiscountTotals },
+        productSnapshots,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch((error) => console.error("Unable to save product cart changes:", error));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [activeProductCartRecordId, isProductCartOpen, selectedCustomer?.id, productCartQuantities, productCartUnitPrices, productCartTotals, productCartUnitDiscounts, productCartDiscountTotals, productCartProductSnapshots, products]);
   const getCartUnitPrice = (product: Product) => Math.max(0, Math.round(Number(productCartUnitPrices[product.id] ?? product.salePrice) || 0));
   const getCartLineTotal = (product: Product) => {
     const quantity = Number(productCartQuantities[product.id]) || 0;
@@ -2585,6 +2695,100 @@ ${folderCustomers
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
+  const currentContextProductCartRecords = productCartRecords
+    .filter((record) => record.customerId === selectedCustomer?.id && record.ledgerMode === productCartInsertContext?.mode)
+    .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
+  const openSavedProductCartRecord = (record: ProductCartSavedRecord) => {
+    if (record.customerId !== selectedCustomer?.id || record.ledgerMode !== productCartInsertContext?.mode) {
+      showToast("هذا السجل محفوظ لزبون أو نوع كشف آخر.");
+      return;
+    }
+    setProductCartQuantities(record.quantities || {});
+    setProductCartUnitPrices(record.unitPrices || {});
+    setProductCartTotals(record.totals || {});
+    setProductCartUnitDiscounts(record.unitDiscounts || {});
+    setProductCartDiscountTotals(record.discountTotals || {});
+    setProductCartProductSnapshots(record.productSnapshots || {});
+    setActiveProductCartRecordId(record.id);
+    setProductCartStage("review");
+    setProductCartSearch("");
+    setShowProductCartHistory(false);
+  };
+  const deleteSavedProductCartRecord = async (record: ProductCartSavedRecord) => {
+    if (!window.confirm("حذف سجل العربة «" + record.name + "»؟ هذا يحذف السجل فقط، ولا يحذف ما سبق إدراجه في حساب الزبون.")) return;
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    try {
+      await deleteDoc(doc(db, "users", userId, "productCartRecords", record.id));
+      if (activeProductCartRecordId === record.id) {
+        setActiveProductCartRecordId(null);
+        setProductCartQuantities({});
+        setProductCartUnitPrices({});
+        setProductCartTotals({});
+        setProductCartUnitDiscounts({});
+        setProductCartDiscountTotals({});
+        setProductCartProductSnapshots({});
+        setProductCartStage("select");
+      }
+      showToast("تم حذف سجل العربة.");
+    } catch (error) {
+      console.error("Unable to delete product cart record:", error);
+      showToast("تعذر حذف سجل العربة. حاول مرة أخرى.");
+    }
+  };
+  const saveProductCartRecordName = async (record: ProductCartSavedRecord) => {
+    const name = productCartRecordNameDraft.trim();
+    const userId = auth.currentUser?.uid;
+    if (!userId || !name) return;
+    try {
+      await setDoc(doc(db, "users", userId, "productCartRecords", record.id), { name, updatedAt: Date.now() }, { merge: true });
+      setRenamingProductCartRecordId(null);
+      setProductCartRecordNameDraft("");
+    } catch (error) {
+      console.error("Unable to rename product cart record:", error);
+      showToast("تعذرت إعادة تسمية سجل العربة.");
+    }
+  };
+  const markActiveProductCartRecordInserted = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !activeProductCartRecordId) return;
+    const record = productCartRecords.find((item) => item.id === activeProductCartRecordId);
+    const now = Date.now();
+    await setDoc(doc(db, "users", userId, "productCartRecords", activeProductCartRecordId), {
+      customerId: selectedCustomer?.id || record?.customerId || "",
+      customerName: selectedCustomer?.name || record?.customerName || "",
+      quantities: { ...productCartQuantities },
+      unitPrices: { ...productCartUnitPrices },
+      totals: { ...productCartTotals },
+      unitDiscounts: { ...productCartUnitDiscounts },
+      discountTotals: { ...productCartDiscountTotals },
+      productSnapshots: captureProductCartSnapshots(selectedCartProducts),
+      insertionCount: (Number(record?.insertionCount) || 0) + 1,
+      lastInsertedAt: now,
+      updatedAt: now,
+    }, { merge: true });
+  };
+
+  const closeProductCart = () => {
+    const userId = auth.currentUser?.uid;
+    if (userId && activeProductCartRecordId && selectedCustomer) {
+      const productSnapshots = captureProductCartSnapshots(selectedCartProducts);
+      void setDoc(doc(db, "users", userId, "productCartRecords", activeProductCartRecordId), {
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        quantities: { ...productCartQuantities },
+        unitPrices: { ...productCartUnitPrices },
+        totals: { ...productCartTotals },
+        unitDiscounts: { ...productCartUnitDiscounts },
+        discountTotals: { ...productCartDiscountTotals },
+        productSnapshots,
+        updatedAt: Date.now(),
+      }, { merge: true }).catch((error) => console.error("Unable to save product cart before closing:", error));
+    }
+    setShowProductCartHistory(false);
+    setIsProductCartOpen(false);
+  };
+
   const handleOpenProductCart = (context?: ProductCartInsertContext) => {
     if (!selectedCustomer) {
       alert("يرجى اختيار الزبون أولاً قبل إضافة البضاعة إلى سجل الدين.");
@@ -2619,6 +2823,9 @@ ${folderCustomers
     setProductCartTotals({});
     setProductCartUnitDiscounts({});
     setProductCartDiscountTotals({});
+    setProductCartProductSnapshots({});
+    setActiveProductCartRecordId(null);
+    setShowProductCartHistory(false);
     setProductCartStage("select");
     setIsProductCartOpen(true);
   };
@@ -2654,15 +2861,13 @@ ${folderCustomers
   };
 
   const handleConfirmProductCart = async () => {
-    if (isAddingCartItems) return;
+    if (isAddingCartItems || isSavingProductCartRecord) return;
     if (!selectedCustomer) {
       alert("يرجى اختيار الزبون أولاً.");
       return;
     }
 
-    const selectedProducts = products.filter(
-      (product) => !product.isDeleted && (Number(productCartQuantities[product.id]) || 0) > 0
-    );
+    const selectedProducts = selectedCartProducts;
     if (selectedProducts.length === 0) {
       alert("حدد صنفاً واحداً على الأقل وأدخل الكمية المطلوبة.");
       return;
@@ -2686,16 +2891,27 @@ ${folderCustomers
     }
 
     if (productCartStage === "select") {
-      setProductCartUnitPrices((current) => {
-        const next = { ...current };
-        selectedProducts.forEach((product) => { if (next[product.id] === undefined) next[product.id] = Math.max(0, Math.round(Number(product.salePrice) || 0)); });
-        return next;
+      const nextUnitPrices = { ...productCartUnitPrices };
+      const nextTotals = { ...productCartTotals };
+      selectedProducts.forEach((product) => {
+        const unitPrice = Math.max(0, Math.round(Number(nextUnitPrices[product.id] ?? product.salePrice) || 0));
+        nextUnitPrices[product.id] = unitPrice;
+        if (nextTotals[product.id] === undefined) nextTotals[product.id] = unitPrice * (Number(productCartQuantities[product.id]) || 0);
       });
-      setProductCartTotals((current) => {
-        const next = { ...current };
-        selectedProducts.forEach((product) => { if (next[product.id] === undefined) next[product.id] = Math.max(0, Math.round(Number(product.salePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0); });
-        return next;
-      });
+      setIsSavingProductCartRecord(true);
+      let saved = false;
+      try {
+        saved = await persistProductCartReview(selectedProducts, nextUnitPrices, nextTotals, productCartUnitDiscounts, productCartDiscountTotals);
+      } catch (error) {
+        console.error("Unable to save product cart review:", error);
+        alert("تعذر حفظ سجل العربة. بقيت اختياراتك مفتوحة؛ حاول مرة أخرى.");
+        return;
+      } finally {
+        setIsSavingProductCartRecord(false);
+      }
+      if (!saved) return;
+      setProductCartUnitPrices(nextUnitPrices);
+      setProductCartTotals(nextTotals);
       setProductCartStage("review");
       return;
     }
@@ -2755,6 +2971,7 @@ ${folderCustomers
         persistAccountingRows(existingRows);
         setAccountingSelectedRow(insertAt);
         setAccountingCursorSelected(true);
+        void markActiveProductCartRecordInserted().catch((error) => console.error("Unable to update cart record status:", error));
         setIsProductCartOpen(false);
         setProductCartQuantities({});
         setProductCartUnitPrices({});
@@ -2774,6 +2991,7 @@ ${folderCustomers
         return;
       }
       if (!productCartInsertContext.insertItems(cartItems)) return;
+      void markActiveProductCartRecordInserted().catch((error) => console.error("Unable to update cart record status:", error));
       setIsProductCartOpen(false);
       setProductCartInsertContext(null);
       setProductCartQuantities({});
@@ -6230,10 +6448,10 @@ ${folderCustomers
         <div
           className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isAddingCartItems) setIsProductCartOpen(false);
+            if (event.target === event.currentTarget && !isAddingCartItems && !isSavingProductCartRecord) closeProductCart();
           }}
         >
-          <div dir="rtl" role="dialog" aria-modal="true" aria-label="عربة البضاعة" className="bg-white w-full max-w-2xl max-h-[94dvh] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+          <div dir="rtl" role="dialog" aria-modal="true" aria-label="عربة البضاعة" className="relative bg-white w-full max-w-2xl max-h-[94dvh] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-l from-emerald-50 to-white flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -6241,20 +6459,93 @@ ${folderCustomers
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base sm:text-lg font-black text-slate-900">عربة البضاعة</h3>
-                  <p className="text-xs text-slate-500 mt-1">{productCartStage === "select" ? "اختر البضائع والكميات أولًا، ثم راجع الأسعار قبل إدراجها." : "راجع البيع والخصم والربح لكل بضاعة قبل إدراجها."}</p>
+                  <p className="text-xs text-slate-500 mt-1">{productCartStage === "select" ? "اختر البضائع والكميات أولًا، ثم راجع الأسعار قبل إدراجها." : "راجع الأسعار؛ يُحفظ السجل تلقائيًا لتكمل عليه لاحقًا."}</p>
                   <p className="text-xs font-bold text-emerald-800 mt-1.5">الزبون: {selectedCustomer?.name || "غير محدد"}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={isAddingCartItems}
-                onClick={() => setIsProductCartOpen(false)}
-                className="w-9 h-9 rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 disabled:opacity-40 flex items-center justify-center shrink-0"
-                aria-label="إغلاق العربة"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={isAddingCartItems || isSavingProductCartRecord}
+                  onClick={() => setShowProductCartHistory(true)}
+                  className="relative w-9 h-9 rounded-xl border border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 flex items-center justify-center"
+                  aria-label="سجل عربة التسوق"
+                  title="سجل العربة"
+                >
+                  <History className="w-4 h-4" />
+                  {currentContextProductCartRecords.length > 0 && <span className="absolute -top-1 -left-1 min-w-4 h-4 rounded-full bg-blue-600 px-1 text-[9px] font-black text-white">{currentContextProductCartRecords.length}</span>}
+                </button>
+                <button
+                  type="button"
+                  disabled={isAddingCartItems || isSavingProductCartRecord}
+                  onClick={closeProductCart}
+                  className="w-9 h-9 rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 disabled:opacity-40 flex items-center justify-center"
+                  aria-label="إغلاق العربة"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            {showProductCartHistory && (
+              <section className="absolute inset-0 z-20 flex flex-col bg-white" aria-label="سجل عربة التسوق">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-l from-emerald-50 to-white px-4 py-3">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">سجل عربة التسوق</h4>
+                    <p className="mt-0.5 text-[11px] text-slate-500">سجلات هذا الزبون ونوع الكشف، محفوظة حتى تحذفها.</p>
+                  </div>
+                  <button type="button" onClick={() => setShowProductCartHistory(false)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">عودة للعربة</button>
+                </div>
+                <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-3 sm:p-4">
+                  {currentContextProductCartRecords.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                      <History className="mx-auto h-8 w-8 text-slate-300" />
+                      <p className="mt-2 text-sm font-bold text-slate-700">ماكو سجلات محفوظة لهذه العربة بعد</p>
+                      <p className="mt-1 text-xs text-slate-500">بعد ما تختار البضاعة وتضغط «مراجعة الأسعار»، ينحفظ سجلها هنا تلقائيًا.</p>
+                    </div>
+                  ) : currentContextProductCartRecords.map((record) => {
+                    const recordProductsCount = Object.values(record.quantities || {}).filter((quantity) => Number(quantity) > 0).length;
+                    const recordUnitCount = Object.values(record.quantities || {}).reduce((sum, quantity) => sum + (Number(quantity) || 0), 0);
+                    const recordTotal = Object.entries(record.quantities || {}).reduce((sum, [productId, quantity]) => {
+                      const gross = Number(record.totals?.[productId]) || (Number(record.unitPrices?.[productId]) || 0) * (Number(quantity) || 0);
+                      return sum + Math.max(0, gross - (Number(record.discountTotals?.[productId]) || 0));
+                    }, 0);
+                    const isRenaming = renamingProductCartRecordId === record.id;
+                    return (
+                      <article key={record.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {isRenaming ? (
+                              <div className="flex gap-1.5">
+                                <input autoFocus value={productCartRecordNameDraft} onChange={(event) => setProductCartRecordNameDraft(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-emerald-300 px-2.5 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-100" aria-label="اسم سجل العربة" />
+                                <button type="button" onClick={() => void saveProductCartRecordName(record)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">حفظ</button>
+                                <button type="button" onClick={() => { setRenamingProductCartRecordId(null); setProductCartRecordNameDraft(""); }} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-slate-600">إلغاء</button>
+                              </div>
+                            ) : (
+                              <h5 className="truncate text-sm font-black text-slate-900">{record.name || "عربة محفوظة"}</h5>
+                            )}
+                            <p className="mt-1 text-[11px] text-slate-500">{record.customerName || selectedCustomer?.name} · {new Date(Number(record.createdAt) || Date.now()).toLocaleString("ar-IQ")}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                              <span className={record.insertionCount ? "rounded-full bg-blue-50 px-2 py-1 font-bold text-blue-700" : "rounded-full bg-amber-50 px-2 py-1 font-bold text-amber-700"}>{record.insertionCount ? "أُدرج " + record.insertionCount + " مرة" : "بانتظار الإدراج"}</span>
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{recordProductsCount} أصناف · {formatThousands(recordUnitCount)} وحدة</span>
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{formatThousands(recordTotal)} {settings.currency}</span>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {!isRenaming && <button type="button" onClick={() => { setRenamingProductCartRecordId(record.id); setProductCartRecordNameDraft(record.name || ""); }} className="flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-bold text-slate-600 hover:bg-slate-50"><Pencil className="h-3.5 w-3.5" />إعادة تسمية</button>}
+                            <button type="button" onClick={() => void deleteSavedProductCartRecord(record)} className="flex h-9 items-center gap-1 rounded-lg border border-rose-100 px-2 text-xs font-bold text-rose-600 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" />حذف</button>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => openSavedProductCartRecord(record)} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white hover:bg-emerald-700">
+                          <ShoppingCart className="h-4 w-4" />{record.insertionCount ? "فتح لإعادة الإدراج" : "فتح ومتابعة المراجعة"}
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="border-t border-slate-100 bg-white px-4 py-2 text-[10px] leading-relaxed text-slate-400">حذف السجل يحذف بيانات العربة المحفوظة فقط، ولا يحذف السطور التي سبق إدراجها في حساب الزبون.</div>
+              </section>
+            )}
 
             {productCartStage === "select" && <div className="p-3 sm:p-4 border-b border-slate-100 flex gap-2">
               <div className="relative min-w-0 flex-1">
@@ -6269,7 +6560,7 @@ ${folderCustomers
               </div>
               <button
                 type="button"
-                disabled={isAddingCartItems}
+                disabled={isAddingCartItems || isSavingProductCartRecord}
                 onClick={() => setShowProductCartScanner(true)}
                 className="shrink-0 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2"
                 aria-label="مسح باركود وإضافة المنتج للعربة"
@@ -6418,35 +6709,40 @@ ${folderCustomers
               </div>
               <div className="flex gap-2">
                 {productCartStage === "review" && (
-                  <button type="button" disabled={isAddingCartItems} onClick={() => setProductCartStage("select")} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 disabled:opacity-40">رجوع للاختيار</button>
+                  <button type="button" disabled={isAddingCartItems || isSavingProductCartRecord} onClick={() => setProductCartStage("select")} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 disabled:opacity-40">رجوع للاختيار</button>
                 )}
                 <button
                   type="button"
-                  disabled={isAddingCartItems || selectedCartProducts.length === 0}
+                  disabled={isAddingCartItems || isSavingProductCartRecord || selectedCartProducts.length === 0}
                   onClick={handleConfirmProductCart}
                   className="flex-1 min-h-11 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isAddingCartItems ? <Loader2 className="w-4 h-4 animate-spin" /> : productCartStage === "select" ? <ArrowLeft className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                  {isAddingCartItems ? "جاري الإدراج..." : productCartStage === "select" ? "مراجعة الأسعار" : "إدراج في سجل الدين"}
+                  {isAddingCartItems || isSavingProductCartRecord ? <Loader2 className="w-4 h-4 animate-spin" /> : productCartStage === "select" ? <ArrowLeft className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                  {isSavingProductCartRecord ? "جاري حفظ سجل العربة..." : isAddingCartItems ? "جاري الإدراج..." : productCartStage === "select" ? "مراجعة الأسعار" : productCartRecords.find((record) => record.id === activeProductCartRecordId)?.insertionCount ? "إعادة الإدراج في سجل الدين" : "إدراج في سجل الدين"}
                 </button>
                 <button
                   type="button"
-                  disabled={isAddingCartItems}
+                  disabled={isAddingCartItems || isSavingProductCartRecord}
                   onClick={() => {
+                    if (activeProductCartRecordId) {
+                      closeProductCart();
+                      return;
+                    }
                     setProductCartQuantities({});
                     setProductCartUnitPrices({});
                     setProductCartTotals({});
                     setProductCartUnitDiscounts({});
                     setProductCartDiscountTotals({});
+                    setProductCartProductSnapshots({});
                     setProductCartStage("select");
-                    setIsProductCartOpen(false);
+                    closeProductCart();
                   }}
                   className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold disabled:opacity-40"
                 >
-                  إلغاء
+                  {activeProductCartRecordId ? "حفظ وإغلاق" : "إلغاء"}
                 </button>
               </div>
-              <p className="text-[10px] leading-relaxed text-slate-400">{productCartStage === "select" ? "اختَر البضاعة وحدد الكميات، ثم انتقل لمراجعة أسعار كل صنف." : "تعديل السعر هنا يخص هذه العملية فقط. بعد الإدراج تُضاف الأصناف للورقة، ويثبت حفظ الورقة التغييرات."}</p>
+              <p className="text-[10px] leading-relaxed text-slate-400">{productCartStage === "select" ? "اختَر البضاعة وحدد الكميات، ثم انتقل لمراجعة أسعار كل صنف." : "سجل العربة محفوظ باسم مستقل؛ يمكنك إغلاقه ومتابعته أو إعادة إدراجه لاحقًا حسب مكان المؤشر."}</p>
             </div>
           </div>
         </div>
