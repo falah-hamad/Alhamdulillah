@@ -285,6 +285,9 @@ function ProductsViewContent({
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
+  const [openCategoryMenuPath, setOpenCategoryMenuPath] = useState<string | null>(null);
+  const [categoryTransfer, setCategoryTransfer] = useState<{ path: string; mode: "move" | "copy" } | null>(null);
+  const [categoryTransferTarget, setCategoryTransferTarget] = useState("");
   const [openProductMenuId, setOpenProductMenuId] = useState<string | null>(null);
   const [showAiImport, setShowAiImport] = useState(false);
   const [showPriceLabels, setShowPriceLabels] = useState(false);
@@ -693,12 +696,20 @@ function ProductsViewContent({
     await persistCategoryNode(node);
     setNewCategoryName("");
   };
+  const addChildCategory = (parentPath: string) => {
+    setNewCategoryParent(parentPath);
+    setNewCategoryName("");
+    setOpenCategoryMenuPath(null);
+    setShowCategoryManager(true);
+  };
+
   const renameCategory = async (path: string) => {
     const node = categoryNodes.find(item => item.path === path);
-    if (!node) { alert("التصنيف القديم مستنتج من البضاعة؛ أضف تصنيفاً جديداً وانقل البضاعة إليه."); return; }
-    const name = prompt(`اكتب الاسم الجديد للتصنيف "${node.name}":`, node.name)?.trim();
-    if (!name || name === node.name) return;
-    const nextPath = node.parentPath ? `${node.parentPath} / ${name}` : name;
+    const oldName = path.split(" / ").slice(-1)[0];
+    const parentPath = node?.parentPath ?? (path.includes(" / ") ? path.slice(0, path.lastIndexOf(" / ")) : "");
+    const nextName = prompt(`اكتب الاسم الجديد للتصنيف "${oldName}":`, oldName)?.trim();
+    if (!nextName || nextName === oldName) return;
+    const nextPath = parentPath ? `${parentPath} / ${nextName}` : nextName;
     if (categories.includes(nextPath)) { alert("يوجد تصنيف بهذا الاسم في هذا المسار."); return; }
     const affected = categoryNodes.filter(item => item.path === path || item.path.startsWith(`${path} / `));
     const productAffected = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `));
@@ -706,31 +717,102 @@ function ProductsViewContent({
     for (const item of affected) {
       const suffix = item.path.slice(path.length);
       const updatedPath = nextPath + suffix;
-      const updatedParent = item.path === path ? item.parentPath : item.parentPath.startsWith(path) ? nextPath + item.parentPath.slice(path.length) : item.parentPath;
-      const updated = { ...item, path: updatedPath, parentPath: updatedParent, name: item.id === node.id ? name : item.name };
-      await persistCategoryNode(updated);
+      const updatedParent = item.path === path ? parentPath : item.parentPath.startsWith(path) ? nextPath + item.parentPath.slice(path.length) : item.parentPath;
+      await persistCategoryNode({ ...item, path: updatedPath, parentPath: updatedParent, name: item.path === path ? nextName : item.name });
     }
     productAffected.forEach(product => { const suffix = product.category.slice(path.length); void updateProduct({ ...product, category: nextPath + suffix }); });
+    if (selectedCategory === path || selectedCategory.startsWith(`${path} / `)) setSelectedCategory(nextPath + selectedCategory.slice(path.length));
+    setOpenCategoryMenuPath(null);
   };
+
   const deleteCategory = async (path: string) => {
     const node = categoryNodes.find(item => item.path === path);
-    if (!node) { alert("التصنيفات القديمة تُحذف بعد نقل البضاعة منها."); return; }
+    const parent = node?.parentPath ?? (path.includes(" / ") ? path.slice(0, path.lastIndexOf(" / ")) : "");
     const descendants = categoryNodes.filter(item => item.path.startsWith(`${path} / `));
     const members = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `));
-    if (!confirm(`حذف "${node.name}"؟ سيُنقل ${members.length} بضاعة إلى التصنيف الأعلى، وستبقى التصنيفات الفرعية تحته مباشرة.`)) return;
-    const parent = node.parentPath;
-    const productsInNode = activeProducts.filter(product => product.category === path);
-    productsInNode.forEach(product => { void updateProduct({ ...product, category: parent }); });
+    if (!confirm(`حذف "${path.split(" / ").slice(-1)[0]}"؟ ستُنقل البضائع الموجودة مباشرةً إلى التصنيف الأعلى، وتبقى الفروع تحته.`)) return;
+    activeProducts.filter(product => product.category === path).forEach(product => { void updateProduct({ ...product, category: parent }); });
     for (const child of descendants) {
-      const nextPath = child.path.slice(path.length + 3);
-      const updatedPath = parent ? `${parent} / ${nextPath}` : nextPath;
-      const updatedParent = child.parentPath === path ? parent : child.parentPath.slice(path.length + 3);
-      await persistCategoryNode({ ...child, path: updatedPath, parentPath: updatedParent });
+      const nextPath = parent ? `${parent}${child.path.slice(path.length)}` : child.path.slice(path.length + 3);
+      const updatedParent = child.parentPath === path ? parent : parent ? `${parent}${child.parentPath.slice(path.length)}` : child.parentPath.slice(path.length + 3);
+      await persistCategoryNode({ ...child, path: nextPath, parentPath: updatedParent });
     }
-    if (currentUser?.uid) { try { await deleteDoc(doc(db, "users", currentUser.uid, "productCategories", node.id)); } catch (error) { console.error(error); setCategorySyncError("تعذر حذف التصنيف من السحابة."); } }
-    else setCategoryNodes(current => current.filter(item => item.id !== node.id));
+    if (node && currentUser?.uid) {
+      try { await deleteDoc(doc(db, "users", currentUser.uid, "productCategories", node.id)); }
+      catch (error) { console.error(error); setCategorySyncError("تعذر حذف التصنيف من السحابة."); }
+    } else if (node) setCategoryNodes(current => current.filter(item => item.id !== node.id));
     if (selectedCategory === path || selectedCategory.startsWith(`${path} / `)) setSelectedCategory(parent || "all");
+    setOpenCategoryMenuPath(null);
   };
+
+  const beginCategoryTransfer = (path: string, mode: "move" | "copy") => {
+    setOpenCategoryMenuPath(null);
+    setCategoryTransfer({ path, mode });
+    setCategoryTransferTarget("");
+  };
+
+  const commitCategoryTransfer = async () => {
+    if (!categoryTransfer) return;
+    const { path, mode } = categoryTransfer;
+    const destination = categoryTransferTarget.trim();
+    if (destination === path || destination.startsWith(`${path} / `)) { alert("لا يمكن نقل التصنيف إلى نفسه أو إلى أحد فروعه."); return; }
+    const leaf = path.split(" / ").slice(-1)[0];
+    let nextPath = destination ? `${destination} / ${leaf}` : leaf;
+    if (mode === "copy") {
+      const base = nextPath;
+      let copyIndex = 1;
+      while (categories.includes(nextPath)) { nextPath = `${base} - نسخة ${copyIndex}`; copyIndex++; }
+      const sourceNodes = categoryNodes.filter(node => node.path === path || node.path.startsWith(`${path} / `)).sort((a,b) => categoryDepth(a.path) - categoryDepth(b.path));
+      const rootNode = sourceNodes.find(node => node.path === path);
+      const nodesToCopy = rootNode ? sourceNodes : [{ id: "", path, parentPath: path.includes(" / ") ? path.slice(0, path.lastIndexOf(" / ")) : "", name: leaf, order: 0 }, ...sourceNodes];
+      const pathMap = new Map<string, string>();
+      pathMap.set(path, nextPath);
+      for (const item of nodesToCopy) {
+        const newItemPath = item.path === path ? nextPath : nextPath + item.path.slice(path.length);
+        pathMap.set(item.path, newItemPath);
+        const newParent = item.path === path ? destination : pathMap.get(item.parentPath) || (item.parentPath.startsWith(path) ? nextPath + item.parentPath.slice(path.length) : item.parentPath);
+        await persistCategoryNode({ ...item, id: `cat-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, path: newItemPath, parentPath: newParent, name: item.path === path ? (newItemPath.split(" / ").slice(-1)[0]) : item.name, order: categoryChildren(newParent).length });
+      }
+      alert("تم نسخ شجرة التصنيف. لم تُنسخ البضائع حتى لا تتكرر كمياتها أو سجلاتها.");
+    } else {
+      if (nextPath === path) { alert("هذا هو المسار الحالي للتصنيف."); return; }
+      if (categories.includes(nextPath)) { alert("يوجد تصنيف بهذا الاسم في الوجهة المحددة."); return; }
+      const affectedNodes = categoryNodes.filter(node => node.path === path || node.path.startsWith(`${path} / `)).sort((a,b) => categoryDepth(a.path) - categoryDepth(b.path));
+      const affectedProducts = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `));
+      if (!confirm(`نقل ${affectedNodes.length || 1} تصنيف و${affectedProducts.length} بضاعة إلى "${nextPath}"؟`)) return;
+      if (!affectedNodes.some(item => item.path === path)) {
+        await persistCategoryNode({ id: `cat-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, path: nextPath, parentPath: destination, name: leaf, order: categoryChildren(destination).length });
+      }
+      for (const item of affectedNodes) {
+        const updatedPath = nextPath + item.path.slice(path.length);
+        const updatedParent = item.path === path ? destination : nextPath + item.parentPath.slice(path.length);
+        await persistCategoryNode({ ...item, path: updatedPath, parentPath: updatedParent });
+      }
+      affectedProducts.forEach(product => { void updateProduct({ ...product, category: nextPath + product.category.slice(path.length) }); });
+      if (selectedCategory === path || selectedCategory.startsWith(`${path} / `)) setSelectedCategory(nextPath + selectedCategory.slice(path.length));
+      alert("تم نقل التصنيف والبضائع المرتبطة به.");
+    }
+    setCategoryTransfer(null);
+    setCategoryTransferTarget("");
+  };
+
+  const categoryRowEvents = (path: string) => ({
+    onClick: () => {
+      if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+      setOpenCategoryMenuPath(null);
+    },
+    onContextMenu: (event: React.MouseEvent<HTMLTableRowElement>) => {
+      event.preventDefault();
+      clearLongPress();
+      placeMenuAt(event.clientX, event.clientY, 350);
+      setOpenCategoryMenuPath(path);
+    },
+    onTouchStart: (event: React.TouchEvent<HTMLTableRowElement>) => startLongPress(event, 350, "category:" + path, () => setOpenCategoryMenuPath(path)),
+    onTouchEnd: clearLongPress,
+    onTouchMove: clearLongPress,
+    onTouchCancel: clearLongPress,
+    title: "اضغط مطولاً لإجراءات التصنيف",
+  });
 
   const handleBarcodeDetected = (code: string) => {
     const normalizedCode = code.trim().toLocaleLowerCase();
@@ -880,7 +962,7 @@ function ProductsViewContent({
             </div>
           </div>}
         </div>
-        {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 && (searchQuery.trim() || selectedCategory !== "all" || categoryNodes.length === 0) ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
           <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm">
@@ -897,7 +979,7 @@ function ProductsViewContent({
                             {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
                               const depth = categoryDepth(node.path);
                               const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">لا توجد بضاعة بهذا الفرع بعد</span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></span></div></td></tr>;
+                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty" className="cursor-pointer" {...categoryRowEvents(node.path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">لا توجد بضاعة بهذا الفرع بعد</span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></span></div></td></tr>;
                             })}
                             {(() => {
                               const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
@@ -908,7 +990,7 @@ function ProductsViewContent({
                                 const depth = shared + offset + 1;
                                 const path = parts.slice(0, depth).join(" / ");
                                 const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                                return <tr key={"category-" + path} data-product-category-row><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}</span></div></td></tr>;
+                                return <tr key={"category-" + path} data-product-category-row className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}</span></div></td></tr>;
                               });
                             })()}
                             {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
@@ -988,7 +1070,28 @@ function ProductsViewContent({
           <div className="space-y-2">{categories.filter(path => path !== "all").length === 0 ? <p className="text-sm text-slate-500">لا توجد تصنيفات بعد. أضف أول تصنيف رئيسي أعلاه.</p> : categories.filter(path => path !== "all").map(path => { const node = categoryNodes.find(item => item.path === path); const level = categoryDepth(path); const count = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `)).length; return <div key={path} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3" style={{ marginRight: `${Math.min(level - 1, 5) * 14}px` }}><div className="min-w-0"><div className="font-bold text-sm text-slate-800">{node ? "↳ ".repeat(Math.min(level - 1, 5)) : ""}{path.split(" / ").slice(-1)[0]}</div><div className="truncate text-[11px] text-slate-500">{categoryLabel(path)} · {count} بضاعة</div></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => { setNewCategoryParent(path); setNewCategoryName(""); }} className="rounded-md border px-2 py-1.5 text-xs">فرع +</button>{node && <><button type="button" onClick={() => renameCategory(path)} className="rounded-md border px-2 py-1.5 text-xs">تسمية</button><button type="button" onClick={() => deleteCategory(path)} className="rounded-md border border-rose-200 px-2 py-1.5 text-xs text-rose-700">حذف</button></>}</div></div>; })}</div>
           <button type="button" onClick={() => setShowCategoryManager(false)} className="w-full rounded-lg border py-2.5 text-sm">تم</button></section></div>}
 
+      {openCategoryMenuPath && <><button type="button" aria-label="إغلاق قائمة إجراءات التصنيف" onClick={() => setOpenCategoryMenuPath(null)} className="fixed inset-0 z-[99999] cursor-default bg-transparent"/><div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 100000 }} className="w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
+        <div className="border-b px-2 pb-2"><div className="text-xs font-bold text-slate-500">إجراءات التصنيف</div><div className="mt-1 truncate text-sm font-extrabold text-slate-800">{categoryLabel(openCategoryMenuPath)}</div></div>
+        <button type="button" onClick={() => addChildCategory(openCategoryMenuPath)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-emerald-50"><PlusCircle className="h-4 w-4 text-emerald-700"/> إضافة تصنيف فرعي</button>
+        <button type="button" onClick={() => { const path = openCategoryMenuPath; setOpenCategoryMenuPath(null); openAdd(path); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-blue-50"><PackagePlus className="h-4 w-4 text-blue-700"/> إضافة بضاعة لهذا التصنيف</button>
+        <button type="button" onClick={() => void renameCategory(openCategoryMenuPath)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="h-4 w-4"/> إعادة تسمية</button>
+        <button type="button" onClick={() => beginCategoryTransfer(openCategoryMenuPath, "move")} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Layers className="h-4 w-4 text-amber-700"/> نقل التصنيف</button>
+        <button type="button" onClick={() => beginCategoryTransfer(openCategoryMenuPath, "copy")} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-violet-50"><ClipboardList className="h-4 w-4 text-violet-700"/> نسخ شجرة التصنيف</button>
+        <div className="my-1 border-t border-slate-100"/>
+        <button type="button" onClick={() => void deleteCategory(openCategoryMenuPath)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4"/> حذف التصنيف</button>
+        <button type="button" onClick={() => setOpenCategoryMenuPath(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs text-slate-500 hover:bg-slate-50"><X className="h-4 w-4"/> إغلاق</button>
+      </div></>}
+
       {showTrash && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">مهملات البضائع ({trashedProducts.length})</h3><button type="button" onClick={() => setShowTrash(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">الحذف هنا مؤقت. الاستعادة تعيد الصنف إلى القائمة، والحذف النهائي لا يمسح الفواتير التاريخية.</p>{trashedProducts.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">المهملات فارغة.</p> : <div className="space-y-2">{trashedProducts.map(product => <div key={product.id} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg p-3"><div className="flex items-center gap-3 min-w-0">{product.imageUrl ? <img src={product.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg" /> : <Package className="w-8 h-8 text-slate-300" />}<div className="min-w-0"><b>{product.name}</b><p className="text-xs text-slate-500">التصنيف: {product.originalCategory || product.category || "بدون تصنيف"} • حذف: {product.deletedAt ? new Date(product.deletedAt).toLocaleString("ar-IQ") : "غير معروف"}</p></div></div><div className="flex gap-2"><button type="button" onClick={() => restoreProduct(product)} className="px-3 py-2 border rounded-lg text-xs">استعادة</button><button type="button" onClick={() => { if (confirm(`حذف "${product.name}" نهائياً من قائمة البضائع؟ ستبقى تفاصيل الفواتير التاريخية كما هي.`)) deleteProduct(product.id); }} className="px-3 py-2 border border-rose-200 text-rose-700 rounded-lg text-xs">حذف نهائي</button></div></div>)}</div>}{trashedProducts.length > 0 && <button type="button" onClick={() => { if (confirm(`حذف ${trashedProducts.length} صنف نهائياً من قائمة البضائع؟ لا يمكن التراجع عن ذلك.`)) trashedProducts.forEach(p => deleteProduct(p.id)); }} className="w-full py-2.5 border border-rose-200 text-rose-700 rounded-lg text-sm">إفراغ المهملات نهائياً</button>}</section></div>}
+
+      {categoryTransfer && <div className="fixed inset-0 z-[70] bg-slate-950/55 flex items-center justify-center p-3"><section dir="rtl" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-extrabold">{categoryTransfer.mode === "move" ? "نقل التصنيف" : "نسخ شجرة التصنيف"}</h3><p className="mt-1 text-xs text-slate-500">{categoryLabel(categoryTransfer.path)}</p></div><button type="button" onClick={() => setCategoryTransfer(null)} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
+        {categoryTransfer.mode === "copy" && <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-900">سينسخ التطبيق بنية التصنيف وفروعه إلى الوجهة فقط. البضائع تبقى في مكانها ولا تتكرر كمياتها أو سجلاتها.</div>}
+        {categoryTransfer.mode === "move" && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">سيُنقل التصنيف وفروعه والبضائع التابعة له معاً إلى الوجهة المحددة.</div>}
+        <label className="block text-sm font-bold text-slate-700">المجلد الأب الجديد<select value={categoryTransferTarget} onChange={event => setCategoryTransferTarget(event.target.value)} className="mt-1 w-full rounded-lg border bg-white p-3 text-sm"><option value="">تصنيف رئيسي</option>{categories.filter(path => path !== "all" && path !== categoryTransfer.path && !path.startsWith(categoryTransfer.path + " / ")).map(path => <option key={path} value={path}>{categoryLabel(path)}</option>)}</select></label>
+        <div className="rounded-lg bg-slate-50 p-3 text-sm"><span className="text-slate-500">المسار الجديد: </span><b>{categoryTransferTarget ? categoryTransferTarget + " / " : ""}{categoryTransfer.mode === "copy" ? categoryTransfer.path.split(" / ").slice(-1)[0] + " - نسخة" : categoryTransfer.path.split(" / ").slice(-1)[0]}</b></div>
+        <div className="flex gap-2"><button type="button" onClick={() => setCategoryTransfer(null)} className="flex-1 rounded-lg border py-2.5 text-sm">إلغاء</button><button type="button" onClick={() => void commitCategoryTransfer()} className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white">{categoryTransfer.mode === "move" ? "نقل التصنيف" : "نسخ التصنيف"}</button></div>
+      </section></div>}
 
       {actionProduct && actionMode && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold">{actionMode === "move" ? "نقل الصنف إلى تصنيف" : "نسخ الصنف إلى تصنيف"}</h3><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="p-2 rounded-lg"><X className="w-5 h-5" /></button></div><p className="text-sm">{actionProduct.name} — التصنيف الحالي: {actionProduct.category || "بدون تصنيف"}</p>{actionMode === "copy" && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3">ستُنشأ بطاقة مستقلة بكمية صفر، دون نسخ سجل الحركات أو ربط الفواتير القديمة.</p>}<label className="block text-sm font-semibold">التصنيف المستهدف</label><input list="product-category-options" value={targetCategory} onInput={e => setTargetCategory(e.currentTarget.value)} placeholder="اكتب أو اختر تصنيفاً" className="w-full p-3 border rounded-lg" /><datalist id="product-category-options">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist><div className="flex gap-2"><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="flex-1 py-2.5 border rounded-lg">إلغاء</button><button type="button" onClick={commitProductAction} disabled={!targetCategory.trim()} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">تأكيد</button></div></section></div>}
 
