@@ -375,6 +375,8 @@ export default function LedgerView({
   const [isProductCartOpen, setIsProductCartOpen] = useState(false);
   const [showProductCartScanner, setShowProductCartScanner] = useState(false);
   const [productCartSearch, setProductCartSearch] = useState("");
+  const [productCartCategory, setProductCartCategory] = useState("الكل");
+  const [productCartVisibleLimit, setProductCartVisibleLimit] = useState(60);
   const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
   const [productCartStage, setProductCartStage] = useState<"select" | "review">("select");
   const [productCartUnitPrices, setProductCartUnitPrices] = useState<Record<string, number>>({});
@@ -2685,15 +2687,28 @@ ${folderCustomers
   const productCartTotalCapital = selectedCartProducts.reduce((sum, product) => sum + Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0), 0);
   const productCartProfitBeforeDiscount = productCartTotalBeforeDiscount - productCartTotalCapital;
   const productCartTotalProfit = productCartTotal - productCartTotalCapital;
-  const cartVisibleProducts = products
+  const productCartCategoryCounts = products.reduce<Record<string, number>>((counts, product) => {
+    if (!product.isDeleted) {
+      const category = String(product.category || "").trim() || "بدون تصنيف";
+      counts[category] = (counts[category] || 0) + 1;
+    }
+    return counts;
+  }, {});
+  const productCartCategories = Object.keys(productCartCategoryCounts).sort((a, b) => a.localeCompare(b, "ar"));
+  const productCartAllCount = Object.values(productCartCategoryCounts).reduce((sum, count) => sum + count, 0);
+  const matchingCartProducts = products
     .filter((product) => {
       if (product.isDeleted) return false;
+      const category = String(product.category || "").trim() || "بدون تصنيف";
+      if (productCartCategory !== "الكل" && category !== productCartCategory) return false;
       const query = productCartSearch.trim().toLowerCase();
       if (!query) return true;
       return [product.name, product.category, product.barcode, product.description]
         .some((value) => String(value || "").toLowerCase().includes(query));
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+  const cartVisibleProducts = matchingCartProducts.slice(0, productCartVisibleLimit);
+  const productCartCategoryCount = (category: string) => category === "الكل" ? productCartAllCount : (productCartCategoryCounts[category] || 0);
 
   const currentContextProductCartRecords = productCartRecords
     .filter((record) => record.customerId === selectedCustomer?.id && record.ledgerMode === productCartInsertContext?.mode)
@@ -2818,6 +2833,8 @@ ${folderCustomers
     }
     setProductCartInsertContext(context || null);
     setProductCartSearch("");
+    setProductCartCategory("الكل");
+    setProductCartVisibleLimit(60);
     setProductCartQuantities({});
     setProductCartUnitPrices({});
     setProductCartTotals({});
@@ -6553,7 +6570,7 @@ ${folderCustomers
                 <input
                   type="search"
                   value={productCartSearch}
-                  onChange={(event) => setProductCartSearch(event.target.value)}
+                  onChange={(event) => { setProductCartSearch(event.target.value); setProductCartVisibleLimit(60); }}
                   placeholder="ابحث باسم البضاعة أو التصنيف أو الباركود..."
                   className="w-full pr-9 pl-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:outline-none text-sm"
                 />
@@ -6569,8 +6586,21 @@ ${folderCustomers
                 <span>مسح وإضافة</span>
               </button>
             </div>}
+            {productCartStage === "select" && <div className="flex gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:px-4" role="group" aria-label="تصفية البضاعة حسب التصنيف">
+              {[ "الكل", ...productCartCategories ].map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  aria-pressed={productCartCategory === category}
+                  onClick={() => { setProductCartCategory(category); setProductCartVisibleLimit(60); }}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${productCartCategory === category ? "border-emerald-600 bg-emerald-600 text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"}`}
+                >
+                  {category} <span className={productCartCategory === category ? "text-emerald-100" : "text-slate-400"}>({productCartCategoryCount(category)})</span>
+                </button>
+              ))}
+            </div>}
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
               {productCartStage === "select" ? (
                 <>
                   {cartVisibleProducts.length === 0 ? (
@@ -6580,31 +6610,34 @@ ${folderCustomers
                         : "ماكو بضاعة مسجلة حالياً. أضف الأصناف من قسم البضاعة أولاً."}
                     </div>
                   ) : (
-                    cartVisibleProducts.map((product) => {
-                      const quantity = Number(productCartQuantities[product.id]) || 0;
-                      const available = Math.max(0, Number(product.quantity) || 0);
-                      const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
-                      return (
-                        <div key={product.id} className={`flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border ${quantity > 0 ? "border-emerald-200 bg-emerald-50/50" : "border-slate-100 bg-white"}`}>
-                          {imageSource ? (
-                            <img src={imageSource} alt={product.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover bg-slate-100 shrink-0" />
-                          ) : (
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0"><Package className="w-5 h-5" /></div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-800 break-words">{product.name}</p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">{product.category || "بدون تصنيف"} · المتوفر: {formatThousands(available)} {product.unitName || "قطعة"}</p>
-                            <p className="text-xs font-black text-emerald-700 mt-1">{formatThousands(getCartUnitPrice(product))} {settings.currency} <span className="font-normal text-slate-400">للوحدة قبل الخصم</span></p>
-                            {quantity > 0 && <p className="text-[11px] font-bold text-slate-700 mt-1">المجموع قبل الخصم: {formatThousands(getCartLineTotal(product))} {settings.currency}</p>}
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30 hover:bg-slate-50"><Minus className="w-3.5 h-3.5" /></button>
-                            <FormattedNumberInput aria-label={"كمية " + product.name} type="number" min="0" max={available} step="1" value={quantity} disabled={available <= 0 || isAddingCartItems} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="w-12 sm:w-14 h-8 text-center text-sm font-bold rounded-lg border border-slate-200 focus:border-emerald-500 focus:outline-none disabled:bg-slate-100" />
-                            <button type="button" aria-label={"زيادة كمية " + product.name} disabled={quantity >= available || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity + 1)} className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center disabled:opacity-30 hover:bg-emerald-700"><Plus className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </div>
-                      );
-                    })
+                    <div className="grid grid-cols-3 gap-2">
+                      {cartVisibleProducts.map((product) => {
+                        const quantity = Number(productCartQuantities[product.id]) || 0;
+                        const available = Math.max(0, Number(product.quantity) || 0);
+                        const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
+                        return (
+                          <article key={product.id} className={`flex min-w-0 flex-col rounded-xl border p-2 shadow-sm transition-colors ${quantity > 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                            <div className="mb-1.5 flex h-9 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                              {imageSource ? <img src={imageSource} alt="" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-400" />}
+                            </div>
+                            <p className="line-clamp-2 min-h-9 break-words text-center text-xs font-extrabold leading-4 text-slate-800">{product.name}</p>
+                            <p className="mt-1 truncate text-center text-[10px] font-black text-emerald-700">{formatThousands(getCartUnitPrice(product))} {settings.currency}</p>
+                            <p className="truncate text-center text-[9px] text-slate-400">متوفر {formatThousands(available)} {product.unitName || "قطعة"}</p>
+                            {quantity > 0 && <p className="mt-0.5 truncate text-center text-[9px] font-bold text-slate-600">المجموع {formatThousands(getCartLineTotal(product))}</p>}
+                            <div className="mt-auto flex items-center justify-center gap-1 pt-2">
+                              <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
+                              <FormattedNumberInput aria-label={"كمية " + product.name} type="number" min="0" max={available} step="1" value={quantity} disabled={available <= 0 || isAddingCartItems} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="h-7 w-9 min-w-0 rounded-lg border border-slate-200 text-center text-xs font-bold focus:border-emerald-500 focus:outline-none disabled:bg-slate-100" />
+                              <button type="button" aria-label={"زيادة كمية " + product.name} disabled={quantity >= available || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity + 1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {matchingCartProducts.length > cartVisibleProducts.length && (
+                    <button type="button" onClick={() => setProductCartVisibleLimit((limit) => limit + 60)} className="mx-auto mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                      عرض المزيد ({formatThousands(matchingCartProducts.length - cartVisibleProducts.length)} بضاعة)
+                    </button>
                   )}
                 </>
               ) : selectedCartProducts.length === 0 ? (
