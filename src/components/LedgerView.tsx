@@ -6347,9 +6347,9 @@ ${folderCustomers
                           <table dir="rtl" className="w-full table-fixed border-collapse text-center text-[15px] leading-snug">
                             <thead>
                               <tr className="bg-[#b6c8e4] text-slate-900">
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug"></th>
+                                <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug"></th>
                                 <th className="w-[8%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">العدد</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ رأس المال</th>
+                                <th className="w-[14%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ رأس المال</th>
                                 <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ البيع</th>
                                 <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ الربح</th>
                                 <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ الخصم</th>
