@@ -398,7 +398,7 @@ export default function LedgerView({
     }
     return onSnapshot(
       collection(db, "users", userId, "productCartRecords"),
-      (snapshot) => setProductCartRecords(snapshot.docs.map((savedDoc) => ({ id: savedDoc.id, ...(savedDoc.data() as Omit<ProductCartSavedRecord, "id">) }))
+      (snapshot) => setProductCartRecords(snapshot.docs.map((savedDoc) => ({ ...(savedDoc.data() as Omit<ProductCartSavedRecord, "id">), id: savedDoc.id } as ProductCartSavedRecord))
         .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0))),
       (error) => console.error("Unable to load product cart records:", error)
     );
@@ -6505,7 +6505,7 @@ ${folderCustomers
                     </div>
                   ) : currentContextProductCartRecords.map((record) => {
                     const recordProductsCount = Object.values(record.quantities || {}).filter((quantity) => Number(quantity) > 0).length;
-                    const recordUnitCount = Object.values(record.quantities || {}).reduce((sum, quantity) => sum + (Number(quantity) || 0), 0);
+                    const recordUnitCount = Object.values(record.quantities || {}).reduce<number>((sum, quantity) => sum + (Number(quantity) || 0), 0);
                     const recordTotal = Object.entries(record.quantities || {}).reduce((sum, [productId, quantity]) => {
                       const gross = Number(record.totals?.[productId]) || (Number(record.unitPrices?.[productId]) || 0) * (Number(quantity) || 0);
                       return sum + Math.max(0, gross - (Number(record.discountTotals?.[productId]) || 0));
@@ -6526,7 +6526,7 @@ ${folderCustomers
                             )}
                             <p className="mt-1 text-[11px] text-slate-500">{record.customerName || selectedCustomer?.name} · {new Date(Number(record.createdAt) || Date.now()).toLocaleString("ar-IQ")}</p>
                             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                              <span className={record.insertionCount ? "rounded-full bg-blue-50 px-2 py-1 font-bold text-blue-700" : "rounded-full bg-amber-50 px-2 py-1 font-bold text-amber-700"}>{record.insertionCount ? "أُدرج " + record.insertionCount + " مرة" : "بانتظار الإدراج"}</span>
+                              <span className={Number(record.insertionCount) > 0 ? "rounded-full bg-blue-50 px-2 py-1 font-bold text-blue-700" : "rounded-full bg-amber-50 px-2 py-1 font-bold text-amber-700"}>{Number(record.insertionCount) > 0 ? "أُدرج " + Number(record.insertionCount) + " مرة" : "بانتظار الإدراج"}</span>
                               <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{recordProductsCount} أصناف · {formatThousands(recordUnitCount)} وحدة</span>
                               <span className="rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700">{formatThousands(recordTotal)} {settings.currency}</span>
                             </div>
@@ -6537,7 +6537,7 @@ ${folderCustomers
                           </div>
                         </div>
                         <button type="button" onClick={() => openSavedProductCartRecord(record)} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white hover:bg-emerald-700">
-                          <ShoppingCart className="h-4 w-4" />{record.insertionCount ? "فتح لإعادة الإدراج" : "فتح ومتابعة المراجعة"}
+                          <ShoppingCart className="h-4 w-4" />{Number(record.insertionCount) > 0 ? "فتح لإعادة الإدراج" : "فتح ومتابعة المراجعة"}
                         </button>
                       </article>
                     );
