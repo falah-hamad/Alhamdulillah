@@ -331,6 +331,35 @@ function ProductsViewContent({
   const categoryDepth = (path: string) => path.split(" / ").filter(Boolean).length;
   const categoryChildren = (parentPath: string) => categoryNodes.filter(node => node.parentPath === parentPath).sort((a,b) => a.order - b.order || a.name.localeCompare(b.name, "ar", { numeric: true }));
   const categoryLabel = (path: string) => path.split(" / ").filter(Boolean).map((name, index) => `${"— ".repeat(index)}${name}`).join(" / ");
+  const allCategoryPaths = useMemo(() => {
+    const paths = new Set<string>();
+    [...categoryNodes.map(node => node.path), ...activeProducts.map(product => product.category || "بدون تصنيف")].forEach(path => {
+      const parts = path.split(" / ").filter(Boolean);
+      for (let index = 0; index < parts.length; index++) paths.add(parts.slice(0, index + 1).join(" / "));
+    });
+    return Array.from(paths);
+  }, [categoryNodes, activeProducts]);
+  const categoryNumber = (path: string) => {
+    const parts = path.split(" / ").filter(Boolean);
+    let parent = "";
+    const numbers = parts.map((_part, index) => {
+      const currentPath = parts.slice(0, index + 1).join(" / ");
+      const siblings = allCategoryPaths.filter(candidate => {
+        const split = candidate.lastIndexOf(" / ");
+        return (split < 0 ? "" : candidate.slice(0, split)) === parent;
+      }).sort((left, right) => {
+        const leftNode = categoryNodes.find(node => node.path === left);
+        const rightNode = categoryNodes.find(node => node.path === right);
+        if (leftNode && rightNode && leftNode.order !== rightNode.order) return leftNode.order - rightNode.order;
+        if (leftNode && !rightNode) return -1;
+        if (rightNode && !leftNode) return 1;
+        return left.split(" / ").slice(-1)[0].localeCompare(right.split(" / ").slice(-1)[0], "ar", { numeric: true });
+      });
+      parent = currentPath;
+      return String(Math.max(1, siblings.indexOf(currentPath) + 1));
+    });
+    return numbers.join(".");
+  };
   const totalItemsCount = activeProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
   const totalCostValue = activeProducts.reduce((sum, p) => sum + (Number(p.purchasePrice) || 0) * (Number(p.quantity) || 0), 0);
   const totalRetailValue = activeProducts.reduce((sum, p) => sum + (Number(p.salePrice) || 0) * (Number(p.quantity) || 0), 0);
@@ -381,6 +410,17 @@ function ProductsViewContent({
       return a.name.localeCompare(b.name, "ar");
     });
   }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus, sortSettings.rules]);
+
+  const emptyCategoryPathsByIndex = useMemo(() => {
+    const byIndex = new Map<number, ProductCategoryNode[]>();
+    categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(`${node.path} / `)))
+      .forEach(node => {
+        const index = filteredProducts.findIndex(product => (product.category || "بدون تصنيف").localeCompare(node.path, "ar", { numeric: true }) >= 0);
+        const insertionIndex = index < 0 ? filteredProducts.length : index;
+        byIndex.set(insertionIndex, [...(byIndex.get(insertionIndex) || []), node]);
+      });
+    return byIndex;
+  }, [categoryNodes, activeProducts, filteredProducts]);
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
@@ -854,6 +894,11 @@ function ProductsViewContent({
                       {filteredProducts.map((product, index) => {
                         return (
                           <React.Fragment key={product.id}>
+                            {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
+                              const depth = categoryDepth(node.path);
+                              const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">لا توجد بضاعة بهذا الفرع بعد</span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></span></div></td></tr>;
+                            })}
                             {(() => {
                               const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
                               const previous = index > 0 ? (filteredProducts[index - 1].category || "بدون تصنيف").split(" / ").filter(Boolean) : [];
@@ -861,8 +906,9 @@ function ProductsViewContent({
                               while (shared < parts.length && shared < previous.length && parts[shared] === previous[shared]) shared++;
                               return parts.slice(shared).map((name, offset) => {
                                 const depth = shared + offset + 1;
-                                const tones = ["bg-[#dbeafe] text-blue-950 border-blue-200", "bg-[#dcfce7] text-emerald-950 border-emerald-200", "bg-[#fef3c7] text-amber-950 border-amber-200", "bg-[#f3e8ff] text-violet-950 border-violet-200"];
-                                return <tr key={`category-${depth}-${parts.slice(0, depth).join("/")}`} data-product-category-row><td colSpan={visibleProductColumns.length} className={`border px-3 py-2 text-right font-extrabold ${tones[(depth - 1) % tones.length]}`}><span className="inline-flex items-center gap-2" style={{ paddingRight: `${Math.min(depth - 1, 6) * 16}px` }}><span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">المستوى {depth}</span><span>{name}</span></span></td></tr>;
+                                const path = parts.slice(0, depth).join(" / ");
+                                const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                                return <tr key={"category-" + path} data-product-category-row><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}</span></div></td></tr>;
                               });
                             })()}
                             {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
@@ -925,13 +971,11 @@ function ProductsViewContent({
                           </React.Fragment>
                         );
                       })}
-                      {!searchQuery.trim() && selectedCategory === "all" && categoryNodes
-                        .filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(`${node.path} / `)))
-                        .map(node => {
-                          const depth = categoryDepth(node.path);
-                          const tones = ["bg-[#dbeafe] text-blue-950 border-blue-200", "bg-[#dcfce7] text-emerald-950 border-emerald-200", "bg-[#fef3c7] text-amber-950 border-amber-200", "bg-[#f3e8ff] text-violet-950 border-violet-200"];
-                          return <tr key={`empty-category-${node.id}`} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={`border px-3 py-2 text-right font-extrabold ${tones[(depth - 1) % tones.length]}`}><div className="flex flex-wrap items-center justify-between gap-2" style={{ paddingRight: `${Math.min(depth - 1, 6) * 16}px` }}><span className="inline-flex items-center gap-2"><span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">المستوى {depth}</span><span>{node.name}</span><span className="text-[11px] font-medium opacity-70">({node.path}) — لا توجد بضاعة هنا بعد</span></span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></div></td></tr>;
-                        })}
+                      {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(filteredProducts.length) || []).map(node => {
+                        const depth = categoryDepth(node.path);
+                        const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                        return <tr key={"empty-category-" + node.id} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">لا توجد بضاعة بهذا الفرع بعد</span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></span></div></td></tr>;
+                      })}
                     </tbody>
                   </table>
           </div>
