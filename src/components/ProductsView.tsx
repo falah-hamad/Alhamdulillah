@@ -268,6 +268,7 @@ function ProductsViewContent({
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [expandedCategoryPaths, setExpandedCategoryPaths] = useState<string[]>([]);
+  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>([]);
   type ProductCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
@@ -864,6 +865,18 @@ function ProductsViewContent({
     title: "اضغط مطولاً لإجراءات التصنيف",
   });
 
+  const toggleProductCategory = (path: string) => setCollapsedProductCategoryPaths(current =>
+    current.includes(path) ? current.filter(item => item !== path) : [...current, path]
+  );
+  const isProductCategoryHidden = (path: string, includeSelf: boolean) => {
+    if (searchQuery.trim() || selectedCategory !== "all") return false;
+    const parts = path.split(" / ").filter(Boolean);
+    return parts.some((_part, index) => {
+      if (!includeSelf && index === parts.length - 1) return false;
+      return collapsedProductCategoryPaths.includes(parts.slice(0, index + 1).join(" / "));
+    });
+  };
+
   const handleBarcodeDetected = (code: string) => {
     const normalizedCode = code.trim().toLocaleLowerCase();
     setShowBarcodeScanner(false);
@@ -1029,7 +1042,7 @@ function ProductsViewContent({
                             {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
                               const depth = categoryDepth(node.path);
                               const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty" className="cursor-pointer" {...categoryRowEvents(node.path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">فارغ · اضغط مطولاً لعرض الإجراءات</span></span></div></td></tr>;
+                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[34px_64px_1fr] items-center gap-2"><button type="button" aria-label={collapsedProductCategoryPaths.includes(node.path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (collapsedProductCategoryPaths.includes(node.path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">فارغ · اضغط مطولاً للإجراءات</span></span></div></td></tr>;
                             })}
                             {(() => {
                               const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
@@ -1040,11 +1053,12 @@ function ProductsViewContent({
                                 const depth = shared + offset + 1;
                                 const path = parts.slice(0, depth).join(" / ");
                                 const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                                return <tr key={"category-" + path} data-product-category-row className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60">اضغط مطولاً للإجراءات</span></span></div></td></tr>;
+                                return <tr key={"category-" + path} data-product-category-row style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[34px_64px_1fr] items-center gap-2"><button type="button" aria-label={collapsedProductCategoryPaths.includes(path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (collapsedProductCategoryPaths.includes(path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60">اضغط مطولاً للإجراءات</span></span></div></td></tr>;
                               });
                             })()}
-                            {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
+                            {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr style={{ display: isProductCategoryHidden(product.category || "بدون تصنيف", true) ? "none" : undefined }} data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
                           <tr
+                            style={{ display: isProductCategoryHidden(product.category || "بدون تصنيف", true) ? "none" : undefined }}
                             key={product.id}
                             className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40"}`}
                             onClick={event => {
