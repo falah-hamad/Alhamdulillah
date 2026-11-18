@@ -925,6 +925,13 @@ function ProductsViewContent({
                           </React.Fragment>
                         );
                       })}
+                      {!searchQuery.trim() && selectedCategory === "all" && categoryNodes
+                        .filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(`${node.path} / `)))
+                        .map(node => {
+                          const depth = categoryDepth(node.path);
+                          const tones = ["bg-[#dbeafe] text-blue-950 border-blue-200", "bg-[#dcfce7] text-emerald-950 border-emerald-200", "bg-[#fef3c7] text-amber-950 border-amber-200", "bg-[#f3e8ff] text-violet-950 border-violet-200"];
+                          return <tr key={`empty-category-${node.id}`} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={`border px-3 py-2 text-right font-extrabold ${tones[(depth - 1) % tones.length]}`}><div className="flex flex-wrap items-center justify-between gap-2" style={{ paddingRight: `${Math.min(depth - 1, 6) * 16}px` }}><span className="inline-flex items-center gap-2"><span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">المستوى {depth}</span><span>{node.name}</span><span className="text-[11px] font-medium opacity-70">({node.path}) — لا توجد بضاعة هنا بعد</span></span><button type="button" onClick={() => openAdd(node.path)} className="rounded-md border border-current/20 bg-white/70 px-2 py-1 text-xs font-bold">+ إضافة بضاعة لهذا الفرع</button></div></td></tr>;
+                        })}
                     </tbody>
                   </table>
           </div>
