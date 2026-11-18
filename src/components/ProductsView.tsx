@@ -1009,19 +1009,19 @@ function ProductsViewContent({
                   <span className="mt-1 block text-[11px] text-slate-500">لإنشاء تصنيف جديد أو فرعي استخدم «إدارة التصنيفات».</span>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
-                  <FormattedNumberInput type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.purchasePrice} onChange={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">سعر البيع للعميل
-                  <FormattedNumberInput type="number" min="0" required value={form.salePrice} onInput={e => setField("salePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.salePrice} onChange={e => setField("salePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الكمية الحالية
-                  <FormattedNumberInput type="number" min="0" required value={form.quantity} onInput={e => setField("quantity", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" required value={form.quantity} onChange={e => setField("quantity", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">وحدة القياس
                   <input value={form.unitName} onInput={e => setField("unitName", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="قطعة، كرتون، متر..." />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الحد الأدنى للتنبيه
-                  <FormattedNumberInput type="number" min="0" value={form.minStock} onInput={e => setField("minStock", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+                  <FormattedNumberInput type="number" min="0" value={form.minStock} onChange={e => setField("minStock", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">الباركود / رقم الصنف
                   <input value={form.barcode} onInput={e => setField("barcode", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="أدخل الرمز أو امسحه بالقارئ" />
@@ -1106,7 +1106,7 @@ function ProductsViewContent({
               </select>
             </label>
             <label className="block text-xs font-semibold text-slate-600">{movementType === "adjustment" ? "فرق الكمية (مثلاً -2 أو +5)" : "عدد القطع"}
-              <FormattedNumberInput type="number" required step="1" value={movementQty} onInput={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
+              <FormattedNumberInput type="number" required step="1" value={movementQty} onChange={e => setMovementQty(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
             </label>
             <label className="block text-xs font-semibold text-slate-600">ملاحظة / رقم فاتورة المورد
               <textarea value={movementNote} onInput={e => setMovementNote(e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اختياري" />
