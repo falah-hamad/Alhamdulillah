@@ -9,7 +9,8 @@ import {
   Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal
 } from "lucide-react";
 import { Customer, Invoice, Product, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
-import { uploadUserFile } from "../lib/firebase";
+import { db, uploadUserFile } from "../lib/firebase";
+import { collection, doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import { parseProductsFromTextServer } from "../lib/cloudFunctions";
 import { useAuth } from "../contexts/AuthContext";
 import { formatStockSaleTimestamp, getProductSalesHistory } from "../lib/productSalesHistory";
@@ -264,6 +265,23 @@ function ProductsViewContent({
   const [movementNote, setMovementNote] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  type ProductCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
+  const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
+  const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryParent, setNewCategoryParent] = useState("");
+  const [categorySyncError, setCategorySyncError] = useState("");
+  useEffect(() => {
+    try { setCategoryNodes(JSON.parse(localStorage.getItem(categoryStorageKey) || "[]")); } catch { setCategoryNodes([]); }
+    if (!currentUser?.uid) return;
+    return onSnapshot(collection(db, "users", currentUser.uid, "productCategories"), snapshot => {
+      const remote = snapshot.docs.map(item => ({ id: item.id, ...(item.data() as Omit<ProductCategoryNode, "id">) })).filter(item => typeof item.path === "string" && item.path.trim());
+      setCategoryNodes(remote.sort((a,b) => a.path.localeCompare(b.path, "ar", { numeric: true })));
+      try { localStorage.setItem(categoryStorageKey, JSON.stringify(remote)); } catch {}
+      setCategorySyncError("");
+    }, error => { console.error("Could not sync product categories:", error); setCategorySyncError("تعذر مزامنة التصنيفات؛ يمكنك متابعة العمل محلياً."); });
+  }, [categoryStorageKey, currentUser?.uid]);
+  useEffect(() => { try { localStorage.setItem(categoryStorageKey, JSON.stringify(categoryNodes)); } catch {} }, [categoryNodes, categoryStorageKey]);
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
   const [actionMode, setActionMode] = useState<"move" | "copy" | null>(null);
   const [targetCategory, setTargetCategory] = useState("");
@@ -308,7 +326,11 @@ function ProductsViewContent({
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
-  const categories = useMemo(() => ["all", ...Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean)))], [activeProducts]);
+  const legacyCategories = useMemo(() => Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean))).filter(path => !categoryNodes.some(node => node.path === path)), [activeProducts, categoryNodes]);
+  const categories = useMemo(() => ["all", ...Array.from(new Set([...categoryNodes.map(node => node.path), ...legacyCategories]))], [categoryNodes, legacyCategories]);
+  const categoryDepth = (path: string) => path.split(" / ").filter(Boolean).length;
+  const categoryChildren = (parentPath: string) => categoryNodes.filter(node => node.parentPath === parentPath).sort((a,b) => a.order - b.order || a.name.localeCompare(b.name, "ar", { numeric: true }));
+  const categoryLabel = (path: string) => path.split(" / ").filter(Boolean).map((name, index) => `${"— ".repeat(index)}${name}`).join(" / ");
   const totalItemsCount = activeProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
   const totalCostValue = activeProducts.reduce((sum, p) => sum + (Number(p.purchasePrice) || 0) * (Number(p.quantity) || 0), 0);
   const totalRetailValue = activeProducts.reduce((sum, p) => sum + (Number(p.salePrice) || 0) * (Number(p.quantity) || 0), 0);
@@ -329,7 +351,7 @@ function ProductsViewContent({
       const searchable = [p.name, p.category, p.barcode, p.description, p.notes, p.supplierName, p.supplierPhone, p.location]
         .filter(Boolean).join(" ").toLocaleLowerCase();
       const matchesQuery = !q || searchable.includes(q);
-      const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
+      const matchesCategory = selectedCategory === "all" || p.category === selectedCategory || p.category.startsWith(`${selectedCategory} / `);
       const quantity = Number(p.quantity) || 0;
       const salePrice = Number(p.salePrice) || 0;
       const matchesQuick = quickFilter === "all"
@@ -347,6 +369,8 @@ function ProductsViewContent({
         || (stockStatus === "out" && quantity <= 0);
       return matchesQuery && matchesCategory && matchesQuick && matchesSupplier && matchesMinimumPrice && matchesMaximumPrice && matchesMinimumQuantity && matchesMaximumQuantity && matchesStockStatus;
     }).sort((a, b) => {
+      const categoryOrder = (a.category || "بدون تصنيف").localeCompare(b.category || "بدون تصنيف", "ar", { numeric: true });
+      if (categoryOrder !== 0) return categoryOrder;
       for (const rule of activeProductSort) {
         const left = productSortValue(a, rule.key), right = productSortValue(b, rule.key);
         const compared = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "ar", { numeric: true });
@@ -613,23 +637,59 @@ function ProductsViewContent({
     setActionProduct(null); setActionMode(null);
   };
 
-  const renameCategory = (category: string) => {
-    const nextName = prompt(`اكتب الاسم الجديد للتصنيف "${category}":`, category)?.trim();
-    if (!nextName || nextName === category) return;
-    if (categories.includes(nextName)) { alert("يوجد تصنيف بهذا الاسم بالفعل."); return; }
-    const members = activeProducts.filter(p => p.category === category);
-    if (!confirm(`تغيير اسم التصنيف وتحديث ${members.length} صنف إلى "${nextName}"؟`)) return;
-    members.forEach(product => { void updateProduct({ ...product, category: nextName }); });
+  const persistCategoryNode = async (node: ProductCategoryNode) => {
+    setCategorySyncError("");
+    if (!currentUser?.uid) { setCategoryNodes(current => current.some(item => item.id === node.id) ? current.map(item => item.id === node.id ? node : item) : [...current, node]); return; }
+    try { await setDoc(doc(db, "users", currentUser.uid, "productCategories", node.id), { path: node.path, parentPath: node.parentPath, name: node.name, order: node.order }); }
+    catch (error) { console.error("Could not save product category:", error); setCategorySyncError("تعذر حفظ التصنيف على السحابة. تحقق من الاتصال ثم أعد المحاولة."); }
   };
-
-  const deleteCategory = (category: string) => {
-    const members = activeProducts.filter(p => p.category === category);
-    if (!members.length) { alert("لا توجد أصناف نشطة في هذا التصنيف."); return; }
-    const destination = prompt(`التصنيف "${category}" يحتوي ${members.length} صنف. اكتب اسم تصنيف بديل لنقلها إليه، أو اكتب بدون تصنيف:`, "بدون تصنيف")?.trim();
-    if (!destination || destination === category) return;
-    if (!confirm(`نقل ${members.length} صنف إلى "${destination}" ثم إزالة التصنيف القديم من القائمة؟`)) return;
-    members.forEach(product => { void updateProduct({ ...product, category: destination === "بدون تصنيف" ? "" : destination }); });
-    if (selectedCategory === category) setSelectedCategory("all");
+  const createCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    const parentPath = newCategoryParent;
+    const path = parentPath ? `${parentPath} / ${name}` : name;
+    if (categories.includes(path)) { setCategorySyncError("هذا التصنيف موجود بالفعل في هذا المسار."); return; }
+    const node: ProductCategoryNode = { id: `cat-${Date.now()}-${Math.random().toString(36).slice(2,8)}`, path, parentPath, name, order: categoryChildren(parentPath).length };
+    await persistCategoryNode(node);
+    setNewCategoryName("");
+  };
+  const renameCategory = async (path: string) => {
+    const node = categoryNodes.find(item => item.path === path);
+    if (!node) { alert("التصنيف القديم مستنتج من البضاعة؛ أضف تصنيفاً جديداً وانقل البضاعة إليه."); return; }
+    const name = prompt(`اكتب الاسم الجديد للتصنيف "${node.name}":`, node.name)?.trim();
+    if (!name || name === node.name) return;
+    const nextPath = node.parentPath ? `${node.parentPath} / ${name}` : name;
+    if (categories.includes(nextPath)) { alert("يوجد تصنيف بهذا الاسم في هذا المسار."); return; }
+    const affected = categoryNodes.filter(item => item.path === path || item.path.startsWith(`${path} / `));
+    const productAffected = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `));
+    if (!confirm(`سيُحدّث الاسم والمسار لـ ${affected.length} تصنيف و${productAffected.length} بضاعة. متابعة؟`)) return;
+    for (const item of affected) {
+      const suffix = item.path.slice(path.length);
+      const updatedPath = nextPath + suffix;
+      const updatedParent = item.path === path ? item.parentPath : item.parentPath.startsWith(path) ? nextPath + item.parentPath.slice(path.length) : item.parentPath;
+      const updated = { ...item, path: updatedPath, parentPath: updatedParent, name: item.id === node.id ? name : item.name };
+      await persistCategoryNode(updated);
+    }
+    productAffected.forEach(product => { const suffix = product.category.slice(path.length); void updateProduct({ ...product, category: nextPath + suffix }); });
+  };
+  const deleteCategory = async (path: string) => {
+    const node = categoryNodes.find(item => item.path === path);
+    if (!node) { alert("التصنيفات القديمة تُحذف بعد نقل البضاعة منها."); return; }
+    const descendants = categoryNodes.filter(item => item.path.startsWith(`${path} / `));
+    const members = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `));
+    if (!confirm(`حذف "${node.name}"؟ سيُنقل ${members.length} بضاعة إلى التصنيف الأعلى، وستبقى التصنيفات الفرعية تحته مباشرة.`)) return;
+    const parent = node.parentPath;
+    const productsInNode = activeProducts.filter(product => product.category === path);
+    productsInNode.forEach(product => { void updateProduct({ ...product, category: parent }); });
+    for (const child of descendants) {
+      const nextPath = child.path.slice(path.length + 3);
+      const updatedPath = parent ? `${parent} / ${nextPath}` : nextPath;
+      const updatedParent = child.parentPath === path ? parent : child.parentPath.slice(path.length + 3);
+      await persistCategoryNode({ ...child, path: updatedPath, parentPath: updatedParent });
+    }
+    if (currentUser?.uid) { try { await deleteDoc(doc(db, "users", currentUser.uid, "productCategories", node.id)); } catch (error) { console.error(error); setCategorySyncError("تعذر حذف التصنيف من السحابة."); } }
+    else setCategoryNodes(current => current.filter(item => item.id !== node.id));
+    if (selectedCategory === path || selectedCategory.startsWith(`${path} / `)) setSelectedCategory(parent || "all");
   };
 
   const handleBarcodeDetected = (code: string) => {
@@ -696,7 +756,7 @@ function ProductsViewContent({
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
             <option value="all">كل التصنيفات</option>
-            {categories.filter(c => c !== "all").map(c => <option key={c} value={c}>{c}</option>)}
+            {categories.filter(c => c !== "all").map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
           </select>
           <select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
             <option value="all">كل البضاعة</option>
@@ -794,6 +854,17 @@ function ProductsViewContent({
                       {filteredProducts.map((product, index) => {
                         return (
                           <React.Fragment key={product.id}>
+                            {(() => {
+                              const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
+                              const previous = index > 0 ? (filteredProducts[index - 1].category || "بدون تصنيف").split(" / ").filter(Boolean) : [];
+                              let shared = 0;
+                              while (shared < parts.length && shared < previous.length && parts[shared] === previous[shared]) shared++;
+                              return parts.slice(shared).map((name, offset) => {
+                                const depth = shared + offset + 1;
+                                const tones = ["bg-[#dbeafe] text-blue-950 border-blue-200", "bg-[#dcfce7] text-emerald-950 border-emerald-200", "bg-[#fef3c7] text-amber-950 border-amber-200", "bg-[#f3e8ff] text-violet-950 border-violet-200"];
+                                return <tr key={`category-${depth}-${parts.slice(0, depth).join("/")}`} data-product-category-row><td colSpan={visibleProductColumns.length} className={`border px-3 py-2 text-right font-extrabold ${tones[(depth - 1) % tones.length]}`}><span className="inline-flex items-center gap-2" style={{ paddingRight: `${Math.min(depth - 1, 6) * 16}px` }}><span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">المستوى {depth}</span><span>{name}</span></span></td></tr>;
+                              });
+                            })()}
                             {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
                           <tr
                             key={product.id}
@@ -860,7 +931,11 @@ function ProductsViewContent({
         )}
       </section>
 
-      {showCategoryManager && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">إدارة التصنيفات</h3><button type="button" onClick={() => setShowCategoryManager(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">التصنيفات الحالية مستنتجة من الأصناف. تغيير الاسم يحدّث الأصناف المرتبطة، وحذف تصنيف ينقل أصنافه إلى وجهة تختارها.</p>{categories.filter(c => c !== "all").length === 0 ? <p className="text-sm text-slate-500">لا توجد تصنيفات بعد.</p> : categories.filter(c => c !== "all").map(category => <div key={category} className="flex flex-wrap items-center justify-between gap-2 border rounded-lg p-3"><div><b>{category}</b><p className="text-xs text-slate-500">{activeProducts.filter(p => p.category === category).length} صنف</p></div><div className="flex gap-2"><button type="button" onClick={() => renameCategory(category)} className="px-3 py-2 text-xs border rounded-lg">تعديل الاسم</button><button type="button" onClick={() => deleteCategory(category)} className="px-3 py-2 text-xs border border-rose-200 text-rose-700 rounded-lg">حذف التصنيف</button></div></div>)}<button type="button" onClick={() => { setShowCategoryManager(false); openAdd(); }} className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm">إضافة تصنيف عبر إضافة بضاعة</button></section></div>}
+      {showCategoryManager && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-bold text-lg">شجرة تصنيفات البضاعة</h3><p className="text-xs text-slate-500 mt-1">أنشئ مستويات مفتوحة مثل محل ← رف ← خانة ← أي مستوى تحتاجه.</p></div><button type="button" onClick={() => setShowCategoryManager(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-2"><p className="text-sm font-bold text-slate-800">إضافة مستوى تصنيف</p><input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="w-full rounded-lg border bg-white p-2.5 text-sm" placeholder="اسم التصنيف، مثلاً: محل 1 أو خانة 1" /><select value={newCategoryParent} onChange={e => setNewCategoryParent(e.target.value)} className="w-full rounded-lg border bg-white p-2.5 text-sm"><option value="">تصنيف رئيسي</option>{categories.filter(path => path !== "all").map(path => <option key={path} value={path}>فرع من: {categoryLabel(path)}</option>)}</select><button type="button" onClick={createCategory} disabled={!newCategoryName.trim()} className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">إضافة التصنيف</button></div>
+          {categorySyncError && <p role="alert" className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{categorySyncError}</p>}
+          <div className="space-y-2">{categories.filter(path => path !== "all").length === 0 ? <p className="text-sm text-slate-500">لا توجد تصنيفات بعد. أضف أول تصنيف رئيسي أعلاه.</p> : categories.filter(path => path !== "all").map(path => { const node = categoryNodes.find(item => item.path === path); const level = categoryDepth(path); const count = activeProducts.filter(product => product.category === path || product.category.startsWith(`${path} / `)).length; return <div key={path} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3" style={{ marginRight: `${Math.min(level - 1, 5) * 14}px` }}><div className="min-w-0"><div className="font-bold text-sm text-slate-800">{node ? "↳ ".repeat(Math.min(level - 1, 5)) : ""}{path.split(" / ").slice(-1)[0]}</div><div className="truncate text-[11px] text-slate-500">{categoryLabel(path)} · {count} بضاعة</div></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => { setNewCategoryParent(path); setNewCategoryName(""); }} className="rounded-md border px-2 py-1.5 text-xs">فرع +</button>{node && <><button type="button" onClick={() => renameCategory(path)} className="rounded-md border px-2 py-1.5 text-xs">تسمية</button><button type="button" onClick={() => deleteCategory(path)} className="rounded-md border border-rose-200 px-2 py-1.5 text-xs text-rose-700">حذف</button></>}</div></div>; })}</div>
+          <button type="button" onClick={() => setShowCategoryManager(false)} className="w-full rounded-lg border py-2.5 text-sm">تم</button></section></div>}
 
       {showTrash && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold text-lg">مهملات البضائع ({trashedProducts.length})</h3><button type="button" onClick={() => setShowTrash(false)} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500">الحذف هنا مؤقت. الاستعادة تعيد الصنف إلى القائمة، والحذف النهائي لا يمسح الفواتير التاريخية.</p>{trashedProducts.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">المهملات فارغة.</p> : <div className="space-y-2">{trashedProducts.map(product => <div key={product.id} className="flex flex-wrap items-center justify-between gap-3 border rounded-lg p-3"><div className="flex items-center gap-3 min-w-0">{product.imageUrl ? <img src={product.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg" /> : <Package className="w-8 h-8 text-slate-300" />}<div className="min-w-0"><b>{product.name}</b><p className="text-xs text-slate-500">التصنيف: {product.originalCategory || product.category || "بدون تصنيف"} • حذف: {product.deletedAt ? new Date(product.deletedAt).toLocaleString("ar-IQ") : "غير معروف"}</p></div></div><div className="flex gap-2"><button type="button" onClick={() => restoreProduct(product)} className="px-3 py-2 border rounded-lg text-xs">استعادة</button><button type="button" onClick={() => { if (confirm(`حذف "${product.name}" نهائياً من قائمة البضائع؟ ستبقى تفاصيل الفواتير التاريخية كما هي.`)) deleteProduct(product.id); }} className="px-3 py-2 border border-rose-200 text-rose-700 rounded-lg text-xs">حذف نهائي</button></div></div>)}</div>}{trashedProducts.length > 0 && <button type="button" onClick={() => { if (confirm(`حذف ${trashedProducts.length} صنف نهائياً من قائمة البضائع؟ لا يمكن التراجع عن ذلك.`)) trashedProducts.forEach(p => deleteProduct(p.id)); }} className="w-full py-2.5 border border-rose-200 text-rose-700 rounded-lg text-sm">إفراغ المهملات نهائياً</button>}</section></div>}
 
@@ -879,8 +954,8 @@ function ProductsViewContent({
                   <input required value={form.name} onInput={e => setField("name", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اسم واضح يساعدك تتذكرها" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">التصنيف *
-                  <input required list="product-categories" value={form.category} onInput={e => setField("category", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="مثلاً: أجهزة، ملابس..." />
-                  <datalist id="product-categories">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist>
+                  <select required value={form.category} onChange={e => setField("category", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm bg-white"><option value="">اختر التصنيف</option>{categories.filter(c => c !== "all").map(path => <option key={path} value={path}>{categoryLabel(path)}</option>)}</select>
+                  <span className="mt-1 block text-[11px] text-slate-500">لإنشاء تصنيف جديد أو فرعي استخدم «إدارة التصنيفات».</span>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
                   <FormattedNumberInput type="number" min="0" required value={form.purchasePrice} onInput={e => setField("purchasePrice", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" />
