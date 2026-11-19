@@ -1091,8 +1091,8 @@ function ProductsViewContent({
             </button>
             <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
             <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</span>
-              <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold opacity-75">{categoryNumber(path)}</span>
+              <span className="truncate font-extrabold" style={{ fontSize: Math.max(10, 16 - (depth - 1) * 2) + "px", lineHeight: 1.25 }}>{path.split(" / ").filter(Boolean).slice(-1)[0]}</span>
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 font-semibold opacity-75" style={{ fontSize: Math.max(9, 11 - (depth - 1)) + "px" }}>{categoryNumber(path)}</span>
             </div>
           </div>
           <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>⋮</button>
