@@ -1211,7 +1211,12 @@ function ProductsViewContent({
                 }}
               >
                 <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>
-                  {depth > 1 && <span aria-hidden="true" className="h-6 shrink-0 rounded-full border-r-2 border-current opacity-20"/>}
+                  {depth > 1 && (
+                    <span aria-hidden="true" className="relative h-7 w-4 shrink-0">
+                      <span className="absolute right-0 top-0 h-full border-r-2 border-emerald-600/70"/>
+                      <span className="absolute right-0 top-1/2 w-3 border-t-2 border-emerald-600/70"/>
+                    </span>
+                  )}
                   <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
                     <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
                   </button>
