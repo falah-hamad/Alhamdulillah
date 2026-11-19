@@ -1169,11 +1169,10 @@ function ProductsViewContent({
                     <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
                   </button>
                   <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</div>
-                    <div className="truncate text-[10px] font-medium opacity-65"><span dir="ltr">{categoryNumber(path)}</span>{depth > 1 ? " · " + categoryLabel(path) : " · تصنيف رئيسي"}</div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</span>
+                    <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold opacity-75">{categoryNumber(path)}</span>
                   </div>
-                  <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold">{directGoods.length} بضاعة</span>
                 </div>
                 <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
               </header>
