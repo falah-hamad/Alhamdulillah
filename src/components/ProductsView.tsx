@@ -1084,12 +1084,11 @@ function ProductsViewContent({
             toggleProductCategory(path);
           }}
         >
-          <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-[2px]" style={{ right: (depth === 1 ? 44 : 40 + treeOffset) + "px" }}>
-            {Array.from({ length: depth }, (_, index) => (
-              <i key={index} className="block w-[2px] shrink-0 rounded-full bg-emerald-500/80" style={{ height: Math.max(8, Math.max(28, 48 - (depth - 1) * 4) - index * 7) + "px" }}/>
-            ))}
-          </span>
-          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: Math.max(treeOffset + (depth > 1 ? 60 : 0), (depth === 1 ? 44 : 40 + treeOffset) + (depth * 4 - 2) + 8) + "px" }}>
+          {depth > 1 && <>
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 border-t border-emerald-600/45" style={{ right: (48 + Math.min(depth - 2, 6) * 14) + "px", width: "20px" }}/>
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 h-2 w-2 -translate-y-1/2 rounded-full bg-emerald-600/45" style={{ right: (45 + Math.min(depth - 2, 6) * 14) + "px" }}/>
+          </>}
+          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
             <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/75 text-current " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>
               <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
             </button>
@@ -1102,7 +1101,7 @@ function ProductsViewContent({
           <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>⋮</button>
         </header>
         {!isCollapsed && directGoods.length > 0 && (
-          <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
+          <div className="relative z-30 w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
             <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
               <thead className="bg-[#94acd1] text-slate-950">
                 <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
@@ -1113,9 +1112,9 @@ function ProductsViewContent({
         )}
         {!isCollapsed && children.length > 0 && (
           <div className="relative space-y-2 px-0 pb-2 pt-2">
-            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-0 border-r-2 border-emerald-500/80" style={{ right: (48 + treeOffset) + "px" }}/>
+            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-20 border-r border-emerald-600/35" style={{ right: (48 + treeOffset) + "px" }}/>
             {children.map(childPath => (
-              <div key={childPath} className="relative z-10">
+              <div key={childPath} className="relative">
                 {renderProductCategoryTree(childPath)}
               </div>
             ))}
