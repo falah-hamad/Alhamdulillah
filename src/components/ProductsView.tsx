@@ -271,18 +271,8 @@ function ProductsViewContent({
   type ProductCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
-  const initialEmptyCategoryPaths = categoryNodes.filter(node => !products.some(product => !product.isDeleted && (product.category === node.path || product.category.startsWith(node.path + " / ")))).map(node => node.path);
-  const initialNestedCategoryPaths = Array.from(new Set([
-    ...categoryNodes.map(node => node.path),
-    ...products.filter(product => !product.isDeleted).map(product => product.category || "")
-  ])).flatMap(path => {
-    const parts = path.split(" / ").filter(Boolean);
-    return parts.slice(1).map((_part, index) => parts.slice(0, index + 2).join(" / "));
-  });
-  const initialCollapsedCategoryPaths = Array.from(new Set([...initialEmptyCategoryPaths, ...initialNestedCategoryPaths]));
-  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>(() => initialCollapsedCategoryPaths);
-  const initializedEmptyProductCategories = useRef(new Set(initialEmptyCategoryPaths));
-  const initializedProductCategoryPaths = useRef(new Set(initialNestedCategoryPaths));
+  const [categoryExpansionOverrides, setCategoryExpansionOverrides] = useState<Map<string, boolean>>(() => new Map());
+  const [visibleProductCategoryLimit, setVisibleProductCategoryLimit] = useState(80);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryParent, setNewCategoryParent] = useState("");
   const [categorySyncError, setCategorySyncError] = useState("");
@@ -343,62 +333,93 @@ function ProductsViewContent({
   };
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
-  useEffect(() => {
-    const knownPaths = [
-      ...categoryNodes.map(node => node.path),
-      ...activeProducts.map(product => product.category || "")
-    ];
-    const nestedPaths = Array.from(new Set(knownPaths)).flatMap(path => {
-      const parts = path.split(" / ").filter(Boolean);
-      return parts.slice(1).map((_part, index) => parts.slice(0, index + 2).join(" / "));
+  const activeProductsByCategory = useMemo(() => {
+    const groups = new Map<string, Product[]>();
+    activeProducts.forEach(product => {
+      const path = product.category || "بدون تصنيف";
+      const group = groups.get(path);
+      if (group) group.push(product);
+      else groups.set(path, [product]);
     });
-    const newlyDiscoveredNestedPaths = nestedPaths.filter(path => !initializedProductCategoryPaths.current.has(path));
-    newlyDiscoveredNestedPaths.forEach(path => initializedProductCategoryPaths.current.add(path));
-
-    const emptyPaths = categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(node.path + " / "))).map(node => node.path).filter(path => !initializedEmptyProductCategories.current.has(path));
-    emptyPaths.forEach(path => initializedEmptyProductCategories.current.add(path));
-    const pathsToCollapse = Array.from(new Set([...newlyDiscoveredNestedPaths, ...emptyPaths]));
-    if (pathsToCollapse.length) {
-      setCollapsedProductCategoryPaths(current => Array.from(new Set([...current, ...pathsToCollapse])));
-    }
-  }, [categoryNodes, activeProducts]);
-
+    return groups;
+  }, [activeProducts]);
+  const activeProductCountsByCategory = useMemo(() => {
+    const counts = new Map<string, number>();
+    activeProducts.forEach(product => {
+      if (!product.category) return;
+      const parts = product.category.split(" / ").filter(Boolean);
+      for (let index = 0; index < parts.length; index++) {
+        const path = parts.slice(0, index + 1).join(" / ");
+        counts.set(path, (counts.get(path) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [activeProducts]);
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
-  const legacyCategories = useMemo(() => Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean))).filter(path => !categoryNodes.some(node => node.path === path)), [activeProducts, categoryNodes]);
+  const categoryNodePaths = useMemo(() => new Set(categoryNodes.map(node => node.path)), [categoryNodes]);
+  const legacyCategories = useMemo(() => Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean))).filter(path => !categoryNodePaths.has(path)), [activeProducts, categoryNodePaths]);
   const categories = useMemo(() => ["all", ...Array.from(new Set([...categoryNodes.map(node => node.path), ...legacyCategories]))], [categoryNodes, legacyCategories]);
   const categoryDepth = (path: string) => path.split(" / ").filter(Boolean).length;
   const categoryChildren = (parentPath: string) => categoryNodes.filter(node => node.parentPath === parentPath).sort((a,b) => a.order - b.order || a.name.localeCompare(b.name, "ar", { numeric: true }));
   const categoryLabel = (path: string) => path.split(" / ").filter(Boolean).map((name, index) => `${"— ".repeat(index)}${name}`).join(" / ");
   const allCategoryPaths = useMemo(() => {
     const paths = new Set<string>();
-    [...categoryNodes.map(node => node.path), ...activeProducts.map(product => product.category || "بدون تصنيف")].forEach(path => {
+    const addPathAndAncestors = (path: string) => {
       const parts = path.split(" / ").filter(Boolean);
       for (let index = 0; index < parts.length; index++) paths.add(parts.slice(0, index + 1).join(" / "));
-    });
+    };
+    categoryNodes.forEach(node => addPathAndAncestors(node.path));
+    activeProducts.forEach(product => addPathAndAncestors(product.category || "بدون تصنيف"));
     return Array.from(paths);
   }, [categoryNodes, activeProducts]);
-  const categoryNumber = (path: string) => {
-    const parts = path.split(" / ").filter(Boolean);
-    let parent = "";
-    const numbers = parts.map((_part, index) => {
-      const currentPath = parts.slice(0, index + 1).join(" / ");
-      const siblings = allCategoryPaths.filter(candidate => {
-        const split = candidate.lastIndexOf(" / ");
-        return (split < 0 ? "" : candidate.slice(0, split)) === parent;
-      }).sort((left, right) => {
-        const leftNode = categoryNodes.find(node => node.path === left);
-        const rightNode = categoryNodes.find(node => node.path === right);
-        if (leftNode && rightNode && leftNode.order !== rightNode.order) return leftNode.order - rightNode.order;
-        if (leftNode && !rightNode) return -1;
-        if (rightNode && !leftNode) return 1;
-        return left.split(" / ").slice(-1)[0].localeCompare(right.split(" / ").slice(-1)[0], "ar", { numeric: true });
-      });
-      parent = currentPath;
-      return String(Math.max(1, siblings.indexOf(currentPath) + 1));
+
+  const categoryHierarchy = useMemo(() => {
+    const childrenByParent = new Map<string, string[]>();
+    const nodeByPath = new Map(categoryNodes.map(node => [node.path, node]));
+    const collator = new Intl.Collator("ar", { numeric: true });
+    allCategoryPaths.forEach(path => {
+      const separator = path.lastIndexOf(" / ");
+      const parent = separator < 0 ? "" : path.slice(0, separator);
+      const siblings = childrenByParent.get(parent);
+      if (siblings) siblings.push(path);
+      else childrenByParent.set(parent, [path]);
     });
-    return numbers.join(".");
-  };
-  const categoryChildrenPaths = (parentPath: string) => allCategoryPaths.filter(path => path.includes(" / ") ? path.slice(0, path.lastIndexOf(" / ")) === parentPath : parentPath === "");
+    childrenByParent.forEach(siblings => siblings.sort((left, right) => {
+      const leftNode = nodeByPath.get(left);
+      const rightNode = nodeByPath.get(right);
+      if (leftNode && rightNode && leftNode.order !== rightNode.order) return leftNode.order - rightNode.order;
+      if (leftNode && !rightNode) return -1;
+      if (rightNode && !leftNode) return 1;
+      return collator.compare(left.slice(left.lastIndexOf(" / ") + 3), right.slice(right.lastIndexOf(" / ") + 3));
+    }));
+
+    const orderedPaths: string[] = [];
+    const numberByPath = new Map<string, string>();
+    const stack: Array<{ paths: string[]; index: number; number: string }> = [
+      { paths: childrenByParent.get("") || [], index: 0, number: "" }
+    ];
+    while (stack.length) {
+      const frame = stack[stack.length - 1];
+      if (frame.index >= frame.paths.length) { stack.pop(); continue; }
+      const siblingIndex = frame.index++;
+      const path = frame.paths[siblingIndex];
+      const number = frame.number ? frame.number + "." + (siblingIndex + 1) : String(siblingIndex + 1);
+      orderedPaths.push(path);
+      numberByPath.set(path, number);
+      const children = childrenByParent.get(path);
+      if (children?.length) stack.push({ paths: children, index: 0, number });
+    }
+    return { childrenByParent, orderedPaths, numberByPath };
+  }, [allCategoryPaths, categoryNodes]);
+
+  const categoryNumber = (path: string) => categoryHierarchy.numberByPath.get(path) || "";
+  const categoryChildrenPaths = (parentPath: string) => categoryHierarchy.childrenByParent.get(parentPath) || [];
+  const isProductCategoryCollapsed = useCallback((path: string) => {
+    const override = categoryExpansionOverrides.get(path);
+    if (override !== undefined) return !override;
+    if (path.includes(" / ")) return true;
+    return !((activeProductCountsByCategory.get(path) || 0) > 0 || (activeProductsByCategory.get(path)?.length || 0) > 0);
+  }, [categoryExpansionOverrides, activeProductCountsByCategory, activeProductsByCategory]);
   const compareCategoryPaths = (left: string, right: string) => {
     const leftParts = categoryNumber(left).split(".").map(Number);
     const rightParts = categoryNumber(right).split(".").map(Number);
@@ -408,12 +429,12 @@ function ProductsViewContent({
     }
     return 0;
   };
-  const managerCategoryPaths = useMemo(() => allCategoryPaths.filter(path => path && path !== "بدون تصنيف").sort(compareCategoryPaths), [allCategoryPaths, categoryNodes]);
+  const managerCategoryPaths = useMemo(() => categoryHierarchy.orderedPaths.filter(path => path && path !== "بدون تصنيف"), [categoryHierarchy]);
   const managerVisiblePaths = useMemo(() => {
     const query = categorySearch.trim().toLocaleLowerCase();
     const matching = query ? managerCategoryPaths.filter(path =>
       path.toLocaleLowerCase().includes(query) ||
-      activeProducts.some(product => product.category === path && product.name.toLocaleLowerCase().includes(query))
+      (activeProductsByCategory.get(path) || []).some(product => product.name.toLocaleLowerCase().includes(query))
     ) : managerCategoryPaths;
     const relevant = new Set<string>();
     matching.forEach(path => {
@@ -433,7 +454,7 @@ function ProductsViewContent({
   const toggleCategoryExpanded = (path: string) => setExpandedCategoryPaths(current =>
     current.includes(path) ? current.filter(item => item !== path) : [...current, path]
   );
-  const productsAtCategory = (path: string) => activeProducts.filter(product => product.category === path);
+  const productsAtCategory = (path: string) => activeProductsByCategory.get(path) || [];
   useEffect(() => {
     if (!showCategoryManager) return;
     setExpandedCategoryPaths(current => current.length ? current : managerCategoryPaths.filter(path => !path.includes(" / ")));
@@ -496,6 +517,7 @@ function ProductsViewContent({
 
   const emptyCategoryPathsByIndex = useMemo(() => {
     const byIndex = new Map<number, ProductCategoryNode[]>();
+    if (!searchQuery.trim() && selectedCategory === "all") return byIndex;
     categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(`${node.path} / `)))
       .sort((left, right) => compareCategoryPaths(left.path, right.path))
       .forEach(node => {
@@ -504,13 +526,35 @@ function ProductsViewContent({
         byIndex.set(insertionIndex, [...(byIndex.get(insertionIndex) || []), node]);
       });
     return byIndex;
-  }, [categoryNodes, activeProducts, filteredProducts, allCategoryPaths]);
+  }, [categoryNodes, activeProducts, filteredProducts, allCategoryPaths, searchQuery, selectedCategory]);
 
   const productCategoryPaths = useMemo(() => {
     const paths = new Set(allCategoryPaths.filter(path => path && path !== "بدون تصنيف"));
-    if (activeProducts.some(product => !product.category || product.category === "بدون تصنيف")) paths.add("بدون تصنيف");
-    return Array.from(paths).sort(compareCategoryPaths);
-  }, [allCategoryPaths, activeProducts]);
+    const ordered = categoryHierarchy.orderedPaths.filter(path => paths.has(path));
+    if (activeProducts.some(product => !product.category || product.category === "بدون تصنيف")) ordered.push("بدون تصنيف");
+    return ordered;
+  }, [allCategoryPaths, activeProducts, categoryHierarchy]);
+
+  const visibleProductCategoryPaths = useMemo(() => {
+    const included = new Set(productCategoryPaths);
+    const isCollapsed = isProductCategoryCollapsed;
+    const visible: string[] = [];
+    const stack: Array<{ paths: string[]; index: number }> = [
+      { paths: categoryHierarchy.childrenByParent.get("") || [], index: 0 }
+    ];
+    while (stack.length && visible.length <= visibleProductCategoryLimit) {
+      const frame = stack[stack.length - 1];
+      if (frame.index >= frame.paths.length) { stack.pop(); continue; }
+      const path = frame.paths[frame.index++];
+      if (!included.has(path)) continue;
+      visible.push(path);
+      if (!isCollapsed(path)) {
+        const children = categoryHierarchy.childrenByParent.get(path);
+        if (children?.length) stack.push({ paths: children, index: 0 });
+      }
+    }
+    return visible;
+  }, [productCategoryPaths, isProductCategoryCollapsed, categoryHierarchy, visibleProductCategoryLimit]);
 
   const productsByCategory = useMemo(() => {
     const groups = new Map<string, Product[]>();
@@ -986,15 +1030,17 @@ function ProductsViewContent({
     title: "إجراءات التصنيف",
   });
 
-  const toggleProductCategory = (path: string) => setCollapsedProductCategoryPaths(current =>
-    current.includes(path) ? current.filter(item => item !== path) : [...current, path]
-  );
+  const toggleProductCategory = (path: string) => setCategoryExpansionOverrides(current => {
+    const next = new Map(current);
+    next.set(path, isProductCategoryCollapsed(path));
+    return next;
+  });
   const isProductCategoryHidden = (path: string, includeSelf: boolean) => {
     if (searchQuery.trim() || selectedCategory !== "all") return false;
     const parts = path.split(" / ").filter(Boolean);
     return parts.some((_part, index) => {
       if (!includeSelf && index === parts.length - 1) return false;
-      return collapsedProductCategoryPaths.includes(parts.slice(0, index + 1).join(" / "));
+      return isProductCategoryCollapsed(parts.slice(0, index + 1).join(" / "));
     });
   };
 
@@ -1148,13 +1194,13 @@ function ProductsViewContent({
         </div>
         {!searchQuery.trim() && selectedCategory === "all" ? (
         <div className="space-y-3">
-          {productCategoryPaths.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div> : productCategoryPaths.map(path => {
+          {productCategoryPaths.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div> : visibleProductCategoryPaths.slice(0, visibleProductCategoryLimit).map(path => {
             const depth = categoryDepth(path);
             const directGoods = productsByCategory.get(path) || [];
             const children = categoryChildrenPaths(path);
-            const isCollapsed = collapsedProductCategoryPaths.includes(path);
+            const isCollapsed = isProductCategoryCollapsed(path);
             const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
-            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
+            return <section key={path} data-product-category-card className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
               <header
                 className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
                 {...categoryRowEvents(path)}
@@ -1164,7 +1210,8 @@ function ProductsViewContent({
                   toggleProductCategory(path);
                 }}
               >
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>
+                  {depth > 1 && <span aria-hidden="true" className="h-6 shrink-0 rounded-full border-r-2 border-current opacity-20"/>}
                   <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
                     <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
                   </button>
@@ -1189,6 +1236,11 @@ function ProductsViewContent({
               {!isCollapsed && directGoods.length === 0 && children.length === 0 && <div className="bg-white px-4 py-3 text-right text-xs font-medium text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</div>}
             </section>;
           })}
+          {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
+            <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+              عرض 80 تصنيف إضافي
+            </button>
+          )}
         </div>
       ) : (
         filteredProducts.length === 0 && (searchQuery.trim() || selectedCategory !== "all" || categoryNodes.length === 0) ? (
@@ -1208,8 +1260,8 @@ function ProductsViewContent({
                             {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
                               const depth = categoryDepth(node.path);
                               const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                              const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
-                              const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
+                              const hasChildren = categoryChildrenPaths(node.path).length > 0;
+                              const isCollapsed = isProductCategoryCollapsed(node.path);
                               const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
                               return <React.Fragment key={"empty-category-" + node.id}>
                                 <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
@@ -1235,7 +1287,7 @@ function ProductsViewContent({
                                 const depth = shared + offset + 1;
                                 const path = parts.slice(0, depth).join(" / ");
                                 const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                                return <React.Fragment key={"category-" + path}><tr data-product-category-row style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className="border-0 p-0"><div className={"sticky right-0 z-20 grid grid-cols-[34px_64px_1fr] items-center gap-2 border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]} style={{ width: "100cqw" }}><button type="button" aria-label={collapsedProductCategoryPaths.includes(path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (collapsedProductCategoryPaths.includes(path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60"></span></span></div></td></tr>{productCategoriesWithRows.has(path) && !collapsedProductCategoryPaths.includes(path) && <tr data-product-repeated-header style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }}>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 bg-[#94acd1] px-1.5 py-1.5 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>}</React.Fragment>;
+                                return <React.Fragment key={"category-" + path}><tr data-product-category-row style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className="border-0 p-0"><div className={"sticky right-0 z-20 grid grid-cols-[34px_64px_1fr] items-center gap-2 border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]} style={{ width: "100cqw" }}><button type="button" aria-label={isProductCategoryCollapsed(path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (isProductCategoryCollapsed(path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60"></span></span></div></td></tr>{productCategoriesWithRows.has(path) && !isProductCategoryCollapsed(path) && <tr data-product-repeated-header style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }}>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 bg-[#94acd1] px-1.5 py-1.5 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>}</React.Fragment>;
                               });
                             })()}
                             {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr style={{ display: isProductCategoryHidden(product.category || "بدون تصنيف", true) ? "none" : undefined }} data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
@@ -1302,8 +1354,8 @@ function ProductsViewContent({
                       {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(filteredProducts.length) || []).map(node => {
                         const depth = categoryDepth(node.path);
                         const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                        const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
-                        const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
+                        const hasChildren = categoryChildrenPaths(node.path).length > 0;
+                        const isCollapsed = isProductCategoryCollapsed(node.path);
                         const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
                         return <React.Fragment key={"empty-category-" + node.id}>
                           <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
@@ -1362,7 +1414,7 @@ function ProductsViewContent({
                 const depth = categoryDepth(path);
                 const children = categoryChildrenPaths(path);
                 const directGoods = productsAtCategory(path);
-                const totalGoods = activeProducts.filter(product => product.category === path || product.category.startsWith(path + " / ")).length;
+                const totalGoods = activeProductCountsByCategory.get(path) || 0;
                 const expanded = Boolean(categorySearch.trim()) || expandedCategoryPaths.includes(path);
                 const tones = ["border-blue-200 bg-blue-50 text-blue-950", "border-emerald-200 bg-emerald-50 text-emerald-950", "border-orange-200 bg-orange-50 text-orange-950", "border-violet-200 bg-violet-50 text-violet-950"];
                 const visibleGoods = categorySearch.trim() && !path.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())
