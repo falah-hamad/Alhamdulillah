@@ -375,7 +375,7 @@ function ProductsViewContent({
 
   const categoryHierarchy = useMemo(() => {
     const childrenByParent = new Map<string, string[]>();
-    const nodeByPath = new Map(categoryNodes.map(node => [node.path, node]));
+    const nodeByPath = new Map<string, ProductCategoryNode>(categoryNodes.map(node => [node.path, node]));
     const collator = new Intl.Collator("ar", { numeric: true });
     allCategoryPaths.forEach(path => {
       const separator = path.lastIndexOf(" / ");
