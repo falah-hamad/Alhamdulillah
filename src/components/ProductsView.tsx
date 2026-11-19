@@ -1051,7 +1051,7 @@ function ProductsViewContent({
                           <React.Fragment key={product.id}>
                             {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
                               const depth = categoryDepth(node.path);
-                              const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                              const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
                               const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
                               const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
                               const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
@@ -1078,7 +1078,7 @@ function ProductsViewContent({
                               return parts.slice(shared).map((name, offset) => {
                                 const depth = shared + offset + 1;
                                 const path = parts.slice(0, depth).join(" / ");
-                                const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                                const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
                                 return <tr key={"category-" + path} data-product-category-row style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[34px_64px_1fr] items-center gap-2"><button type="button" aria-label={collapsedProductCategoryPaths.includes(path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (collapsedProductCategoryPaths.includes(path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60"></span></span></div></td></tr>;
                               });
                             })()}
@@ -1145,7 +1145,7 @@ function ProductsViewContent({
                       })}
                       {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(filteredProducts.length) || []).map(node => {
                         const depth = categoryDepth(node.path);
-                        const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
+                        const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
                         const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
                         const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
                         const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
