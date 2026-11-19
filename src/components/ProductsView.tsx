@@ -512,6 +512,17 @@ function ProductsViewContent({
     return Array.from(paths).sort(compareCategoryPaths);
   }, [allCategoryPaths, activeProducts]);
 
+  const productsByCategory = useMemo(() => {
+    const groups = new Map<string, Product[]>();
+    filteredProducts.forEach(product => {
+      const path = product.category || "بدون تصنيف";
+      const group = groups.get(path);
+      if (group) group.push(product);
+      else groups.set(path, [product]);
+    });
+    return groups;
+  }, [filteredProducts]);
+
   const renderProductRows = (rows: Product[]) => rows.map((product, rowIndex) => (
     <React.Fragment key={product.id}>
       {shownProductSort.length > 0 && (rowIndex === 0 || productSortGroup(product) !== productSortGroup(rows[rowIndex - 1])) && (
@@ -1139,14 +1150,14 @@ function ProductsViewContent({
         <div className="space-y-3">
           {productCategoryPaths.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div> : productCategoryPaths.map(path => {
             const depth = categoryDepth(path);
-            const directGoods = filteredProducts.filter(product => (product.category || "بدون تصنيف") === path);
+            const directGoods = productsByCategory.get(path) || [];
             const children = categoryChildrenPaths(path);
             const isCollapsed = collapsedProductCategoryPaths.includes(path);
             const indent = Math.min(depth - 1, 5) * 14;
             const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
-            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined, marginRight: indent, width: "calc(100% - " + indent + "px)" }} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined, marginRight: indent, width: "calc(100% - " + indent + "px)" }} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <header
-                className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
+                className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
                 {...categoryRowEvents(path)}
                 onClick={() => {
                   if (suppressNextClick.current) { suppressNextClick.current = false; return; }
@@ -1168,7 +1179,7 @@ function ProductsViewContent({
                 <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
               </header>
               {!isCollapsed && directGoods.length > 0 && (
-                <div className="max-w-full overflow-x-auto bg-white">
+                <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
                   <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
                     <thead className="bg-[#94acd1] text-slate-950">
                       <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
