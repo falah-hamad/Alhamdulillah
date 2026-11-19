@@ -1153,9 +1153,8 @@ function ProductsViewContent({
             const directGoods = productsByCategory.get(path) || [];
             const children = categoryChildrenPaths(path);
             const isCollapsed = collapsedProductCategoryPaths.includes(path);
-            const indent = Math.min(depth - 1, 5) * 14;
             const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
-            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined, marginRight: indent, width: "calc(100% - " + indent + "px)" }} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
               <header
                 className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
                 {...categoryRowEvents(path)}
