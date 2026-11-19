@@ -1076,7 +1076,8 @@ function ProductsViewContent({
     return (
       <section key={path} data-product-category-card className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header
-          className={"relative flex cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 " + (depth === 1 ? "min-h-[72px] px-4 py-3 " : depth === 2 ? "min-h-[62px] px-3 py-2.5 " : depth === 3 ? "min-h-[54px] px-2.5 py-2 " : "min-h-[50px] px-2 py-1.5 ") + tones[(depth - 1) % tones.length]}
+          className={"relative mx-auto flex cursor-pointer items-center justify-between gap-2 rounded-2xl border border-slate-200 shadow-sm " + (depth === 1 ? "min-h-[72px] px-4 py-3 " : depth === 2 ? "min-h-[62px] px-3 py-2.5 " : depth === 3 ? "min-h-[54px] px-2.5 py-2 " : "min-h-[50px] px-2 py-1.5 ") + tones[(depth - 1) % tones.length]}
+          style={{ width: Math.max(68, 100 - (depth - 1) * 8) + "%" }}
           {...categoryRowEvents(path)}
           onClick={() => {
             if (suppressNextClick.current) { suppressNextClick.current = false; return; }
