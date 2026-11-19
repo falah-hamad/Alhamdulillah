@@ -6,7 +6,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList, FileText,
-  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal, Folder
 } from "lucide-react";
 import { Customer, Invoice, Product, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { db, uploadUserFile } from "../lib/firebase";
@@ -505,6 +505,80 @@ function ProductsViewContent({
       });
     return byIndex;
   }, [categoryNodes, activeProducts, filteredProducts, allCategoryPaths]);
+
+  const productCategoryPaths = useMemo(() => {
+    const paths = new Set(allCategoryPaths.filter(path => path && path !== "بدون تصنيف"));
+    if (activeProducts.some(product => !product.category || product.category === "بدون تصنيف")) paths.add("بدون تصنيف");
+    return Array.from(paths).sort(compareCategoryPaths);
+  }, [allCategoryPaths, activeProducts]);
+
+  const renderProductRows = (rows: Product[]) => rows.map((product, rowIndex) => (
+    <React.Fragment key={product.id}>
+      {shownProductSort.length > 0 && (rowIndex === 0 || productSortGroup(product) !== productSortGroup(rows[rowIndex - 1])) && (
+        <tr data-product-sort-group>
+          <td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">
+            {shownProductSort.map(rule => {
+              const value = productSortValue(product, rule.key);
+              return productColumnLabel(rule.key) + ": " + (typeof value === "number" ? money(value) : value || "غير مسجل");
+            }).join(" — ")}
+          </td>
+        </tr>
+      )}
+      <tr
+        key={product.id}
+        className={"select-none cursor-pointer transition-colors duration-150 " + (pressedItem === "product:" + product.id ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40")}
+        onClick={event => {
+          if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+          if ((event.target as HTMLElement).closest("button")) return;
+          setOpenProductMenuId(null);
+          openDetails(product);
+        }}
+        onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); }}
+        onTouchStart={event => startLongPress(event, 360, "product:" + product.id, () => { setOpenProductMenuId(product.id); })}
+        onTouchEnd={clearLongPress}
+        onTouchMove={clearLongPress}
+        onTouchCancel={clearLongPress}
+        title="اضغط مطولاً لعرض إجراءات البضاعة"
+      >
+        {visibleProductColumns.map((id, cellIndex) => (
+          <td key={id} className={"border border-slate-300 px-1 py-2 text-center align-middle " + (["name", "category", "unitName", "supplierName", "location"].includes(id) ? "whitespace-normal" : "whitespace-nowrap")}>
+            {id === "name" ? <button type="button" onClick={() => {
+                if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                setOpenProductMenuId(null);
+                openDetails(product);
+              }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={"تفاصيل " + product.name}>
+                {productTextLines(product.name)}
+              </button> :
+              id === "category" ? productTextLines((product.category || "").split(" / ").filter(Boolean).pop() || "بدون تصنيف") :
+              id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
+              id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+              id === "totalCapital" ? <>{money((Number(product.purchasePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+              id === "totalSaleValue" ? <>{money((Number(product.salePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+              id === "totalExpectedProfit" ? <>{money(((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0)) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
+              id === "location" ? productTextLines(product.location) :
+              id === "quantity" ? money(product.quantity) :
+              id === "unitName" ? productTextLines(product.unitName || "قطعة") :
+              id === "minStock" ? money(product.minStock ?? 5) :
+              id === "supplierName" ? productTextLines(product.supplierName) :
+              <bdi dir="ltr">{product[id] || "—"}</bdi>}
+            {cellIndex === 0 && openProductMenuId === product.id && (
+              <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
+                <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) void updateProduct({ ...product, name }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "move"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Layers className="w-4 h-4" /> نقل إلى تصنيف</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "copy"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><ClipboardList className="w-4 h-4" /> نسخ البضاعة</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); setMovementProduct(product); setMovementType("restock"); setMovementQty("1"); setMovementNote(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><PackagePlus className="w-4 h-4" /> إضافة للمخزون</button>
+                <button type="button" onClick={() => { setOpenProductMenuId(null); void updateProduct({ ...product, isFavorite: !product.isFavorite }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Star className="w-4 h-4" /> {product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button>
+                <div className="my-1 border-t border-slate-100" />
+                <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
+              </div>
+            )}
+          </td>
+        ))}
+      </tr>
+    </React.Fragment>
+  ));
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
@@ -1061,7 +1135,54 @@ function ProductsViewContent({
             </div>
           </div>}
         </div>
-        {filteredProducts.length === 0 && (searchQuery.trim() || selectedCategory !== "all" || categoryNodes.length === 0) ? (
+        {!searchQuery.trim() && selectedCategory === "all" ? (
+        <div className="space-y-3">
+          {productCategoryPaths.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div> : productCategoryPaths.map(path => {
+            const depth = categoryDepth(path);
+            const directGoods = filteredProducts.filter(product => (product.category || "بدون تصنيف") === path);
+            const children = categoryChildrenPaths(path);
+            const isCollapsed = collapsedProductCategoryPaths.includes(path);
+            const indent = Math.min(depth - 1, 5) * 14;
+            const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
+            return <section key={path} data-product-category-card style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined, marginRight: indent, width: "calc(100% - " + indent + "px)" }} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <header
+                className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
+                {...categoryRowEvents(path)}
+                onClick={() => {
+                  if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+                  setOpenCategoryMenuPath(null);
+                  toggleProductCategory(path);
+                }}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
+                    <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
+                  </button>
+                  <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</div>
+                    <div className="truncate text-[10px] font-medium opacity-65"><span dir="ltr">{categoryNumber(path)}</span>{depth > 1 ? " · " + categoryLabel(path) : " · تصنيف رئيسي"}</div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold">{directGoods.length} بضاعة</span>
+                </div>
+                <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
+              </header>
+              {!isCollapsed && directGoods.length > 0 && (
+                <div className="max-w-full overflow-x-auto bg-white">
+                  <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
+                    <thead className="bg-[#94acd1] text-slate-950">
+                      <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
+                    </thead>
+                    <tbody>{renderProductRows(directGoods)}</tbody>
+                  </table>
+                </div>
+              )}
+              {!isCollapsed && directGoods.length === 0 && children.length === 0 && <div className="bg-white px-4 py-3 text-right text-xs font-medium text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</div>}
+            </section>;
+          })}
+        </div>
+      ) : (
+        filteredProducts.length === 0 && (searchQuery.trim() || selectedCategory !== "all" || categoryNodes.length === 0) ? (
           <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
         ) : (
           <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm" style={{ containerType: "inline-size" }}>
@@ -1192,7 +1313,8 @@ function ProductsViewContent({
                     </tbody>
                   </table>
           </div>
-        )}
+        )
+      )}
       </section>
 
       {showCategoryManager && <div className="fixed inset-0 z-[60] bg-slate-100" dir="rtl">
