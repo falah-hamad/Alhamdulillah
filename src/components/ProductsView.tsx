@@ -1109,7 +1109,7 @@ function ProductsViewContent({
                                   }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
                                     {productTextLines(product.name)}
                                   </button> :
-                                  id === "category" ? productTextLines(product.category || "بدون تصنيف") :
+                                  id === "category" ? productTextLines((product.category || "").split(" / ").filter(Boolean).pop() || "بدون تصنيف") :
                                   id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
                                   id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
                                   id === "totalCapital" ? <>{money((Number(product.purchasePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
