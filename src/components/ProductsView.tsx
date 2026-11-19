@@ -1065,6 +1065,63 @@ function ProductsViewContent({
   const salesUnits = [...new Set(productSales.map(row => row.unit))];
   const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
+  const displayedProductCategoryPathSet = new Set(visibleProductCategoryPaths.slice(0, visibleProductCategoryLimit));
+  const renderProductCategoryTree = (path: string): React.ReactNode => {
+    const depth = categoryDepth(path);
+    const directGoods = productsByCategory.get(path) || [];
+    const children = categoryChildrenPaths(path).filter(childPath => displayedProductCategoryPathSet.has(childPath));
+    const isCollapsed = isProductCategoryCollapsed(path);
+    const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
+    const treeOffset = Math.min(depth - 1, 6) * 14;
+    return (
+      <section key={path} data-product-category-card className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <header
+          className={"relative flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
+          {...categoryRowEvents(path)}
+          onClick={() => {
+            if (suppressNextClick.current) { suppressNextClick.current = false; return; }
+            setOpenCategoryMenuPath(null);
+            toggleProductCategory(path);
+          }}
+        >
+          {depth > 1 && <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-0 border-t-2 border-emerald-500/80" style={{ right: "38px", width: (Math.max(0, treeOffset - 14) + 10) + "px" }}/>}
+          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
+            <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
+              <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
+            </button>
+            <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</span>
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold opacity-75">{categoryNumber(path)}</span>
+            </div>
+          </div>
+          <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
+        </header>
+        {!isCollapsed && directGoods.length > 0 && (
+          <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
+            <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
+              <thead className="bg-[#94acd1] text-slate-950">
+                <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
+              </thead>
+              <tbody>{renderProductRows(directGoods)}</tbody>
+            </table>
+          </div>
+        )}
+        {!isCollapsed && children.length > 0 && (
+          <div className="relative space-y-2 px-0 pb-2 pt-2">
+            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-0 border-r-2 border-emerald-500/80" style={{ right: (48 + treeOffset) + "px" }}/>
+            {children.map(childPath => (
+              <div key={childPath} className="relative z-10">
+                {renderProductCategoryTree(childPath)}
+              </div>
+            ))}
+          </div>
+        )}
+        {!isCollapsed && directGoods.length === 0 && children.length === 0 && <div className="bg-white px-4 py-3 text-right text-xs font-medium text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</div>}
+      </section>
+    );
+  };
+
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
       <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-2 sm:gap-3 min-w-0">
@@ -1194,57 +1251,17 @@ function ProductsViewContent({
         </div>
         {!searchQuery.trim() && selectedCategory === "all" ? (
         <div className="space-y-3">
-          {productCategoryPaths.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div> : visibleProductCategoryPaths.slice(0, visibleProductCategoryLimit).map(path => {
-            const depth = categoryDepth(path);
-            const directGoods = productsByCategory.get(path) || [];
-            const children = categoryChildrenPaths(path);
-            const isCollapsed = isProductCategoryCollapsed(path);
-            const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
-            return <section key={path} data-product-category-card className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <header
-                className={"flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
-                {...categoryRowEvents(path)}
-                onClick={() => {
-                  if (suppressNextClick.current) { suppressNextClick.current = false; return; }
-                  setOpenCategoryMenuPath(null);
-                  toggleProductCategory(path);
-                }}
-              >
-                <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>
-                  {depth > 1 && (
-                    <span aria-hidden="true" className="relative h-7 w-4 shrink-0">
-                      <span className="absolute right-0 top-0 h-full border-r-2 border-emerald-600/70"/>
-                      <span className="absolute right-0 top-1/2 w-3 border-t-2 border-emerald-600/70"/>
-                    </span>
-                  )}
-                  <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
-                    <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
-                  </button>
-                  <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-extrabold">{path.split(" / ").filter(Boolean).slice(-1)[0]}</span>
-                    <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold opacity-75">{categoryNumber(path)}</span>
-                  </div>
-                </div>
-                <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
-              </header>
-              {!isCollapsed && directGoods.length > 0 && (
-                <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
-                  <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
-                    <thead className="bg-[#94acd1] text-slate-950">
-                      <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
-                    </thead>
-                    <tbody>{renderProductRows(directGoods)}</tbody>
-                  </table>
-                </div>
+          {productCategoryPaths.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div>
+          ) : (
+            <>
+              {categoryChildrenPaths("").filter(path => displayedProductCategoryPathSet.has(path)).map(path => renderProductCategoryTree(path))}
+              {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
+                <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+                  عرض 80 تصنيف إضافي
+                </button>
               )}
-              {!isCollapsed && directGoods.length === 0 && children.length === 0 && <div className="bg-white px-4 py-3 text-right text-xs font-medium text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</div>}
-            </section>;
-          })}
-          {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
-            <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-              عرض 80 تصنيف إضافي
-            </button>
+            </>
           )}
         </div>
       ) : (
