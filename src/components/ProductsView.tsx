@@ -1076,7 +1076,7 @@ function ProductsViewContent({
     return (
       <section key={path} data-product-category-card className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header
-          className={"relative flex min-h-[60px] cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 px-3 py-2 " + tones[(depth - 1) % tones.length]}
+          className={"relative flex cursor-pointer items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 " + (depth === 1 ? "min-h-[72px] px-4 py-3 " : depth === 2 ? "min-h-[62px] px-3 py-2.5 " : depth === 3 ? "min-h-[54px] px-2.5 py-2 " : "min-h-[50px] px-2 py-1.5 ") + tones[(depth - 1) % tones.length]}
           {...categoryRowEvents(path)}
           onClick={() => {
             if (suppressNextClick.current) { suppressNextClick.current = false; return; }
@@ -1086,7 +1086,7 @@ function ProductsViewContent({
         >
           {depth > 1 && <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-0 border-t-2 border-emerald-500/80" style={{ right: "38px", width: (Math.max(0, treeOffset - 14) + 10) + "px" }}/>}
           <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
-            <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/75 text-current">
+            <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/75 text-current " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>
               <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
             </button>
             <Folder className="h-5 w-5 shrink-0 text-current opacity-80"/>
@@ -1095,7 +1095,7 @@ function ProductsViewContent({
               <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold opacity-75">{categoryNumber(path)}</span>
             </div>
           </div>
-          <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white">⋮</button>
+          <button type="button" aria-label={"إجراءات " + path.split(" / ").slice(-1)[0]} onClick={event => { event.stopPropagation(); setOpenCategoryMenuPath(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/85 text-lg font-bold text-slate-600 hover:bg-white " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>⋮</button>
         </header>
         {!isCollapsed && directGoods.length > 0 && (
           <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
