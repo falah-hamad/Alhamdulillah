@@ -1073,6 +1073,7 @@ function ProductsViewContent({
     const isCollapsed = isProductCategoryCollapsed(path);
     const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
     const treeOffset = Math.min(depth - 1, 6) * 14;
+    const connectorOffset = Math.min(depth - 1, 6) * 24;
     return (
       <section key={path} data-product-category-card className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header
@@ -1085,8 +1086,8 @@ function ProductsViewContent({
           }}
         >
           {depth > 1 && <>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 border-t border-emerald-600/45" style={{ right: (48 + Math.min(depth - 2, 6) * 14) + "px", width: "20px" }}/>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 h-2 w-2 -translate-y-1/2 rounded-full bg-emerald-600/45" style={{ right: (45 + Math.min(depth - 2, 6) * 14) + "px" }}/>
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 border-t border-emerald-600/45" style={{ right: (48 + Math.min(depth - 2, 6) * 24) + "px", width: "20px" }}/>
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 h-2 w-2 -translate-y-1/2 rounded-full bg-emerald-600/45" style={{ right: (45 + Math.min(depth - 2, 6) * 24) + "px" }}/>
           </>}
           <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
             <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/75 text-current " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>
@@ -1112,7 +1113,7 @@ function ProductsViewContent({
         )}
         {!isCollapsed && children.length > 0 && (
           <div className="relative space-y-2 px-0 pb-2 pt-2">
-            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-20 border-r border-emerald-600/35" style={{ right: (48 + treeOffset) + "px" }}/>
+            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-20 border-r border-emerald-600/35" style={{ right: (48 + connectorOffset) + "px" }}/>
             {children.map(childPath => (
               <div key={childPath} className="relative">
                 {renderProductCategoryTree(childPath)}
