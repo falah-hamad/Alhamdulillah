@@ -268,10 +268,12 @@ function ProductsViewContent({
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [expandedCategoryPaths, setExpandedCategoryPaths] = useState<string[]>([]);
-  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>([]);
   type ProductCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
+  const initialEmptyCategoryPaths = categoryNodes.filter(node => !products.some(product => !product.isDeleted && (product.category === node.path || product.category.startsWith(node.path + " / ")))).map(node => node.path);
+  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>(() => initialEmptyCategoryPaths);
+  const initializedEmptyProductCategories = useRef(new Set(initialEmptyCategoryPaths));
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryParent, setNewCategoryParent] = useState("");
   const [categorySyncError, setCategorySyncError] = useState("");
@@ -332,6 +334,13 @@ function ProductsViewContent({
   };
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
+  useEffect(() => {
+    const emptyPaths = categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(node.path + " / "))).map(node => node.path).filter(path => !initializedEmptyProductCategories.current.has(path));
+    if (!emptyPaths.length) return;
+    emptyPaths.forEach(path => initializedEmptyProductCategories.current.add(path));
+    setCollapsedProductCategoryPaths(current => Array.from(new Set([...current, ...emptyPaths])));
+  }, [categoryNodes, activeProducts]);
+
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
   const legacyCategories = useMemo(() => Array.from(new Set(activeProducts.map(p => p.category).filter(Boolean))).filter(path => !categoryNodes.some(node => node.path === path)), [activeProducts, categoryNodes]);
   const categories = useMemo(() => ["all", ...Array.from(new Set([...categoryNodes.map(node => node.path), ...legacyCategories]))], [categoryNodes, legacyCategories]);
@@ -1043,7 +1052,23 @@ function ProductsViewContent({
                             {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
                               const depth = categoryDepth(node.path);
                               const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                              return <tr key={"empty-category-" + node.id} data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[34px_64px_1fr] items-center gap-2"><button type="button" aria-label={collapsedProductCategoryPaths.includes(node.path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (collapsedProductCategoryPaths.includes(node.path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">فارغ · </span></span></div></td></tr>;
+                              const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
+                              const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
+                              const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
+                              return <React.Fragment key={"empty-category-" + node.id}>
+                                <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
+                                  <td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}>
+                                    <div className="grid grid-cols-[34px_64px_1fr] items-center gap-2">
+                                      <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70">
+                                        <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
+                                      </button>
+                                      <span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span>
+                                      <span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{node.name}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {showEmptyMessage && <tr data-category-empty-message><td colSpan={visibleProductColumns.length} className="border border-slate-200 bg-white px-4 py-3 text-right text-xs font-medium text-slate-500"><span style={{ paddingRight: (Math.min(depth, 6) * 14) + "px" }}>لا توجد بضاعة داخل هذا الفرع بعد.</span></td></tr>}
+                              </React.Fragment>;
                             })}
                             {(() => {
                               const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
@@ -1121,8 +1146,24 @@ function ProductsViewContent({
                       {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(filteredProducts.length) || []).map(node => {
                         const depth = categoryDepth(node.path);
                         const tones = ["bg-[#91add8] text-slate-950 border-blue-300", "bg-[#b9d8a8] text-slate-950 border-emerald-300", "bg-[#f2ad82] text-slate-950 border-orange-300", "bg-[#c8b5e5] text-slate-950 border-violet-300"];
-                        return <tr key={"empty-category-" + node.id} data-product-category-row="empty"><td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}><div className="grid grid-cols-[64px_1fr] items-center gap-2"><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span><span className="flex flex-wrap items-center justify-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}><span>{node.name}</span><span className="text-[11px] font-medium opacity-75">فارغ</span></span></div></td></tr>;
-                      })}
+                        const hasChildren = categoryNodes.some(child => child.parentPath === node.path);
+                        const isCollapsed = collapsedProductCategoryPaths.includes(node.path);
+                        const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
+                        return <React.Fragment key={"empty-category-" + node.id}>
+                          <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
+                            <td colSpan={visibleProductColumns.length} className={"border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]}>
+                              <div className="grid grid-cols-[34px_64px_1fr] items-center gap-2">
+                                <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70">
+                                  <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
+                                </button>
+                                <span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span>
+                                <span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{node.name}</span>
+                              </div>
+                            </td>
+                          </tr>
+                          {showEmptyMessage && <tr data-category-empty-message><td colSpan={visibleProductColumns.length} className="border border-slate-200 bg-white px-4 py-3 text-right text-xs font-medium text-slate-500"><span style={{ paddingRight: (Math.min(depth, 6) * 14) + "px" }}>لا توجد بضاعة داخل هذا الفرع بعد.</span></td></tr>}
+                        </React.Fragment>;
+                      })}})}
                     </tbody>
                   </table>
           </div>
