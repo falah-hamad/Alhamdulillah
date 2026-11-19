@@ -272,8 +272,17 @@ function ProductsViewContent({
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
   const initialEmptyCategoryPaths = categoryNodes.filter(node => !products.some(product => !product.isDeleted && (product.category === node.path || product.category.startsWith(node.path + " / ")))).map(node => node.path);
-  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>(() => initialEmptyCategoryPaths);
+  const initialNestedCategoryPaths = Array.from(new Set([
+    ...categoryNodes.map(node => node.path),
+    ...products.filter(product => !product.isDeleted).map(product => product.category || "")
+  ])).flatMap(path => {
+    const parts = path.split(" / ").filter(Boolean);
+    return parts.slice(1).map((_part, index) => parts.slice(0, index + 2).join(" / "));
+  });
+  const initialCollapsedCategoryPaths = Array.from(new Set([...initialEmptyCategoryPaths, ...initialNestedCategoryPaths]));
+  const [collapsedProductCategoryPaths, setCollapsedProductCategoryPaths] = useState<string[]>(() => initialCollapsedCategoryPaths);
   const initializedEmptyProductCategories = useRef(new Set(initialEmptyCategoryPaths));
+  const initializedProductCategoryPaths = useRef(new Set(initialNestedCategoryPaths));
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryParent, setNewCategoryParent] = useState("");
   const [categorySyncError, setCategorySyncError] = useState("");
@@ -335,10 +344,23 @@ function ProductsViewContent({
 
   const activeProducts = useMemo(() => products.filter(p => !p.isDeleted), [products]);
   useEffect(() => {
+    const knownPaths = [
+      ...categoryNodes.map(node => node.path),
+      ...activeProducts.map(product => product.category || "")
+    ];
+    const nestedPaths = Array.from(new Set(knownPaths)).flatMap(path => {
+      const parts = path.split(" / ").filter(Boolean);
+      return parts.slice(1).map((_part, index) => parts.slice(0, index + 2).join(" / "));
+    });
+    const newlyDiscoveredNestedPaths = nestedPaths.filter(path => !initializedProductCategoryPaths.current.has(path));
+    newlyDiscoveredNestedPaths.forEach(path => initializedProductCategoryPaths.current.add(path));
+
     const emptyPaths = categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(node.path + " / "))).map(node => node.path).filter(path => !initializedEmptyProductCategories.current.has(path));
-    if (!emptyPaths.length) return;
     emptyPaths.forEach(path => initializedEmptyProductCategories.current.add(path));
-    setCollapsedProductCategoryPaths(current => Array.from(new Set([...current, ...emptyPaths])));
+    const pathsToCollapse = Array.from(new Set([...newlyDiscoveredNestedPaths, ...emptyPaths]));
+    if (pathsToCollapse.length) {
+      setCollapsedProductCategoryPaths(current => Array.from(new Set([...current, ...pathsToCollapse])));
+    }
   }, [categoryNodes, activeProducts]);
 
   const trashedProducts = useMemo(() => products.filter(p => p.isDeleted), [products]);
