@@ -1163,7 +1163,7 @@ function ProductsViewContent({
                           </tr>
                           {showEmptyMessage && <tr data-category-empty-message><td colSpan={visibleProductColumns.length} className="border border-slate-200 bg-white px-4 py-3 text-right text-xs font-medium text-slate-500"><span style={{ paddingRight: (Math.min(depth, 6) * 14) + "px" }}>لا توجد بضاعة داخل هذا الفرع بعد.</span></td></tr>}
                         </React.Fragment>;
-                      })}})}
+                      })}
                     </tbody>
                   </table>
           </div>
