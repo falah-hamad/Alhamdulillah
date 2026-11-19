@@ -1084,8 +1084,12 @@ function ProductsViewContent({
             toggleProductCategory(path);
           }}
         >
-          {depth > 1 && <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-0 border-t-2 border-emerald-500/80" style={{ right: "38px", width: (Math.max(0, treeOffset - 14) + 10) + "px" }}/>}
-          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
+          <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-[2px]" style={{ right: (depth === 1 ? 44 : 40 + treeOffset) + "px" }}>
+            {Array.from({ length: depth }, (_, index) => (
+              <i key={index} className="block w-[2px] shrink-0 rounded-full bg-emerald-500/80" style={{ height: Math.max(8, Math.max(28, 48 - (depth - 1) * 4) - index * 7) + "px" }}/>
+            ))}
+          </span>
+          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: Math.max(treeOffset + (depth > 1 ? 60 : 0), (depth === 1 ? 44 : 40 + treeOffset) + (depth * 4 - 2) + 8) + "px" }}>
             <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/75 text-current " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>
               <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
             </button>
