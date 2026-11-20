@@ -272,6 +272,7 @@ function ProductsViewContent({
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
   const [categoryExpansionOverrides, setCategoryExpansionOverrides] = useState<Map<string, boolean>>(() => new Map());
+  const [autoExpandedCategoryPaths, setAutoExpandedCategoryPaths] = useState<string[]>([]);
   const [visibleProductCategoryLimit, setVisibleProductCategoryLimit] = useState(80);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryParent, setNewCategoryParent] = useState("");
@@ -417,9 +418,10 @@ function ProductsViewContent({
   const isProductCategoryCollapsed = useCallback((path: string) => {
     const override = categoryExpansionOverrides.get(path);
     if (override !== undefined) return !override;
+    if (autoExpandedCategoryPaths.includes(path)) return false;
     if (path.includes(" / ")) return true;
     return !((activeProductCountsByCategory.get(path) || 0) > 0 || (activeProductsByCategory.get(path)?.length || 0) > 0);
-  }, [categoryExpansionOverrides, activeProductCountsByCategory, activeProductsByCategory]);
+  }, [categoryExpansionOverrides, autoExpandedCategoryPaths, activeProductCountsByCategory, activeProductsByCategory]);
   const compareCategoryPaths = (left: string, right: string) => {
     const leftParts = categoryNumber(left).split(".").map(Number);
     const rightParts = categoryNumber(right).split(".").map(Number);
@@ -510,23 +512,19 @@ function ProductsViewContent({
       return a.name.localeCompare(b.name, "ar");
     });
   }, [activeProducts, searchQuery, selectedCategory, quickFilter, supplierFilter, minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus, sortSettings.rules, allCategoryPaths, categoryNodes]);
-  const productCategoriesWithRows = useMemo(
-    () => new Set(filteredProducts.map(product => product.category || "بدون تصنيف")),
-    [filteredProducts]
-  );
-
-  const emptyCategoryPathsByIndex = useMemo(() => {
-    const byIndex = new Map<number, ProductCategoryNode[]>();
-    if (!searchQuery.trim() && selectedCategory === "all") return byIndex;
-    categoryNodes.filter(node => !activeProducts.some(product => product.category === node.path || product.category.startsWith(`${node.path} / `)))
-      .sort((left, right) => compareCategoryPaths(left.path, right.path))
-      .forEach(node => {
-        const index = filteredProducts.findIndex(product => compareCategoryPaths(product.category || "بدون تصنيف", node.path) >= 0);
-        const insertionIndex = index < 0 ? filteredProducts.length : index;
-        byIndex.set(insertionIndex, [...(byIndex.get(insertionIndex) || []), node]);
-      });
-    return byIndex;
-  }, [categoryNodes, activeProducts, filteredProducts, allCategoryPaths, searchQuery, selectedCategory]);
+  const hasActiveProductFilters = Boolean(searchQuery.trim()) || selectedCategory !== "all" || quickFilter !== "all" || Boolean(supplierFilter) || Boolean(minimumSalePrice) || Boolean(maximumSalePrice) || Boolean(minimumQuantity) || Boolean(maximumQuantity) || stockStatus !== "all";
+  const filteredCategoryPathSet = useMemo(() => {
+    const paths = new Set<string>();
+    filteredProducts.forEach(product => {
+      const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
+      if (parts.length === 0) paths.add("بدون تصنيف");
+      else for (let index = 0; index < parts.length; index++) paths.add(parts.slice(0, index + 1).join(" / "));
+    });
+    return paths;
+  }, [filteredProducts]);
+  useEffect(() => {
+    setAutoExpandedCategoryPaths(hasActiveProductFilters ? Array.from(filteredCategoryPathSet) : []);
+  }, [hasActiveProductFilters, filteredCategoryPathSet]);
 
   const productCategoryPaths = useMemo(() => {
     const paths = new Set(allCategoryPaths.filter(path => path && path !== "بدون تصنيف"));
@@ -536,7 +534,7 @@ function ProductsViewContent({
   }, [allCategoryPaths, activeProducts, categoryHierarchy]);
 
   const visibleProductCategoryPaths = useMemo(() => {
-    const included = new Set(productCategoryPaths);
+    const included = hasActiveProductFilters ? filteredCategoryPathSet : new Set(productCategoryPaths);
     const isCollapsed = isProductCategoryCollapsed;
     const visible: string[] = [];
     const stack: Array<{ paths: string[]; index: number }> = [
@@ -554,7 +552,7 @@ function ProductsViewContent({
       }
     }
     return visible;
-  }, [productCategoryPaths, isProductCategoryCollapsed, categoryHierarchy, visibleProductCategoryLimit]);
+  }, [productCategoryPaths, filteredCategoryPathSet, hasActiveProductFilters, isProductCategoryCollapsed, categoryHierarchy, visibleProductCategoryLimit]);
 
   const productsByCategory = useMemo(() => {
     const groups = new Map<string, Product[]>();
@@ -1035,15 +1033,6 @@ function ProductsViewContent({
     next.set(path, isProductCategoryCollapsed(path));
     return next;
   });
-  const isProductCategoryHidden = (path: string, includeSelf: boolean) => {
-    if (searchQuery.trim() || selectedCategory !== "all") return false;
-    const parts = path.split(" / ").filter(Boolean);
-    return parts.some((_part, index) => {
-      if (!includeSelf && index === parts.length - 1) return false;
-      return isProductCategoryCollapsed(parts.slice(0, index + 1).join(" / "));
-    });
-  };
-
   const handleBarcodeDetected = (code: string) => {
     const normalizedCode = code.trim().toLocaleLowerCase();
     setShowBarcodeScanner(false);
@@ -1253,9 +1242,10 @@ function ProductsViewContent({
             </div>
           </div>}
         </div>
-        {!searchQuery.trim() && selectedCategory === "all" ? (
         <div className="space-y-3">
-          {productCategoryPaths.length === 0 ? (
+          {hasActiveProductFilters && filteredProducts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد بضاعة تطابق البحث أو الفلاتر الحالية.</div>
+          ) : productCategoryPaths.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div>
           ) : (
             <>
@@ -1268,140 +1258,6 @@ function ProductsViewContent({
             </>
           )}
         </div>
-      ) : (
-        filteredProducts.length === 0 && (searchQuery.trim() || selectedCategory !== "all" || categoryNodes.length === 0) ? (
-          <div className="text-center py-12 text-slate-400 text-sm">لا توجد بضاعة تطابق البحث الحالي.</div>
-        ) : (
-          <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-400 bg-white shadow-sm" style={{ containerType: "inline-size" }}>
-                  <table aria-label="بيانات البضاعة" className="w-max min-w-full border-collapse text-[10px] sm:text-xs text-center text-slate-800 table-auto">
-                    {(searchQuery.trim() || selectedCategory !== "all") && <thead className="bg-[#94acd1] text-slate-950">
-                      <tr>
-                        {visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}
-                      </tr>
-                    </thead>}
-                    <tbody>
-                      {filteredProducts.map((product, index) => {
-                        return (
-                          <React.Fragment key={product.id}>
-                            {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(index) || []).map(node => {
-                              const depth = categoryDepth(node.path);
-                              const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                              const hasChildren = categoryChildrenPaths(node.path).length > 0;
-                              const isCollapsed = isProductCategoryCollapsed(node.path);
-                              const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
-                              return <React.Fragment key={"empty-category-" + node.id}>
-                                <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
-                                  <td colSpan={visibleProductColumns.length} className="border-0 p-0">
-                                    <div className={"sticky right-0 z-20 grid grid-cols-[34px_64px_1fr] items-center gap-2 border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]} style={{ width: "100cqw" }}>
-                                      <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70">
-                                        <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
-                                      </button>
-                                      <span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span>
-                                      <span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{node.name}</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                                {showEmptyMessage && <tr data-category-empty-message><td colSpan={visibleProductColumns.length} className="border border-slate-200 bg-white px-4 py-3 text-right text-xs font-medium text-slate-500"><span style={{ paddingRight: (Math.min(depth, 6) * 14) + "px" }}>لا توجد بضاعة داخل هذا الفرع بعد.</span></td></tr>}
-                              </React.Fragment>;
-                            })}
-                            {(() => {
-                              const parts = (product.category || "بدون تصنيف").split(" / ").filter(Boolean);
-                              const previous = index > 0 ? (filteredProducts[index - 1].category || "بدون تصنيف").split(" / ").filter(Boolean) : [];
-                              let shared = 0;
-                              while (shared < parts.length && shared < previous.length && parts[shared] === previous[shared]) shared++;
-                              return parts.slice(shared).map((name, offset) => {
-                                const depth = shared + offset + 1;
-                                const path = parts.slice(0, depth).join(" / ");
-                                const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                                return <React.Fragment key={"category-" + path}><tr data-product-category-row style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(path)}><td colSpan={visibleProductColumns.length} className="border-0 p-0"><div className={"sticky right-0 z-20 grid grid-cols-[34px_64px_1fr] items-center gap-2 border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]} style={{ width: "100cqw" }}><button type="button" aria-label={isProductCategoryCollapsed(path) ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70"><ChevronDown className={"h-4 w-4 transition-transform " + (isProductCategoryCollapsed(path) ? "rotate-90" : "")}/></button><span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(path)}</span><span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{name}<span className="text-[10px] font-medium opacity-60"></span></span></div></td></tr>{productCategoriesWithRows.has(path) && !isProductCategoryCollapsed(path) && <tr data-product-repeated-header style={{ display: isProductCategoryHidden(path, false) ? "none" : undefined }}>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 bg-[#94acd1] px-1.5 py-1.5 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>}</React.Fragment>;
-                              });
-                            })()}
-                            {shownProductSort.length > 0 && (index === 0 || productSortGroup(product) !== productSortGroup(filteredProducts[index - 1])) && <tr style={{ display: isProductCategoryHidden(product.category || "بدون تصنيف", true) ? "none" : undefined }} data-product-sort-group><td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">{shownProductSort.map(rule => { const value = productSortValue(product, rule.key); return `${productColumnLabel(rule.key)}: ${typeof value === "number" ? money(value) : value || "غير مسجل"}`; }).join(" — ")}</td></tr>}
-                          <tr
-                            style={{ display: isProductCategoryHidden(product.category || "بدون تصنيف", true) ? "none" : undefined }}
-                            key={product.id}
-                            className={`select-none cursor-pointer transition-colors duration-150 ${pressedItem === `product:${product.id}` ? "bg-blue-100/80 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.65)]" : "hover:bg-blue-50/40"}`}
-                            onClick={event => {
-                              if (suppressNextClick.current) { suppressNextClick.current = false; return; }
-                              if ((event.target as HTMLElement).closest("button")) return;
-                              setOpenProductMenuId(null);
-                              openDetails(product);
-                            }}
-                            onContextMenu={event => { event.preventDefault(); placeMenuAt(event.clientX, event.clientY, 360); setOpenProductMenuId(product.id); }}
-                            onTouchStart={event => startLongPress(event, 360, `product:${product.id}`, () => { setOpenProductMenuId(product.id); })}
-                            onTouchEnd={clearLongPress}
-                            onTouchMove={clearLongPress}
-                            onTouchCancel={clearLongPress}
-                            title="اضغط مطولاً لعرض إجراءات البضاعة"
-                          >
-                            {visibleProductColumns.map((id, index) => (
-                              <td key={id} className={`border border-slate-300 px-1 py-2 text-center align-middle ${["name", "category", "unitName", "supplierName", "location"].includes(id) ? "whitespace-normal" : "whitespace-nowrap"}`}>
-                                {id === "name" ? <button type="button" onClick={() => {
-                                    if (suppressNextClick.current) { suppressNextClick.current = false; return; }
-                                    setOpenProductMenuId(null);
-                                    openDetails(product);
-                                  }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={`تفاصيل ${product.name}`}>
-                                    {productTextLines(product.name)}
-                                  </button> :
-                                  id === "category" ? productTextLines((product.category || "").split(" / ").filter(Boolean).pop() || "بدون تصنيف") :
-                                  id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
-                                  id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
-                                  id === "totalCapital" ? <>{money((Number(product.purchasePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
-                                  id === "totalSaleValue" ? <>{money((Number(product.salePrice) || 0) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
-                                  id === "totalExpectedProfit" ? <>{money(((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0)) * (Number(product.quantity) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
-                                  id === "location" ? productTextLines(product.location) :
-                                  id === "quantity" ? money(product.quantity) :
-                                  id === "unitName" ? productTextLines(product.unitName || "قطعة") :
-                                  id === "minStock" ? money(product.minStock ?? 5) :
-                                  id === "supplierName" ? productTextLines(product.supplierName) :
-                                  <bdi dir="ltr">{product[id] || "—"}</bdi>}
-                                {index === 0 && <>
-                              {openProductMenuId === product.id && (
-                              <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 99999 }} className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl">
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); openDetails(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Eye className="w-4 h-4" /> عرض التفاصيل</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); openEdit(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><SquarePen className="w-4 h-4" /> تعديل البضاعة</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); const name = prompt("اكتب الاسم الجديد للبضاعة:", product.name)?.trim(); if (name && name !== product.name) { void updateProduct({ ...product, name }); } }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Package className="w-4 h-4" /> إعادة تسمية</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "move"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><Layers className="w-4 h-4" /> نقل إلى تصنيف</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); openProductAction(product, "copy"); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><ClipboardList className="w-4 h-4" /> نسخ البضاعة</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); setMovementProduct(product); setMovementType("restock"); setMovementQty("1"); setMovementNote(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-slate-50"><PackagePlus className="w-4 h-4" /> إضافة للمخزون</button>
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); void updateProduct({ ...product, isFavorite: !product.isFavorite }); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm hover:bg-amber-50"><Star className="w-4 h-4" /> {product.isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}</button>
-                                <div className="my-1 border-t border-slate-100" />
-                                <button type="button" onClick={() => { setOpenProductMenuId(null); handleDelete(product); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-right text-sm text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" /> حذف إلى المهملات</button>
-                                </div>
-                              )}
-                                </>}
-                              </td>
-                            ))}
-
-                          </tr>
-                          </React.Fragment>
-                        );
-                      })}
-                      {!searchQuery.trim() && selectedCategory === "all" && (emptyCategoryPathsByIndex.get(filteredProducts.length) || []).map(node => {
-                        const depth = categoryDepth(node.path);
-                        const tones = ["bg-[#eef4fb] text-slate-950 border-blue-200", "bg-[#eff7f1] text-slate-950 border-emerald-200", "bg-[#fff5ed] text-slate-950 border-orange-200", "bg-[#f5f1fa] text-slate-950 border-violet-200"];
-                        const hasChildren = categoryChildrenPaths(node.path).length > 0;
-                        const isCollapsed = isProductCategoryCollapsed(node.path);
-                        const showEmptyMessage = !hasChildren && !isCollapsed && !isProductCategoryHidden(node.path, false);
-                        return <React.Fragment key={"empty-category-" + node.id}>
-                          <tr data-product-category-row="empty" style={{ display: isProductCategoryHidden(node.path, false) ? "none" : undefined }} className="cursor-pointer" {...categoryRowEvents(node.path)}>
-                            <td colSpan={visibleProductColumns.length} className="border-0 p-0"><div className={"sticky right-0 z-20 grid grid-cols-[34px_64px_1fr] items-center gap-2 border px-2 py-2 text-center font-extrabold " + tones[(depth - 1) % tones.length]} style={{ width: "100cqw" }}>
-                                <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} onClick={event => { event.stopPropagation(); toggleProductCategory(node.path); }} className="mx-auto grid h-7 w-7 place-items-center rounded-md bg-white/70">
-                                  <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
-                                </button>
-                                <span className="border-l border-black/15 py-1" dir="ltr">{categoryNumber(node.path)}</span>
-                                <span className="flex items-center gap-2" style={{ paddingRight: (Math.min(depth - 1, 6) * 14) + "px" }}>{node.name}</span>
-                              </div>
-                            </td>
-                          </tr>
-                          {showEmptyMessage && <tr data-category-empty-message><td colSpan={visibleProductColumns.length} className="border border-slate-200 bg-white px-4 py-3 text-right text-xs font-medium text-slate-500"><span style={{ paddingRight: (Math.min(depth, 6) * 14) + "px" }}>لا توجد بضاعة داخل هذا الفرع بعد.</span></td></tr>}
-                        </React.Fragment>;
-                      })}
-                    </tbody>
-                  </table>
-          </div>
-        )
-      )}
       </section>
 
       {showCategoryManager && <div className="fixed inset-0 z-[60] bg-slate-100" dir="rtl">
