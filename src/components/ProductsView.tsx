@@ -764,6 +764,15 @@ function ProductsViewContent({
           </tr>
         );
       })}
+      {categorySortShown && categorySegments.length > firstNewCategoryLevel && (
+        <tr data-product-sort-header>
+          {visibleProductColumns.map(id => (
+            <th key={"sort-header-" + product.id + "-" + id} scope="col" className="border border-slate-400/70 bg-[#94acd1] px-1.5 py-2 whitespace-nowrap font-bold text-center text-slate-950">
+              {productColumnLabel(id)}
+            </th>
+          ))}
+        </tr>
+      )}
       {otherShownSort.length > 0 && (rowIndex === 0 || otherSortGroup(product) !== otherSortGroup(previousProduct!)) && (
         <tr data-product-sort-group>
           <td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">
@@ -1465,9 +1474,11 @@ function ProductsViewContent({
               {productViewMode === "table" ? (
                 <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-slate-300 bg-white shadow-sm" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
                   <table aria-label="جدول البضاعة حسب التصنيف" className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs">
-                    <thead className="bg-[#94acd1] text-slate-950">
-                      <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
-                    </thead>
+                    {!shownProductSort.some(rule => rule.key === "category") && (
+                      <thead className="bg-[#94acd1] text-slate-950">
+                        <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
+                      </thead>
+                    )}
                     <tbody>{renderProductRows(filteredProducts)}</tbody>
                   </table>
                 </div>
