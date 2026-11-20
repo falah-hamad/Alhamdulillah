@@ -1438,15 +1438,6 @@ function ProductsViewContent({
                   )}
                 </>
               )}
-              {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
-                <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-                  عرض 80 تصنيف إضافي
-                </button>
-              )}
-                <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-                  عرض 80 تصنيف إضافي
-                </button>
-              )}
             </>
           )}
         </div>
