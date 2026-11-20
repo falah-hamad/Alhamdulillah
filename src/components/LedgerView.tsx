@@ -2866,7 +2866,7 @@ ${folderCustomers
       const directProducts = cartVisibleProducts.filter(product => (String(product.category || "").trim() || "بدون تصنيف") === path);
       const descendants = productCartCategoryTree.childrenByParent.get(path) || [];
       const visibleDescendants = descendants.filter(child => {
-        const hasVisibleProduct = cartVisibleProducts.some(product => {
+        const hasVisibleProduct = matchingCartProducts.some(product => {
           const category = String(product.category || "").trim() || "بدون تصنيف";
           return category === child || category.startsWith(child + " / ");
         });
@@ -2881,7 +2881,11 @@ ${folderCustomers
       const belongsToSelectedPath = productCartCategory === "الكل" || path === productCartCategory ||
         path.startsWith(productCartCategory + " / ") || productCartCategory.startsWith(path + " / ");
       const isRegisteredEmptyCategory = !productCartSearch.trim() && belongsToSelectedPath && !productCartCategoryTree.counts[path] && productCartCategoryNodes.some(node => node.path === path);
-      const hasContent = directProducts.length > 0 || visibleDescendants.length > 0 || isRegisteredEmptyCategory;
+      const hasMatchingProduct = matchingCartProducts.some(product => {
+        const category = String(product.category || "").trim() || "بدون تصنيف";
+        return category === path || category.startsWith(path + " / ");
+      });
+      const hasContent = hasMatchingProduct || visibleDescendants.length > 0 || isRegisteredEmptyCategory;
       if (!hasContent) return null;
       const expanded = expandedProductCartCategoryPaths.has(path);
       const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
