@@ -2843,13 +2843,21 @@ ${folderCustomers
       const directProducts = cartVisibleProducts.filter(product => (String(product.category || "").trim() || "بدون تصنيف") === path);
       const descendants = productCartCategoryTree.childrenByParent.get(path) || [];
       const visibleDescendants = descendants.filter(child => {
-        if (!productCartSearch.trim()) return productCartCategoryTree.counts[child] > 0 || Boolean(productCartCategoryNodes.find(node => node.path === child));
-        return cartVisibleProducts.some(product => {
+        const hasVisibleProduct = cartVisibleProducts.some(product => {
           const category = String(product.category || "").trim() || "بدون تصنيف";
           return category === child || category.startsWith(child + " / ");
         });
+        const belongsToSelectedPath = productCartCategory === "الكل" || child === productCartCategory ||
+          child.startsWith(productCartCategory + " / ") || productCartCategory.startsWith(child + " / ");
+        if (productCartSearch.trim()) return belongsToSelectedPath && hasVisibleProduct;
+        if (productCartCategory !== "الكل") {
+          return belongsToSelectedPath && (hasVisibleProduct || productCartCategoryTree.counts[child] > 0 || Boolean(productCartCategoryNodes.find(node => node.path === child)));
+        }
+        return productCartCategoryTree.counts[child] > 0 || Boolean(productCartCategoryNodes.find(node => node.path === child));
       });
-      const isRegisteredEmptyCategory = !productCartSearch.trim() && !productCartCategoryTree.counts[path] && productCartCategoryNodes.some(node => node.path === path);
+      const belongsToSelectedPath = productCartCategory === "الكل" || path === productCartCategory ||
+        path.startsWith(productCartCategory + " / ") || productCartCategory.startsWith(path + " / ");
+      const isRegisteredEmptyCategory = !productCartSearch.trim() && belongsToSelectedPath && !productCartCategoryTree.counts[path] && productCartCategoryNodes.some(node => node.path === path);
       const hasContent = directProducts.length > 0 || visibleDescendants.length > 0 || isRegisteredEmptyCategory;
       if (!hasContent) return null;
       const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
