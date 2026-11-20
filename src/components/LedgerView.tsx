@@ -376,6 +376,8 @@ export default function LedgerView({
   const [showProductCartScanner, setShowProductCartScanner] = useState(false);
   const [productCartSearch, setProductCartSearch] = useState("");
   const [productCartCategory, setProductCartCategory] = useState("الكل");
+  const [productCartCategoryTreeOpen, setProductCartCategoryTreeOpen] = useState(false);
+  const [expandedProductCartCategoryPaths, setExpandedProductCartCategoryPaths] = useState<Set<string>>(() => new Set());
   const [productCartVisibleLimit, setProductCartVisibleLimit] = useState(60);
   const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
   const [productCartStage, setProductCartStage] = useState<"select" | "review">("select");
@@ -2687,24 +2689,98 @@ ${folderCustomers
   const productCartTotalCapital = selectedCartProducts.reduce((sum, product) => sum + Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0), 0);
   const productCartProfitBeforeDiscount = productCartTotalBeforeDiscount - productCartTotalCapital;
   const productCartTotalProfit = productCartTotal - productCartTotalCapital;
-  const productCartCategoryCounts = products.reduce<Record<string, number>>((counts, product) => {
-    if (!product.isDeleted) {
+  const productCartCategoryTree = useMemo(() => {
+    const childSets = new Map<string, Set<string>>();
+    const counts: Record<string, number> = {};
+    for (const product of products) {
+      if (product.isDeleted) continue;
       const category = String(product.category || "").trim() || "بدون تصنيف";
-      counts[category] = (counts[category] || 0) + 1;
+      const parts = category.split(" / ").map(part => part.trim()).filter(Boolean);
+      let parent = "";
+      for (const part of parts) {
+        const path = parent ? parent + " / " + part : part;
+        if (!childSets.has(parent)) childSets.set(parent, new Set<string>());
+        childSets.get(parent)!.add(path);
+        if (!childSets.has(path)) childSets.set(path, new Set<string>());
+        counts[path] = (counts[path] || 0) + 1;
+        parent = path;
+      }
     }
-    return counts;
-  }, {});
-  const productCartCategories = Object.keys(productCartCategoryCounts).sort((a, b) => a.localeCompare(b, "ar"));
-  const productCartAllCount = Object.values(productCartCategoryCounts).reduce((sum, count) => sum + count, 0);
+    const childrenByParent = new Map<string, string[]>();
+    childSets.forEach((children, parent) => childrenByParent.set(parent, [...children].sort((a, b) => a.localeCompare(b, "ar"))));
+    const numberByPath = new Map<string, string>();
+    const numberBranch = (parent: string, prefix = "") => {
+      (childrenByParent.get(parent) || []).forEach((path, index) => {
+        const number = prefix ? prefix + "." + (index + 1) : String(index + 1);
+        numberByPath.set(path, number);
+        numberBranch(path, number);
+      });
+    };
+    numberBranch("");
+    return {
+      childrenByParent,
+      numberByPath,
+      counts,
+      allCount: Object.values(counts).filter((_count, index) => index === 0).length
+    };
+  }, [products]);
+  const productCartAllCount = products.filter(product => !product.isDeleted).length;
+  const productCartCategoryCount = (category: string) => category === "الكل" ? productCartAllCount : (productCartCategoryTree.counts[category] || 0);
+  const selectProductCartCategory = (category: string) => {
+    setProductCartCategory(category);
+    setProductCartVisibleLimit(60);
+    if (category !== "الكل") {
+      const parts = category.split(" / ").filter(Boolean);
+      setExpandedProductCartCategoryPaths(new Set(parts.slice(0, -1).map((_part, index) => parts.slice(0, index + 1).join(" / "))));
+    } else {
+      setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
+    }
+    setProductCartCategoryTreeOpen(false);
+  };
+  const toggleProductCartCategoryBranch = (path: string) => setExpandedProductCartCategoryPaths(current => {
+    const next = new Set(current);
+    next.has(path) ? next.delete(path) : next.add(path);
+    return next;
+  });
+  const renderProductCartCategoryBranch = (parent: string, depth = 0): React.ReactNode => {
+    const children = productCartCategoryTree.childrenByParent.get(parent) || [];
+    const palette = ["border-blue-100 bg-blue-50/80", "border-emerald-100 bg-emerald-50/80", "border-orange-100 bg-orange-50/80", "border-violet-100 bg-violet-50/80"];
+    return children.map(path => {
+      const descendants = productCartCategoryTree.childrenByParent.get(path) || [];
+      const hasChildren = descendants.length > 0;
+      const expanded = expandedProductCartCategoryPaths.has(path);
+      const selected = productCartCategory === path;
+      const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
+      return (
+        <div key={path} className="relative">
+          <div className={"flex min-h-10 items-center gap-1.5 rounded-xl border px-2 py-1.5 " + palette[depth % palette.length] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth ? depth * 10 : undefined }}>
+            <button type="button" onClick={() => selectProductCartCategory(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
+              <Folder className="h-4 w-4 shrink-0 text-slate-600" />
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{productCartCategoryTree.numberByPath.get(path) || ""}</span>
+              <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">{name}</span>
+              <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{productCartCategoryCount(path)}</span>
+              {selected && <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-600 text-[11px] font-black text-white">✓</span>}
+            </button>
+            {hasChildren && <button type="button" onClick={() => toggleProductCartCategoryBranch(path)} aria-label={expanded ? "طي فروع " + name : "فتح فروع " + name} aria-expanded={expanded} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/85 text-slate-600">
+              <ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")} />
+            </button>}
+          </div>
+          {expanded && hasChildren && <div className="relative mr-3 mt-1 space-y-1.5 border-r border-emerald-500/30 pr-2">
+            {renderProductCartCategoryBranch(path, depth + 1)}
+          </div>}
+        </div>
+      );
+    });
+  };
   const matchingCartProducts = products
     .filter((product) => {
       if (product.isDeleted) return false;
       const category = String(product.category || "").trim() || "بدون تصنيف";
-      if (productCartCategory !== "الكل" && category !== productCartCategory) return false;
-      const query = productCartSearch.trim().toLowerCase();
+      if (productCartCategory !== "الكل" && category !== productCartCategory && !category.startsWith(productCartCategory + " / ")) return false;
+      const query = productCartSearch.trim().toLocaleLowerCase();
       if (!query) return true;
       return [product.name, product.category, product.barcode, product.description]
-        .some((value) => String(value || "").toLowerCase().includes(query));
+        .some((value) => String(value || "").toLocaleLowerCase().includes(query));
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
   const cartVisibleProducts = matchingCartProducts.slice(0, productCartVisibleLimit);
@@ -6586,18 +6662,31 @@ ${folderCustomers
                 <span>مسح وإضافة</span>
               </button>
             </div>}
-            {productCartStage === "select" && <div className="flex gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:px-4" role="group" aria-label="تصفية البضاعة حسب التصنيف">
-              {[ "الكل", ...productCartCategories ].map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  aria-pressed={productCartCategory === category}
-                  onClick={() => { setProductCartCategory(category); setProductCartVisibleLimit(60); }}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${productCartCategory === category ? "border-emerald-600 bg-emerald-600 text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"}`}
-                >
-                  {category} <span className={productCartCategory === category ? "text-emerald-100" : "text-slate-400"}>({productCartCategoryCount(category)})</span>
+            {productCartStage === "select" && <div className="relative border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:px-4">
+              <button
+                type="button"
+                aria-expanded={productCartCategoryTreeOpen}
+                aria-label="اختيار تصنيف البضاعة"
+                onClick={() => {
+                  if (!productCartCategoryTreeOpen && expandedProductCartCategoryPaths.size === 0) {
+                    setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
+                  }
+                  setProductCartCategoryTreeOpen(open => !open);
+                }}
+                className="flex min-h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm"
+              >
+                <FolderTree className="h-4 w-4 shrink-0 text-emerald-700" />
+                <span className="shrink-0 text-xs font-bold text-slate-500">التصنيفات</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-800">{productCartCategory === "الكل" ? "كل التصنيفات" : productCartCategory}</span>
+                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{productCartCategoryCount(productCartCategory)}</span>
+                <ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (productCartCategoryTreeOpen ? "rotate-180" : "")} />
+              </button>
+              {productCartCategoryTreeOpen && <div className="absolute inset-x-3 top-[calc(100%-2px)] z-30 max-h-[45dvh] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:inset-x-4" role="group" aria-label="شجرة تصنيفات البضاعة">
+                <button type="button" onClick={() => selectProductCartCategory("الكل")} aria-pressed={productCartCategory === "الكل"} className={"mb-1.5 flex min-h-10 w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-right " + (productCartCategory === "الكل" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
+                  <Layers className="h-4 w-4 shrink-0" /><span className="flex-1 text-xs font-bold">كل التصنيفات</span><span className="rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold">{productCartAllCount}</span>{productCartCategory === "الكل" && <Check className="h-4 w-4 text-emerald-700" />}
                 </button>
-              ))}
+                <div className="space-y-1.5">{renderProductCartCategoryBranch("")}</div>
+              </div>}
             </div>}
 
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
