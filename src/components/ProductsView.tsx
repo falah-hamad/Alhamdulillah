@@ -146,6 +146,132 @@ const movementLabels: Record<ProductStockMovementType, string> = {
   adjustment: "تسوية مخزون",
 };
 
+
+type ProductCategoryPickerDialogProps = {
+  open: boolean;
+  title: string;
+  paths: string[];
+  childrenByParent: Map<string, string[]>;
+  selectedValue: string;
+  categoryNumber: (path: string) => string;
+  onSelect: (path: string) => void;
+  onClose: () => void;
+  allowAll?: boolean;
+  rootOptionLabel?: string;
+  excludedPaths?: string[];
+};
+
+function ProductCategoryPickerDialog({
+  open, title, paths, childrenByParent, selectedValue, categoryNumber, onSelect, onClose,
+  allowAll = false, rootOptionLabel, excludedPaths = [],
+}: ProductCategoryPickerDialogProps) {
+  const [query, setQuery] = useState("");
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
+  const [visibleLimits, setVisibleLimits] = useState<Record<string, number>>({});
+  const availablePaths = useMemo(() => new Set(paths.filter(path => path && path !== "بدون تصنيف" &&
+    !excludedPaths.some(excluded => path === excluded || path.startsWith(excluded + " / ")))), [paths, excludedPaths]);
+  const searchTree = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    if (!term) return { relevant: null as Set<string> | null, expanded: new Set<string>() };
+    const relevant = new Set<string>();
+    const expanded = new Set<string>();
+    for (const path of availablePaths) {
+      const parts = path.split(" / ").filter(Boolean);
+      const leaf = parts[parts.length - 1] || path;
+      if (!leaf.toLocaleLowerCase().includes(term) && !path.toLocaleLowerCase().includes(term)) continue;
+      for (let index = 0; index < parts.length; index++) {
+        const ancestor = parts.slice(0, index + 1).join(" / ");
+        if (availablePaths.has(ancestor)) relevant.add(ancestor);
+        if (index < parts.length - 1) expanded.add(ancestor);
+      }
+    }
+    return { relevant, expanded };
+  }, [availablePaths, query]);
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setVisibleLimits({});
+    const next = new Set<string>(childrenByParent.get("") || []);
+    const parts = selectedValue && selectedValue !== "all" ? selectedValue.split(" / ").filter(Boolean) : [];
+    for (let index = 0; index < Math.max(0, parts.length - 1); index++) next.add(parts.slice(0, index + 1).join(" / "));
+    setExpandedPaths(next);
+  }, [open, selectedValue, childrenByParent]);
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+  if (!open) return null;
+
+  const palette = ["border-blue-100 bg-blue-50/80", "border-emerald-100 bg-emerald-50/80", "border-orange-100 bg-orange-50/80", "border-violet-100 bg-violet-50/80"];
+  const getChildren = (parent: string) => (childrenByParent.get(parent) || []).filter(path =>
+    availablePaths.has(path) && (!searchTree.relevant || searchTree.relevant.has(path))
+  );
+  const renderBranch = (parent: string, depth: number): React.ReactNode => {
+    const children = getChildren(parent);
+    const limit = visibleLimits[parent] || 80;
+    const shown = children.slice(0, limit);
+    return <>
+      {shown.map(path => {
+        const descendants = getChildren(path);
+        const hasChildren = descendants.length > 0;
+        const isExpanded = query.trim() ? searchTree.expanded.has(path) : expandedPaths.has(path);
+        const selected = selectedValue === path;
+        const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
+        return <div key={path} className="relative">
+          {depth > 0 && <>
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-500/45" style={{ right: "-12px", width: "12px" }} />
+            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-500/50 bg-white" style={{ right: "-16px" }} />
+          </>}
+          <div className={"relative flex min-h-12 items-center gap-2 rounded-xl border px-2 py-2 transition-colors " + palette[(depth) % palette.length] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
+            <button type="button" onClick={() => onSelect(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
+              <Folder className={"shrink-0 text-slate-600 " + (depth === 0 ? "h-5 w-5" : depth === 1 ? "h-[18px] w-[18px]" : "h-4 w-4")} />
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-2 py-1 font-bold text-slate-600" style={{ fontSize: Math.max(10, 12 - depth) + "px" }}>{categoryNumber(path)}</span>
+              <span className="min-w-0 flex-1 truncate font-bold text-slate-800" style={{ fontSize: Math.max(12, 16 - depth) + "px" }}>{name}</span>
+              {selected && <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-black text-white">✓</span>}
+            </button>
+            {hasChildren && <button type="button" onClick={() => setExpandedPaths(current => { const next = new Set(current); next.has(path) ? next.delete(path) : next.add(path); return next; })} aria-label={isExpanded ? "طي الفروع" : "فتح الفروع"} aria-expanded={isExpanded} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-slate-600">
+              <ChevronDown className={"h-4 w-4 transition-transform " + (isExpanded ? "" : "rotate-90")} />
+            </button>}
+          </div>
+          {isExpanded && hasChildren && <div className="relative mr-5 mt-1 space-y-2 border-r border-emerald-500/30 pr-3">
+            {renderBranch(path, depth + 1)}
+          </div>}
+        </div>;
+      })}
+      {children.length > shown.length && <button type="button" onClick={() => setVisibleLimits(current => ({ ...current, [parent]: (current[parent] || 80) + 80 }))} className="mr-5 w-[calc(100%-1.25rem)] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">عرض 80 تصنيف إضافي</button>}
+    </>;
+  };
+
+  return <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section role="dialog" aria-modal="true" aria-label={title} dir="rtl" className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[26px] bg-white shadow-2xl sm:rounded-2xl">
+      <header className="shrink-0 border-b border-slate-100 px-4 pb-3 pt-4 sm:px-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-emerald-700"/><h2 className="truncate text-base font-extrabold text-slate-900">{title}</h2></div>
+          <button type="button" onClick={onClose} aria-label="إغلاق" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><X className="h-5 w-5"/></button>
+        </div>
+        <div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="ابحث عن تصنيف..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-9 pl-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"/></div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
+        <div className="space-y-2">
+          {allowAll && <button type="button" onClick={() => onSelect("all")} aria-pressed={selectedValue === "all"} className={"flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right font-bold " + (selectedValue === "all" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
+            <Layers className="h-5 w-5"/><span className="flex-1">كل التصنيفات</span>{selectedValue === "all" && <span className="text-emerald-700">✓</span>}
+          </button>}
+          {rootOptionLabel !== undefined && <button type="button" onClick={() => onSelect("")} aria-pressed={selectedValue === ""} className={"flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right font-bold " + (selectedValue === "" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
+            <Folder className="h-5 w-5"/><span className="flex-1">{rootOptionLabel}</span>{selectedValue === "" && <span className="text-emerald-700">✓</span>}
+          </button>}
+          {renderBranch("", 0)}
+          {getChildren("").length === 0 && <p className="py-10 text-center text-sm text-slate-500">{query.trim() ? "ماكو تصنيف يطابق البحث." : "ماكو تصنيفات مضافة بعد."}</p>}
+        </div>
+      </div>
+      <footer className="shrink-0 border-t border-slate-100 px-4 py-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+        <button type="button" onClick={onClose} className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600">إغلاق</button>
+      </footer>
+    </section>
+  </div>;
+}
+
 function ProductsViewContent({
   products: rawProducts, invoices: rawInvoices = [], customers: rawCustomers = [], settings, addProduct, updateProduct, deleteProduct,
 }: ProductsViewProps) {
@@ -272,6 +398,7 @@ function ProductsViewContent({
   const categoryStorageKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_categories` : "acc_guest_product_categories";
   const [categoryNodes, setCategoryNodes] = useState<ProductCategoryNode[]>(() => { try { return JSON.parse(localStorage.getItem(categoryStorageKey) || "[]"); } catch { return []; } });
   const [categoryExpansionOverrides, setCategoryExpansionOverrides] = useState<Map<string, boolean>>(() => new Map());
+  const [categoryPickerTarget, setCategoryPickerTarget] = useState<"filter" | "product" | "transfer" | "action" | null>(null);
   const [autoExpandedCategoryPaths, setAutoExpandedCategoryPaths] = useState<string[]>([]);
   const [visibleProductCategoryLimit, setVisibleProductCategoryLimit] = useState(80);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -1054,6 +1181,15 @@ function ProductsViewContent({
   const salesUnits = [...new Set(productSales.map(row => row.unit))];
   const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
+  const categorySelectionName = (path: string, allLabel = "كل التصنيفات") => path === "all" ? allLabel : path ? `${categoryNumber(path)} — ${path.split(" / ").filter(Boolean).slice(-1)[0]}` : "اختر تصنيفاً";
+  const chooseCategoryForTarget = (path: string) => {
+    if (categoryPickerTarget === "filter") setSelectedCategory(path);
+    else if (categoryPickerTarget === "product") setForm(current => ({ ...current, category: path }));
+    else if (categoryPickerTarget === "transfer") setCategoryTransferTarget(path);
+    else if (categoryPickerTarget === "action") setTargetCategory(path);
+    setCategoryPickerTarget(null);
+  };
+
   const displayedProductCategoryPathSet = new Set(visibleProductCategoryPaths.slice(0, visibleProductCategoryLimit));
   const renderProductCategoryTree = (path: string): React.ReactNode => {
     const depth = categoryDepth(path);
@@ -1156,10 +1292,9 @@ function ProductsViewContent({
             <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المورد أو الملاحظات..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
             <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
-          <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-            <option value="all">كل التصنيفات</option>
-            {categories.filter(c => c !== "all").map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
-          </select>
+          <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="lg:col-span-3 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700">
+            <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
+          </button>
           <select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
             <option value="all">كل البضاعة</option>
             <option value="favorites">⭐ المفضلة</option>
@@ -1358,12 +1493,12 @@ function ProductsViewContent({
         <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-extrabold">{categoryTransfer.mode === "move" ? "نقل التصنيف" : "نسخ شجرة التصنيف"}</h3><p className="mt-1 text-xs text-slate-500">{categoryLabel(categoryTransfer.path)}</p></div><button type="button" onClick={() => setCategoryTransfer(null)} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
         {categoryTransfer.mode === "copy" && <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-900">سينسخ التطبيق بنية التصنيف وفروعه إلى الوجهة فقط. البضائع تبقى في مكانها ولا تتكرر كمياتها أو سجلاتها.</div>}
         {categoryTransfer.mode === "move" && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">سيُنقل التصنيف وفروعه والبضائع التابعة له معاً إلى الوجهة المحددة.</div>}
-        <label className="block text-sm font-bold text-slate-700">المجلد الأب الجديد<select value={categoryTransferTarget} onChange={event => setCategoryTransferTarget(event.target.value)} className="mt-1 w-full rounded-lg border bg-white p-3 text-sm"><option value="">تصنيف رئيسي</option>{categories.filter(path => path !== "all" && path !== categoryTransfer.path && !path.startsWith(categoryTransfer.path + " / ")).map(path => <option key={path} value={path}>{categoryLabel(path)}</option>)}</select></label>
+        <label className="block text-sm font-bold text-slate-700">المجلد الأب الجديد<button type="button" onClick={() => setCategoryPickerTarget("transfer")} aria-haspopup="dialog" className="mt-1 flex w-full items-center justify-between gap-2 rounded-lg border bg-white p-3 text-right text-sm"><span>{categoryTransferTarget ? categorySelectionName(categoryTransferTarget) : "تصنيف رئيسي"}</span><ChevronDown className="h-4 w-4 shrink-0"/></button></label>
         <div className="rounded-lg bg-slate-50 p-3 text-sm"><span className="text-slate-500">المسار الجديد: </span><b>{categoryTransferTarget ? categoryTransferTarget + " / " : ""}{categoryTransfer.mode === "copy" ? categoryTransfer.path.split(" / ").slice(-1)[0] + " - نسخة" : categoryTransfer.path.split(" / ").slice(-1)[0]}</b></div>
         <div className="flex gap-2"><button type="button" onClick={() => setCategoryTransfer(null)} className="flex-1 rounded-lg border py-2.5 text-sm">إلغاء</button><button type="button" onClick={() => void commitCategoryTransfer()} className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white">{categoryTransfer.mode === "move" ? "نقل التصنيف" : "نسخ التصنيف"}</button></div>
       </section></div>}
 
-      {actionProduct && actionMode && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold">{actionMode === "move" ? "نقل الصنف إلى تصنيف" : "نسخ الصنف إلى تصنيف"}</h3><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="p-2 rounded-lg"><X className="w-5 h-5" /></button></div><p className="text-sm">{actionProduct.name} — التصنيف الحالي: {actionProduct.category || "بدون تصنيف"}</p>{actionMode === "copy" && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3">ستُنشأ بطاقة مستقلة بكمية صفر، دون نسخ سجل الحركات أو ربط الفواتير القديمة.</p>}<label className="block text-sm font-semibold">التصنيف المستهدف</label><input list="product-category-options" value={targetCategory} onInput={e => setTargetCategory(e.currentTarget.value)} placeholder="اكتب أو اختر تصنيفاً" className="w-full p-3 border rounded-lg" /><datalist id="product-category-options">{categories.filter(c => c !== "all").map(c => <option key={c} value={c} />)}</datalist><div className="flex gap-2"><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="flex-1 py-2.5 border rounded-lg">إلغاء</button><button type="button" onClick={commitProductAction} disabled={!targetCategory.trim()} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">تأكيد</button></div></section></div>}
+      {actionProduct && actionMode && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3"><section dir="rtl" className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4"><div className="flex items-center justify-between"><h3 className="font-bold">{actionMode === "move" ? "نقل الصنف إلى تصنيف" : "نسخ الصنف إلى تصنيف"}</h3><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="p-2 rounded-lg"><X className="w-5 h-5" /></button></div><p className="text-sm">{actionProduct.name} — التصنيف الحالي: {actionProduct.category || "بدون تصنيف"}</p>{actionMode === "copy" && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3">ستُنشأ بطاقة مستقلة بكمية صفر، دون نسخ سجل الحركات أو ربط الفواتير القديمة.</p>}<label className="block text-sm font-semibold">التصنيف المستهدف</label><div className="flex gap-2"><input value={targetCategory} onInput={e => setTargetCategory(e.currentTarget.value)} placeholder="اكتب مساراً أو اختر تصنيفاً" className="min-w-0 flex-1 rounded-lg border p-3" /><button type="button" onClick={() => setCategoryPickerTarget("action")} aria-haspopup="dialog" className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800">اختيار</button></div><div className="flex gap-2"><button type="button" onClick={() => { setActionProduct(null); setActionMode(null); }} className="flex-1 py-2.5 border rounded-lg">إلغاء</button><button type="button" onClick={commitProductAction} disabled={!targetCategory.trim()} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">تأكيد</button></div></section></div>}
 
       {isFormOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-3 sm:p-5">
@@ -1378,7 +1513,7 @@ function ProductsViewContent({
                   <input required value={form.name} onInput={e => setField("name", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm" placeholder="اسم واضح يساعدك تتذكرها" />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">التصنيف *
-                  <select required value={form.category} onChange={e => setField("category", e.target.value)} className="mt-1 w-full p-3 border rounded-lg text-sm bg-white"><option value="">اختر التصنيف</option>{categories.filter(c => c !== "all").map(path => <option key={path} value={path}>{categoryLabel(path)}</option>)}</select>
+                  <button type="button" required aria-haspopup="dialog" onClick={() => setCategoryPickerTarget("product")} className={"mt-1 flex w-full items-center justify-between gap-2 rounded-lg border bg-white p-3 text-right text-sm " + (form.category ? "text-slate-800" : "text-slate-400")}><span className="truncate">{form.category ? categorySelectionName(form.category, "اختر التصنيف") : "اختر التصنيف"}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/></button>
                   <span className="mt-1 block text-[11px] text-slate-500">لإنشاء تصنيف جديد أو فرعي استخدم «إدارة التصنيفات».</span>
                 </label>
                 <label className="text-xs font-semibold text-slate-600">رأس المال / سعر الشراء
@@ -1609,6 +1744,7 @@ function ProductsViewContent({
           </div>
         </div>
       )}
+      {categoryPickerTarget && <ProductCategoryPickerDialog open={Boolean(categoryPickerTarget)} title={categoryPickerTarget === "filter" ? "اختيار تصنيف البضاعة" : categoryPickerTarget === "product" ? "تصنيف البضاعة" : categoryPickerTarget === "transfer" ? "اختيار المجلد الأب" : "اختيار التصنيف المستهدف"} paths={allCategoryPaths} childrenByParent={categoryHierarchy.childrenByParent} selectedValue={categoryPickerTarget === "filter" ? selectedCategory : categoryPickerTarget === "product" ? form.category : categoryPickerTarget === "transfer" ? categoryTransferTarget : targetCategory} categoryNumber={categoryNumber} onSelect={chooseCategoryForTarget} onClose={() => setCategoryPickerTarget(null)} allowAll={categoryPickerTarget === "filter"} rootOptionLabel={categoryPickerTarget === "transfer" ? "تصنيف رئيسي" : undefined} excludedPaths={categoryPickerTarget === "transfer" && categoryTransfer ? [categoryTransfer.path] : []} />}
       {showPriceLabels && <PriceLabelsModal products={activeProducts} currency={settings.currency} onClose={() => setShowPriceLabels(false)} onUpdateProduct={updateProduct} />}
       {showBarcodeScanner && <BarcodeScannerModal onDetected={handleBarcodeDetected} onClose={() => setShowBarcodeScanner(false)} />}
     </div>
