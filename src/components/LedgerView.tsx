@@ -108,6 +108,7 @@ type ProductCartSavedRecord = {
   lastInsertedAt?: number;
 };
 type ProductCartCategoryNode = { id: string; path: string; parentPath: string; name: string; order: number };
+type ProductCartDisplayMode = "two" | "three" | "four" | "list";
 type ProductCartInsertContext = { mode: "accounting"; rowIndex: number; rowId?: string; customerId?: string } | { mode: "vertical"; rowId: string; invoiceId: string; customerId?: string; insertItems: (cartItems: InvoiceItem[]) => boolean };
 type AccountingManagerDialog = { kind: "createCategory" | "renameCategory" | "deleteCategory" | "createSheet" | "renameSheet" | "moveSheet" | "deleteSheet"; value: string; targetCategoryId: string };
 
@@ -379,6 +380,12 @@ export default function LedgerView({
   const [productCartCategory, setProductCartCategory] = useState("الكل");
   const [productCartCategoryTreeOpen, setProductCartCategoryTreeOpen] = useState(false);
   const [expandedProductCartCategoryPaths, setExpandedProductCartCategoryPaths] = useState<Set<string>>(() => new Set());
+  const [productCartDisplayMode, setProductCartDisplayMode] = useState<ProductCartDisplayMode>(() => {
+    try {
+      const saved = localStorage.getItem("product_cart_display_mode");
+      return saved === "two" || saved === "three" || saved === "list" ? saved : "four";
+    } catch { return "four"; }
+  });
   const [productCartCategoryNodes, setProductCartCategoryNodes] = useState<ProductCartCategoryNode[]>(() => {
     try {
       const userId = auth.currentUser?.uid;
@@ -2817,19 +2824,35 @@ ${folderCustomers
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
   const cartVisibleProducts = matchingCartProducts.slice(0, productCartVisibleLimit);
+  const selectProductCartDisplayMode = (mode: ProductCartDisplayMode) => {
+    setProductCartDisplayMode(mode);
+    try { localStorage.setItem("product_cart_display_mode", mode); } catch {}
+  };
+  const productCartProductLayoutClass = productCartDisplayMode === "list"
+    ? "flex flex-col gap-2"
+    : productCartDisplayMode === "two"
+      ? "grid grid-cols-2 gap-2"
+      : productCartDisplayMode === "three"
+        ? "grid grid-cols-3 gap-2"
+        : "grid grid-cols-4 gap-2";
   const renderProductCartProductCard = (product: Product) => {
     const quantity = Number(productCartQuantities[product.id]) || 0;
     const available = Math.max(0, Number(product.quantity) || 0);
     const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
-    return <article key={product.id} className={`flex min-w-0 flex-col rounded-xl border p-2 shadow-sm transition-colors ${quantity > 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-      <div className="mb-1.5 flex h-9 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+    const listLayout = productCartDisplayMode === "list";
+    return <article key={product.id} className={`flex min-w-0 rounded-xl border shadow-sm transition-colors ${listLayout ? "flex-row items-center gap-2.5 p-2" : "flex-col p-2"} ${quantity > 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+      <div className={listLayout ? "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50" : "mb-1.5 flex h-9 items-center justify-center overflow-hidden rounded-lg bg-slate-50"}>
         {imageSource ? <img src={imageSource} alt="" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-400" />}
       </div>
-      <p className="line-clamp-2 min-h-9 break-words text-center text-xs font-extrabold leading-4 text-slate-800">{product.name}</p>
-      <p className="mt-1 truncate text-center text-[10px] font-black text-emerald-700">{formatThousands(getCartUnitPrice(product))} {settings.currency}</p>
-      <p className="truncate text-center text-[9px] text-slate-400">متوفر {formatThousands(available)} {product.unitName || "قطعة"}</p>
-      {quantity > 0 && <p className="mt-0.5 truncate text-center text-[9px] font-bold text-slate-600">المجموع {formatThousands(getCartLineTotal(product))}</p>}
-      <div className="mt-auto flex items-center justify-center gap-1 pt-2">
+      <div className={listLayout ? "min-w-0 flex-1 text-right" : "min-w-0"}>
+        <p className={listLayout ? "line-clamp-2 break-words text-xs font-extrabold leading-4 text-slate-800" : "line-clamp-2 min-h-9 break-words text-center text-xs font-extrabold leading-4 text-slate-800"}>{product.name}</p>
+        <div className={listLayout ? "mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5" : ""}>
+          <p className={listLayout ? "text-[10px] font-black text-emerald-700" : "mt-1 truncate text-center text-[10px] font-black text-emerald-700"}>{formatThousands(getCartUnitPrice(product))} {settings.currency}</p>
+          <p className={listLayout ? "text-[9px] text-slate-400" : "truncate text-center text-[9px] text-slate-400"}>متوفر {formatThousands(available)} {product.unitName || "قطعة"}</p>
+          {quantity > 0 && <p className={listLayout ? "text-[9px] font-bold text-slate-600" : "mt-0.5 truncate text-center text-[9px] font-bold text-slate-600"}>المجموع {formatThousands(getCartLineTotal(product))}</p>}
+        </div>
+      </div>
+      <div className={listLayout ? "flex shrink-0 items-center justify-center gap-1" : "mt-auto flex items-center justify-center gap-1 pt-2"}>
         <button type="button" aria-label={"تقليل كمية " + product.name} disabled={quantity <= 0 || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity - 1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
         <FormattedNumberInput aria-label={"كمية " + product.name} type="number" min="0" max={available} step="1" value={quantity} disabled={available <= 0 || isAddingCartItems} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="h-7 w-9 min-w-0 rounded-lg border border-slate-200 text-center text-xs font-bold focus:border-emerald-500 focus:outline-none disabled:bg-slate-100" />
         <button type="button" aria-label={"زيادة كمية " + product.name} disabled={quantity >= available || isAddingCartItems} onClick={() => updateCartQuantity(product, quantity + 1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white disabled:opacity-30"><Plus className="h-3.5 w-3.5" /></button>
@@ -2867,7 +2890,7 @@ ${folderCustomers
           <span className="truncate text-xs font-extrabold text-slate-800">{name}</span>
           <span className="absolute left-2 rounded-full bg-white/85 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{productCartCategoryTree.counts[path] || 0}</span>
         </div>
-        {directProducts.length > 0 && <div className="grid grid-cols-4 gap-2 py-2">{directProducts.map(renderProductCartProductCard)}</div>}
+        {directProducts.length > 0 && <div className={`${productCartProductLayoutClass} py-2`}>{directProducts.map(renderProductCartProductCard)}</div>}
         {visibleDescendants.length > 0 && <div className="space-y-2">{renderProductCartCategoryGoods(path, depth + 1)}</div>}
         {isRegisteredEmptyCategory && directProducts.length === 0 && visibleDescendants.length === 0 && <p className="py-2 text-center text-[11px] text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</p>}
       </React.Fragment>;
@@ -6773,6 +6796,23 @@ ${folderCustomers
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
               {productCartStage === "select" ? (
                 <>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2">
+                    <span className="text-[11px] font-bold text-slate-600">نمط عرض البضاعة</span>
+                    <div role="group" aria-label="نمط عرض البضاعة" className="flex flex-wrap items-center gap-1">
+                      {([
+                        ["two", "ثنائي"],
+                        ["three", "ثلاثي"],
+                        ["four", "رباعي"],
+                        ["list", "قائمة"],
+                      ] as [ProductCartDisplayMode, string][]).map(([mode, label]) => (
+                        <button key={mode} type="button" aria-pressed={productCartDisplayMode === mode} title={"نظام " + label}
+                          onClick={() => selectProductCartDisplayMode(mode)}
+                          className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2 text-[10px] font-bold transition-colors ${productCartDisplayMode === mode ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                          {mode === "list" ? <List className="h-3.5 w-3.5" /> : <LayoutGrid className="h-3.5 w-3.5" />}{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {cartVisibleProducts.length === 0 ? (
                     <div className="py-10 text-center text-sm text-slate-400">
                       {products.some((product) => !product.isDeleted)
