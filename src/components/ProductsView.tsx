@@ -168,6 +168,8 @@ function ProductCategoryPickerDialog({
   const [query, setQuery] = useState("");
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
   const [visibleLimits, setVisibleLimits] = useState<Record<string, number>>({});
+  const childrenByParentRef = useRef(childrenByParent);
+  childrenByParentRef.current = childrenByParent;
   const availablePaths = useMemo(() => new Set(paths.filter(path => path && path !== "بدون تصنيف" &&
     !excludedPaths.some(excluded => path === excluded || path.startsWith(excluded + " / ")))), [paths, excludedPaths]);
   const searchTree = useMemo(() => {
@@ -191,11 +193,14 @@ function ProductCategoryPickerDialog({
     if (!open) return;
     setQuery("");
     setVisibleLimits({});
-    const next = new Set<string>(childrenByParent.get("") || []);
+    // Initialize when the dialog opens, but keep user-expanded branches during rerenders.
+    // The parent rebuilds this Map as its normalized product list changes; depending on it here
+    // would reset expansion immediately after tapping a chevron.
+    const next = new Set<string>(childrenByParentRef.current.get("") || []);
     const parts = selectedValue && selectedValue !== "all" ? selectedValue.split(" / ").filter(Boolean) : [];
     for (let index = 0; index < Math.max(0, parts.length - 1); index++) next.add(parts.slice(0, index + 1).join(" / "));
     setExpandedPaths(next);
-  }, [open, selectedValue, childrenByParent]);
+  }, [open, selectedValue]);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
