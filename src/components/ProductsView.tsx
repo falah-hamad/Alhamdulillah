@@ -356,6 +356,22 @@ function ProductsViewContent({
   const productSortGroup = (product: Product) => JSON.stringify(activeProductSort.slice(0, lastShownProductSort + 1).map(rule => productSortValue(product, rule.key)));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const productViewModeKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_view_mode` : "acc_guest_product_view_mode";
+  const [productViewModeState, setProductViewModeState] = useState(() => {
+    let saved: "table" | "tree" = "tree";
+    try { saved = localStorage.getItem(productViewModeKey) === "table" ? "table" : "tree"; } catch {}
+    return { key: productViewModeKey, mode: saved };
+  });
+  useEffect(() => {
+    let saved: "table" | "tree" = "tree";
+    try { saved = localStorage.getItem(productViewModeKey) === "table" ? "table" : "tree"; } catch {}
+    setProductViewModeState({ key: productViewModeKey, mode: saved });
+  }, [productViewModeKey]);
+  useEffect(() => {
+    if (productViewModeState.key !== productViewModeKey) return;
+    try { localStorage.setItem(productViewModeKey, productViewModeState.mode); } catch {}
+  }, [productViewModeState, productViewModeKey]);
+  const productViewMode = productViewModeState.key === productViewModeKey ? productViewModeState.mode : "tree";
   const [quickFilter, setQuickFilter] = useState<"all" | "favorites" | "recent" | "low">("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [supplierFilter, setSupplierFilter] = useState("");
@@ -697,8 +713,15 @@ function ProductsViewContent({
     return groups;
   }, [filteredProducts]);
 
-  const renderProductRows = (rows: Product[]) => rows.map((product, rowIndex) => (
+  const renderProductRows = (rows: Product[], showCategoryHeadings = false) => rows.map((product, rowIndex) => (
     <React.Fragment key={product.id}>
+      {showCategoryHeadings && (rowIndex === 0 || (rows[rowIndex - 1]?.category || "بدون تصنيف") !== (product.category || "بدون تصنيف")) && (
+        <tr data-product-category-heading>
+          <th scope="rowgroup" colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-right font-bold text-slate-700">
+            التصنيف: {product.category || "بدون تصنيف"}
+          </th>
+        </tr>
+      )}
       {shownProductSort.length > 0 && (rowIndex === 0 || productSortGroup(product) !== productSortGroup(rows[rowIndex - 1])) && (
         <tr data-product-sort-group>
           <td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">
@@ -1307,6 +1330,13 @@ function ProductsViewContent({
             <option value="low">مخزون منخفض</option>
           </select>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-slate-500">طريقة عرض البضاعة</p>
+          <div role="group" aria-label="طريقة عرض البضاعة" className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1">
+            <button type="button" aria-pressed={productViewMode === "table"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "table" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "table" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}>نمط الجدول</button>
+            <button type="button" aria-pressed={productViewMode === "tree"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "tree" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "tree" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`} title="تصنيفات متدرجة قابلة للفتح والطي">النمط الشجري</button>
+          </div>
+        </div>
         <div className="flex justify-end"><FilterButton activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} /></div>
         <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
           <label className="block text-sm font-semibold text-slate-700">المورد<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المورد" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
@@ -1389,8 +1419,30 @@ function ProductsViewContent({
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">لا توجد تصنيفات أو بضائع لعرضها.</div>
           ) : (
             <>
-              {categoryChildrenPaths("").filter(path => displayedProductCategoryPathSet.has(path)).map(path => renderProductCategoryTree(path))}
+              {productViewMode === "table" ? (
+                <div className="w-full max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-slate-300 bg-white shadow-sm" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
+                  <table aria-label="جدول البضاعة حسب التصنيف" className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs">
+                    <thead className="bg-[#94acd1] text-slate-950">
+                      <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
+                    </thead>
+                    <tbody>{renderProductRows(filteredProducts, true)}</tbody>
+                  </table>
+                </div>
+              ) : (
+                <>
+                  {categoryChildrenPaths("").filter(path => displayedProductCategoryPathSet.has(path)).map(path => renderProductCategoryTree(path))}
+                  {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
+                    <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+                      عرض 80 تصنيف إضافي
+                    </button>
+                  )}
+                </>
+              )}
               {visibleProductCategoryPaths.length > visibleProductCategoryLimit && (
+                <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+                  عرض 80 تصنيف إضافي
+                </button>
+              )}
                 <button type="button" onClick={() => setVisibleProductCategoryLimit(limit => limit + 80)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
                   عرض 80 تصنيف إضافي
                 </button>
