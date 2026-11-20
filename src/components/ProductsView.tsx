@@ -755,7 +755,7 @@ function ProductsViewContent({
       )}
       {categorySortShown && categorySegments.slice(firstNewCategoryLevel).map((segment, offset) => {
         const level = firstNewCategoryLevel + offset;
-        const levelStyles = ["bg-[#91acd7] text-slate-950", "bg-[#c7e2b9] text-slate-900", "bg-[#f2b083] text-slate-900", "bg-[#e9d8f2] text-slate-900"];
+        const levelStyles = ["bg-[#dce8f7] text-slate-800", "bg-[#e7f1e4] text-slate-800", "bg-[#fff0e2] text-slate-800", "bg-[#f0eafa] text-slate-800"];
         return (
           <tr key={`sort-category-${product.id}-${level}`} data-product-sort-category-level={level + 1}>
             <th scope="rowgroup" colSpan={visibleProductColumns.length} className={`border border-slate-300 px-2 py-2 text-center font-bold ${levelStyles[Math.min(level, levelStyles.length - 1)]}`}>
@@ -767,7 +767,7 @@ function ProductsViewContent({
       {categorySortShown && categorySegments.length > firstNewCategoryLevel && (
         <tr data-product-sort-header>
           {visibleProductColumns.map(id => (
-            <th key={"sort-header-" + product.id + "-" + id} scope="col" className="border border-slate-400/70 bg-[#94acd1] px-1.5 py-2 whitespace-nowrap font-bold text-center text-slate-950">
+            <th key={"sort-header-" + product.id + "-" + id} scope="col" className="border border-slate-400/70 bg-[#dce6f2] px-1.5 py-2 whitespace-nowrap font-bold text-center text-slate-800">
               {productColumnLabel(id)}
             </th>
           ))}
@@ -1309,7 +1309,7 @@ function ProductsViewContent({
         {!isCollapsed && directGoods.length > 0 && (
           <div className="relative z-30 w-full max-w-full overflow-x-auto overscroll-x-contain rounded-b-2xl bg-white" style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}>
             <table aria-label={"بضائع تصنيف " + path.split(" / ").slice(-1)[0]} className="w-max min-w-full border-collapse text-[10px] text-center text-slate-800 sm:text-xs table-auto">
-              <thead className="bg-[#94acd1] text-slate-950">
+              <thead className="bg-[#dce6f2] text-slate-800">
                 <tr>{visibleProductColumns.map(id => <th key={id} scope="col" className="border border-slate-400/70 px-1.5 py-2 whitespace-nowrap font-bold text-center">{productColumnLabel(id)}</th>)}</tr>
               </thead>
               <tbody>{renderProductRows(directGoods)}</tbody>
