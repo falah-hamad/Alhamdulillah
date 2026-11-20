@@ -364,7 +364,6 @@ function ProductsViewContent({
   const activeProductSort = sortSettings.rules.filter((rule): rule is ProductSortRule & { key: ProductColumnId } => rule.key !== "none");
   const shownProductSort = activeProductSort.filter(rule => rule.show);
   const lastShownProductSort = activeProductSort.reduce((last, rule, index) => rule.show ? index : last, -1);
-  const productSortGroup = (product: Product) => JSON.stringify(activeProductSort.slice(0, lastShownProductSort + 1).map(rule => productSortValue(product, rule.key)));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const productViewModeKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_view_mode` : "acc_guest_product_view_mode";
@@ -724,19 +723,51 @@ function ProductsViewContent({
     return groups;
   }, [filteredProducts]);
 
-  const renderProductRows = (rows: Product[], showCategoryHeadings = false) => rows.map((product, rowIndex) => (
+  const renderProductRows = (rows: Product[], showCategoryHeadings = false) => rows.map((product, rowIndex) => {
+    const previousProduct = rows[rowIndex - 1];
+    const categorySortShown = shownProductSort.some(rule => rule.key === "category");
+    const categorySegments = categorySortShown
+      ? (product.category || "بدون تصنيف").split("/").map(segment => segment.trim()).filter(Boolean)
+      : [];
+    const previousCategorySegments = previousProduct && categorySortShown
+      ? (previousProduct.category || "بدون تصنيف").split("/").map(segment => segment.trim()).filter(Boolean)
+      : [];
+    let firstNewCategoryLevel = 0;
+    while (
+      firstNewCategoryLevel < categorySegments.length &&
+      firstNewCategoryLevel < previousCategorySegments.length &&
+      categorySegments[firstNewCategoryLevel] === previousCategorySegments[firstNewCategoryLevel]
+    ) firstNewCategoryLevel++;
+    const otherShownSort = shownProductSort.filter(rule => rule.key !== "category");
+    const otherSortGroup = (item: Product) => JSON.stringify(
+      activeProductSort.slice(0, lastShownProductSort + 1)
+        .filter(rule => rule.key !== "category")
+        .map(rule => productSortValue(item, rule.key))
+    );
+    return (
     <React.Fragment key={product.id}>
-      {showCategoryHeadings && (rowIndex === 0 || (rows[rowIndex - 1]?.category || "بدون تصنيف") !== (product.category || "بدون تصنيف")) && (
+      {showCategoryHeadings && !categorySortShown && (rowIndex === 0 || (previousProduct?.category || "بدون تصنيف") !== (product.category || "بدون تصنيف")) && (
         <tr data-product-category-heading>
           <th scope="rowgroup" colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-right font-bold text-slate-700">
             التصنيف: {product.category || "بدون تصنيف"}
           </th>
         </tr>
       )}
-      {shownProductSort.length > 0 && (rowIndex === 0 || productSortGroup(product) !== productSortGroup(rows[rowIndex - 1])) && (
+      {categorySortShown && categorySegments.slice(firstNewCategoryLevel).map((segment, offset) => {
+        const level = firstNewCategoryLevel + offset;
+        const levelStyles = ["bg-[#91acd7] text-slate-950", "bg-[#c7e2b9] text-slate-900", "bg-[#f2b083] text-slate-900", "bg-[#e9d8f2] text-slate-900"];
+        return (
+          <tr key={`sort-category-${product.id}-${level}`} data-product-sort-category-level={level + 1}>
+            <th scope="rowgroup" colSpan={visibleProductColumns.length} className={`border border-slate-300 px-2 py-2 text-center font-bold ${levelStyles[Math.min(level, levelStyles.length - 1)]}`}>
+              {segment}
+            </th>
+          </tr>
+        );
+      })}
+      {otherShownSort.length > 0 && (rowIndex === 0 || otherSortGroup(product) !== otherSortGroup(previousProduct!)) && (
         <tr data-product-sort-group>
           <td colSpan={visibleProductColumns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center font-bold">
-            {shownProductSort.map(rule => {
+            {otherShownSort.map(rule => {
               const value = productSortValue(product, rule.key);
               return productColumnLabel(rule.key) + ": " + (typeof value === "number" ? money(value) : value || "غير مسجل");
             }).join(" — ")}
@@ -797,7 +828,8 @@ function ProductsViewContent({
         ))}
       </tr>
     </React.Fragment>
-  ));
+    );
+  });
 
   const setField = <K extends keyof ProductForm,>(key: K, value: ProductForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
