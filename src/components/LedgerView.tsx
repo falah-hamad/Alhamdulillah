@@ -2721,7 +2721,6 @@ ${folderCustomers
       childrenByParent,
       numberByPath,
       counts,
-      allCount: Object.values(counts).filter((_count, index) => index === 0).length
     };
   }, [products]);
   const productCartAllCount = products.filter(product => !product.isDeleted).length;
@@ -2784,7 +2783,6 @@ ${folderCustomers
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
   const cartVisibleProducts = matchingCartProducts.slice(0, productCartVisibleLimit);
-  const productCartCategoryCount = (category: string) => category === "الكل" ? productCartAllCount : (productCartCategoryCounts[category] || 0);
 
   const currentContextProductCartRecords = productCartRecords
     .filter((record) => record.customerId === selectedCustomer?.id && record.ledgerMode === productCartInsertContext?.mode)
