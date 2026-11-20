@@ -376,9 +376,6 @@ export default function LedgerView({
   const [isProductCartOpen, setIsProductCartOpen] = useState(false);
   const [showProductCartScanner, setShowProductCartScanner] = useState(false);
   const [productCartSearch, setProductCartSearch] = useState("");
-  const [productCartCategory, setProductCartCategory] = useState("الكل");
-  const [productCartCategoryTreeOpen, setProductCartCategoryTreeOpen] = useState(false);
-  const [expandedProductCartCategoryPaths, setExpandedProductCartCategoryPaths] = useState<Set<string>>(() => new Set());
   const [productCartCategoryNodes, setProductCartCategoryNodes] = useState<ProductCartCategoryNode[]>(() => {
     try {
       const userId = auth.currentUser?.uid;
@@ -2763,59 +2760,9 @@ ${folderCustomers
       counts,
     };
   }, [products, productCartCategoryNodes]);
-  const productCartAllCount = products.filter(product => !product.isDeleted).length;
-  const productCartCategoryCount = (category: string) => category === "الكل" ? productCartAllCount : (productCartCategoryTree.counts[category] || 0);
-  const selectProductCartCategory = (category: string) => {
-    setProductCartCategory(category);
-    setProductCartVisibleLimit(60);
-    if (category !== "الكل") {
-      const parts = category.split(" / ").filter(Boolean);
-      setExpandedProductCartCategoryPaths(new Set(parts.slice(0, -1).map((_part, index) => parts.slice(0, index + 1).join(" / "))));
-    } else {
-      setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
-    }
-    setProductCartCategoryTreeOpen(false);
-  };
-  const toggleProductCartCategoryBranch = (path: string) => setExpandedProductCartCategoryPaths(current => {
-    const next = new Set(current);
-    next.has(path) ? next.delete(path) : next.add(path);
-    return next;
-  });
-  const renderProductCartCategoryBranch = (parent: string, depth = 0): React.ReactNode => {
-    const children = productCartCategoryTree.childrenByParent.get(parent) || [];
-    const palette = ["border-blue-100 bg-blue-50/80", "border-emerald-100 bg-emerald-50/80", "border-orange-100 bg-orange-50/80", "border-violet-100 bg-violet-50/80"];
-    return children.map(path => {
-      const descendants = productCartCategoryTree.childrenByParent.get(path) || [];
-      const hasChildren = descendants.length > 0;
-      const expanded = expandedProductCartCategoryPaths.has(path);
-      const selected = productCartCategory === path;
-      const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
-      return (
-        <div key={path} className="relative">
-          <div className={"flex min-h-10 items-center gap-1.5 rounded-xl border px-2 py-1.5 " + palette[depth % palette.length] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth ? depth * 10 : undefined }}>
-            <button type="button" onClick={() => selectProductCartCategory(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
-              <Folder className="h-4 w-4 shrink-0 text-slate-600" />
-              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{productCartCategoryTree.numberByPath.get(path) || ""}</span>
-              <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">{name}</span>
-              <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{productCartCategoryCount(path)}</span>
-              {selected && <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-600 text-[11px] font-black text-white">✓</span>}
-            </button>
-            {hasChildren && <button type="button" onClick={() => toggleProductCartCategoryBranch(path)} aria-label={expanded ? "طي فروع " + name : "فتح فروع " + name} aria-expanded={expanded} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/85 text-slate-600">
-              <ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")} />
-            </button>}
-          </div>
-          {expanded && hasChildren && <div className="relative mr-3 mt-1 space-y-1.5 border-r border-emerald-500/30 pr-2">
-            {renderProductCartCategoryBranch(path, depth + 1)}
-          </div>}
-        </div>
-      );
-    });
-  };
   const matchingCartProducts = products
     .filter((product) => {
       if (product.isDeleted) return false;
-      const category = String(product.category || "").trim() || "بدون تصنيف";
-      if (productCartCategory !== "الكل" && category !== productCartCategory && !category.startsWith(productCartCategory + " / ")) return false;
       const query = productCartSearch.trim().toLocaleLowerCase();
       if (!query) return true;
       return [product.name, product.category, product.barcode, product.description]
@@ -2855,24 +2802,20 @@ ${folderCustomers
           return category === child || category.startsWith(child + " / ");
         });
       });
-      const hasContent = directProducts.length > 0 || visibleDescendants.length > 0 || (!productCartSearch.trim() && !productCartCategoryTree.counts[path]);
+      const isRegisteredEmptyCategory = !productCartSearch.trim() && !productCartCategoryTree.counts[path] && productCartCategoryNodes.some(node => node.path === path);
+      const hasContent = directProducts.length > 0 || visibleDescendants.length > 0 || isRegisteredEmptyCategory;
       if (!hasContent) return null;
-      const expanded = expandedProductCartCategoryPaths.has(path);
       const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
-      return <section key={path} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <button type="button" onClick={() => toggleProductCartCategoryBranch(path)} aria-expanded={expanded} className={`flex min-h-11 w-full items-center gap-2 border-b border-slate-200 px-2.5 py-2 text-right ${palette[depth % palette.length]}`}>
-          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "" : "rotate-90"}`} />
-          <Folder className="h-4 w-4 shrink-0 text-slate-600" />
-          <span dir="ltr" className="rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{productCartCategoryTree.numberByPath.get(path) || ""}</span>
-          <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-800">{name}</span>
-          <span className="rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{productCartCategoryTree.counts[path] || 0}</span>
-        </button>
-        {expanded && <div className="space-y-2 p-2">
-          {directProducts.length > 0 && <div className="grid grid-cols-3 gap-2">{directProducts.map(renderProductCartProductCard)}</div>}
-          {visibleDescendants.length > 0 && <div className="space-y-2 border-r border-emerald-500/35 pr-2">{renderProductCartCategoryGoods(path, depth + 1)}</div>}
-          {directProducts.length === 0 && visibleDescendants.length === 0 && <p className="py-2 text-center text-[11px] text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</p>}
-        </div>}
-      </section>;
+      return <React.Fragment key={path}>
+        <div className={`relative flex min-h-9 w-full items-center justify-center gap-2 border px-2 py-1.5 text-center ${palette[depth % palette.length]}`}>
+          <span dir="ltr" className="absolute right-2 rounded-full bg-white/85 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">{productCartCategoryTree.numberByPath.get(path) || ""}</span>
+          <span className="truncate text-xs font-extrabold text-slate-800">{name}</span>
+          <span className="absolute left-2 rounded-full bg-white/85 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{productCartCategoryTree.counts[path] || 0}</span>
+        </div>
+        {directProducts.length > 0 && <div className="grid grid-cols-4 gap-2 py-2">{directProducts.map(renderProductCartProductCard)}</div>}
+        {visibleDescendants.length > 0 && <div className="space-y-2">{renderProductCartCategoryGoods(path, depth + 1)}</div>}
+        {isRegisteredEmptyCategory && directProducts.length === 0 && visibleDescendants.length === 0 && <p className="py-2 text-center text-[11px] text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</p>}
+      </React.Fragment>;
     });
   };
 
@@ -2999,9 +2942,7 @@ ${folderCustomers
     }
     setProductCartInsertContext(context || null);
     setProductCartSearch("");
-    setProductCartCategory("الكل");
     setProductCartVisibleLimit(60);
-    setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
     setProductCartQuantities({});
     setProductCartUnitPrices({});
     setProductCartTotals({});
@@ -6753,31 +6694,9 @@ ${folderCustomers
                 <span>مسح وإضافة</span>
               </button>
             </div>}
-            {productCartStage === "select" && <div className="relative border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:px-4">
-              <button
-                type="button"
-                aria-expanded={productCartCategoryTreeOpen}
-                aria-label="اختيار تصنيف البضاعة"
-                onClick={() => {
-                  if (!productCartCategoryTreeOpen && expandedProductCartCategoryPaths.size === 0) {
-                    setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
-                  }
-                  setProductCartCategoryTreeOpen(open => !open);
-                }}
-                className="flex min-h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm"
-              >
-                <FolderTree className="h-4 w-4 shrink-0 text-emerald-700" />
-                <span className="shrink-0 text-xs font-bold text-slate-500">التصنيفات</span>
-                <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-800">{productCartCategory === "الكل" ? "كل التصنيفات" : productCartCategory}</span>
-                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{productCartCategoryCount(productCartCategory)}</span>
-                <ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (productCartCategoryTreeOpen ? "rotate-180" : "")} />
-              </button>
-              {productCartCategoryTreeOpen && <div className="absolute inset-x-3 top-[calc(100%-2px)] z-30 max-h-[45dvh] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:inset-x-4" role="group" aria-label="شجرة تصنيفات البضاعة">
-                <button type="button" onClick={() => selectProductCartCategory("الكل")} aria-pressed={productCartCategory === "الكل"} className={"mb-1.5 flex min-h-10 w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-right " + (productCartCategory === "الكل" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
-                  <Layers className="h-4 w-4 shrink-0" /><span className="flex-1 text-xs font-bold">كل التصنيفات</span><span className="rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold">{productCartAllCount}</span>{productCartCategory === "الكل" && <Check className="h-4 w-4 text-emerald-700" />}
-                </button>
-                <div className="space-y-1.5">{renderProductCartCategoryBranch("")}</div>
-              </div>}
+            {productCartStage === "select" && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:px-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600"><FolderTree className="h-4 w-4 text-emerald-700" />تصنيفات البضاعة</div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-emerald-700">{products.filter(product => !product.isDeleted).length} بضاعة</span>
             </div>}
 
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
@@ -6790,14 +6709,7 @@ ${folderCustomers
                         : "ماكو بضاعة مسجلة حالياً. أضف الأصناف من قسم البضاعة أولاً."}
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {productCartCategory === "الكل"
-                        ? <>
-                            <div className="mb-1 flex items-center gap-2 px-1 text-xs font-bold text-slate-500"><FolderTree className="h-4 w-4 text-emerald-700" />البضاعة مرتبة حسب تصنيفاتها</div>
-                            {renderProductCartCategoryGoods("")}
-                          </>
-                        : <div className="grid grid-cols-3 gap-2">{cartVisibleProducts.map(renderProductCartProductCard)}</div>}
-                    </div>
+                    <div className="space-y-2">{renderProductCartCategoryGoods("")}</div>
                   )}
                   {matchingCartProducts.length > cartVisibleProducts.length && (
                     <button type="button" onClick={() => setProductCartVisibleLimit((limit) => limit + 60)} className="mx-auto mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
