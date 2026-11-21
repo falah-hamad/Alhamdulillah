@@ -1328,23 +1328,25 @@ function ProductsViewContent({
     const palette = palettes[rootIndex % palettes.length];
     const name = path.split(" / ").filter(Boolean).slice(-1)[0];
     return (
-      <div key={path} className="space-y-1.5">
-        <div className={"relative flex min-h-[52px] items-center gap-1.5 rounded-xl border px-2 py-1.5 " + (depth === 1 ? palette.root : palette.child)} style={{ marginRight: Math.min(depth - 1, 5) * 18 }}>
-          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-right " + (selectedCategory === path ? "bg-white/60" : "hover:bg-white/40")}>
-            <Folder className="h-5 w-5 shrink-0 text-slate-700/80"/>
-            <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900">{name}</span>
-            <span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700">{categoryNumber(path)}</span>
-            {selectedCategory === path && <Check className="h-4 w-4 shrink-0 text-emerald-700"/>}
+      <div key={path} className="space-y-2">
+        <div className={"relative flex min-h-[68px] items-center gap-2 rounded-2xl border-2 px-3 py-2 " + (depth === 1 ? palette.root : palette.child)} style={{ marginRight: Math.min(depth - 1, 5) * 28 }}>
+          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2 text-right hover:bg-white/30">
+            <span className="flex min-w-0 items-center gap-3">
+              <Folder className="h-7 w-7 shrink-0 text-slate-700/80"/>
+              <span className="max-w-[45vw] truncate text-lg font-bold text-slate-900">{name}</span>
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-700">{categoryNumber(path)}</span>
+            </span>
+            {selectedCategory === path ? <Check className="h-6 w-6 shrink-0 text-emerald-700"/> : <span className="h-6 w-6 shrink-0"/>}
           </button>
           {children.length > 0
-            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/80 text-slate-700"><ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "-rotate-90")}/></button>
-            : <span className="w-9 shrink-0"/>}
+            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/80 text-slate-700 shadow-sm"><ChevronDown className={"h-6 w-6 transition-transform " + (expanded ? "" : "-rotate-90")}/></button>
+            : <span className="w-12 shrink-0"/>}
         </div>
-        {expanded && children.length > 0 && <div className="relative space-y-1.5">
-          <span aria-hidden="true" className={"pointer-events-none absolute bottom-6 right-0 top-6 border-r " + palette.line}/>
+        {expanded && children.length > 0 && <div className="relative space-y-2">
+          <span aria-hidden="true" className={"pointer-events-none absolute bottom-8 right-0 top-8 border-r-2 " + palette.line}/>
           {children.map(child => <div key={child} className="relative">
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 border-t " + palette.line} style={{ width: Math.min(depth, 5) * 18 + "px" }}/>
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + palette.node}/>
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 border-t-2 " + palette.line} style={{ width: Math.min(depth, 5) * 28 + "px" }}/>
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] bg-white " + palette.node}/>
             {renderCategoryDropdownPath(child, depth + 1)}
           </div>)}
         </div>}
@@ -1445,12 +1447,12 @@ function ProductsViewContent({
             }} className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
               <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
             </button>
-            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-1 max-h-[min(68dvh,620px)] w-[min(92vw,500px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
-              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-3 flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl border px-4 py-2 text-right text-base font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#eaf9f2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
-                <span className="flex min-w-0 items-center gap-3"><Layers className="h-6 w-6 shrink-0"/><span className="truncate">كل التصنيفات</span></span>
-                {selectedCategory === "all" ? <Check className="h-5 w-5 shrink-0"/> : <span className="h-5 w-5 shrink-0"/>}
+            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-2 max-h-[min(80dvh,900px)] w-[min(94vw,900px)] overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white p-4 shadow-2xl">
+              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-4 flex min-h-[68px] w-full items-center justify-between gap-3 rounded-2xl border-2 px-5 py-3 text-right text-lg font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#eaf9f2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
+                <span className="flex min-w-0 items-center gap-4"><Layers className="h-7 w-7 shrink-0"/><span className="truncate">كل التصنيفات</span></span>
+                {selectedCategory === "all" ? <Check className="h-7 w-7 shrink-0"/> : <span className="h-7 w-7 shrink-0"/>}
               </button>
-              <div className="relative space-y-1">
+              <div className="relative space-y-3">
                 {categoryChildrenPaths("").map(path => renderCategoryDropdownPath(path))}
               </div>
             </div>}
