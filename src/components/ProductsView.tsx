@@ -421,21 +421,6 @@ function ProductsViewContent({
   };
   const visibleRecentProductSearches = recentProductSearches.filter(term => !searchQuery.trim() || term.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()));
   const [selectedCategory, setSelectedCategory] = useState("all");
-  useEffect(() => {
-    if (!categoryDropdownOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!categoryDropdownRef.current?.contains(event.target as Node)) setCategoryDropdownOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCategoryDropdownOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [categoryDropdownOpen]);
   const productViewModeKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_view_mode` : "acc_guest_product_view_mode";
   const [productViewModeState, setProductViewModeState] = useState(() => {
     let saved: "table" | "tree" = "tree";
