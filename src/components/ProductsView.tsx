@@ -178,6 +178,7 @@ function ProductCategoryPickerDialog({
 }: ProductCategoryPickerDialogProps) {
   const [query, setQuery] = useState("");
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [visibleLimits, setVisibleLimits] = useState<Record<string, number>>({});
   const childrenByParentRef = useRef(childrenByParent);
   childrenByParentRef.current = childrenByParent;
@@ -204,6 +205,7 @@ function ProductCategoryPickerDialog({
     if (!open) return;
     setQuery("");
     setVisibleLimits({});
+    setDropdownOpen(false);
     // Initialize when the dialog opens, but keep user-expanded branches during rerenders.
     // The parent rebuilds this Map as its normalized product list changes; depending on it here
     // would reset expansion immediately after tapping a chevron.
@@ -220,7 +222,7 @@ function ProductCategoryPickerDialog({
   }, [open, onClose]);
   if (!open) return null;
 
-  const palette = ["border-blue-100 bg-blue-50/80", "border-emerald-100 bg-emerald-50/80", "border-orange-100 bg-orange-50/80", "border-violet-100 bg-violet-50/80"];
+  const palette = ["border-blue-200 bg-[#eef4fb]", "border-emerald-200 bg-[#eff7f1]", "border-orange-200 bg-[#fff5ed]", "border-violet-200 bg-[#f5f0fb]"];
   const getChildren = (parent: string) => (childrenByParent.get(parent) || []).filter(path =>
     availablePaths.has(path) && (!searchTree.relevant || searchTree.relevant.has(path))
   );
@@ -240,14 +242,14 @@ function ProductCategoryPickerDialog({
             <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-500/45" style={{ right: "-12px", width: "12px" }} />
             <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-500/50 bg-white" style={{ right: "-16px" }} />
           </>}
-          <div className={"relative flex min-h-12 items-center gap-2 rounded-xl border px-2 py-2 transition-colors " + palette[(depth) % palette.length] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
+          <div className={"relative flex " + (depth === 0 ? "min-h-[64px] " : "min-h-[56px] ") + "items-center gap-2 rounded-2xl border-2 px-3 py-2 transition-colors " + palette[depth === 0 ? 0 : 1] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
             <button type="button" onClick={() => onSelect(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
-              <Folder className={"shrink-0 text-slate-600 " + (depth === 0 ? "h-5 w-5" : depth === 1 ? "h-[18px] w-[18px]" : "h-4 w-4")} />
-              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-2 py-1 font-bold text-slate-600" style={{ fontSize: Math.max(10, 12 - depth) + "px" }}>{categoryNumber(path)}</span>
-              <span className="min-w-0 flex-1 truncate font-bold text-slate-800" style={{ fontSize: Math.max(12, 16 - depth) + "px" }}>{name}</span>
+              <Folder className="h-6 w-6 shrink-0 text-slate-700/80" />
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-2 py-1 font-bold text-slate-600" style={{ fontSize: "14px" }}>{categoryNumber(path)}</span>
+              <span className="min-w-0 flex-1 truncate font-bold text-slate-800" style={{ fontSize: depth === 0 ? "20px" : "18px" }}>{name}</span>
               {selected && <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-black text-white">✓</span>}
             </button>
-            {hasChildren && <button type="button" onClick={() => setExpandedPaths(current => { const next = new Set(current); next.has(path) ? next.delete(path) : next.add(path); return next; })} aria-label={isExpanded ? "طي الفروع" : "فتح الفروع"} aria-expanded={isExpanded} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/85 text-slate-600">
+            {hasChildren && <button type="button" onClick={() => setExpandedPaths(current => { const next = new Set(current); next.has(path) ? next.delete(path) : next.add(path); return next; })} aria-label={isExpanded ? "طي الفروع" : "فتح الفروع"} aria-expanded={isExpanded} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700">
               <ChevronDown className={"h-4 w-4 transition-transform " + (isExpanded ? "" : "rotate-90")} />
             </button>}
           </div>
@@ -261,17 +263,28 @@ function ProductCategoryPickerDialog({
   };
 
   return <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section role="dialog" aria-modal="true" aria-label={title} dir="rtl" className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[26px] bg-white shadow-2xl sm:rounded-2xl">
+    <section role="dialog" aria-modal="true" aria-label={title} dir="rtl" className="flex h-[min(82dvh,980px)] w-[calc(100vw-24px)] max-w-6xl flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl sm:w-[calc(100vw-40px)]">
       <header className="shrink-0 border-b border-slate-100 px-4 pb-3 pt-4 sm:px-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2"><Folder className="h-5 w-5 shrink-0 text-emerald-700"/><h2 className="truncate text-base font-extrabold text-slate-900">{title}</h2></div>
           <button type="button" onClick={onClose} aria-label="إغلاق" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><X className="h-5 w-5"/></button>
         </div>
-        <div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="ابحث عن تصنيف..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-9 pl-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"/></div>
+        <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] items-start gap-2">
+          <label className="relative block"><Search className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="ابحث عن تصنيف..." className="h-[52px] w-full rounded-xl border-2 border-emerald-300 bg-slate-50 py-3 pr-10 pl-3 text-base outline-none focus:ring-2 focus:ring-emerald-100"/></label>
+          <div className="relative min-w-0">
+            <button type="button" aria-haspopup="listbox" aria-expanded={dropdownOpen} onClick={() => setDropdownOpen(value => !value)} className={"flex h-[52px] w-full items-center justify-between gap-2 rounded-xl border-2 px-4 text-right text-base font-bold text-slate-700 " + (dropdownOpen ? "border-blue-500 bg-blue-50/60" : "border-slate-200 bg-slate-50")}>
+              <span className="flex min-w-0 items-center gap-2"><Layers className="h-5 w-5 shrink-0"/><span className="truncate">{selectedValue === "all" || !selectedValue ? "كل التصنيفات" : selectedValue.split(" / ").filter(Boolean).slice(-1)[0]}</span></span><ChevronDown className={"h-5 w-5 shrink-0 transition-transform " + (dropdownOpen ? "rotate-180" : "")}/>
+            </button>
+            {dropdownOpen && <div role="listbox" aria-label="قائمة التصنيفات" className="absolute right-0 top-full z-[130] mt-1 max-h-[min(64dvh,680px)] w-[min(48vw,460px)] min-w-[280px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+              {allowAll && <button type="button" role="option" aria-selected={selectedValue === "all"} onClick={() => { onSelect("all"); setDropdownOpen(false); }} className={"mb-2 flex min-h-[44px] w-full items-center justify-between rounded-xl border px-3 py-2 text-right text-sm font-extrabold " + (selectedValue === "all" ? "border-emerald-200 bg-[#e9faf2] text-emerald-900" : "border-slate-200 bg-white text-slate-700")}><span className="flex items-center gap-2"><Layers className="h-5 w-5"/>كل التصنيفات</span>{selectedValue === "all" && <Check className="h-5 w-5"/>}</button>}
+              <div className="relative space-y-1.5">{renderBranch("", 0)}</div>
+            </div>}
+          </div>
+        </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
         <div className="space-y-2">
-          {allowAll && <button type="button" onClick={() => onSelect("all")} aria-pressed={selectedValue === "all"} className={"flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right font-bold " + (selectedValue === "all" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
+          {allowAll && <button type="button" onClick={() => onSelect("all")} aria-pressed={selectedValue === "all"} className={"flex min-h-[58px] w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-right text-lg font-extrabold " + (selectedValue === "all" ? "border-emerald-300 bg-[#e9faf2] text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
             <Layers className="h-5 w-5"/><span className="flex-1">كل التصنيفات</span>{selectedValue === "all" && <span className="text-emerald-700">✓</span>}
           </button>}
           {rootOptionLabel !== undefined && <button type="button" onClick={() => onSelect("")} aria-pressed={selectedValue === ""} className={"flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right font-bold " + (selectedValue === "" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700")}>
@@ -1439,12 +1452,7 @@ function ProductsViewContent({
 
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <div ref={categoryDropdownRef} className="relative min-w-0">
-            <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => {
-              if (!categoryDropdownOpen && categoryDropdownExpandedPaths.length === 0) {
-                setCategoryDropdownExpandedPaths(categoryChildrenPaths("").filter(path => categoryChildrenPaths(path).length > 0));
-              }
-              setCategoryDropdownOpen(open => !open);
-            }} className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
+            <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => setCategoryPickerTarget("filter") className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
               <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
             </button>
             {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-2 max-h-[min(80dvh,900px)] w-[min(94vw,900px)] overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white p-4 shadow-2xl">
