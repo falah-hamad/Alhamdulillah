@@ -1364,24 +1364,6 @@ function ProductsViewContent({
 
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
-      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-2 sm:gap-3 min-w-0">
-        {[
-          { label: "الكمية الموجودة", value: totalItemsCount, icon: Package },
-          { label: "رأس المال بالمخزون", value: totalCostValue, icon: Layers },
-          { label: "قيمة البيع المتوقعة", value: totalRetailValue, icon: TrendingUp },
-          { label: "الربح المتوقع للمخزون", value: potentialProfit, icon: TrendingUp },
-          { label: "ربح تقديري من الفواتير", value: linkedSalesProfitEstimate, icon: ClipboardList },
-        ].map(metric => (
-          <div key={metric.label} className="min-w-0 bg-white p-3 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0"><metric.icon className="w-5 h-5" /></div>
-            <div className="min-w-0">
-              <div className="text-[11px] text-slate-500">{metric.label}</div>
-              <div className="text-xs sm:text-base font-bold text-slate-800 break-words">{money(metric.value)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 sm:p-5 space-y-4 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
@@ -1557,6 +1539,29 @@ function ProductsViewContent({
               )}
             </>
           )}
+        </div>
+        <div className="border-t border-slate-100 pt-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">ملخص مخزون البضاعة</h3>
+            <p className="mt-1 text-xs text-slate-500">إجماليات الكميات والقيم المسجلة في المخزون.</p>
+          </div>
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-2 sm:gap-3 min-w-0">
+                {[
+                  { label: "الكمية الموجودة", value: totalItemsCount, icon: Package },
+                  { label: "رأس المال بالمخزون", value: totalCostValue, icon: Layers },
+                  { label: "قيمة البيع المتوقعة", value: totalRetailValue, icon: TrendingUp },
+                  { label: "الربح المتوقع للمخزون", value: potentialProfit, icon: TrendingUp },
+                  { label: "ربح تقديري من الفواتير", value: linkedSalesProfitEstimate, icon: ClipboardList },
+                ].map(metric => (
+                  <div key={metric.label} className="min-w-0 bg-white p-3 sm:p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0"><metric.icon className="w-5 h-5" /></div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] text-slate-500">{metric.label}</div>
+                      <div className="text-xs sm:text-base font-bold text-slate-800 break-words">{money(metric.value)} <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
         </div>
       </section>
 
