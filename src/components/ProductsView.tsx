@@ -421,9 +421,6 @@ function ProductsViewContent({
   };
   const visibleRecentProductSearches = recentProductSearches.filter(term => !searchQuery.trim() || term.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()));
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-  const [categoryDropdownExpandedPaths, setCategoryDropdownExpandedPaths] = useState<string[]>([]);
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!categoryDropdownOpen) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -1334,49 +1331,6 @@ function ProductsViewContent({
   const salesUnits = [...new Set(productSales.map(row => row.unit))];
   const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
-  const categorySelectionName = (path: string, allLabel = "كل التصنيفات") => path === "all" ? allLabel : path ? `${categoryNumber(path)} — ${path.split(" / ").filter(Boolean).slice(-1)[0]}` : "اختر تصنيفاً";
-  const toggleCategoryDropdownPath = (path: string) => {
-    setCategoryDropdownExpandedPaths(current => current.includes(path) ? current.filter(item => item !== path) : [...current, path]);
-  };
-  const renderCategoryDropdownPath = (path: string, depth = 1): React.ReactNode => {
-    const children = categoryChildrenPaths(path);
-    const expanded = categoryDropdownExpandedPaths.includes(path);
-    const rootIndex = Math.max(0, categoryChildrenPaths("").findIndex(root => path === root || path.startsWith(root + " / ")));
-    const palettes = [
-      { root: "border-blue-200 bg-[#eef4fb]", child: "border-emerald-200 bg-[#eff7f1]", line: "border-emerald-600/45", node: "border-emerald-600/70" },
-      { root: "border-orange-200 bg-[#fff2e8]", child: "border-orange-200 bg-[#fff5ed]", line: "border-orange-600/45", node: "border-orange-600/70" },
-      { root: "border-violet-200 bg-[#f5f0fb]", child: "border-violet-200 bg-[#f7f3fb]", line: "border-violet-600/45", node: "border-violet-600/70" },
-      { root: "border-blue-200 bg-[#eef4fb]", child: "border-blue-200 bg-[#f3f7fc]", line: "border-blue-600/45", node: "border-blue-600/70" },
-      { root: "border-emerald-200 bg-[#eff8f1]", child: "border-emerald-200 bg-[#f3faf4]", line: "border-emerald-600/45", node: "border-emerald-600/70" },
-    ];
-    const palette = palettes[rootIndex % palettes.length];
-    const name = path.split(" / ").filter(Boolean).slice(-1)[0];
-    return (
-      <div key={path} className="space-y-2">
-        <div className={"relative flex min-h-[68px] items-center gap-2 rounded-2xl border-2 px-3 py-2 " + (depth === 1 ? palette.root : palette.child)} style={{ marginRight: Math.min(depth - 1, 5) * 28 }}>
-          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2 text-right hover:bg-white/30">
-            <span className="flex min-w-0 items-center gap-3">
-              <Folder className="h-7 w-7 shrink-0 text-slate-700/80"/>
-              <span className="max-w-[45vw] truncate text-lg font-bold text-slate-900">{name}</span>
-              <span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-700">{categoryNumber(path)}</span>
-            </span>
-            {selectedCategory === path ? <Check className="h-6 w-6 shrink-0 text-emerald-700"/> : <span className="h-6 w-6 shrink-0"/>}
-          </button>
-          {children.length > 0
-            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/80 text-slate-700 shadow-sm"><ChevronDown className={"h-6 w-6 transition-transform " + (expanded ? "" : "-rotate-90")}/></button>
-            : <span className="w-12 shrink-0"/>}
-        </div>
-        {expanded && children.length > 0 && <div className="relative space-y-2">
-          <span aria-hidden="true" className={"pointer-events-none absolute bottom-8 right-0 top-8 border-r-2 " + palette.line}/>
-          {children.map(child => <div key={child} className="relative">
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 border-t-2 " + palette.line} style={{ width: Math.min(depth, 5) * 28 + "px" }}/>
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] bg-white " + palette.node}/>
-            {renderCategoryDropdownPath(child, depth + 1)}
-          </div>)}
-        </div>}
-      </div>
-    );
-  };
   const chooseCategoryForTarget = (path: string) => {
     if (categoryPickerTarget === "filter") setSelectedCategory(path);
     else if (categoryPickerTarget === "product") setForm(current => ({ ...current, category: path }));
@@ -1462,20 +1416,9 @@ function ProductsViewContent({
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
-          <div ref={categoryDropdownRef} className="relative min-w-0">
-            <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => setCategoryPickerTarget("filter") className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
-              <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
-            </button>
-            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-2 max-h-[min(80dvh,900px)] w-[min(94vw,900px)] overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white p-4 shadow-2xl">
-              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-4 flex min-h-[68px] w-full items-center justify-between gap-3 rounded-2xl border-2 px-5 py-3 text-right text-lg font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#eaf9f2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
-                <span className="flex min-w-0 items-center gap-4"><Layers className="h-7 w-7 shrink-0"/><span className="truncate">كل التصنيفات</span></span>
-                {selectedCategory === "all" ? <Check className="h-7 w-7 shrink-0"/> : <span className="h-7 w-7 shrink-0"/>}
-              </button>
-              <div className="relative space-y-3">
-                {categoryChildrenPaths("").map(path => renderCategoryDropdownPath(path))}
-              </div>
-            </div>}
-          </div>
+          <button type="button" aria-label="اختيار التصنيف" aria-haspopup="dialog" aria-expanded={categoryPickerTarget === "filter"} onClick={() => setCategoryPickerTarget("filter")} className="flex min-h-[52px] w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700 hover:bg-slate-100">
+            <span className="truncate font-medium">{selectedCategory === "all" ? "كل التصنيفات" : categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
+          </button>
           <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
