@@ -1322,13 +1322,13 @@ function ProductsViewContent({
     const isRoot = depth === 0;
     return <div key={path} className="relative w-full">
       {depth > 0 && <>
-        <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 w-[6%] border-t-2 " + tone.line} />
-        <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} />
+        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 w-[5%] border-t-2 " + tone.line} style={{ right: "6%" }} />
+        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} style={{ right: "6%" }} />
       </>}
       <div className={"relative flex items-center gap-2 border-2 px-2 " + (isRoot
         ? "min-h-[56px] rounded-2xl py-2 " + tone.root
         : "min-h-[44px] rounded-xl py-1 " + tone.child)}
-        style={!isRoot ? { width: "94%", marginRight: "6%" } : undefined}>
+        style={!isRoot ? { width: "84%", marginRight: "11%", marginLeft: "5%" } : undefined}>
         <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
           <span className={"flex min-w-0 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
             <Folder className={"shrink-0 text-slate-700/80 " + (isRoot ? "h-6 w-6" : "h-5 w-5")} />
@@ -1341,8 +1341,8 @@ function ProductsViewContent({
           <ChevronDown className={"transition-transform " + (isRoot ? "h-5 w-5 " : "h-4 w-4 ") + (expanded ? "" : "-rotate-90")}/>
         </button>}
       </div>
-      {expanded && children.length > 0 && <div className={"relative mt-2 space-y-2 border-r-2 pr-3 " + tone.line} style={{ width: "90%", marginRight: "5%", marginLeft: "5%" }}>
-        <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-2 bottom-2 z-0 border-r-2 " + tone.line} />
+      {expanded && children.length > 0 && <div className={"relative mt-2 space-y-2 border-r-2 pr-3 " + tone.line} style={{ width: isRoot ? "100%" : "90%", marginRight: isRoot ? "0%" : "5%", marginLeft: isRoot ? "0%" : "5%" }}>
+        <span aria-hidden="true" className={"pointer-events-none absolute top-2 bottom-2 z-0 border-r-2 " + tone.line} style={{ right: "6%" }} />
         {children.map(child => renderCategoryDropdownPath(child, depth + 1))}
       </div>}
     </div>;
