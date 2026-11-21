@@ -1320,7 +1320,7 @@ function ProductsViewContent({
     const tone = palettes[rootIndex % palettes.length];
     const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
     return <div key={path} className="relative">
-      {depth > 0 && <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line}/>}
+      {depth > 0 && <><span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 border-t-2 " + tone.line} style={{ width: Math.min(depth, 5) * 22 + 8 + "px" }}/><span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line}/></>}
       <div className={"relative flex min-h-[50px] items-center gap-2 rounded-2xl border-2 px-2 py-1.5 " + (depth === 0 ? "min-h-[58px] " + tone.root : tone.child)} style={{ marginRight: depth > 0 ? Math.min(depth, 5) * 22 : undefined }}>
         <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-right hover:bg-white/25">
           <span className="flex min-w-0 items-center gap-3"><Folder className="h-6 w-6 shrink-0 text-slate-700/80"/><span className={"min-w-0 truncate font-extrabold text-slate-900 " + (depth === 0 ? "text-lg" : "text-base")}>{name}</span><span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 font-semibold text-slate-700">{categoryNumber(path)}</span></span>
