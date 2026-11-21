@@ -394,7 +394,7 @@ export default function LedgerView({
       return Array.isArray(saved) ? saved.filter(node => node && typeof node.path === "string") : [];
     } catch { return []; }
   });
-  const [productCartVisibleLimit, setProductCartVisibleLimit] = useState(60);
+  const [productCartCategoryVisibleLimits, setProductCartCategoryVisibleLimits] = useState<Record<string, number>>({});
   const [productCartQuantities, setProductCartQuantities] = useState<Record<string, number>>({});
   const [productCartStage, setProductCartStage] = useState<"select" | "review">("select");
   const [productCartUnitPrices, setProductCartUnitPrices] = useState<Record<string, number>>({});
@@ -2774,7 +2774,7 @@ ${folderCustomers
   const productCartCategoryCount = (category: string) => category === "الكل" ? productCartAllCount : (productCartCategoryTree.counts[category] || 0);
   const selectProductCartCategory = (category: string) => {
     setProductCartCategory(category);
-    setProductCartVisibleLimit(60);
+    setProductCartCategoryVisibleLimits({});
     if (category !== "الكل") {
       const parts = category.split(" / ").filter(Boolean);
       setExpandedProductCartCategoryPaths(new Set(parts.map((_part, index) => parts.slice(0, index + 1).join(" / "))));
@@ -2823,7 +2823,6 @@ ${folderCustomers
         .some((value) => String(value || "").toLocaleLowerCase().includes(query));
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
-  const cartVisibleProducts = matchingCartProducts.slice(0, productCartVisibleLimit);
   const selectProductCartDisplayMode = (mode: ProductCartDisplayMode) => {
     setProductCartDisplayMode(mode);
     try { localStorage.setItem("product_cart_display_mode", mode); } catch {}
@@ -2863,7 +2862,9 @@ ${folderCustomers
     const children = productCartCategoryTree.childrenByParent.get(parent) || [];
     const palette = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
     return children.map(path => {
-      const directProducts = cartVisibleProducts.filter(product => (String(product.category || "").trim() || "بدون تصنيف") === path);
+      const directMatchingProducts = matchingCartProducts.filter(product => (String(product.category || "").trim() || "بدون تصنيف") === path);
+      const directLimit = productCartCategoryVisibleLimits[path] || 60;
+      const directProducts = directMatchingProducts.slice(0, directLimit);
       const descendants = productCartCategoryTree.childrenByParent.get(path) || [];
       const visibleDescendants = descendants.filter(child => {
         const hasVisibleProduct = matchingCartProducts.some(product => {
@@ -2908,6 +2909,7 @@ ${folderCustomers
         {expanded && <div className="relative space-y-2 px-2 pb-2 pt-2">
           {depth < 7 && visibleDescendants.length > 0 && <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-10 border-r border-emerald-600/35" style={{ right: (18 + depth * 14) + "px" }} />}
           {directProducts.length > 0 && <div className={`${productCartProductLayoutClass} py-1`}>{directProducts.map(renderProductCartProductCard)}</div>}
+          {directMatchingProducts.length > directProducts.length && <button type="button" onClick={() => setProductCartCategoryVisibleLimits(current => ({ ...current, [path]: directLimit + 60 }))} className="mx-auto block rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100">عرض المزيد داخل هذا التصنيف ({formatThousands(directMatchingProducts.length - directProducts.length)} بضاعة)</button>}
           {visibleDescendants.length > 0 && <div className="relative space-y-2">{renderProductCartCategoryGoods(path, depth + 1)}</div>}
           {isRegisteredEmptyCategory && directProducts.length === 0 && visibleDescendants.length === 0 && <p className="py-2 text-center text-[11px] text-slate-500">لا توجد بضاعة داخل هذا التصنيف بعد.</p>}
         </div>}
@@ -3040,7 +3042,7 @@ ${folderCustomers
     setProductCartSearch("");
     setProductCartCategory("الكل");
     setProductCartCategoryTreeOpen(false);
-    setProductCartVisibleLimit(60);
+    setProductCartCategoryVisibleLimits({});
     setExpandedProductCartCategoryPaths(new Set(productCartCategoryTree.childrenByParent.get("") || []));
     setProductCartQuantities({});
     setProductCartUnitPrices({});
@@ -6777,7 +6779,7 @@ ${folderCustomers
                 <input
                   type="search"
                   value={productCartSearch}
-                  onChange={(event) => { setProductCartSearch(event.target.value); setProductCartVisibleLimit(60); }}
+                  onChange={(event) => { setProductCartSearch(event.target.value); setProductCartCategoryVisibleLimits({}); }}
                   placeholder="ابحث باسم البضاعة أو التصنيف أو الباركود..."
                   className="w-full pr-9 pl-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-400 focus:outline-none text-sm"
                 />
@@ -6832,7 +6834,7 @@ ${folderCustomers
                       ))}
                     </div>
                   </div>
-                  {cartVisibleProducts.length === 0 ? (
+                  {matchingCartProducts.length === 0 ? (
                     <div className="py-10 text-center text-sm text-slate-400">
                       {products.some((product) => !product.isDeleted)
                         ? "ما لقينا صنف يطابق البحث."
@@ -6840,11 +6842,6 @@ ${folderCustomers
                     </div>
                   ) : (
                     <div className="space-y-2">{renderProductCartCategoryGoods("")}</div>
-                  )}
-                  {matchingCartProducts.length > cartVisibleProducts.length && (
-                    <button type="button" onClick={() => setProductCartVisibleLimit((limit) => limit + 60)} className="mx-auto mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
-                      عرض المزيد ({formatThousands(matchingCartProducts.length - cartVisibleProducts.length)} بضاعة)
-                    </button>
                   )}
                 </>
               ) : selectedCartProducts.length === 0 ? (
