@@ -250,8 +250,8 @@ function ProductCategoryPickerDialog({
         const tone = palettes[rootIndex % palettes.length];
         return <div key={path} className="relative">
           {depth > 0 && <>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-500/45" style={{ right: "-12px", width: "12px" }} />
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-500/50 bg-white" style={{ right: "-16px" }} />
+            <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 border-t " + tone.line} style={{ right: "-12px", width: "12px" }} />
+            <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border bg-white " + tone.line} style={{ right: "-16px" }} />
           </>}
           <div className={"relative flex " + (compact ? (depth === 0 ? "min-h-[48px] " : "min-h-[42px] ") : (depth === 0 ? "min-h-[64px] " : "min-h-[56px] ")) + "items-center gap-2 rounded-2xl border-2 px-3 py-2 transition-colors " + (depth === 0 ? tone.root : tone.child) + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
             <button type="button" onClick={() => onSelect(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
@@ -1417,7 +1417,7 @@ function ProductsViewContent({
 
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <button type="button" aria-label="اختيار التصنيف" aria-haspopup="dialog" aria-expanded={categoryPickerTarget === "filter"} onClick={() => setCategoryPickerTarget("filter")} className="flex min-h-[52px] w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700 hover:bg-slate-100">
-            <span className="truncate font-medium">{selectedCategory === "all" ? "كل التصنيفات" : categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
+            <span className="truncate font-medium">{selectedCategory === "all" ? "كل التصنيفات" : selectedCategory.split(" / ").filter(Boolean).slice(-1)[0] || "اختر تصنيفاً"}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
           </button>
           <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
