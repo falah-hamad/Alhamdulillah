@@ -63,6 +63,7 @@ import {
   ContactRound,
   Pin,
   Star,
+  RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Customer, Product, Invoice, Payment, InvoiceItem, SystemSettings, CustomerFolder, CustomerChangeLogItem, AccountingSheetRow, AccountingSheet, AccountingSheetCategory } from "../types";
@@ -2660,6 +2661,15 @@ ${folderCustomers
   const getCartDiscountTotal = (product: Product) => Math.min(getCartLineTotal(product), Math.max(0, Math.round(Number(productCartDiscountTotals[product.id] ?? (getCartUnitDiscount(product) * (Number(productCartQuantities[product.id]) || 0))) || 0)));
   const getCartNetUnitPrice = (product: Product) => Math.max(0, getCartUnitPrice(product) - getCartUnitDiscount(product));
   const getCartNetTotal = (product: Product) => Math.max(0, getCartLineTotal(product) - getCartDiscountTotal(product));
+  const resetCartProductPricing = (product: Product) => {
+    const quantity = Number(productCartQuantities[product.id]) || 0;
+    const originalUnitSale = Math.max(0, Math.round(Number(product.salePrice) || 0));
+    setProductCartUnitPrices(current => ({ ...current, [product.id]: originalUnitSale }));
+    setProductCartTotals(current => ({ ...current, [product.id]: originalUnitSale * quantity }));
+    setProductCartUnitDiscounts(current => ({ ...current, [product.id]: 0 }));
+    setProductCartDiscountTotals(current => ({ ...current, [product.id]: 0 }));
+    showToast("تمت إعادة أسعار «" + product.name + "» إلى قيمها الأصلية.");
+  };
   const updateCartQuantity = (product: Product, nextQuantity: number) => {
     const quantity = Math.max(0, Math.min(Math.max(0, Number(product.quantity) || 0), Math.floor(Number(nextQuantity) || 0)));
     setProductCartQuantities((current) => ({ ...current, [product.id]: quantity }));
@@ -6869,7 +6879,12 @@ ${folderCustomers
                             <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
                             <p className="text-[10px] text-slate-500">الكمية المحددة: {formatThousands(quantity)} {product.unitName || "قطعة"}</p>
                           </div>
-                          <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <button type="button" title="إعادة أسعار الصنف إلى الأصل" aria-label={"إعادة أسعار " + product.name + " إلى الأصل"} onClick={() => resetCartProductPricing(product)} className="grid h-8 w-8 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
+                              <RotateCcw className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => updateCartQuantity(product, 0)} className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-bold text-rose-700">إزالة</button>
+                          </div>
                         </div>
                         <div className="w-full overflow-hidden">
                           <table dir="rtl" className="w-full table-fixed border-collapse text-center text-[15px] leading-snug">
