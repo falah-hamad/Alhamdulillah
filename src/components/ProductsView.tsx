@@ -1318,6 +1318,14 @@ function ProductsViewContent({
     const children = categoryChildrenPaths(path);
     const expanded = categoryDropdownExpandedPaths.includes(path);
     const tones = ["border-blue-200 bg-blue-50 text-slate-900", "border-emerald-200 bg-emerald-50 text-slate-900", "border-orange-200 bg-orange-50 text-slate-900", "border-violet-200 bg-violet-50 text-slate-900"];
+    const rootIndex = Math.max(0, categoryChildrenPaths("").findIndex(root => path === root || path.startsWith(root + " / ")));
+    const connectorColors = [
+      { line: "border-emerald-500/45", node: "border-emerald-500/70" },
+      { line: "border-orange-500/50", node: "border-orange-500/70" },
+      { line: "border-violet-500/50", node: "border-violet-500/70" },
+      { line: "border-blue-500/50", node: "border-blue-500/70" },
+    ];
+    const connectorTone = connectorColors[rootIndex % connectorColors.length];
     const name = path.split(" / ").filter(Boolean).slice(-1)[0];
     return (
       <div key={path} className="space-y-1">
@@ -1332,7 +1340,14 @@ function ProductsViewContent({
             {selectedCategory === path && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700"/>}
           </button>
         </div>
-        {expanded && children.length > 0 && <div className="relative space-y-1 border-r border-emerald-500/30 pr-1">{children.map(child => renderCategoryDropdownPath(child, depth + 1))}</div>}
+        {expanded && children.length > 0 && <div className="relative space-y-1">
+          <span aria-hidden="true" className={"pointer-events-none absolute bottom-4 right-0 top-4 border-r " + connectorTone.line}/>
+          {children.map(child => <div key={child} className="relative">
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-5 border-t " + connectorTone.line} style={{ width: Math.min(depth, 5) * 12 + "px" }}/>
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-[15px] z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 bg-white " + connectorTone.node}/>
+            {renderCategoryDropdownPath(child, depth + 1)}
+          </div>)}
+        </div>}
       </div>
     );
   };
