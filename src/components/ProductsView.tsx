@@ -1377,10 +1377,14 @@ function ProductsViewContent({
           </div>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] items-stretch gap-2">
-          <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700 hover:bg-slate-100">
-            <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
-          </button>
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
+          <div className="relative min-w-0">
+            <select value={selectedCategory} onChange={event => setSelectedCategory(event.target.value)} aria-label="اختيار التصنيف" className="h-full min-h-[46px] w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 py-3 pe-3 ps-9 text-right text-sm text-slate-700 focus:outline-blue-500">
+              <option value="all">كل التصنيفات</option>
+              {categories.filter(path => path !== "all").map(path => <option key={path} value={path} title={categoryLabel(path)}>{categorySelectionName(path)}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"/>
+          </div>
           <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
@@ -1424,9 +1428,9 @@ function ProductsViewContent({
             <button type="button" aria-pressed={productViewMode === "table"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "table" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "table" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}>نمط الجدول</button>
             <button type="button" aria-pressed={productViewMode === "tree"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "tree" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "tree" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`} title="تصنيفات متدرجة قابلة للفتح والطي">نمط التصنيفات</button>
           </div>
-          <FilterButton activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} />
+          <FilterButton activeCount={[selectedCategory !== "all" ? selectedCategory : "", quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} />
         </div>
-        <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedCategory(""); setQuickFilter("all"); setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
+        <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[selectedCategory !== "all" ? selectedCategory : "", quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedCategory("all"); setQuickFilter("all"); setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
           <label className="block text-sm font-semibold text-slate-700">عرض البضاعة<select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل البضاعة</option><option value="favorites">⭐ المفضلة</option><option value="recent">شوهدت مؤخراً</option><option value="low">مخزون منخفض</option></select></label>
           <label className="block text-sm font-semibold text-slate-700">المورد<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المورد" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<FormattedNumberInput type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<FormattedNumberInput type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
