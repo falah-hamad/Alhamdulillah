@@ -1402,7 +1402,7 @@ function ProductsViewContent({
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
               value={searchQuery}
-              onInput={e => setSearchQuery(e.target.value)}
+              onInput={e => { setSearchQuery(e.target.value); setShowRecentProductSearches(true); }}
               onFocus={() => setShowRecentProductSearches(true)}
               onBlur={() => { rememberProductSearch(); setShowRecentProductSearches(false); }}
               onKeyDown={event => {
