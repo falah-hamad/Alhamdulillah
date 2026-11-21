@@ -365,6 +365,37 @@ function ProductsViewContent({
   const shownProductSort = activeProductSort.filter(rule => rule.show);
   const lastShownProductSort = activeProductSort.reduce((last, rule, index) => rule.show ? index : last, -1);
   const [searchQuery, setSearchQuery] = useState("");
+  const productSearchHistoryKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_search_history` : "acc_guest_product_search_history";
+  const [recentProductSearches, setRecentProductSearches] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(productSearchHistoryKey) || "[]");
+      return Array.isArray(saved) ? saved.filter((term): term is string => typeof term === "string" && Boolean(term.trim())).slice(0, 8) : [];
+    } catch { return []; }
+  });
+  const [showRecentProductSearches, setShowRecentProductSearches] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(productSearchHistoryKey) || "[]");
+      setRecentProductSearches(Array.isArray(saved) ? saved.filter((term): term is string => typeof term === "string" && Boolean(term.trim())).slice(0, 8) : []);
+    } catch { setRecentProductSearches([]); }
+  }, [productSearchHistoryKey]);
+  const rememberProductSearch = (value = searchQuery) => {
+    const term = value.trim();
+    if (!term) return;
+    const next = [term, ...recentProductSearches.filter(item => item.toLocaleLowerCase() !== term.toLocaleLowerCase())].slice(0, 8);
+    setRecentProductSearches(next);
+    try { localStorage.setItem(productSearchHistoryKey, JSON.stringify(next)); } catch {}
+  };
+  const removeRecentProductSearch = (value: string) => {
+    const next = recentProductSearches.filter(item => item !== value);
+    setRecentProductSearches(next);
+    try { localStorage.setItem(productSearchHistoryKey, JSON.stringify(next)); } catch {}
+  };
+  const clearRecentProductSearches = () => {
+    setRecentProductSearches([]);
+    try { localStorage.removeItem(productSearchHistoryKey); } catch {}
+  };
+  const visibleRecentProductSearches = recentProductSearches.filter(term => !searchQuery.trim() || term.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()));
   const [selectedCategory, setSelectedCategory] = useState("all");
   const productViewModeKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_view_mode` : "acc_guest_product_view_mode";
   const [productViewModeState, setProductViewModeState] = useState(() => {
@@ -1369,7 +1400,39 @@ function ProductsViewContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
-            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو التصنيف أو الوحدة أو المورد أو الموقع أو الباركود/رقم الصنف..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <input
+              value={searchQuery}
+              onInput={e => setSearchQuery(e.target.value)}
+              onFocus={() => setShowRecentProductSearches(true)}
+              onBlur={() => { rememberProductSearch(); setShowRecentProductSearches(false); }}
+              onKeyDown={event => {
+                if (event.key === "Enter") {
+                  rememberProductSearch();
+                  setShowRecentProductSearches(false);
+                }
+              }}
+              aria-expanded={showRecentProductSearches && visibleRecentProductSearches.length > 0}
+              placeholder="ابحث بالاسم أو التصنيف أو الوحدة أو المورد أو الموقع أو الباركود/رقم الصنف..."
+              className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500"
+            />
+            {showRecentProductSearches && visibleRecentProductSearches.length > 0 && (
+              <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl" dir="rtl" aria-label="عمليات البحث السابقة">
+                <div className="mb-1 flex items-center justify-between border-b border-slate-100 px-1 pb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600"><History className="h-3.5 w-3.5" />عمليات البحث السابقة</span>
+                  <button type="button" onMouseDown={event => event.preventDefault()} onClick={clearRecentProductSearches} className="rounded-md px-2 py-1 text-[10px] font-bold text-rose-600 hover:bg-rose-50">مسح الكل</button>
+                </div>
+                <div className="space-y-1">
+                  {visibleRecentProductSearches.map(term => (
+                    <div key={term} className="flex items-center gap-1 rounded-lg hover:bg-slate-50">
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => { setSearchQuery(term); setShowRecentProductSearches(false); }} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-right text-xs text-slate-700">
+                        <History className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="truncate">{term}</span>
+                      </button>
+                      <button type="button" title="حذف من سجل البحث" aria-label={"حذف البحث " + term} onMouseDown={event => event.preventDefault()} onClick={() => removeRecentProductSearch(term)} className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
           <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="lg:col-span-3 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700">
