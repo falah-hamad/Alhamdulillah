@@ -1319,20 +1319,29 @@ function ProductsViewContent({
     ];
     const tone = palettes[rootIndex % palettes.length];
     const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
-    const connectorGap = depth === 1 ? 38 : 26;
-    return <div key={path} className="relative">
+    const isRoot = depth === 0;
+    return <div key={path} className="relative w-full">
       {depth > 0 && <>
-        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 border-t-2 " + tone.line} style={{ right: -connectorGap + "px", width: connectorGap + "px" }} />
-        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-3 w-3 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} style={{ right: -(connectorGap + 6) + "px" }} />
+        <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 w-[6%] border-t-2 " + tone.line} />
+        <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} />
       </>}
-      <div className={"relative flex min-h-[48px] items-center gap-2 rounded-2xl border-2 px-3 py-1.5 " + (depth === 0 ? "min-h-[58px] " + tone.root : tone.child)} style={depth > 0 ? { marginRight: connectorGap + "px", marginLeft: (depth === 1 ? 28 : 16) + "px" } : undefined}>
-        <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-right hover:bg-white/25">
-          <span className="flex min-w-0 items-center gap-3"><Folder className="h-6 w-6 shrink-0 text-slate-700/80"/><span className={"min-w-0 truncate font-extrabold text-slate-900 " + (depth === 0 ? "text-lg" : "text-base")}>{name}</span><span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 font-semibold text-slate-700">{categoryNumber(path)}</span></span>
-          {selectedCategory === path ? <Check className="h-5 w-5 shrink-0 text-emerald-700"/> : <span className="w-5 shrink-0"/>}
+      <div className={"relative flex items-center gap-2 border-2 px-2 " + (isRoot
+        ? "min-h-[56px] rounded-2xl py-2 " + tone.root
+        : "min-h-[44px] rounded-xl py-1 " + tone.child)}
+        style={!isRoot ? { width: "94%", marginRight: "6%" } : undefined}>
+        <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
+          <span className={"flex min-w-0 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
+            <Folder className={"shrink-0 text-slate-700/80 " + (isRoot ? "h-6 w-6" : "h-5 w-5")} />
+            <span className={"min-w-0 truncate font-extrabold text-slate-900 " + (isRoot ? "text-lg" : "text-base")}>{name}</span>
+            <span dir="ltr" className={"shrink-0 rounded-full bg-white/90 font-semibold text-slate-700 " + (isRoot ? "px-2.5 py-1 text-base" : "px-2 py-0.5 text-sm")}>{categoryNumber(path)}</span>
+          </span>
+          {selectedCategory === path ? <Check className="h-5 w-5 shrink-0 text-emerald-700"/> : <span className={isRoot ? "w-5 shrink-0" : "w-4 shrink-0"}/>}
         </button>
-        {children.length > 0 && <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700"><ChevronDown className={"h-5 w-5 transition-transform " + (expanded ? "" : "-rotate-90")}/></button>}
+        {children.length > 0 && <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className={"grid shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700 " + (isRoot ? "h-10 w-10" : "h-8 w-8")}>
+          <ChevronDown className={"transition-transform " + (isRoot ? "h-5 w-5 " : "h-4 w-4 ") + (expanded ? "" : "-rotate-90")}/>
+        </button>}
       </div>
-      {expanded && children.length > 0 && <div className={"relative mt-2 space-y-2 border-r-2 pr-3 " + tone.line} style={{ marginRight: depth === 0 ? "48px" : "24px", marginLeft: depth === 0 ? "0px" : "18px" }}>
+      {expanded && children.length > 0 && <div className={"relative mt-2 space-y-2 border-r-2 pr-3 " + tone.line} style={{ width: "90%", marginRight: "5%", marginLeft: "5%" }}>
         <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-2 bottom-2 z-0 border-r-2 " + tone.line} />
         {children.map(child => renderCategoryDropdownPath(child, depth + 1))}
       </div>}
