@@ -1418,7 +1418,7 @@ function ProductsViewContent({
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <div ref={categoryDropdownRef} className="relative min-w-0">
             <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => {
-              if (!categoryDropdownOpen && categoryDropdownExpandedPaths.length === 0) setCategoryDropdownExpandedPaths(categoryChildrenPaths("").slice(0, 2));
+              if (!categoryDropdownOpen && categoryDropdownExpandedPaths.length === 0) setCategoryDropdownExpandedPaths(categoryChildrenPaths("").slice(0, 1));
               setCategoryDropdownOpen(value => !value);
             }} className={"flex min-h-[52px] w-full min-w-0 items-center justify-between gap-2 rounded-xl border-2 p-3 text-right text-base text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 bg-blue-50/50 ring-2 ring-blue-100" : "border-slate-200 bg-slate-50 hover:bg-slate-100")}>
               <span className="truncate font-semibold">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-5 w-5 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
