@@ -1377,7 +1377,10 @@ function ProductsViewContent({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] items-stretch gap-2">
+          <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700 hover:bg-slate-100">
+            <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
+          </button>
           <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
@@ -1424,7 +1427,6 @@ function ProductsViewContent({
           <FilterButton activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} />
         </div>
         <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedCategory(""); setQuickFilter("all"); setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
-          <label className="block text-sm font-semibold text-slate-700">التصنيف<button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-2 text-right text-sm text-slate-700"><span className="truncate">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/></button></label>
           <label className="block text-sm font-semibold text-slate-700">عرض البضاعة<select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل البضاعة</option><option value="favorites">⭐ المفضلة</option><option value="recent">شوهدت مؤخراً</option><option value="low">مخزون منخفض</option></select></label>
           <label className="block text-sm font-semibold text-slate-700">المورد<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المورد" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<FormattedNumberInput type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<FormattedNumberInput type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
