@@ -637,7 +637,7 @@ function ProductsViewContent({
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
     return activeProducts.filter(p => {
-      const searchable = [p.name, p.category, p.barcode, p.description, p.notes, p.supplierName, p.supplierPhone, p.location]
+      const searchable = [p.name, p.category, p.unitName, p.supplierName, p.location, p.barcode]
         .filter(Boolean).join(" ").toLocaleLowerCase();
       const matchesQuery = !q || searchable.includes(q);
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory || p.category.startsWith(`${selectedCategory} / `);
@@ -1369,7 +1369,7 @@ function ProductsViewContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <div className="relative lg:col-span-6">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
-            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو الباركود أو المورد أو الملاحظات..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
+            <input value={searchQuery} onInput={e => setSearchQuery(e.target.value)} placeholder="ابحث بالاسم أو التصنيف أو الوحدة أو المورد أو الموقع أو الباركود/رقم الصنف..." className="w-full min-w-0 pr-9 pl-12 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-blue-500" />
             <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
           <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="lg:col-span-3 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700">
