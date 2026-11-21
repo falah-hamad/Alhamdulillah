@@ -1331,6 +1331,7 @@ function ProductsViewContent({
   const salesUnits = [...new Set(productSales.map(row => row.unit))];
   const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
+  const categorySelectionName = (path: string, allLabel = "كل التصنيفات") => path === "all" ? allLabel : path ? `${categoryNumber(path)} — ${path.split(" / ").filter(Boolean).slice(-1)[0]}` : "اختر تصنيفاً";
   const chooseCategoryForTarget = (path: string) => {
     if (categoryPickerTarget === "filter") setSelectedCategory(path);
     else if (categoryPickerTarget === "product") setForm(current => ({ ...current, category: path }));
