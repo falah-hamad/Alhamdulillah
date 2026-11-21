@@ -1431,6 +1431,7 @@ function ProductsViewContent({
               <div className="relative space-y-2">{categoryChildrenPaths("").map(path => renderCategoryDropdownPath(path))}</div>
             </div>}
           </div>
+          <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
               value={searchQuery}
