@@ -6946,7 +6946,7 @@ ${folderCustomers
               </div>
               <div className="flex gap-2">
                 {productCartStage === "review" && (
-                  <button type="button" disabled={isAddingCartItems || isSavingProductCartRecord} onClick={() => setProductCartStage("select")} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 disabled:opacity-40">رجوع للاختيار</button>
+                  <button type="button" title="نسيت بضاعة؟ أضفها إلى العربة" disabled={isAddingCartItems || isSavingProductCartRecord} onClick={() => setProductCartStage("select")} className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-white px-3 py-3 text-[11px] font-bold text-emerald-700 disabled:opacity-40"><Plus className="h-4 w-4 shrink-0" />إضافة بضاعة</button>
                 )}
                 <button
                   type="button"
