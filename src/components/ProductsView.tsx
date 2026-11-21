@@ -209,7 +209,9 @@ function ProductCategoryPickerDialog({
     // Initialize when the dialog opens, but keep user-expanded branches during rerenders.
     // The parent rebuilds this Map as its normalized product list changes; depending on it here
     // would reset expansion immediately after tapping a chevron.
-    const next = new Set<string>(childrenByParentRef.current.get("") || []);
+    const next = new Set<string>();
+    const rootCategories = childrenByParentRef.current.get("") || [];
+    rootCategories.slice(0, 2).forEach(path => next.add(path));
     const parts = selectedValue && selectedValue !== "all" ? selectedValue.split(" / ").filter(Boolean) : [];
     for (let index = 0; index < Math.max(0, parts.length - 1); index++) next.add(parts.slice(0, index + 1).join(" / "));
     setExpandedPaths(next);
@@ -222,11 +224,17 @@ function ProductCategoryPickerDialog({
   }, [open, onClose]);
   if (!open) return null;
 
-  const palette = ["border-blue-200 bg-[#eef4fb]", "border-emerald-200 bg-[#eff7f1]", "border-orange-200 bg-[#fff5ed]", "border-violet-200 bg-[#f5f0fb]"];
+  const palettes = [
+    { root: "border-blue-200 bg-[#eef4fb]", child: "border-emerald-200 bg-[#eff7f1]", line: "border-emerald-600/45" },
+    { root: "border-orange-200 bg-[#fff2e8]", child: "border-orange-200 bg-[#fff5ed]", line: "border-orange-500/45" },
+    { root: "border-violet-200 bg-[#f5f0fb]", child: "border-violet-200 bg-[#f7f3fb]", line: "border-violet-600/45" },
+    { root: "border-blue-200 bg-[#eef4fb]", child: "border-blue-200 bg-[#f3f7fc]", line: "border-blue-600/45" },
+    { root: "border-emerald-200 bg-[#eff8f1]", child: "border-emerald-200 bg-[#f3faf4]", line: "border-emerald-600/45" },
+  ];
   const getChildren = (parent: string) => (childrenByParent.get(parent) || []).filter(path =>
     availablePaths.has(path) && (!searchTree.relevant || searchTree.relevant.has(path))
   );
-  const renderBranch = (parent: string, depth: number): React.ReactNode => {
+  const renderBranch = (parent: string, depth: number, compact = false): React.ReactNode => {
     const children = getChildren(parent);
     const limit = visibleLimits[parent] || 80;
     const shown = children.slice(0, limit);
@@ -237,24 +245,27 @@ function ProductCategoryPickerDialog({
         const isExpanded = query.trim() ? searchTree.expanded.has(path) : expandedPaths.has(path);
         const selected = selectedValue === path;
         const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
+        const rootPath = path.split(" / ").filter(Boolean)[0] || path;
+        const rootIndex = Math.max(0, (childrenByParent.get("") || []).indexOf(rootPath));
+        const tone = palettes[rootIndex % palettes.length];
         return <div key={path} className="relative">
           {depth > 0 && <>
             <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-500/45" style={{ right: "-12px", width: "12px" }} />
             <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-500/50 bg-white" style={{ right: "-16px" }} />
           </>}
-          <div className={"relative flex " + (depth === 0 ? "min-h-[64px] " : "min-h-[56px] ") + "items-center gap-2 rounded-2xl border-2 px-3 py-2 transition-colors " + palette[depth === 0 ? 0 : 1] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
+          <div className={"relative flex " + (compact ? (depth === 0 ? "min-h-[48px] " : "min-h-[42px] ") : (depth === 0 ? "min-h-[64px] " : "min-h-[56px] ")) + "items-center gap-2 rounded-2xl border-2 px-3 py-2 transition-colors " + (depth === 0 ? tone.root : tone.child) + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
             <button type="button" onClick={() => onSelect(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
-              <Folder className="h-6 w-6 shrink-0 text-slate-700/80" />
-              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-2 py-1 font-bold text-slate-600" style={{ fontSize: "14px" }}>{categoryNumber(path)}</span>
-              <span className="min-w-0 flex-1 truncate font-bold text-slate-800" style={{ fontSize: depth === 0 ? "20px" : "18px" }}>{name}</span>
+              <Folder className={"shrink-0 text-slate-700/80 " + (compact ? "h-5 w-5" : "h-6 w-6")} />
+              <span dir="ltr" className="shrink-0 rounded-full bg-white/85 px-2 py-1 font-bold text-slate-600" style={{ fontSize: compact ? "12px" : "14px" }}>{categoryNumber(path)}</span>
+              <span className="min-w-0 flex-1 truncate font-bold text-slate-800" style={{ fontSize: compact ? "14px" : depth === 0 ? "20px" : "18px" }}>{name}</span>
               {selected && <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-black text-white">✓</span>}
             </button>
-            {hasChildren && <button type="button" onClick={() => setExpandedPaths(current => { const next = new Set(current); next.has(path) ? next.delete(path) : next.add(path); return next; })} aria-label={isExpanded ? "طي الفروع" : "فتح الفروع"} aria-expanded={isExpanded} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700">
+            {hasChildren && <button type="button" onClick={() => setExpandedPaths(current => { const next = new Set(current); next.has(path) ? next.delete(path) : next.add(path); return next; })} aria-label={isExpanded ? "طي الفروع" : "فتح الفروع"} aria-expanded={isExpanded} className={"grid shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700 " + (compact ? "h-9 w-9" : "h-11 w-11")}>
               <ChevronDown className={"h-4 w-4 transition-transform " + (isExpanded ? "" : "rotate-90")} />
             </button>}
           </div>
-          {isExpanded && hasChildren && <div className="relative mr-5 mt-1 space-y-2 border-r border-emerald-500/30 pr-3">
-            {renderBranch(path, depth + 1)}
+          {isExpanded && hasChildren && <div className={"relative border-r-2 " + tone.line + (compact ? " mr-4 mt-1 space-y-1.5 pr-2" : " mr-6 mt-2 space-y-2 pr-4")}>
+            {renderBranch(path, depth + 1, compact)}
           </div>}
         </div>;
       })}
@@ -262,7 +273,7 @@ function ProductCategoryPickerDialog({
     </>;
   };
 
-  return <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-3 sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-label={title} dir="rtl" className="flex h-[min(82dvh,980px)] w-[calc(100vw-24px)] max-w-6xl flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl sm:w-[calc(100vw-40px)]">
       <header className="shrink-0 border-b border-slate-100 px-4 pb-3 pt-4 sm:px-5">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -277,7 +288,7 @@ function ProductCategoryPickerDialog({
             </button>
             {dropdownOpen && <div role="listbox" aria-label="قائمة التصنيفات" className="absolute right-0 top-full z-[130] mt-1 max-h-[min(64dvh,680px)] w-[min(48vw,460px)] min-w-[280px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
               {allowAll && <button type="button" role="option" aria-selected={selectedValue === "all"} onClick={() => { onSelect("all"); setDropdownOpen(false); }} className={"mb-2 flex min-h-[44px] w-full items-center justify-between rounded-xl border px-3 py-2 text-right text-sm font-extrabold " + (selectedValue === "all" ? "border-emerald-200 bg-[#e9faf2] text-emerald-900" : "border-slate-200 bg-white text-slate-700")}><span className="flex items-center gap-2"><Layers className="h-5 w-5"/>كل التصنيفات</span>{selectedValue === "all" && <Check className="h-5 w-5"/>}</button>}
-              <div className="relative space-y-1.5">{renderBranch("", 0)}</div>
+              <div className="relative space-y-1.5">{renderBranch("", 0, true)}</div>
             </div>}
           </div>
         </div>
