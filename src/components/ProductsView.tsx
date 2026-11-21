@@ -1317,34 +1317,34 @@ function ProductsViewContent({
   const renderCategoryDropdownPath = (path: string, depth = 1): React.ReactNode => {
     const children = categoryChildrenPaths(path);
     const expanded = categoryDropdownExpandedPaths.includes(path);
-    const tones = ["border-blue-200 bg-blue-50 text-slate-900", "border-emerald-200 bg-emerald-50 text-slate-900", "border-orange-200 bg-orange-50 text-slate-900", "border-violet-200 bg-violet-50 text-slate-900"];
     const rootIndex = Math.max(0, categoryChildrenPaths("").findIndex(root => path === root || path.startsWith(root + " / ")));
-    const connectorColors = [
-      { line: "border-emerald-500/45", node: "border-emerald-500/70" },
-      { line: "border-orange-500/50", node: "border-orange-500/70" },
-      { line: "border-violet-500/50", node: "border-violet-500/70" },
-      { line: "border-blue-500/50", node: "border-blue-500/70" },
+    const palettes = [
+      { root: "border-blue-200 bg-[#eef4fb]", child: "border-emerald-200 bg-[#eff7f1]", line: "border-emerald-600/45", node: "border-emerald-600/70" },
+      { root: "border-orange-200 bg-[#fff2e8]", child: "border-orange-200 bg-[#fff5ed]", line: "border-orange-600/45", node: "border-orange-600/70" },
+      { root: "border-violet-200 bg-[#f5f0fb]", child: "border-violet-200 bg-[#f7f3fb]", line: "border-violet-600/45", node: "border-violet-600/70" },
+      { root: "border-blue-200 bg-[#eef4fb]", child: "border-blue-200 bg-[#f3f7fc]", line: "border-blue-600/45", node: "border-blue-600/70" },
+      { root: "border-emerald-200 bg-[#eff8f1]", child: "border-emerald-200 bg-[#f3faf4]", line: "border-emerald-600/45", node: "border-emerald-600/70" },
     ];
-    const connectorTone = connectorColors[rootIndex % connectorColors.length];
+    const palette = palettes[rootIndex % palettes.length];
     const name = path.split(" / ").filter(Boolean).slice(-1)[0];
     return (
-      <div key={path} className="space-y-1">
-        <div className={"flex min-h-10 items-center gap-1 rounded-lg border px-1.5 py-1 " + tones[(depth - 1) % tones.length]} style={{ marginRight: Math.min(depth - 1, 5) * 12 }}>
-          {children.length > 0
-            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/80"><ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")}/></button>
-            : <span className="w-7 shrink-0"/>}
-          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-right">
-            <Folder className="h-4 w-4 shrink-0 opacity-70"/>
-            <span className="min-w-0 flex-1 truncate text-xs font-semibold">{name}</span>
-            <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium opacity-80">{categoryNumber(path)}</span>
-            {selectedCategory === path && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700"/>}
+      <div key={path} className="space-y-1.5">
+        <div className={"relative flex min-h-[52px] items-center gap-1.5 rounded-xl border px-2 py-1.5 " + (depth === 1 ? palette.root : palette.child)} style={{ marginRight: Math.min(depth - 1, 5) * 18 }}>
+          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-right " + (selectedCategory === path ? "bg-white/60" : "hover:bg-white/40")}>
+            <Folder className="h-5 w-5 shrink-0 text-slate-700/80"/>
+            <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900">{name}</span>
+            <span dir="ltr" className="shrink-0 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700">{categoryNumber(path)}</span>
+            {selectedCategory === path && <Check className="h-4 w-4 shrink-0 text-emerald-700"/>}
           </button>
+          {children.length > 0
+            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/80 text-slate-700"><ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "-rotate-90")}/></button>
+            : <span className="w-9 shrink-0"/>}
         </div>
-        {expanded && children.length > 0 && <div className="relative space-y-1">
-          <span aria-hidden="true" className={"pointer-events-none absolute bottom-4 right-0 top-4 border-r " + connectorTone.line}/>
+        {expanded && children.length > 0 && <div className="relative space-y-1.5">
+          <span aria-hidden="true" className={"pointer-events-none absolute bottom-6 right-0 top-6 border-r " + palette.line}/>
           {children.map(child => <div key={child} className="relative">
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-5 border-t " + connectorTone.line} style={{ width: Math.min(depth, 5) * 12 + "px" }}/>
-            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-[15px] z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 bg-white " + connectorTone.node}/>
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 border-t " + palette.line} style={{ width: Math.min(depth, 5) * 18 + "px" }}/>
+            <span aria-hidden="true" className={"pointer-events-none absolute right-0 top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + palette.node}/>
             {renderCategoryDropdownPath(child, depth + 1)}
           </div>)}
         </div>}
@@ -1445,9 +1445,10 @@ function ProductsViewContent({
             }} className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
               <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
             </button>
-            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-1 max-h-[min(65dvh,520px)] w-[min(92vw,440px)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
-              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-2 flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right text-xs font-bold " + (selectedCategory === "all" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
-                <span>كل التصنيفات</span>{selectedCategory === "all" && <Check className="h-4 w-4 shrink-0"/>}
+            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-1 max-h-[min(68dvh,620px)] w-[min(92vw,500px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-3 flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl border px-4 py-2 text-right text-base font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#eaf9f2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
+                <span className="flex min-w-0 items-center gap-3"><Layers className="h-6 w-6 shrink-0"/><span className="truncate">كل التصنيفات</span></span>
+                {selectedCategory === "all" ? <Check className="h-5 w-5 shrink-0"/> : <span className="h-5 w-5 shrink-0"/>}
               </button>
               <div className="relative space-y-1">
                 {categoryChildrenPaths("").map(path => renderCategoryDropdownPath(path))}
