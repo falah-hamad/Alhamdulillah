@@ -1365,22 +1365,20 @@ function ProductsViewContent({
   return (
     <div className="space-y-5 min-w-0" dir="rtl">
       <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 sm:p-5 space-y-4 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Package className="w-5 h-5 text-blue-600" /> مستودع البضائع</h2>
-            <p className="text-xs text-slate-500 mt-1">جدول بيانات البضاعة والأسعار والمخزون والموردين.</p>
+        <div className="space-y-3 border-b border-slate-100 pb-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={openAdd} className="inline-flex min-h-11 justify-center items-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"><PlusCircle className="w-4 h-4 shrink-0" /> إضافة بضاعة</button>
+            <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="inline-flex min-h-11 justify-center items-center gap-2 px-3 py-2.5 border border-slate-200 bg-white rounded-lg text-sm font-semibold text-slate-700"><Layers className="w-4 h-4 shrink-0" /> إدارة التصنيفات</button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setShowPriceLabels(true)} className="inline-flex items-center gap-2 px-3 py-2.5 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-semibold"><ScanBarcode className="w-4 h-4" /> طباعة ملصقات الأسعار</button>
-            <button type="button" onClick={() => { setShowAiImport(true); setAiImportError(""); setAiImportItems([]); }} className="inline-flex items-center gap-2 px-3 py-2.5 border border-violet-200 bg-violet-50 text-violet-700 rounded-lg text-sm font-semibold"><Sparkles className="w-4 h-4" /> إدخال بالذكاء الاصطناعي</button>
-            <button type="button" onClick={() => { setShowCategoryManager(true); setShowTrash(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Layers className="w-4 h-4" /> إدارة التصنيفات</button>
-            <button type="button" onClick={() => { setShowTrash(v => !v); setShowCategoryManager(false); }} className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> المهملات ({trashedProducts.length})</button>
-            <button onClick={openAdd} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold"><PlusCircle className="w-4 h-4" /> إضافة بضاعة</button>
+          <div className="grid grid-cols-3 gap-2">
+            <button type="button" onClick={() => setShowPriceLabels(true)} className="flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center text-[11px] font-semibold leading-tight text-emerald-800 hover:bg-emerald-100 sm:flex-row sm:text-sm"><ScanBarcode className="h-5 w-5 shrink-0" /><span>طباعة الأسعار</span></button>
+            <button type="button" onClick={() => { setShowAiImport(true); setAiImportError(""); setAiImportItems([]); }} className="flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-2 text-center text-[11px] font-semibold leading-tight text-violet-800 hover:bg-violet-100 sm:flex-row sm:text-sm"><Sparkles className="h-5 w-5 shrink-0" /><span>إدخال بالذكاء الاصطناعي</span></button>
+            <button type="button" onClick={() => { setShowTrash(v => !v); setShowCategoryManager(false); }} className="flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-2 text-center text-[11px] font-semibold leading-tight text-rose-800 hover:bg-rose-100 sm:flex-row sm:text-sm"><Trash2 className="h-5 w-5 shrink-0" /><span>سلة المهملات ({trashedProducts.length})</span></button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <div className="relative lg:col-span-6">
+        <div className="grid grid-cols-1 gap-3">
+          <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
             <input
               value={searchQuery}
@@ -1417,31 +1415,22 @@ function ProductsViewContent({
             )}
             <button type="button" onClick={() => setShowBarcodeScanner(true)} title="البحث بالكاميرا عبر الباركود" aria-label="البحث بالكاميرا عبر الباركود" className="absolute left-2 top-1.5 p-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"><Camera className="w-5 h-5" /></button>
           </div>
-          <button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="lg:col-span-3 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-right text-sm text-slate-700">
-            <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
-          </button>
-          <select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="lg:col-span-3 w-full min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-            <option value="all">كل البضاعة</option>
-            <option value="favorites">⭐ المفضلة</option>
-            <option value="recent">شوهدت مؤخراً</option>
-            <option value="low">مخزون منخفض</option>
-          </select>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-slate-500">طريقة عرض البضاعة</p>
           <div role="group" aria-label="طريقة عرض البضاعة" className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1">
             <button type="button" aria-pressed={productViewMode === "table"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "table" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "table" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}>نمط الجدول</button>
             <button type="button" aria-pressed={productViewMode === "tree"} onClick={() => setProductViewModeState({ key: productViewModeKey, mode: "tree" })} className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${productViewMode === "tree" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`} title="تصنيفات متدرجة قابلة للفتح والطي">نمط التصنيفات</button>
           </div>
+          <FilterButton activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} />
         </div>
-        <div className="flex justify-end"><FilterButton activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClick={() => setFiltersOpen(true)} /></div>
-        <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
+        <FilterPanel open={filtersOpen} title="تصفية البضاعة والمخزون" activeCount={[selectedCategory, quickFilter !== "all" ? quickFilter : "", supplierFilter.trim(), minimumSalePrice, maximumSalePrice, minimumQuantity, maximumQuantity, stockStatus !== "all"].filter(Boolean).length} onClose={() => setFiltersOpen(false)} onApply={() => setFiltersOpen(false)} onClear={() => { setSelectedCategory(""); setQuickFilter("all"); setSupplierFilter(""); setMinimumSalePrice(""); setMaximumSalePrice(""); setMinimumQuantity(""); setMaximumQuantity(""); setStockStatus("all"); }}>
+          <label className="block text-sm font-semibold text-slate-700">التصنيف<button type="button" onClick={() => setCategoryPickerTarget("filter")} aria-haspopup="dialog" className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-2 text-right text-sm text-slate-700"><span className="truncate">{categorySelectionName(selectedCategory)}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/></button></label>
+          <label className="block text-sm font-semibold text-slate-700">عرض البضاعة<select value={quickFilter} onChange={e => setQuickFilter(e.target.value as typeof quickFilter)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل البضاعة</option><option value="favorites">⭐ المفضلة</option><option value="recent">شوهدت مؤخراً</option><option value="low">مخزون منخفض</option></select></label>
           <label className="block text-sm font-semibold text-slate-700">المورد<input value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} placeholder="اسم المورد" className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل سعر بيع<FormattedNumberInput type="number" min="0" value={minimumSalePrice} onChange={e => setMinimumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى سعر بيع<FormattedNumberInput type="number" min="0" value={maximumSalePrice} onChange={e => setMaximumSalePrice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
           <div className="grid grid-cols-2 gap-2"><label className="text-sm font-semibold text-slate-700">أقل كمية<FormattedNumberInput type="number" min="0" value={minimumQuantity} onChange={e => setMinimumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label><label className="text-sm font-semibold text-slate-700">أعلى كمية<FormattedNumberInput type="number" min="0" value={maximumQuantity} onChange={e => setMaximumQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2" /></label></div>
           <label className="block text-sm font-semibold text-slate-700">حالة المخزون<select value={stockStatus} onChange={e => setStockStatus(e.target.value as typeof stockStatus)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2"><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></label>
         </FilterPanel>
-        <p className="text-[11px] text-slate-500 flex items-center gap-1"><ScanBarcode className="w-3.5 h-3.5" /> يمكن استخدام قارئ باركود يكتب الرمز في مربع البحث، أو البحث يدوياً بالرمز المسجل.</p>
         <div className="rounded-xl border border-slate-200 bg-white p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p><p className="mt-1 text-xs text-slate-500">{activeProductSort.length} مستويات فرز فعّالة</p></div>
