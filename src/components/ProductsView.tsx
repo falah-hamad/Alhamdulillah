@@ -6,7 +6,7 @@ import {
   Package, Search, PlusCircle, TrendingUp, SquarePen, Trash2, X, Sparkles,
   PackagePlus, Layers, Star, ImagePlus, History, RotateCcw, AlertTriangle,
   Eye, Save, Camera, ClipboardList, FileText,
-  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, GripVertical, SlidersHorizontal, Folder
+  Phone, Truck, Clock, ScanBarcode, ChevronLeft, ChevronRight, ChevronDown, Check, GripVertical, SlidersHorizontal, Folder
 } from "lucide-react";
 import { Customer, Invoice, Product, ProductStockMovement, ProductStockMovementType, SystemSettings } from "../types";
 import { db, uploadUserFile } from "../lib/firebase";
@@ -397,6 +397,24 @@ function ProductsViewContent({
   };
   const visibleRecentProductSearches = recentProductSearches.filter(term => !searchQuery.trim() || term.toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()));
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categoryDropdownExpandedPaths, setCategoryDropdownExpandedPaths] = useState<string[]>([]);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!categoryDropdownRef.current?.contains(event.target as Node)) setCategoryDropdownOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCategoryDropdownOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [categoryDropdownOpen]);
   const productViewModeKey = currentUser?.uid ? `acc_u_${currentUser.uid}_product_view_mode` : "acc_guest_product_view_mode";
   const [productViewModeState, setProductViewModeState] = useState(() => {
     let saved: "table" | "tree" = "tree";
@@ -1293,6 +1311,31 @@ function ProductsViewContent({
   const otherStockMovements = (currentDetailsProduct?.stockMovements || []).filter(movement => movement.type !== "sale").slice().sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
 
   const categorySelectionName = (path: string, allLabel = "كل التصنيفات") => path === "all" ? allLabel : path ? `${categoryNumber(path)} — ${path.split(" / ").filter(Boolean).slice(-1)[0]}` : "اختر تصنيفاً";
+  const toggleCategoryDropdownPath = (path: string) => {
+    setCategoryDropdownExpandedPaths(current => current.includes(path) ? current.filter(item => item !== path) : [...current, path]);
+  };
+  const renderCategoryDropdownPath = (path: string, depth = 1): React.ReactNode => {
+    const children = categoryChildrenPaths(path);
+    const expanded = categoryDropdownExpandedPaths.includes(path);
+    const tones = ["border-blue-200 bg-blue-50 text-slate-900", "border-emerald-200 bg-emerald-50 text-slate-900", "border-orange-200 bg-orange-50 text-slate-900", "border-violet-200 bg-violet-50 text-slate-900"];
+    const name = path.split(" / ").filter(Boolean).slice(-1)[0];
+    return (
+      <div key={path} className="space-y-1">
+        <div className={"flex min-h-10 items-center gap-1 rounded-lg border px-1.5 py-1 " + tones[(depth - 1) % tones.length]} style={{ marginRight: Math.min(depth - 1, 5) * 12 }}>
+          {children.length > 0
+            ? <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/80"><ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")}/></button>
+            : <span className="w-7 shrink-0"/>}
+          <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-right">
+            <Folder className="h-4 w-4 shrink-0 opacity-70"/>
+            <span className="min-w-0 flex-1 truncate text-xs font-semibold">{name}</span>
+            <span dir="ltr" className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-medium opacity-80">{categoryNumber(path)}</span>
+            {selectedCategory === path && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700"/>}
+          </button>
+        </div>
+        {expanded && children.length > 0 && <div className="relative space-y-1 border-r border-emerald-500/30 pr-1">{children.map(child => renderCategoryDropdownPath(child, depth + 1))}</div>}
+      </div>
+    );
+  };
   const chooseCategoryForTarget = (path: string) => {
     if (categoryPickerTarget === "filter") setSelectedCategory(path);
     else if (categoryPickerTarget === "product") setForm(current => ({ ...current, category: path }));
@@ -1378,12 +1421,23 @@ function ProductsViewContent({
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
-          <div className="relative min-w-0">
-            <select value={selectedCategory} onChange={event => setSelectedCategory(event.target.value)} aria-label="اختيار التصنيف" className="h-full min-h-[46px] w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 py-3 pe-3 ps-9 text-right text-sm text-slate-700 focus:outline-blue-500">
-              <option value="all">كل التصنيفات</option>
-              {categories.filter(path => path !== "all").map(path => <option key={path} value={path} title={categoryLabel(path)}>{categorySelectionName(path)}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"/>
+          <div ref={categoryDropdownRef} className="relative min-w-0">
+            <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => {
+              if (!categoryDropdownOpen && categoryDropdownExpandedPaths.length === 0) {
+                setCategoryDropdownExpandedPaths(categoryChildrenPaths("").filter(path => categoryChildrenPaths(path).length > 0));
+              }
+              setCategoryDropdownOpen(open => !open);
+            }} className={"flex h-full min-h-[46px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-slate-50 p-3 text-right text-sm text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:bg-slate-100")}>
+              <span className="truncate font-medium">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-4 w-4 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
+            </button>
+            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[70] mt-1 max-h-[min(65dvh,520px)] w-[min(92vw,440px)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
+              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-2 flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right text-xs font-bold " + (selectedCategory === "all" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
+                <span>كل التصنيفات</span>{selectedCategory === "all" && <Check className="h-4 w-4 shrink-0"/>}
+              </button>
+              <div className="relative space-y-1">
+                {categoryChildrenPaths("").map(path => renderCategoryDropdownPath(path))}
+              </div>
+            </div>}
           </div>
           <div className="relative min-w-0">
             <Search className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
