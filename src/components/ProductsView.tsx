@@ -1317,7 +1317,20 @@ function ProductsViewContent({
       { root: "border-blue-200 bg-[#eef4fb]", child: "border-blue-200 bg-[#f3f7fc]", line: "border-blue-600/50" },
       { root: "border-emerald-200 bg-[#eff8f1]", child: "border-emerald-200 bg-[#f3faf4]", line: "border-emerald-600/50" },
     ];
-    const tone = palettes[rootIndex % palettes.length];
+    const parentPath = path.split(" / ").filter(Boolean).slice(0, -1).join(" / ");
+    const siblingIndex = Math.max(0, categoryChildrenPaths(parentPath).indexOf(path));
+    const childPalettes = [
+      { card: "border-emerald-200 bg-[#eff8f3]", line: "border-emerald-600/50" },
+      { card: "border-sky-200 bg-[#f1f7fc]", line: "border-sky-600/50" },
+      { card: "border-orange-200 bg-[#fff5ed]", line: "border-orange-500/50" },
+      { card: "border-violet-200 bg-[#f7f3fc]", line: "border-violet-600/50" },
+      { card: "border-cyan-200 bg-[#eff9fa]", line: "border-cyan-600/50" },
+      { card: "border-rose-200 bg-[#fff4f6]", line: "border-rose-500/50" },
+      { card: "border-amber-200 bg-[#fffaef]", line: "border-amber-600/50" },
+    ];
+    const rootTone = palettes[rootIndex % palettes.length];
+    const childTone = childPalettes[(rootIndex + depth + siblingIndex) % childPalettes.length];
+    const tone = depth === 0 ? rootTone : { root: childTone.card, child: childTone.card, line: childTone.line };
     const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
     const isRoot = depth === 0;
     const isChild = depth === 1;
