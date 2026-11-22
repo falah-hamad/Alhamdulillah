@@ -1327,16 +1327,15 @@ function ProductsViewContent({
         <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} style={{ right: "6%" }} />
       </>}
       <div className={"relative flex items-center gap-2 border-2 px-2 " + (isRoot
-        ? "min-h-[47px] rounded-2xl py-0.5 " + tone.root
+        ? "min-h-[46px] rounded-2xl py-0.5 " + tone.root
         : isChild
-          ? "min-h-[37px] rounded-xl py-0.5 " + tone.child
-          : "min-h-[36px] rounded-xl py-0.5 " + tone.child)}
+          ? "min-h-[36px] rounded-xl py-0.5 " + tone.child
+          : "min-h-[35px] rounded-xl py-0 " + tone.child)}
         style={!isRoot ? { width: "84%", marginRight: "11%", marginLeft: "5%" } : undefined}>
         <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
-          <span className={"flex min-w-0 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
+          <span className={"flex min-w-0 flex-1 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
             <Folder className={"shrink-0 text-slate-700/80 " + (isRoot ? "h-6 w-6" : "h-5 w-5")} />
-            <span className={"min-w-0 truncate font-extrabold text-slate-900 " + (isRoot ? "text-[15px]" : isChild ? "text-[14px]" : "text-[13px]")}>{name}</span>
-            <span dir="ltr" className={"shrink-0 rounded-full bg-white/90 font-semibold text-slate-700 " + (isRoot ? "px-2 py-0.5 text-[15px]" : isChild ? "px-2 py-0.5 text-[14px]" : "px-2 py-0.5 text-[13px]")}>{categoryNumber(path)}</span>
+            <span className={"min-w-0 flex-1 whitespace-normal break-words font-extrabold leading-tight text-slate-900 " + (isRoot ? "text-[15px]" : isChild ? "text-[14px]" : "text-[13px]")}>{name}</span>
           </span>
           {selectedCategory === path ? <Check className="h-5 w-5 shrink-0 text-emerald-700"/> : <span className={isRoot ? "w-5 shrink-0" : "w-4 shrink-0"}/>}
         </button>
