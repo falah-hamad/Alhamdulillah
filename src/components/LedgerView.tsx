@@ -2733,6 +2733,98 @@ ${folderCustomers
   const productCartTotalCapital = selectedCartProducts.reduce((sum, product) => sum + Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0), 0);
   const productCartProfitBeforeDiscount = productCartTotalBeforeDiscount - productCartTotalCapital;
   const productCartTotalProfit = productCartTotal - productCartTotalCapital;
+  const allocateCartAggregate = (rawAmount: number, weights: number[], capacities: number[]) => {
+    const caps = capacities.map(value => Math.max(0, Math.round(value)));
+    const totalCapacity = caps.reduce((sum, value) => sum + value, 0);
+    let remaining = Math.min(Math.max(0, Math.round(Number(rawAmount) || 0), totalCapacity);
+    const allocations = caps.map(() => 0);
+    while (remaining > 0) {
+      const active = caps.map((_value, index) => index).filter(index => allocations[index] < caps[index]);
+      if (!active.length) break;
+      const activeWeights = active.map(index => Math.max(0, Number(weights[index]) || 0));
+      const fallbackToCapacity = activeWeights.every(weight => weight === 0);
+      const effectiveWeights = active.map((index, localIndex) =>
+        fallbackToCapacity ? Math.max(1, caps[index] - allocations[index]) : activeWeights[localIndex]
+      );
+      const weightTotal = effectiveWeights.reduce((sum, weight) => sum + weight, 0);
+      const shares = active.map((index, localIndex) => ({
+        index,
+        fraction: remaining * effectiveWeights[localIndex] / weightTotal,
+      }));
+      let assigned = 0;
+      shares.forEach(({ index, fraction }) => {
+        const amount = Math.min(caps[index] - allocations[index], Math.floor(fraction));
+        allocations[index] += amount;
+        assigned += amount;
+      });
+      remaining -= assigned;
+      if (remaining <= 0) break;
+      let remainderAssigned = 0;
+      shares.sort((left, right) => right.fraction - Math.floor(right.fraction) - (left.fraction - Math.floor(left.fraction)));
+      for (const { index } of shares) {
+        if (remaining <= 0) break;
+        if (allocations[index] >= caps[index]) continue;
+        allocations[index] += 1;
+        remaining -= 1;
+        remainderAssigned += 1;
+      }
+      if (remainderAssigned === 0) break;
+    }
+    return allocations;
+  };
+  const updateCartAggregateNetTotal = (rawValue: number) => {
+    const products = selectedCartProducts;
+    if (!products.length) return;
+    const target = Math.max(0, Math.round(Number(rawValue) || 0));
+    const currentNetTotals = products.map(getCartNetTotal);
+    const quantities = products.map(product => Number(productCartQuantities[product.id]) || 0);
+    const weights = currentNetTotals.some(value => value > 0)
+      ? currentNetTotals
+      : quantities.map(value => value > 0 ? value : 1);
+    const allocations = allocateCartAggregate(target, weights, products.map(() => target));
+    const totals: Record<string, number> = {};
+    const unitPrices: Record<string, number> = {};
+    const discounts: Record<string, number> = {};
+    const unitDiscounts: Record<string, number> = {};
+    products.forEach((product, index) => {
+      const quantity = quantities[index];
+      const grossTotal = Math.max(getCartLineTotal(product), allocations[index]);
+      const discountTotal = grossTotal - allocations[index];
+      const unitGross = quantity > 0 ? Math.round(grossTotal / quantity) : grossTotal;
+      const unitDiscount = quantity > 0 ? Math.min(unitGross, Math.round(discountTotal / quantity)) : 0;
+      totals[product.id] = grossTotal;
+      unitPrices[product.id] = unitGross;
+      discounts[product.id] = discountTotal;
+      unitDiscounts[product.id] = unitDiscount;
+    });
+    setProductCartTotals(current => ({ ...current, ...totals }));
+    setProductCartUnitPrices(current => ({ ...current, ...unitPrices }));
+    setProductCartDiscountTotals(current => ({ ...current, ...discounts }));
+    setProductCartUnitDiscounts(current => ({ ...current, ...unitDiscounts }));
+  };
+  const updateCartAggregateDiscount = (rawValue: number) => {
+    const products = selectedCartProducts;
+    if (!products.length) return;
+    const grossTotals = products.map(getCartLineTotal);
+    const target = Math.min(productCartTotalBeforeDiscount, Math.max(0, Math.round(Number(rawValue) || 0)));
+    const currentDiscounts = products.map(getCartDiscountTotal);
+    const weights = currentDiscounts.some(value => value > 0) ? currentDiscounts : grossTotals;
+    const allocations = allocateCartAggregate(target, weights, grossTotals);
+    const discounts: Record<string, number> = {};
+    const unitDiscounts: Record<string, number> = {};
+    products.forEach((product, index) => {
+      const quantity = Number(productCartQuantities[product.id]) || 0;
+      discounts[product.id] = allocations[index];
+      unitDiscounts[product.id] = quantity > 0
+        ? Math.min(getCartUnitPrice(product), Math.round(allocations[index] / quantity))
+        : 0;
+    });
+    setProductCartDiscountTotals(current => ({ ...current, ...discounts }));
+    setProductCartUnitDiscounts(current => ({ ...current, ...unitDiscounts }));
+  };
+  const updateCartAggregateProfit = (rawValue: number) => {
+    updateCartAggregateNetTotal(productCartTotalCapital + Math.round(Number(rawValue) || 0));
+  };
   const productCartCategoryTree = useMemo(() => {
     const childSets = new Map<string, Set<string>>();
     const counts: Record<string, number> = {};
@@ -6938,9 +7030,9 @@ ${folderCustomers
                         <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
                         <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
                         <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">الإجمالي بعد الخصم</th></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الخصم</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartDiscountTotal)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotal)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartTotalProfit)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الخصم</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الخصم بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartDiscountTotal} onChange={event => updateCartAggregateDiscount(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ البيع بعد الخصم" type="number" min="0" step="1" value={productCartTotal} onChange={event => updateCartAggregateNetTotal(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الربح بعد الخصم" type="number" min={-productCartTotalCapital} step="1" value={productCartTotalProfit} onChange={event => updateCartAggregateProfit(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold text-emerald-700 focus:border-emerald-500 focus:outline-none" /></td></tr>
                       </tbody>
                     </table>
                   </section>
