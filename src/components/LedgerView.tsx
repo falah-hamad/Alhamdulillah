@@ -2736,7 +2736,7 @@ ${folderCustomers
   const allocateCartAggregate = (rawAmount: number, weights: number[], capacities: number[]) => {
     const caps = capacities.map(value => Math.max(0, Math.round(value)));
     const totalCapacity = caps.reduce((sum, value) => sum + value, 0);
-    let remaining = Math.min(Math.max(0, Math.round(Number(rawAmount) || 0), totalCapacity);
+    let remaining = Math.min(Math.max(0, Math.round(Number(rawAmount) || 0)), totalCapacity);
     const allocations = caps.map(() => 0);
     while (remaining > 0) {
       const active = caps.map((_value, index) => index).filter(index => allocations[index] < caps[index]);
