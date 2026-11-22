@@ -2719,6 +2719,18 @@ ${folderCustomers
     setProductCartDiscountTotals((current) => ({ ...current, [product.id]: discountTotal }));
     setProductCartUnitDiscounts((current) => ({ ...current, [product.id]: unitDiscount }));
   };
+  const updateCartNetUnitProfit = (product: Product, rawValue: number) => {
+    const unitCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0));
+    const originalUnitProfit = getCartUnitPrice(product) - unitCost;
+    const netProfit = Math.min(originalUnitProfit, Math.max(-unitCost, Math.round(Number(rawValue) || 0)));
+    updateCartNetUnitPrice(product, unitCost + netProfit);
+  };
+  const updateCartNetLineProfit = (product: Product, rawValue: number) => {
+    const totalCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0);
+    const originalTotalProfit = getCartLineTotal(product) - totalCost;
+    const netProfit = Math.min(originalTotalProfit, Math.max(-totalCost, Math.round(Number(rawValue) || 0)));
+    updateCartNetLineTotal(product, totalCost + netProfit);
+  };
   const productCartTotalBeforeDiscount = selectedCartProducts.reduce((sum, product) => sum + getCartLineTotal(product), 0);
   const productCartDiscountTotal = selectedCartProducts.reduce((sum, product) => sum + getCartDiscountTotal(product), 0);
   const productCartTotal = Math.max(0, productCartTotalBeforeDiscount - productCartDiscountTotal);
@@ -2813,7 +2825,8 @@ ${folderCustomers
     setProductCartUnitDiscounts(current => ({ ...current, ...unitDiscounts }));
   };
   const updateCartAggregateProfit = (rawValue: number) => {
-    updateCartAggregateNetTotal(productCartTotalCapital + Math.round(Number(rawValue) || 0));
+    const netProfit = Math.min(productCartProfitBeforeDiscount, Math.max(-productCartTotalCapital, Math.round(Number(rawValue) || 0)));
+    updateCartAggregateNetTotal(productCartTotalCapital + netProfit);
   };
   const productCartCategoryTree = useMemo(() => {
     const childSets = new Map<string, Set<string>>();
@@ -6991,7 +7004,7 @@ ${folderCustomers
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(unitProfit)}</td>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الخصم للمفرد " + product.name} type="number" min="0" max={unitSale} step="1" value={unitDiscount} onChange={(event) => updateCartUnitDiscount(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center text-[14px] font-bold focus:border-amber-500 focus:outline-none" /></td>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ البيع بعد الخصم للمفرد " + product.name} type="number" min="0" max={unitSale} step="1" value={netSaleUnit} onChange={(event) => updateCartNetUnitPrice(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
-                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للمفرد " + product.name} type="number" min={-unitCost} max={unitProfit} step="1" value={netProfitUnit} onChange={(event) => updateCartNetUnitPrice(product, unitCost + Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للمفرد " + product.name} type="number" min={-unitCost} max={unitProfit} step="1" value={netProfitUnit} onChange={(event) => updateCartNetUnitProfit(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
                               </tr>
                               <tr className="bg-white">
                                 <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">الجمع</th>
@@ -7001,7 +7014,7 @@ ${folderCustomers
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(totalProfit)}</td>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الخصم للجميع " + product.name} type="number" min="0" max={totalSale} step="1" value={totalDiscount} onChange={(event) => updateCartDiscountTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-amber-300 bg-amber-50 px-1 py-1.5 text-center text-[14px] font-bold focus:border-amber-500 focus:outline-none" /></td>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ البيع بعد الخصم للجميع " + product.name} type="number" min="0" max={totalSale} step="1" value={netSaleTotal} onChange={(event) => updateCartNetLineTotal(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
-                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للجميع " + product.name} type="number" min={-totalCost} max={totalProfit} step="1" value={netProfitTotal} onChange={(event) => updateCartNetLineTotal(product, totalCost + Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
+                                <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للجميع " + product.name} type="number" min={-totalCost} max={totalProfit} step="1" value={netProfitTotal} onChange={(event) => updateCartNetLineProfit(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
                               </tr>
                             </tbody>
                           </table>
