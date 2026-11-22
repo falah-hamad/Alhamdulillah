@@ -2720,13 +2720,11 @@ ${folderCustomers
   };
   const updateCartNetUnitProfit = (product: Product, rawValue: number) => {
     const unitCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0));
-    const originalUnitProfit = getCartUnitPrice(product) - unitCost;
     const netProfit = Math.max(-unitCost, Math.round(Number(rawValue) || 0));
     updateCartNetUnitPrice(product, unitCost + netProfit);
   };
   const updateCartNetLineProfit = (product: Product, rawValue: number) => {
     const totalCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0)) * (Number(productCartQuantities[product.id]) || 0);
-    const originalTotalProfit = getCartLineTotal(product) - totalCost;
     const netProfit = Math.max(-totalCost, Math.round(Number(rawValue) || 0));
     updateCartNetLineTotal(product, totalCost + netProfit);
   };
