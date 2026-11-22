@@ -1326,8 +1326,8 @@ function ProductsViewContent({
         <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} style={{ right: "6%" }} />
       </>}
       <div className={"relative flex items-center gap-2 border-2 px-2 " + (isRoot
-        ? "min-h-[56px] rounded-2xl py-2 " + tone.root
-        : "min-h-[44px] rounded-xl py-1 " + tone.child)}
+        ? "min-h-[52px] rounded-2xl py-1.5 " + tone.root
+        : "min-h-[40px] rounded-xl py-0.5 " + tone.child)}
         style={!isRoot ? { width: "84%", marginRight: "11%", marginLeft: "5%" } : undefined}>
         <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
           <span className={"flex min-w-0 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
@@ -1337,7 +1337,7 @@ function ProductsViewContent({
           </span>
           {selectedCategory === path ? <Check className="h-5 w-5 shrink-0 text-emerald-700"/> : <span className={isRoot ? "w-5 shrink-0" : "w-4 shrink-0"}/>}
         </button>
-        {children.length > 0 && <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className={"grid shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700 " + (isRoot ? "h-10 w-10" : "h-8 w-8")}>
+        {children.length > 0 && <button type="button" aria-label={expanded ? "طي " + name : "فتح " + name} aria-expanded={expanded} onClick={() => toggleCategoryDropdownPath(path)} className={"grid shrink-0 place-items-center rounded-xl bg-white/85 text-slate-700 " + (isRoot ? "h-9 w-9" : "h-7 w-7")}>
           <ChevronDown className={"transition-transform " + (isRoot ? "h-5 w-5 " : "h-4 w-4 ") + (expanded ? "" : "-rotate-90")}/>
         </button>}
       </div>
