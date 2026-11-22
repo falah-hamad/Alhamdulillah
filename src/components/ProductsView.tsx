@@ -1311,9 +1311,13 @@ function ProductsViewContent({
     const levelPalettes = [
       { card: "border-blue-200 bg-[#eef4fb]", line: "border-blue-600/50" },
       { card: "border-amber-200 bg-[#fff9e6]", line: "border-amber-600/50" },
+      { card: "border-rose-200 bg-[#fff0f2]", line: "border-rose-600/50" },
+      { card: "border-teal-200 bg-[#eaf8f7]", line: "border-teal-600/50" },
       { card: "border-violet-200 bg-[#f4effb]", line: "border-violet-600/50" },
+      { card: "border-green-200 bg-[#eff8eb]", line: "border-green-600/50" },
+      { card: "border-orange-200 bg-[#fff2e8]", line: "border-orange-600/50" },
     ];
-    const levelTone = levelPalettes[Math.min(depth, levelPalettes.length - 1)];
+    const levelTone = levelPalettes[depth % levelPalettes.length];
     const tone = { root: levelTone.card, child: levelTone.card, line: levelTone.line };
     const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
     const isRoot = depth === 0;
