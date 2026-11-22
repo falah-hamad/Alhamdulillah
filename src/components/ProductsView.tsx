@@ -400,8 +400,12 @@ function ProductsViewContent({
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categoryDropdownExpandedPaths, setCategoryDropdownExpandedPaths] = useState<string[]>([]);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownMenuRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownScrollTopRef = useRef(0);
+  const categoryDropdownInitializedRef = useRef(false);
   useEffect(() => {
     if (!categoryDropdownOpen) return;
+    if (categoryDropdownMenuRef.current) categoryDropdownMenuRef.current.scrollTop = categoryDropdownScrollTopRef.current;
     const closeOutside = (event: PointerEvent) => { if (!categoryDropdownRef.current?.contains(event.target as Node)) setCategoryDropdownOpen(false); };
     const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setCategoryDropdownOpen(false); };
     document.addEventListener("pointerdown", closeOutside);
@@ -1333,7 +1337,7 @@ function ProductsViewContent({
           ? "min-h-[36px] rounded-xl py-0.5 " + tone.child
           : "min-h-[35px] rounded-xl py-0 " + tone.child)}
         style={!isRoot ? { width: "84%", marginRight: "11%", marginLeft: "5%" } : undefined}>
-        <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
+        <button type="button" role="option" aria-selected={selectedCategory === path} onClick={() => { categoryDropdownScrollTopRef.current = categoryDropdownMenuRef.current?.scrollTop ?? categoryDropdownScrollTopRef.current; setSelectedCategory(path); setCategoryDropdownOpen(false); }} className={"flex min-w-0 flex-1 items-center justify-between text-right " + (isRoot ? "gap-3 px-2" : "gap-2 px-1")}>
           <span className={"flex min-w-0 flex-1 items-center " + (isRoot ? "gap-3" : "gap-2.5")}>
             <Folder className={"shrink-0 text-slate-700/80 " + (isRoot ? "h-6 w-6" : "h-5 w-5")} />
             <span className={"min-w-0 flex-1 whitespace-normal break-words font-extrabold leading-tight text-slate-900 " + (isRoot ? "text-[15px]" : isChild ? "text-[14px]" : "text-[13px]")}>{name}</span>
@@ -1437,13 +1441,19 @@ function ProductsViewContent({
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <div ref={categoryDropdownRef} className="relative min-w-0">
             <button type="button" aria-label="اختيار التصنيف" aria-haspopup="listbox" aria-expanded={categoryDropdownOpen} onClick={() => {
-              if (!categoryDropdownOpen) setCategoryDropdownExpandedPaths(categoryChildrenPaths("").slice(0, 2));
+              if (!categoryDropdownOpen && !categoryDropdownInitializedRef.current) {
+                const initialExpandedPaths = categoryChildrenPaths("").slice(0, 2);
+                if (initialExpandedPaths.length) {
+                  setCategoryDropdownExpandedPaths(initialExpandedPaths);
+                  categoryDropdownInitializedRef.current = true;
+                }
+              }
               setCategoryDropdownOpen(value => !value);
             }} className={"flex min-h-[52px] w-full min-w-0 items-center justify-between gap-2 rounded-xl border-2 p-3 text-right text-base text-slate-700 " + (categoryDropdownOpen ? "border-blue-500 bg-blue-50/50 ring-2 ring-blue-100" : "border-slate-200 bg-slate-50 hover:bg-slate-100")}>
               <span className="truncate font-semibold">{categorySelectionName(selectedCategory)}</span><ChevronDown className={"h-5 w-5 shrink-0 text-slate-500 transition-transform " + (categoryDropdownOpen ? "rotate-180" : "")}/>
             </button>
-            {categoryDropdownOpen && <div role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[90] mt-1 max-h-[min(72dvh,900px)] w-[min(58vw,680px)] min-w-[320px] overflow-y-auto overscroll-contain rounded-[24px] border border-slate-200 bg-white p-3 shadow-2xl">
-              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-3 flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl border-2 px-4 py-2.5 text-right text-lg font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#e9faf2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
+            {categoryDropdownOpen && <div ref={categoryDropdownMenuRef} onScroll={event => { categoryDropdownScrollTopRef.current = event.currentTarget.scrollTop; }} role="listbox" aria-label="تصنيفات البضاعة" className="absolute right-0 top-full z-[90] mt-1 max-h-[min(72dvh,900px)] w-[min(58vw,680px)] min-w-[320px] overflow-y-auto overscroll-contain rounded-[24px] border border-slate-200 bg-white p-3 shadow-2xl">
+              <button type="button" role="option" aria-selected={selectedCategory === "all"} onClick={() => { categoryDropdownScrollTopRef.current = categoryDropdownMenuRef.current?.scrollTop ?? categoryDropdownScrollTopRef.current; setSelectedCategory("all"); setCategoryDropdownOpen(false); }} className={"mb-3 flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl border-2 px-4 py-2.5 text-right text-lg font-extrabold " + (selectedCategory === "all" ? "border-emerald-200 bg-[#e9faf2] text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}>
                 <span className="flex min-w-0 items-center gap-3"><Layers className="h-6 w-6 shrink-0"/><span className="truncate">كل التصنيفات</span></span>
                 {selectedCategory === "all" ? <Check className="h-6 w-6 shrink-0"/> : <span className="w-6 shrink-0"/>}
               </button>
