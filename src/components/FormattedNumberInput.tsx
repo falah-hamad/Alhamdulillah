@@ -31,7 +31,19 @@ export default function FormattedNumberInput({
     const oldValue = input.value;
     const caret = input.selectionStart ?? oldValue.length;
     const digitsBeforeCaret = oldValue.slice(0, caret).replace(/[^\d]/g, "").length;
-    const rawValue = oldValue.replace(/,/g, "");
+    let rawValue = oldValue.replace(/,/g, "");
+    if (_type === "number" && rawValue && rawValue !== "-" && rawValue !== "." && rawValue !== "-.") {
+      const numericValue = Number(rawValue);
+      if (Number.isFinite(numericValue)) {
+        const minimum = props.min === undefined ? -Infinity : Number(props.min);
+        const maximum = props.max === undefined ? Infinity : Number(props.max);
+        const boundedValue = Math.min(
+          Number.isFinite(maximum) ? maximum : Infinity,
+          Math.max(Number.isFinite(minimum) ? minimum : -Infinity, numericValue),
+        );
+        if (boundedValue !== numericValue) rawValue = String(boundedValue);
+      }
+    }
     const formatted = formatNumericInput(rawValue);
     setDisplayValue(formatted);
     input.value = rawValue;
@@ -52,10 +64,21 @@ export default function FormattedNumberInput({
   const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
     focusedRef.current = false;
     const input = event.currentTarget;
-    const rawValue = input.value.replace(/,/g, "");
+    let rawValue = input.value.replace(/,/g, "");
+    if (_type === "number" && rawValue && rawValue !== "-" && rawValue !== "." && rawValue !== "-.") {
+      const numericValue = Number(rawValue);
+      if (Number.isFinite(numericValue)) {
+        const minimum = props.min === undefined ? -Infinity : Number(props.min);
+        const maximum = props.max === undefined ? Infinity : Number(props.max);
+        rawValue = String(Math.min(
+          Number.isFinite(maximum) ? maximum : Infinity,
+          Math.max(Number.isFinite(minimum) ? minimum : -Infinity, numericValue),
+        ));
+      }
+    }
     input.value = rawValue;
     onBlur?.(event);
-    const formatted = formatNumericInput(rawValue);
+    const formatted = formatNumericInput(value !== undefined ? String(value) : rawValue);
     input.value = formatted;
     setDisplayValue(formatted);
   };
