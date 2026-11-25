@@ -3197,7 +3197,8 @@ ${folderCustomers
     }
     productCartEditHistory.current = { entries: [], index: -1 };
     setProductCartHistoryVersion(version => version + 1);
-    setProductCartLabelsHidden(false);
+    setProductCartValuesHidden(false);
+    setProductCartHeadersHidden(false);
     setProductCartInsertContext(context || null);
     setProductCartSearch("");
     setProductCartCategory("الكل");
