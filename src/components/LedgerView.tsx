@@ -6873,7 +6873,7 @@ ${folderCustomers
                 <button
                   type="button"
                   disabled={isAddingCartItems || isSavingProductCartRecord}
-                  onClick={() => setShowProductCartHistory(true)
+                  onClick={() => setShowProductCartHistory(true)}
                   className="relative w-9 h-9 rounded-xl border border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 flex items-center justify-center"
                   aria-label="سجل عربة التسوق"
                   title="سجل العربة"
