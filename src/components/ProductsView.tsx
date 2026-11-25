@@ -59,7 +59,7 @@ const movementId = () => `move-${Date.now()}-${Math.random().toString(36).slice(
 const priceId = () => `price-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const money = (value: number) => formatThousands((Number(value) || 0));
 const productTableColumns = [
-  { id: "name", label: "اسم البضاعة" }, { id: "category", label: "التصنيف" },
+  { id: "name", label: "اسم البضاعة" }, { id: "image", label: "الصورة" }, { id: "category", label: "التصنيف" },
   { id: "purchasePrice", label: "رأس المال / سعر الشراء" }, { id: "salePrice", label: "سعر البيع للعميل" },
   { id: "profit", label: "الربح" },
   { id: "totalCapital", label: "إجمالي رأس المال" },
@@ -129,6 +129,7 @@ const productSortValue = (product: Product, key: ProductColumnId): string | numb
     case "quantity": return quantity;
     case "minStock": return Number(product.minStock ?? 5) || 0;
     case "category": return product.category.trim() || "بدون تصنيف";
+    case "image": return product.imageUrl || product.imageUrls?.[0] || "";
     case "unitName": return product.unitName?.trim() || "قطعة";
     default: return String(product[key] || "").trim();
   }
@@ -846,7 +847,7 @@ function ProductsViewContent({
         title="اضغط مطولاً لعرض إجراءات البضاعة"
       >
         {visibleProductColumns.map((id, cellIndex) => (
-          <td key={id} className={"border border-slate-300 px-1 py-2 text-center align-middle " + (["name", "category", "unitName", "supplierName", "location"].includes(id) ? "whitespace-normal" : "whitespace-nowrap")}>
+          <td key={id} className={"border border-slate-300 px-1 py-2 text-center align-middle " + (["name", "image", "category", "unitName", "supplierName", "location"].includes(id) ? "whitespace-normal" : "whitespace-nowrap")}>
             {id === "name" ? <button type="button" onClick={() => {
                 if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                 setOpenProductMenuId(null);
@@ -854,6 +855,12 @@ function ProductsViewContent({
               }} className="font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={"تفاصيل " + product.name}>
                 {productTextLines(product.name)}
               </button> :
+              id === "image" ? (() => {
+                const imageUrl = product.imageUrl || product.imageUrls?.[0];
+                return imageUrl ? (
+                  <img src={imageUrl} alt={`صورة ${product.name}`} loading="lazy" className="mx-auto h-[72px] w-[72px] rounded-lg border border-slate-200 bg-white object-cover" />
+                ) : <span aria-label="لا توجد صورة" className="mx-auto grid h-[72px] w-[72px] place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50"><ImagePlus className="h-6 w-6 text-slate-300" /></span>;
+              })() :
               id === "category" ? productTextLines((product.category || "").split(" / ").filter(Boolean).pop() || "بدون تصنيف") :
               id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
               id === "profit" ? <>{money((Number(product.salePrice) || 0) - (Number(product.purchasePrice) || 0))} <span className="text-slate-500">{settings.currency}</span></> :
