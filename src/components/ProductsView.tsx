@@ -237,10 +237,6 @@ function ProductCategoryPickerDialog({
         const selected = selectedValue === path;
         const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
         return <div key={path} className="relative">
-          {depth > 0 && <>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-500/45" style={{ right: "-12px", width: "12px" }} />
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-500/50 bg-white" style={{ right: "-16px" }} />
-          </>}
           <div className={"relative flex min-h-12 items-center gap-2 rounded-xl border px-2 py-2 transition-colors " + palette[(depth) % palette.length] + (selected ? " ring-2 ring-emerald-500/60" : "")} style={{ marginRight: depth > 0 ? "12px" : undefined }}>
             <button type="button" onClick={() => onSelect(path)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-2 text-right">
               <Folder className={"shrink-0 text-slate-600 " + (depth === 0 ? "h-5 w-5" : depth === 1 ? "h-[18px] w-[18px]" : "h-4 w-4")} />
@@ -252,7 +248,7 @@ function ProductCategoryPickerDialog({
               <ChevronDown className={"h-4 w-4 transition-transform " + (isExpanded ? "" : "rotate-90")} />
             </button>}
           </div>
-          {isExpanded && hasChildren && <div className="relative mr-5 mt-1 space-y-2 border-r border-emerald-500/30 pr-3">
+          {isExpanded && hasChildren && <div className="relative mr-5 mt-1 space-y-2 pr-3">
             {renderBranch(path, depth + 1)}
           </div>}
         </div>;
@@ -1329,15 +1325,11 @@ function ProductsViewContent({
       { card: "border-orange-200 bg-[#fff2e8]", line: "border-orange-600/50" },
     ];
     const levelTone = levelPalettes[depth % levelPalettes.length];
-    const tone = { root: levelTone.card, child: levelTone.card, line: levelTone.line };
+    const tone = { root: levelTone.card, child: levelTone.card };
     const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
     const isRoot = depth === 0;
     const isChild = depth === 1;
     return <div key={path} className="relative w-full">
-      {depth > 0 && <>
-        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 w-[5%] border-t-2 " + tone.line} style={{ right: "6%" }} />
-        <span aria-hidden="true" className={"pointer-events-none absolute top-1/2 z-10 h-3 w-3 translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white " + tone.line} style={{ right: "6%" }} />
-      </>}
       <div className={"relative flex items-center gap-2 border-2 px-2 " + (isRoot
         ? "min-h-[46px] rounded-2xl py-0.5 " + tone.root
         : isChild
@@ -1355,8 +1347,7 @@ function ProductsViewContent({
           <ChevronDown className={"transition-transform " + (isRoot ? "h-5 w-5 " : "h-4 w-4 ") + (expanded ? "" : "-rotate-90")}/>
         </button>}
       </div>
-      {expanded && children.length > 0 && <div className={"relative mt-2 space-y-2 border-r-2 pr-3 " + tone.line} style={{ width: isRoot ? "100%" : "90%", marginRight: isRoot ? "0%" : "5%", marginLeft: isRoot ? "0%" : "5%" }}>
-        <span aria-hidden="true" className={"pointer-events-none absolute top-2 bottom-2 z-0 border-r-2 " + tone.line} style={{ right: "6%" }} />
+      {expanded && children.length > 0 && <div className="relative mt-2 space-y-2 pr-3" style={{ width: isRoot ? "100%" : "90%", marginRight: isRoot ? "0%" : "5%", marginLeft: isRoot ? "0%" : "5%" }}>
         {children.map(child => renderCategoryDropdownPath(child, depth + 1))}
       </div>}
     </div>;
@@ -1377,7 +1368,6 @@ function ProductsViewContent({
     const isCollapsed = isProductCategoryCollapsed(path);
     const tones = ["border-blue-200 bg-[#eef4fb] text-slate-950", "border-emerald-200 bg-[#eff7f1] text-slate-950", "border-orange-200 bg-[#fff5ed] text-slate-950", "border-violet-200 bg-[#f5f1fa] text-slate-950"];
     const treeOffset = Math.min(depth - 1, 6) * 14;
-    const connectorOffset = Math.min(depth - 1, 6) * 24;
     return (
       <section key={path} data-product-category-card className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header
@@ -1389,11 +1379,7 @@ function ProductsViewContent({
             toggleProductCategory(path);
           }}
         >
-          {depth > 1 && <>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 border-t border-emerald-600/45" style={{ right: (48 + Math.min(depth - 2, 6) * 24) + "px", width: "20px" }}/>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-20 h-2 w-2 -translate-y-1/2 rounded-full bg-emerald-600/45" style={{ right: (45 + Math.min(depth - 2, 6) * 24) + "px" }}/>
-          </>}
-          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: (treeOffset + (depth > 1 ? 60 : 0)) + "px" }}>
+          <div className="flex min-w-0 items-center gap-2" style={{ paddingRight: treeOffset + "px" }}>
             <button type="button" aria-label={isCollapsed ? "فتح التصنيف" : "طي التصنيف"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); toggleProductCategory(path); }} className={"grid shrink-0 place-items-center rounded-lg bg-white/75 text-current " + (depth === 1 ? "h-10 w-10 " : depth === 2 ? "h-9 w-9 " : "h-8 w-8 ")}>
               <ChevronDown className={"h-4 w-4 transition-transform " + (isCollapsed ? "rotate-90" : "")}/>
             </button>
@@ -1417,7 +1403,6 @@ function ProductsViewContent({
         )}
         {!isCollapsed && children.length > 0 && (
           <div className="relative space-y-2 px-0 pb-2 pt-2">
-            <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-20 border-r border-emerald-600/35" style={{ right: (48 + connectorOffset) + "px" }}/>
             {children.map(childPath => (
               <div key={childPath} className="relative">
                 {renderProductCategoryTree(childPath)}
