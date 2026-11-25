@@ -2979,7 +2979,7 @@ ${folderCustomers
     const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
     const listLayout = productCartDisplayMode === "list";
     return <article key={product.id} className={`flex min-w-0 rounded-xl border shadow-sm transition-colors ${listLayout ? "flex-row items-center gap-2.5 p-2" : "flex-col p-2"} ${quantity > 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-      <div className={listLayout ? "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white" : "mx-auto mb-1.5 flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white"}>
+      <div className={listLayout ? "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white" : "mx-auto mb-1.5 flex h-[95px] w-[95px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white"}>
         {imageSource ? <img src={imageSource} alt={"صورة " + product.name} loading="lazy" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-300" />}
       </div>
       <div className={listLayout ? "min-w-0 flex-1 text-right" : "min-w-0"}>
