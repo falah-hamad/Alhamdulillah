@@ -2947,7 +2947,7 @@ ${folderCustomers
           </button>
           {hasChildren && <button type="button" onClick={() => toggleProductCartCategoryBranch(path)} aria-label={expanded ? "طي فروع " + name : "فتح فروع " + name} aria-expanded={expanded} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/85 text-slate-600"><ChevronDown className={"h-4 w-4 transition-transform " + (expanded ? "" : "rotate-90")} /></button>}
         </div>
-        {expanded && hasChildren && <div className="relative mr-3 mt-1 space-y-1.5 border-r border-emerald-500/30 pr-2">{renderProductCartCategoryBranch(path, depth + 1)}</div>}
+        {expanded && hasChildren && <div className="relative mr-3 mt-1 space-y-1.5 pr-2">{renderProductCartCategoryBranch(path, depth + 1)}</div>}
       </div>;
     });
   };
@@ -3031,10 +3031,6 @@ ${folderCustomers
       const name = path.split(" / ").filter(Boolean).slice(-1)[0] || path;
       return <section key={path} className="relative w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className={`relative flex w-full items-center justify-between gap-2 rounded-2xl border-b border-slate-200 px-2.5 py-2 ${depth === 0 ? "min-h-14" : "min-h-12"} ${palette[depth % palette.length]}`}>
-          {depth > 0 && <>
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 border-t border-emerald-600/45" style={{ right: "-12px", width: "12px" }} />
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-emerald-600/50 bg-white" style={{ right: "-16px" }} />
-          </>}
           <button type="button" aria-label={expanded ? "طي التصنيف " + name : "فتح التصنيف " + name} aria-expanded={expanded}
             onClick={() => toggleProductCartCategoryBranch(path)}
             className="flex min-w-0 flex-1 items-center gap-2 text-right" style={{ paddingRight: depth > 0 ? Math.min(depth, 6) * 14 + "px" : undefined }}>
@@ -3046,7 +3042,6 @@ ${folderCustomers
           <span className="grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-white/85 px-1.5 text-[10px] font-bold text-slate-600">{productCartCategoryTree.counts[path] || 0}</span>
         </header>
         {expanded && <div className="relative space-y-2 px-2 pb-2 pt-2">
-          {depth < 7 && visibleDescendants.length > 0 && <span aria-hidden="true" className="pointer-events-none absolute bottom-2 top-0 z-10 border-r border-emerald-600/35" style={{ right: (18 + depth * 14) + "px" }} />}
           {directProducts.length > 0 && <div className={`${productCartProductLayoutClass} py-1`}>{directProducts.map(renderProductCartProductCard)}</div>}
           {directMatchingProducts.length > directProducts.length && <button type="button" onClick={() => setProductCartCategoryVisibleLimits(current => ({ ...current, [path]: directLimit + 60 }))} className="mx-auto block rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100">عرض المزيد داخل هذا التصنيف ({formatThousands(directMatchingProducts.length - directProducts.length)} بضاعة)</button>}
           {visibleDescendants.length > 0 && <div className="relative space-y-2">{renderProductCartCategoryGoods(path, depth + 1)}</div>}
