@@ -6839,7 +6839,7 @@ ${folderCustomers
           }}
         >
           <div dir="rtl" role="dialog" aria-modal="true" aria-label="عربة البضاعة" className="relative bg-white w-full max-w-2xl max-h-[94dvh] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
-            <style>{".product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3),\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td { position: relative; color: transparent !important; text-shadow: none !important; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3)::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td::after { content: '••••'; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(226,232,240,.96); color: #475569; font-weight: 900; letter-spacing: .12em; pointer-events: all; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3) input,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(n + 3) input { color: transparent !important; caret-color: transparent !important; }"}</style>
+            <style>{".product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3),\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td { position: relative; color: transparent !important; text-shadow: none !important; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3)::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td::after { content: ''; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(226,232,240,.96); color: #475569; font-weight: 900; letter-spacing: .12em; pointer-events: all; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3) input,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(n + 3) input { color: transparent !important; caret-color: transparent !important; }"}</style>
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-l from-emerald-50 to-white flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -6865,11 +6865,11 @@ ${folderCustomers
                   </button>
                   <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2 text-[10px] font-bold text-slate-700 whitespace-nowrap">
                     <input type="checkbox" checked={productCartValuesHidden} onChange={event => setProductCartValuesHidden(event.target.checked)} className="h-4 w-4 accent-rose-600" aria-label="إخفاء القيم المالية" />
-                    <span>إخفاء القيم</span>
+                    <span>القيم</span>
                   </label>
                   <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2 text-[10px] font-bold text-slate-700 whitespace-nowrap">
                     <input type="checkbox" checked={productCartHeadersHidden} onChange={event => setProductCartHeadersHidden(event.target.checked)} className="h-4 w-4 accent-blue-600" aria-label="إخفاء رؤوس الجدول" />
-                    <span>إخفاء رؤوس الجدول</span>
+                    <span>رؤوس الجدول</span>
                   </label>
                 </>}
                 <button
@@ -7127,8 +7127,8 @@ ${folderCustomers
                   <span className="font-bold text-slate-900"> {formatThousands(productCartCount)}</span> وحدة محددة
                 </div>
                 <div className="text-left">
-                  <p className="text-[11px] text-slate-500">{productCartStage === "review" ? "الإجمالي بعد الخصم" : "الإجمالي قبل الخصم"}</p>
-                  <p className="text-lg font-black text-emerald-700">{productCartStage === "review" && productCartValuesHidden ? "••••" : formatThousands(productCartStage === "review" ? productCartTotal : productCartTotalBeforeDiscount)} {settings.currency}</p>
+                  <p className="text-[11px] text-slate-500">{productCartHeadersHidden ? "" : productCartStage === "review" ? "الإجمالي بعد الخصم" : "الإجمالي قبل الخصم"}</p>
+                  <p className="text-lg font-black text-emerald-700">{productCartStage === "review" && productCartValuesHidden ? "" : formatThousands(productCartStage === "review" ? productCartTotal : productCartTotalBeforeDiscount) + " " + settings.currency}</p>
                 </div>
               </div>
               <div className="flex gap-2">
