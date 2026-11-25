@@ -22,6 +22,8 @@ import {
   Edit,
   Pencil,
   Eye,
+  EyeOff,
+  Undo2,
   ArrowLeft,
   ArrowRight,
   Home,
@@ -403,6 +405,40 @@ export default function LedgerView({
   const [productCartUnitDiscounts, setProductCartUnitDiscounts] = useState<Record<string, number>>({});
   const [productCartDiscountTotals, setProductCartDiscountTotals] = useState<Record<string, number>>({});
   const [productCartProductSnapshots, setProductCartProductSnapshots] = useState<Record<string, Product>>({});
+  const [productCartLabelsHidden, setProductCartLabelsHidden] = useState(false);
+  type CartReviewSnapshot = {
+    quantities: Record<string, number>;
+    unitPrices: Record<string, number>;
+    totals: Record<string, number>;
+    unitDiscounts: Record<string, number>;
+    discountTotals: Record<string, number>;
+  };
+  const productCartEditHistory = useRef<{ entries: CartReviewSnapshot[]; index: number }>({ entries: [], index: -1 });
+  const [productCartHistoryVersion, setProductCartHistoryVersion] = useState(0);
+
+  useEffect(() => {
+    if (!isProductCartOpen || productCartStage !== "review") {
+      productCartEditHistory.current = { entries: [], index: -1 };
+      return;
+    }
+    const snapshot: CartReviewSnapshot = {
+      quantities: productCartQuantities,
+      unitPrices: productCartUnitPrices,
+      totals: productCartTotals,
+      unitDiscounts: productCartUnitDiscounts,
+      discountTotals: productCartDiscountTotals,
+    };
+    const history = productCartEditHistory.current;
+    if (history.index < 0) {
+      productCartEditHistory.current = { entries: [snapshot], index: 0 };
+      setProductCartHistoryVersion(version => version + 1);
+      return;
+    }
+    if (JSON.stringify(history.entries[history.index]) === JSON.stringify(snapshot)) return;
+    const entries = [...history.entries.slice(0, history.index + 1), snapshot].slice(-100);
+    productCartEditHistory.current = { entries, index: entries.length - 1 };
+    setProductCartHistoryVersion(version => version + 1);
+  }, [isProductCartOpen, productCartStage, productCartQuantities, productCartUnitPrices, productCartTotals, productCartUnitDiscounts, productCartDiscountTotals]);
   const [productCartRecords, setProductCartRecords] = useState<ProductCartSavedRecord[]>([]);
   const [activeProductCartRecordId, setActiveProductCartRecordId] = useState<string | null>(null);
   const [showProductCartHistory, setShowProductCartHistory] = useState(false);
@@ -3027,6 +3063,9 @@ ${folderCustomers
       showToast("هذا السجل محفوظ لزبون أو نوع كشف آخر.");
       return;
     }
+    productCartEditHistory.current = { entries: [], index: -1 };
+    setProductCartHistoryVersion(version => version + 1);
+    setProductCartLabelsHidden(false);
     setProductCartQuantities(record.quantities || {});
     setProductCartUnitPrices(record.unitPrices || {});
     setProductCartTotals(record.totals || {});
@@ -3093,6 +3132,20 @@ ${folderCustomers
     }, { merge: true });
   };
 
+  const canUndoProductCart = productCartHistoryVersion >= 0 && productCartEditHistory.current.index > 0;
+  const undoProductCartEdit = () => {
+    const history = productCartEditHistory.current;
+    if (history.index <= 0) return;
+    history.index -= 1;
+    const snapshot = history.entries[history.index];
+    setProductCartQuantities(snapshot.quantities);
+    setProductCartUnitPrices(snapshot.unitPrices);
+    setProductCartTotals(snapshot.totals);
+    setProductCartUnitDiscounts(snapshot.unitDiscounts);
+    setProductCartDiscountTotals(snapshot.discountTotals);
+    setProductCartHistoryVersion(version => version + 1);
+  };
+
   const closeProductCart = () => {
     const userId = auth.currentUser?.uid;
     if (userId && activeProductCartRecordId && selectedCustomer) {
@@ -3140,6 +3193,9 @@ ${folderCustomers
     } else if (context?.mode === "vertical") {
       context = { ...context, customerId: selectedCustomer.id };
     }
+    productCartEditHistory.current = { entries: [], index: -1 };
+    setProductCartHistoryVersion(version => version + 1);
+    setProductCartLabelsHidden(false);
     setProductCartInsertContext(context || null);
     setProductCartSearch("");
     setProductCartCategory("الكل");
@@ -6792,10 +6848,32 @@ ${folderCustomers
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {productCartStage === "review" && <>
+                  <button
+                    type="button"
+                    disabled={!canUndoProductCart || isAddingCartItems || isSavingProductCartRecord}
+                    onClick={undoProductCartEdit}
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-amber-200 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+                    aria-label="تراجع كلي عن آخر تعديل في العربة"
+                    title="تراجع كلي"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isAddingCartItems || isSavingProductCartRecord}
+                    onClick={() => setProductCartLabelsHidden(hidden => !hidden)}
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                    aria-label={productCartLabelsHidden ? "إظهار عناوين الجدول" : "إخفاء عناوين الجدول"}
+                    title={productCartLabelsHidden ? "إظهار العناوين" : "إخفاء العناوين"}
+                  >
+                    {productCartLabelsHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </>}
                 <button
                   type="button"
                   disabled={isAddingCartItems || isSavingProductCartRecord}
-                  onClick={() => setShowProductCartHistory(true)}
+                  onClick={() => setShowProductCartHistory(true)
                   className="relative w-9 h-9 rounded-xl border border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 flex items-center justify-center"
                   aria-label="سجل عربة التسوق"
                   title="سجل العربة"
@@ -6968,8 +7046,8 @@ ${folderCustomers
                       <section key={product.id} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
                         <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
                           <div className="min-w-0">
-                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
-                            <p className="text-[10px] text-slate-500">الكمية المحددة: {formatThousands(quantity)} {product.unitName || "قطعة"}</p>
+                            <h4 className="truncate text-sm font-black text-slate-900">{productCartLabelsHidden ? "" : product.name}</h4>
+                            <p className="text-[10px] text-slate-500">{productCartLabelsHidden ? "" : "الكمية المحددة: "}{formatThousands(quantity)} {product.unitName || "قطعة"}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
                             <button type="button" title="إعادة أسعار الصنف إلى الأصل" aria-label={"إعادة أسعار " + product.name + " إلى الأصل"} onClick={() => resetCartProductPricing(product)} className="grid h-8 w-8 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
@@ -6983,18 +7061,18 @@ ${folderCustomers
                             <thead>
                               <tr className="bg-[#b6c8e4] text-slate-900">
                                 <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug"></th>
-                                <th className="w-[8%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">العدد</th>
-                                <th className="w-[17%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ رأس المال</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ البيع</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ الربح</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ الخصم</th>
-                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ البيع بعد الخصم</th>
-                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">مبلغ الربح بعد الخصم</th>
+                                <th className="w-[8%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "العدد"}</th>
+                                <th className="w-[17%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ رأس المال"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ البيع"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الربح"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الخصم"}</th>
+                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ البيع بعد الخصم"}</th>
+                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الربح بعد الخصم"}</th>
                               </tr>
                             </thead>
                             <tbody>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">المفرد</th>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartLabelsHidden ? "" : "المفرد"}</th>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">1</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(unitCost)}</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(unitSale)}</td>
@@ -7004,7 +7082,7 @@ ${folderCustomers
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للمفرد " + product.name} type="number" min={-unitCost} step="1" value={netProfitUnit} onChange={(event) => updateCartNetUnitProfit(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
                               </tr>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">الجمع</th>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartLabelsHidden ? "" : "الجمع"}</th>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"العدد للجميع " + product.name} type="number" min="0" max={Math.max(0, Number(product.quantity) || 0)} step="1" value={quantity} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-0.5 py-1 text-center text-[14px] font-bold focus:border-blue-500 focus:outline-none" /></td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(totalCost)}</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(totalSale)}</td>
@@ -7022,17 +7100,17 @@ ${folderCustomers
                   })}
                   <section className="overflow-hidden rounded-xl border border-slate-300 bg-white">
                     <table dir="rtl" className="w-full table-fixed border-collapse text-xs sm:text-sm">
-                      <thead><tr><th colSpan={2} className="border border-slate-400 bg-[#b6c8e4] px-3 py-2 text-center text-sm font-black text-slate-900">الإجمالي</th></tr></thead>
+                      <thead><tr><th colSpan={2} className="border border-slate-400 bg-[#b6c8e4] px-3 py-2 text-center text-sm font-black text-slate-900">{productCartLabelsHidden ? "" : "الإجمالي"}</th></tr></thead>
                       <tbody>
-                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">الإجمالي قبل الخصم</th></tr>
-                        <tr><th className="w-[42%] border border-slate-300 px-3 py-2 text-right font-bold">إجمالي عدد البضاعة</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartCount)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ رأس المال</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalCapital)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
-                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">الإجمالي بعد الخصم</th></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الخصم</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الخصم بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartDiscountTotal} onChange={event => updateCartAggregateDiscount(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ البيع</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ البيع بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartTotal} onChange={event => updateCartAggregateNetTotal(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">إجمالي مبلغ الربح</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الربح بعد الخصم" type="number" min={-productCartTotalCapital} max={productCartProfitBeforeDiscount} step="1" value={productCartTotalProfit} onChange={event => updateCartAggregateProfit(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold text-emerald-700 focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartLabelsHidden ? "" : "الإجمالي قبل الخصم"}</th></tr>
+                        <tr><th className="w-[42%] border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي عدد البضاعة"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartCount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ رأس المال"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalCapital)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartLabelsHidden ? "" : "الإجمالي بعد الخصم"}</th></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الخصم"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الخصم بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartDiscountTotal} onChange={event => updateCartAggregateDiscount(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ البيع بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartTotal} onChange={event => updateCartAggregateNetTotal(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الربح بعد الخصم" type="number" min={-productCartTotalCapital} max={productCartProfitBeforeDiscount} step="1" value={productCartTotalProfit} onChange={event => updateCartAggregateProfit(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold text-emerald-700 focus:border-emerald-500 focus:outline-none" /></td></tr>
                       </tbody>
                     </table>
                   </section>
