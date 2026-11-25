@@ -854,8 +854,8 @@ function ProductsViewContent({
               id === "image" ? (() => {
                 const imageUrl = product.imageUrl || product.imageUrls?.[0];
                 return imageUrl ? (
-                  <img src={imageUrl} alt={`صورة ${product.name}`} loading="lazy" className="mx-auto h-[72px] w-[72px] rounded-lg border border-slate-200 bg-white object-cover" />
-                ) : <span aria-label="لا توجد صورة" className="mx-auto grid h-[72px] w-[72px] place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50"><ImagePlus className="h-6 w-6 text-slate-300" /></span>;
+                  <img src={imageUrl} alt={`صورة ${product.name}`} loading="lazy" className="mx-auto h-[80px] w-[80px] rounded-lg border border-slate-200 bg-white object-cover" />
+                ) : <span aria-label="لا توجد صورة" className="mx-auto grid h-[80px] w-[80px] place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50"><ImagePlus className="h-6 w-6 text-slate-300" /></span>;
               })() :
               id === "category" ? productTextLines((product.category || "").split(" / ").filter(Boolean).pop() || "بدون تصنيف") :
               id === "purchasePrice" || id === "salePrice" ? <>{money(product[id])} <span className="text-slate-500">{settings.currency}</span></> :
