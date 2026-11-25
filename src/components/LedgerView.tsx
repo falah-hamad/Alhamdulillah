@@ -405,7 +405,8 @@ export default function LedgerView({
   const [productCartUnitDiscounts, setProductCartUnitDiscounts] = useState<Record<string, number>>({});
   const [productCartDiscountTotals, setProductCartDiscountTotals] = useState<Record<string, number>>({});
   const [productCartProductSnapshots, setProductCartProductSnapshots] = useState<Record<string, Product>>({});
-  const [productCartLabelsHidden, setProductCartLabelsHidden] = useState(false);
+  const [productCartValuesHidden, setProductCartValuesHidden] = useState(false);
+  const [productCartHeadersHidden, setProductCartHeadersHidden] = useState(false);
   type CartReviewSnapshot = {
     quantities: Record<string, number>;
     unitPrices: Record<string, number>;
@@ -3065,7 +3066,8 @@ ${folderCustomers
     }
     productCartEditHistory.current = { entries: [], index: -1 };
     setProductCartHistoryVersion(version => version + 1);
-    setProductCartLabelsHidden(false);
+    setProductCartValuesHidden(false);
+    setProductCartHeadersHidden(false);
     setProductCartQuantities(record.quantities || {});
     setProductCartUnitPrices(record.unitPrices || {});
     setProductCartTotals(record.totals || {});
@@ -6836,6 +6838,7 @@ ${folderCustomers
           }}
         >
           <div dir="rtl" role="dialog" aria-modal="true" aria-label="عربة البضاعة" className="relative bg-white w-full max-w-2xl max-h-[94dvh] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+            <style>{".product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3),\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td { position: relative; color: transparent !important; text-shadow: none !important; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3)::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(3) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(4) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(5) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(7) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(8) td::after,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(9) td::after { content: '••••'; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(226,232,240,.96); color: #475569; font-weight: 900; letter-spacing: .12em; pointer-events: all; }\n.product-cart-mask-values .cart-product-price-table tbody td:nth-child(n + 3) input,\n.product-cart-mask-values .cart-summary-table tbody tr:nth-child(n + 3) input { color: transparent !important; caret-color: transparent !important; }"}</style>
             <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-l from-emerald-50 to-white flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -6847,7 +6850,7 @@ ${folderCustomers
                   <p className="text-xs font-bold text-emerald-800 mt-1.5">الزبون: {selectedCustomer?.name || "غير محدد"}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {productCartStage === "review" && <>
                   <button
                     type="button"
@@ -6859,16 +6862,14 @@ ${folderCustomers
                   >
                     <Undo2 className="h-4 w-4" />
                   </button>
-                  <button
-                    type="button"
-                    disabled={isAddingCartItems || isSavingProductCartRecord}
-                    onClick={() => setProductCartLabelsHidden(hidden => !hidden)}
-                    className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
-                    aria-label={productCartLabelsHidden ? "إظهار عناوين الجدول" : "إخفاء عناوين الجدول"}
-                    title={productCartLabelsHidden ? "إظهار العناوين" : "إخفاء العناوين"}
-                  >
-                    {productCartLabelsHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2 text-[10px] font-bold text-slate-700 whitespace-nowrap">
+                    <input type="checkbox" checked={productCartValuesHidden} onChange={event => setProductCartValuesHidden(event.target.checked)} className="h-4 w-4 accent-rose-600" aria-label="إخفاء القيم المالية" />
+                    <span>إخفاء القيم</span>
+                  </label>
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2 text-[10px] font-bold text-slate-700 whitespace-nowrap">
+                    <input type="checkbox" checked={productCartHeadersHidden} onChange={event => setProductCartHeadersHidden(event.target.checked)} className="h-4 w-4 accent-blue-600" aria-label="إخفاء رؤوس الجدول" />
+                    <span>إخفاء رؤوس الجدول</span>
+                  </label>
                 </>}
                 <button
                   type="button"
@@ -6994,7 +6995,7 @@ ${folderCustomers
               </div>}
             </div>}
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+            <div className={"flex-1 min-h-0 overflow-y-auto p-3 sm:p-4" + (productCartStage === "review" && productCartValuesHidden ? " product-cart-mask-values" : "")}>
               {productCartStage === "select" ? (
                 <>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2">
@@ -7046,8 +7047,8 @@ ${folderCustomers
                       <section key={product.id} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
                         <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
                           <div className="min-w-0">
-                            <h4 className="truncate text-sm font-black text-slate-900">{productCartLabelsHidden ? "" : product.name}</h4>
-                            <p className="text-[10px] text-slate-500">{productCartLabelsHidden ? "" : "الكمية المحددة: "}{formatThousands(quantity)} {product.unitName || "قطعة"}</p>
+                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
+                            <p className="text-[10px] text-slate-500">{productCartHeadersHidden ? "" : "الكمية المحددة: "}{formatThousands(quantity)} {product.unitName || "قطعة"}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
                             <button type="button" title="إعادة أسعار الصنف إلى الأصل" aria-label={"إعادة أسعار " + product.name + " إلى الأصل"} onClick={() => resetCartProductPricing(product)} className="grid h-8 w-8 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
@@ -7057,22 +7058,22 @@ ${folderCustomers
                           </div>
                         </div>
                         <div className="w-full overflow-hidden">
-                          <table dir="rtl" className="w-full table-fixed border-collapse text-center text-[15px] leading-snug">
+                          <table dir="rtl" className="cart-product-price-table w-full table-fixed border-collapse text-center text-[15px] leading-snug">
                             <thead>
                               <tr className="bg-[#b6c8e4] text-slate-900">
                                 <th className="w-[10%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug"></th>
-                                <th className="w-[8%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "العدد"}</th>
-                                <th className="w-[17%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ رأس المال"}</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ البيع"}</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الربح"}</th>
-                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الخصم"}</th>
-                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ البيع بعد الخصم"}</th>
-                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartLabelsHidden ? "" : "مبلغ الربح بعد الخصم"}</th>
+                                <th className="w-[8%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "العدد"}</th>
+                                <th className="w-[17%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ رأس المال"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ البيع"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ الربح"}</th>
+                                <th className="w-[12%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ الخصم"}</th>
+                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ البيع بعد الخصم"}</th>
+                                <th className="w-[14.5%] border border-slate-500 px-0.5 py-1.5 break-words align-middle text-[14px] leading-snug">{productCartHeadersHidden ? "" : "مبلغ الربح بعد الخصم"}</th>
                               </tr>
                             </thead>
                             <tbody>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartLabelsHidden ? "" : "المفرد"}</th>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartHeadersHidden ? "" : "المفرد"}</th>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">1</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(unitCost)}</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(unitSale)}</td>
@@ -7082,7 +7083,7 @@ ${folderCustomers
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"مبلغ الربح بعد الخصم للمفرد " + product.name} type="number" min={-unitCost} step="1" value={netProfitUnit} onChange={(event) => updateCartNetUnitProfit(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 bg-emerald-50 px-0.5 py-1 text-center text-[14px] font-bold focus:border-emerald-500 focus:outline-none" /></td>
                               </tr>
                               <tr className="bg-white">
-                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartLabelsHidden ? "" : "الجمع"}</th>
+                                <th className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere] font-black">{productCartHeadersHidden ? "" : "الجمع"}</th>
                                 <td className="border border-slate-400 px-0.5 py-0.5"><FormattedNumberInput aria-label={"العدد للجميع " + product.name} type="number" min="0" max={Math.max(0, Number(product.quantity) || 0)} step="1" value={quantity} onChange={(event) => updateCartQuantity(product, Number(event.target.value))} className="w-full min-w-0 rounded border border-slate-300 px-0.5 py-1 text-center text-[14px] font-bold focus:border-blue-500 focus:outline-none" /></td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(totalCost)}</td>
                                 <td className="border border-slate-400 px-0.5 py-1 text-[15px] leading-snug [overflow-wrap:anywhere]">{formatThousands(totalSale)}</td>
@@ -7094,23 +7095,23 @@ ${folderCustomers
                             </tbody>
                           </table>
                         </div>
-                        {netSaleTotal < totalCost && <p className="border-t border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">البيع بعد الخصم أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
+                        {!productCartValuesHidden && netSaleTotal < totalCost && <p className="border-t border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">البيع بعد الخصم أقل من رأس المال؛ هذه البضاعة تُباع بخسارة.</p>}
                       </section>
                     );
                   })}
                   <section className="overflow-hidden rounded-xl border border-slate-300 bg-white">
-                    <table dir="rtl" className="w-full table-fixed border-collapse text-xs sm:text-sm">
-                      <thead><tr><th colSpan={2} className="border border-slate-400 bg-[#b6c8e4] px-3 py-2 text-center text-sm font-black text-slate-900">{productCartLabelsHidden ? "" : "الإجمالي"}</th></tr></thead>
+                    <table dir="rtl" className="cart-summary-table w-full table-fixed border-collapse text-xs sm:text-sm">
+                      <thead><tr><th colSpan={2} className="border border-slate-400 bg-[#b6c8e4] px-3 py-2 text-center text-sm font-black text-slate-900">{productCartHeadersHidden ? "" : "الإجمالي"}</th></tr></thead>
                       <tbody>
-                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartLabelsHidden ? "" : "الإجمالي قبل الخصم"}</th></tr>
-                        <tr><th className="w-[42%] border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي عدد البضاعة"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartCount)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ رأس المال"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalCapital)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
-                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartLabelsHidden ? "" : "الإجمالي بعد الخصم"}</th></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الخصم"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الخصم بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartDiscountTotal} onChange={event => updateCartAggregateDiscount(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ البيع بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartTotal} onChange={event => updateCartAggregateNetTotal(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
-                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartLabelsHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الربح بعد الخصم" type="number" min={-productCartTotalCapital} max={productCartProfitBeforeDiscount} step="1" value={productCartTotalProfit} onChange={event => updateCartAggregateProfit(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold text-emerald-700 focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartHeadersHidden ? "" : "الإجمالي قبل الخصم"}</th></tr>
+                        <tr><th className="w-[42%] border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي عدد البضاعة"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartCount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ رأس المال"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalCapital)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold">{formatThousands(productCartTotalBeforeDiscount)}</td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-3 py-2 text-center font-bold text-emerald-700">{formatThousands(productCartProfitBeforeDiscount)}</td></tr>
+                        <tr><th colSpan={2} className="border border-slate-300 bg-[#e0eaf5] px-3 py-2 text-center font-black">{productCartHeadersHidden ? "" : "الإجمالي بعد الخصم"}</th></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ الخصم"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الخصم بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartDiscountTotal} onChange={event => updateCartAggregateDiscount(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ البيع"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ البيع بعد الخصم" type="number" min="0" max={productCartTotalBeforeDiscount} step="1" value={productCartTotal} onChange={event => updateCartAggregateNetTotal(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold focus:border-emerald-500 focus:outline-none" /></td></tr>
+                        <tr><th className="border border-slate-300 px-3 py-2 text-right font-bold">{productCartHeadersHidden ? "" : "إجمالي مبلغ الربح"}</th><td className="border border-slate-300 px-2 py-1.5 text-center"><FormattedNumberInput aria-label="إجمالي مبلغ الربح بعد الخصم" type="number" min={-productCartTotalCapital} max={productCartProfitBeforeDiscount} step="1" value={productCartTotalProfit} onChange={event => updateCartAggregateProfit(Number(event.target.value))} className="w-full min-w-0 rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-center font-bold text-emerald-700 focus:border-emerald-500 focus:outline-none" /></td></tr>
                       </tbody>
                     </table>
                   </section>
@@ -7126,7 +7127,7 @@ ${folderCustomers
                 </div>
                 <div className="text-left">
                   <p className="text-[11px] text-slate-500">{productCartStage === "review" ? "الإجمالي بعد الخصم" : "الإجمالي قبل الخصم"}</p>
-                  <p className="text-lg font-black text-emerald-700">{formatThousands(productCartStage === "review" ? productCartTotal : productCartTotalBeforeDiscount)} {settings.currency}</p>
+                  <p className="text-lg font-black text-emerald-700">{productCartStage === "review" && productCartValuesHidden ? "••••" : formatThousands(productCartStage === "review" ? productCartTotal : productCartTotalBeforeDiscount)} {settings.currency}</p>
                 </div>
               </div>
               <div className="flex gap-2">
