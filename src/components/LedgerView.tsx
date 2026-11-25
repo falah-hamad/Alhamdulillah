@@ -2979,8 +2979,8 @@ ${folderCustomers
     const imageSource = product.imageUrl || (product.imageUrls && product.imageUrls[0]);
     const listLayout = productCartDisplayMode === "list";
     return <article key={product.id} className={`flex min-w-0 rounded-xl border shadow-sm transition-colors ${listLayout ? "flex-row items-center gap-2.5 p-2" : "flex-col p-2"} ${quantity > 0 ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-      <div className={listLayout ? "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50" : "mb-1.5 flex h-9 items-center justify-center overflow-hidden rounded-lg bg-slate-50"}>
-        {imageSource ? <img src={imageSource} alt="" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-400" />}
+      <div className={listLayout ? "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white" : "mx-auto mb-1.5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white"}>
+        {imageSource ? <img src={imageSource} alt={"صورة " + product.name} loading="lazy" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-300" />}
       </div>
       <div className={listLayout ? "min-w-0 flex-1 text-right" : "min-w-0"}>
         <p className={listLayout ? "line-clamp-2 break-words text-xs font-extrabold leading-4 text-slate-800" : "line-clamp-2 min-h-9 break-words text-center text-xs font-extrabold leading-4 text-slate-800"}>{product.name}</p>
@@ -7032,6 +7032,7 @@ ${folderCustomers
                 <div className="space-y-3">
                   {selectedCartProducts.map((product) => {
                     const quantity = Number(productCartQuantities[product.id]) || 0;
+                    const imageSource = product.imageUrl || product.imageUrls?.[0];
                     const unitCost = Math.max(0, Math.round(Number(product.purchasePrice) || 0));
                     const totalCost = unitCost * quantity;
                     const unitSale = getCartUnitPrice(product);
@@ -7047,9 +7048,14 @@ ${folderCustomers
                     return (
                       <section key={product.id} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
                         <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-50 px-3 py-2.5">
-                          <div className="min-w-0">
-                            <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
-                            <p className="text-[10px] text-slate-500"><span className={productCartHeadersHidden ? "invisible" : ""}>الكمية المحددة: </span>{formatThousands(quantity)} {product.unitName || "قطعة"}</p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+                              {imageSource ? <img src={imageSource} alt={"صورة " + product.name} loading="lazy" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-slate-300" />}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="truncate text-sm font-black text-slate-900">{product.name}</h4>
+                              <p className="text-[10px] text-slate-500"><span className={productCartHeadersHidden ? "invisible" : ""}>الكمية المحددة: </span>{formatThousands(quantity)} {product.unitName || "قطعة"}</p>
+                            </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
                             <button type="button" title="إعادة أسعار الصنف إلى الأصل" aria-label={"إعادة أسعار " + product.name + " إلى الأصل"} onClick={() => resetCartProductPricing(product)} className="grid h-8 w-8 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
