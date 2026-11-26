@@ -18,7 +18,7 @@ const jobFor = (customer?: Customer) => { const entry=Object.entries(customer?.p
 
 export default function ActivityLogView({ customers, folders, products, invoices, payments, suppliers, currency }: Props) {
   const [filters,setFilters]=useState<Filter[]>([emptyFilter(1)]); const [applied,setApplied]=useState<Filter[]>([emptyFilter(1)]); const [nextId,setNextId]=useState(2);
-  const productById=useMemo(()=>new Map(products.map(p=>[p.id,p])),[products]); const customerById=useMemo(()=>new Map(customers.map(c=>[c.id,c])),[customers]);
+  const productById=useMemo(()=>new Map(products.map(p=>[p.id,p])),[products]); const customerById=useMemo(()=>new Map(customers.map(c=>[c.id,c])),[customers]); const folderById=useMemo(()=>new Map(folders.map(folder=>[folder.id,folder])),[folders]);
   const events=useMemo<LogEvent[]>(()=>{
     const out:LogEvent[]=[];
     invoices.filter(i=>!i.isDeleted).forEach(i=>{ const c=customerById.get(i.customerId); (i.items||[]).filter(saleRow).forEach(item=>{const p=item.productId?productById.get(item.productId):undefined; out.push({id:`sale-${i.id}-${item.id}`,kind:"sale",timestamp:i.createdAt||i.date,person:i.customerName||c?.name||"عميل",customerId:i.customerId,product:item.details||p?.name||"بضاعة",category:p?.category||"",quantity:num(item.quantity),amount:num(item.total||item.unitPrice),detail:`فاتورة ${i.invoiceNumber||""}`.trim(),address:i.customerAddress||c?.address||"",folderId:c?.folderId,salaryType:c?.salaryType||"",profession:jobFor(c)});});});
