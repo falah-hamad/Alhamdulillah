@@ -5,10 +5,12 @@ import { formatThousands } from "../utils/numberFormatting";
 
 type EventKind = "sale" | "payment" | "supplierPurchase" | "supplierPayment" | "customerAdded" | "stockAdded";
 type LogEvent = { id: string; kind: EventKind; timestamp: string; person: string; customerId?: string; product: string; category: string; quantity: number | null; amount: number | null; detail: string; source: string; address?: string; folderId?: string; salaryType?: string; profession?: string };
-type Filter = { id: number; action: string; kind: string; timeMode: string; date: string; from: string; to: string; time: string; customerId: string; category: string; address: string; folderId: string; salaryType: string; profession: string; show: boolean };
+type GroupField = "date" | "kind" | "customer" | "category" | "address" | "folder" | "salaryType" | "profession";
+type Filter = { id: number; action: string; kind: string; timeMode: string; date: string; from: string; to: string; time: string; customerId: string; category: string; address: string; folderId: string; salaryType: string; profession: string; show: boolean; groupBy: GroupField[] };
 type Props = { customers: Customer[]; folders: CustomerFolder[]; products: Product[]; invoices: Invoice[]; payments: Payment[]; suppliers: Supplier[]; currency: string };
 const kindLabels: Record<EventKind, string> = { sale: "بيع", payment: "تسديد", supplierPurchase: "شراء من مورد", supplierPayment: "تسديد مورد", customerAdded: "إضافة عميل جديد", stockAdded: "إدخال مخزون" };
-const emptyFilter = (id: number): Filter => ({ id, action: "فرز", kind: "all", timeMode: "all", date: "", from: "", to: "", time: "", customerId: "", category: "", address: "", folderId: "", salaryType: "", profession: "", show: true });
+const emptyFilter = (id: number): Filter => ({ id, action: "فرز", kind: "all", timeMode: "all", date: "", from: "", to: "", time: "", customerId: "", category: "", address: "", folderId: "", salaryType: "", profession: "", show: true, groupBy: ["date"] });
+const groupFieldOptions: Array<[GroupField, string]> = [["date", "التاريخ"], ["kind", "نوع الحركة"], ["customer", "العميل"], ["category", "نوع البضاعة"], ["address", "العنوان"], ["folder", "المجلد"], ["salaryType", "نوع الراتب"], ["profession", "الوظيفة / المهنة"]];
 const txt = (value: unknown) => String(value ?? "").trim();
 const num = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const dayKey = (value: string) => { if (!value) return ""; const d = new Date(value); if (!Number.isNaN(d.getTime())) return [d.getFullYear(), String(d.getMonth()+1).padStart(2,"0"), String(d.getDate()).padStart(2,"0")].join("-"); const m=value.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}` : value.slice(0,10); };
@@ -33,37 +35,74 @@ export default function ActivityLogView({ customers, folders, products, invoices
   const salaries=useMemo(()=>Array.from(new Set(customers.map(c=>txt(c.salaryType)).filter(Boolean))).sort(),[customers]);
   const professions=useMemo(()=>Array.from(new Set(customers.map(jobFor).filter(Boolean))).sort(),[customers]);
   const matches=(e:LogEvent,f:Filter)=>{if(f.kind!=="all"&&e.kind!==f.kind)return false;const d=dayKey(e.timestamp);if(f.timeMode==="date"&&d!==f.date)return false;if(f.timeMode==="range"&&((f.from&&d<f.from)||(f.to&&d>f.to)))return false;if(f.timeMode==="time"&&(d!==f.date||(f.time&&timeKey(e.timestamp)!==f.time)))return false;if(f.customerId&&e.customerId!==f.customerId)return false;if(f.category&&e.category!==f.category)return false;if(f.address&&e.address!==f.address)return false;if(f.folderId&&e.folderId!==f.folderId)return false;if(f.salaryType&&e.salaryType!==f.salaryType)return false;if(f.profession&&e.profession!==f.profession)return false;return true;};
-  const rows=events.filter(e=>applied.some(f=>matches(e,f)));
-  const resultGroups = applied.map(filter => ({
-    filter,
-    events: events.filter(event => matches(event, filter)),
-  }));
-  const visibleGroups = resultGroups.filter(group => group.filter.show || group.events.length > 0);
-  const filterSummary = (filter: Filter) => {
-    const time = filter.timeMode === "range"
-      ? `من ${filter.from || "البداية"} إلى ${filter.to || "النهاية"}`
+  const rows=events.filter(event=>applied.some(filter=>matches(event,filter)));
+  type ResultGroup = { id: string; filter: Filter; events: LogEvent[]; sample?: LogEvent; grouped: boolean };
+  const resultGroups: ResultGroup[] = [];
+  const seenEventIds = new Set<string>();
+  const valueFor = (event: LogEvent, field: GroupField) => {
+    if (field === "date") return dayKey(event.timestamp);
+    if (field === "kind") return event.kind;
+    if (field === "customer") return event.customerId || event.person;
+    if (field === "category") return event.category || "غير مصنف";
+    if (field === "address") return event.address || "بدون عنوان";
+    if (field === "folder") return event.folderId || "بدون مجلد";
+    if (field === "salaryType") return event.salaryType || "بدون راتب";
+    return event.profession || "بدون مهنة";
+  };
+  applied.forEach(filter => {
+    const matched = events.filter(event => matches(event, filter) && !seenEventIds.has(event.id));
+    matched.forEach(event => seenEventIds.add(event.id));
+    if (!filter.show) {
+      if (matched.length) resultGroups.push({ id: `flat-${filter.id}`, filter, events: matched, grouped: false });
+      return;
+    }
+    const buckets = new Map<string, LogEvent[]>();
+    matched.forEach(event => {
+      const key = filter.groupBy.length ? JSON.stringify(filter.groupBy.map(field => valueFor(event, field))) : "all";
+      const bucket = buckets.get(key) || [];
+      bucket.push(event);
+      buckets.set(key, bucket);
+    });
+    if (buckets.size === 0) buckets.set("empty", []);
+    buckets.forEach((groupEvents, key) => resultGroups.push({
+      id: `group-${filter.id}-${key}`, filter, events: groupEvents, sample: groupEvents[0], grouped: true,
+    }));
+  });
+  const filterSummary = (filter: Filter, sample?: LogEvent) => {
+    const groupedBy = new Set(filter.groupBy);
+    const time = groupedBy.has("date") && sample
+      ? (() => { const key = dayKey(sample.timestamp); const [year, month, day] = key.split("-"); return key ? `${day}/${month}/${year}` : "غير محدد"; })()
+      : filter.timeMode === "range" ? `من ${filter.from || "البداية"} إلى ${filter.to || "النهاية"}`
       : filter.timeMode === "date" ? filter.date
       : filter.timeMode === "time" ? `${filter.date}${filter.time ? " — " + filter.time : ""}`
-      : "الكل";
+      : groupedBy.has("date") && !sample ? "لا توجد حركات" : "الكل";
+    const kind = filter.kind !== "all" ? kindLabels[filter.kind as EventKind] || filter.kind
+      : groupedBy.has("kind") && sample ? kindLabels[sample.kind] : "الكل";
     const extra = [
-      filter.customerId ? `العميل: ${customerById.get(filter.customerId)?.name || ""}` : "",
-      filter.category ? `نوع البضاعة: ${filter.category}` : "",
-      filter.address ? `العنوان: ${filter.address}` : "",
-      filter.folderId ? `المجلد: ${folderById.get(filter.folderId)?.name || ""}` : "",
-      filter.salaryType ? `نوع الراتب: ${filter.salaryType}` : "",
-      filter.profession ? `الوظيفة / المهنة: ${filter.profession}` : "",
+      filter.customerId ? `العميل: ${customerById.get(filter.customerId)?.name || ""}` : groupedBy.has("customer") && sample ? `العميل: ${sample.person}` : "",
+      filter.category ? `نوع البضاعة: ${filter.category}` : groupedBy.has("category") && sample ? `نوع البضاعة: ${sample.category || "غير مصنف"}` : "",
+      filter.address ? `العنوان: ${filter.address}` : groupedBy.has("address") && sample ? `العنوان: ${sample.address || "بدون عنوان"}` : "",
+      filter.folderId ? `المجلد: ${folderById.get(filter.folderId)?.name || ""}` : groupedBy.has("folder") && sample ? `المجلد: ${folderById.get(sample.folderId || "")?.name || "بدون مجلد"}` : "",
+      filter.salaryType ? `نوع الراتب: ${filter.salaryType}` : groupedBy.has("salaryType") && sample ? `نوع الراتب: ${sample.salaryType || "بدون راتب"}` : "",
+      filter.profession ? `الوظيفة / المهنة: ${filter.profession}` : groupedBy.has("profession") && sample ? `الوظيفة / المهنة: ${sample.profession || "بدون مهنة"}` : "",
     ].filter(Boolean).join(" — ") || "الكل";
-    return { action: filter.action, time, kind: filter.kind === "all" ? "الكل" : kindLabels[filter.kind as EventKind] || filter.kind, extra };
+    return { action: filter.action, time, kind, extra };
   };
-  const columnsFor = (filter: Filter) => [
-    ...(filter.kind === "all" ? [{ key: "kind", label: "نوع الحركة" }] : []),
-    ...(filter.timeMode === "all" ? [{ key: "timestamp", label: "التاريخ والوقت" }] : []),
-    ...(!filter.customerId ? [{ key: "person", label: "العميل / المورد" }] : []),
-    { key: "product", label: "البضاعة والتفاصيل" },
-    { key: "source", label: "الكشف / القائمة" },
-    { key: "quantity", label: "الكمية" },
-    { key: "amount", label: "المبلغ" },
-  ];
+  const columnsFor = (filter: Filter, grouped: boolean) => {
+    const groupedBy = new Set(filter.groupBy);
+    if (!grouped) return [
+      { key: "kind", label: "نوع الحركة" }, { key: "timestamp", label: "التاريخ والوقت" },
+      { key: "person", label: "العميل / المورد" }, { key: "product", label: "البضاعة والتفاصيل" },
+      { key: "source", label: "الكشف / القائمة" }, { key: "quantity", label: "الكمية" }, { key: "amount", label: "المبلغ" },
+    ];
+    return [
+      ...(filter.kind === "all" && !groupedBy.has("kind") ? [{ key: "kind", label: "نوع الحركة" }] : []),
+      ...(filter.timeMode === "all" && !groupedBy.has("date") ? [{ key: "timestamp", label: "التاريخ والوقت" }] : []),
+      ...(!filter.customerId && !groupedBy.has("customer") ? [{ key: "person", label: "العميل / المورد" }] : []),
+      { key: "product", label: "البضاعة والتفاصيل" }, { key: "source", label: "الكشف / القائمة" },
+      { key: "quantity", label: "الكمية" }, { key: "amount", label: "المبلغ" },
+    ];
+  };
   const renderEventCell = (event: LogEvent, key: string) => {
     if (key === "kind") return kindLabels[event.kind];
     if (key === "timestamp") return new Date(event.timestamp).toLocaleString("ar-IQ", { dateStyle: "short", timeStyle: "short" });
@@ -80,7 +119,7 @@ export default function ActivityLogView({ customers, folders, products, invoices
   const dateInput=(label:string,value:string,onChange:(v:string)=>void)=><label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span><input className={selectClass} type="date" value={value} onChange={e=>onChange(e.target.value)}/></label>;
   return <section dir="rtl" className="space-y-4 p-3 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-l from-blue-50 to-white p-4"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><Activity className="h-5 w-5"/></span><div><h2 className="font-extrabold text-slate-900">سجل الحركات</h2><p className="mt-1 text-xs text-slate-500">فرز المبيعات والتسديدات والمشتريات حسب التاريخ والبيانات المرتبطة.</p></div></div><div className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm">الحركات المطابقة: {rows.length}</div></div>
-    <div className="space-y-3">{filters.map((f,index)=><div key={f.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">شرط الفرز {index+1}</span>{index>0&&<span className="text-xs font-bold text-indigo-600">أو</span>}</div><label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={f.show} onChange={e=>patch(f.id,{show:e.target.checked})}/>إظهار صف الشرط في النتائج</label>{filters.length>1&&<button type="button" onClick={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50" title="حذف الشرط"><Trash2 className="h-4 w-4"/></button>}</div>
+    <div className="space-y-3">{filters.map((f,index)=><div key={f.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">شرط الفرز {index+1}</span>{index>0&&<span className="text-xs font-bold text-indigo-600">أو</span>}</div><label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={f.show} onChange={e=>patch(f.id,{show:e.target.checked})}/>عرض النتائج ببطاقات قابلة للفتح والطي</label>{filters.length>1&&<button type="button" onClick={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50" title="حذف الشرط"><Trash2 className="h-4 w-4"/></button>}</div>
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {field("نوع الإجراء",f.action,v=>patch(f.id,{action:v}),[["فرز","فرز"]])}
       {field("نوع الحركة",f.kind,v=>patch(f.id,{kind:v}),[["all","الكل"],...Object.entries(kindLabels)])}
@@ -96,33 +135,29 @@ export default function ActivityLogView({ customers, folders, products, invoices
       {field("المجلد",f.folderId,v=>patch(f.id,{folderId:v}),[["","كل المجلدات"],...folders.map(x=>[x.id,x.name] as [string,string])])}
       {field("نوع الراتب",f.salaryType,v=>patch(f.id,{salaryType:v}),[["","كل الأنواع"],...salaries.map(x=>[x,x] as [string,string])])}
       {field("الوظيفة / المهنة",f.profession,v=>patch(f.id,{profession:v}),[["","كل الوظائف"],...professions.map(x=>[x,x] as [string,string])])}
-    </div></div>)}</div>
+    </div>{f.show&&<div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3"><p className="mb-2 text-xs font-bold text-slate-700">أنشئ بطاقة جديدة عند تغيّر:</p><div className="flex flex-wrap gap-x-4 gap-y-2">{groupFieldOptions.map(([key,label])=><label key={key} className="flex items-center gap-1.5 text-xs text-slate-700"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={f.groupBy.includes(key)} onChange={e=>patch(f.id,{groupBy:e.target.checked?[...f.groupBy,key]:f.groupBy.filter(value=>value!==key)})}/>{label}{key==="date"&&f.timeMode==="range"?" (يومي)":""}</label>)}</div></div>}</div>)}</div>
     <div className="flex flex-wrap gap-2"><button type="button" onClick={()=>{setFilters(fs=>[...fs,emptyFilter(nextId)]);setNextId(i=>i+1);}} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-50"><Plus className="h-4 w-4"/>إضافة شرط «أو»</button><button type="button" onClick={()=>setApplied(filters)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"><Search className="h-4 w-4"/>تطبيق الفرز</button><button type="button" onClick={()=>{const f=[emptyFilter(1)];setFilters(f);setApplied(f);setNextId(2);}} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4"/>إعادة ضبط</button></div>
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1"><h3 className="font-bold text-slate-800">نتائج الحركات</h3><span className="text-xs text-slate-500">عدد الحركات المطابقة: {rows.length}</span></div>
-      {visibleGroups.map((group, index) => {
-        const summary = filterSummary(group.filter);
-        const columns = columnsFor(group.filter);
-        return <article key={group.filter.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {group.filter.show && <div className="border-b border-blue-300 bg-blue-200">
-            <div className="border-b border-blue-300/70 px-3 py-2 text-xs font-extrabold text-slate-800">عنوان الفرز {visibleGroups.length > 1 ? index + 1 : ""}</div>
-            <div className="grid grid-cols-2 divide-x divide-x-reverse divide-blue-300 text-center text-xs font-bold text-slate-900 sm:grid-cols-4">
-              <div className="px-2 py-2">نوع الإجراء: {summary.action}</div>
-              <div className="px-2 py-2">الطابع الزمني: {summary.time}</div>
-              <div className="px-2 py-2">نوع الحركة: {summary.kind}</div>
-              <div className="px-2 py-2">{summary.extra}</div>
+      {resultGroups.map(group => {
+        const summary = filterSummary(group.filter, group.sample);
+        const columns = columnsFor(group.filter, group.grouped);
+        const table = <><div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">جدول نتائج الفرز <span className="font-normal text-slate-500">({group.events.length})</span></div><div className="overflow-x-auto"><table className="min-w-[760px] w-full border-collapse text-right text-sm"><thead className="bg-blue-100 text-slate-800"><tr>{columns.map(column => <th key={column.key} className="border border-blue-200 px-3 py-3 font-bold">{column.label}</th>)}</tr></thead><tbody>{group.events.map(event => <tr key={event.id} className="hover:bg-blue-50/50">{columns.map(column => <td key={column.key} className="border border-slate-200 px-3 py-3 align-top">{renderEventCell(event, column.key)}</td>)}</tr>)}{group.events.length===0&&<tr><td colSpan={columns.length} className="px-4 py-10 text-center text-slate-500">ماكو حركات مطابقة لهذا الفرز.</td></tr>}</tbody></table></div></>;
+        if (!group.grouped) return <article key={group.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{table}</article>;
+        return <details key={group.id} open className="group overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
+          <summary className="cursor-pointer list-none bg-blue-200 text-slate-900 [&::-webkit-details-marker]:hidden">
+            <div className="grid grid-cols-2 divide-x divide-x-reverse divide-blue-300 text-center text-xs font-bold sm:grid-cols-4">
+              <div className="px-2 py-3">نوع الإجراء: {summary.action}</div>
+              <div className="px-2 py-3">الطابع الزمني: {summary.time}</div>
+              <div className="px-2 py-3">نوع الحركة: {summary.kind}</div>
+              <div className="px-2 py-3">{summary.extra}</div>
             </div>
-          </div>}
-          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">جدول نتائج الفرز <span className="font-normal text-slate-500">({group.events.length})</span></div>
-          <div className="overflow-x-auto"><table className="min-w-[760px] w-full border-collapse text-right text-sm">
-            <thead className="bg-blue-100 text-slate-800"><tr>{columns.map(column => <th key={column.key} className="border border-blue-200 px-3 py-3 font-bold">{column.label}</th>)}</tr></thead>
-            <tbody>{group.events.map(event => <tr key={event.id} className="hover:bg-blue-50/50">{columns.map(column => <td key={column.key} className="border border-slate-200 px-3 py-3 align-top">{renderEventCell(event, column.key)}</td>)}</tr>)}
-              {group.events.length === 0 && <tr><td colSpan={columns.length} className="px-4 py-10 text-center text-slate-500">ماكو حركات مطابقة لهذا الفرز.</td></tr>}
-            </tbody>
-          </table></div>
-        </article>;
+            <div className="border-t border-blue-300/70 px-3 py-1 text-left text-[10px] font-semibold text-slate-600"><span className="group-open:hidden">اضغط للفتح ▾</span><span className="hidden group-open:inline">اضغط للطي ▴</span></div>
+          </summary>
+          {table}
+        </details>;
       })}
-      {visibleGroups.length === 0 && <div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center text-slate-500">ماكو حركات مطابقة للفرز المحدد.</div>}
+      {resultGroups.length===0&&<div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center text-slate-500">ماكو حركات مطابقة للفرز المحدد.</div>}
     </div>
   </section>;
 }
