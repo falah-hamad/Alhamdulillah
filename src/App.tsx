@@ -47,6 +47,7 @@ import ProductsView from "./components/ProductsView";
 import SuppliersView from "./components/SuppliersView";
 import PaymentsView from "./components/PaymentsView";
 import StatsView from "./components/StatsView";
+import ActivityLogView from "./components/ActivityLogView";
 import SettingsView from "./components/SettingsView";
 import FileManagerView from "./components/FileManagerView";
 import OverdueDebtorsView from "./components/OverdueDebtorsView";
@@ -754,6 +755,7 @@ export default function App() {
                 {currentTab === "suppliers" && "حسابات الموردين والمشتريات"}
                 {currentTab === "payments" && "سجل المقبوضات والدفعات"}
                 {currentTab === "stats" && "التقارير البيانية والإحصائيات"}
+                {currentTab === "activityLog" && "سجل الحركات"}
                 {currentTab === "downloads" && "التنزيلات"}
                 {currentTab === "settings" && "الإعدادات وتأمين البيانات"}
               </h1>
@@ -1065,6 +1067,8 @@ export default function App() {
               onOpenLedger={() => setCurrentTab("ledger")}
             />
           )}
+
+          {currentTab === "activityLog" && <ActivityLogView customers={activeCustomers} folders={folders} products={products} invoices={activeInvoices} payments={activePayments} suppliers={suppliers} currency={settings.currency} />}
 
           {currentTab === "stats" && (
             <StatsView
