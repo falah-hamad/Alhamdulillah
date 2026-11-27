@@ -143,7 +143,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
       formatDate(dayKey(value));
   };
   const money = (value: number | null) => value === null ? "—" : formatThousands(value) + " " + currency;
-  const tableClass = "min-w-[900px] w-full border-collapse text-right text-xs sm:text-sm";
+  const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm whitespace-nowrap";
   const headClass = "border border-amber-300 bg-amber-100 px-2 py-2.5 font-extrabold text-slate-800";
   const cellClass = "border border-slate-300 px-2 py-2 text-slate-800 align-top";
   const renderTable = (kind: EventKind, rows: LogEvent[]) => {
