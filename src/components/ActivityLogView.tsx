@@ -78,6 +78,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "none", direction: "desc", show: false }]);
   const [sortPanelOpen, setSortPanelOpen] = useState(false);
   const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
+  const [draggedColumnId, setDraggedColumnId] = useState<ActivityColumnId | null>(null);
   const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
   const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
   const customerById = useMemo(() => new Map(customers.map(customer => [customer.id, customer])), [customers]);
@@ -425,11 +426,22 @@ export default function ActivityLogView({ customers, products, invoices, payment
         {columnsPanelOpen && <div id="activity-column-options" className="mt-3 border-t border-slate-100 pt-3">
           <p className="mb-2 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه، واستخدم الأسهم لترتيب الأعمدة.</p>
           <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2">
-            {columnOrder.map((id, index) => <div key={id} className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-[#eef3fa] px-2 py-2">
-              <GripVertical size={17} className="text-slate-500"/>
+            {columnOrder.map((id, index) => <div key={id} onDragOver={event => {
+              event.preventDefault();
+              if (!draggedColumnId || draggedColumnId === id) return;
+              setColumnOrder(old => {
+                const from = old.indexOf(draggedColumnId), to = old.indexOf(id);
+                if (from < 0 || to < 0 || from === to) return old;
+                const next = [...old];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                return next;
+              });
+            }} onDrop={() => setDraggedColumnId(null)} className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-[#eef3fa] px-2 py-2">
+              <button type="button" draggable aria-label={"اسحب لترتيب " + id} onDragStart={() => setDraggedColumnId(id)} onDragEnd={() => setDraggedColumnId(null)} className="cursor-grab text-slate-500 active:cursor-grabbing"><GripVertical size={17}/></button>
               <label className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-slate-700">
                 <span>{activityColumns.find(column => column.id === id)?.label}</span>
-                <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.length === 1 && visibleColumns.includes(id)} onChange={event => setVisibleColumns(old => event.target.checked ? [...old, id] : old.filter(column => column !== id))} className="h-4 w-4"/>
+                <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.includes(id) && (visibleColumns.length === 1 || (["timestamp", "kind", "person", "address", "amount", "source", "sequence"] as ActivityColumnId[]).filter(column => column !== id && visibleColumns.includes(column)).length === 0)} onChange={event => setVisibleColumns(old => event.target.checked ? [...old, id] : old.filter(column => column !== id))} className="h-4 w-4"/>
               </label>
               <button type="button" aria-label={"تحريك " + id + " للأعلى"} disabled={index === 0} onClick={() => moveColumn(id, -1)} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
               <button type="button" aria-label={"تحريك " + id + " للأسفل"} disabled={index === columnOrder.length - 1} onClick={() => moveColumn(id, 1)} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
