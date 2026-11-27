@@ -144,7 +144,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
   };
   const money = (value: number | null) => value === null ? "—" : formatThousands(value) + " " + currency;
   const wrapAfterSevenWords = (value: string) => {
-    const words = value.trim().split(/\\s+/).filter(Boolean);
+    const words = value.trim().split(/\s+/).filter(Boolean);
     if (words.length <= 7) return value;
     return words.map((word, index) => (
       <React.Fragment key={index}>
