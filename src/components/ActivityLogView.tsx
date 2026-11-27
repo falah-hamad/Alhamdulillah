@@ -6,10 +6,10 @@ import { formatThousands } from "../utils/numberFormatting";
 type EventKind = "sale" | "payment" | "supplierPurchase" | "supplierPayment" | "customerAdded" | "stockAdded";
 type LogEvent = { id: string; kind: EventKind; timestamp: string; person: string; customerId?: string; product: string; category: string; quantity: number | null; amount: number | null; detail: string; source: string; address?: string; folderId?: string; salaryType?: string; profession?: string };
 type GroupField = "date" | "kind" | "customer" | "category" | "address" | "folder" | "salaryType" | "profession";
-type Filter = { id: number; action: string; kind: string; timeMode: string; date: string; from: string; to: string; time: string; customerId: string; category: string; address: string; folderId: string; salaryType: string; profession: string; show: boolean; groupBy: GroupField[] };
+type Filter = { id: number; kind: string; timeMode: string; date: string; from: string; to: string; time: string; customerId: string; category: string; address: string; folderId: string; salaryType: string; profession: string; show: boolean; groupBy: GroupField[] };
 type Props = { customers: Customer[]; folders: CustomerFolder[]; products: Product[]; invoices: Invoice[]; payments: Payment[]; suppliers: Supplier[]; currency: string };
 const kindLabels: Record<EventKind, string> = { sale: "بيع", payment: "تسديد", supplierPurchase: "شراء من مورد", supplierPayment: "تسديد مورد", customerAdded: "إضافة عميل جديد", stockAdded: "إدخال مخزون" };
-const emptyFilter = (id: number): Filter => ({ id, action: "فرز", kind: "all", timeMode: "all", date: "", from: "", to: "", time: "", customerId: "", category: "", address: "", folderId: "", salaryType: "", profession: "", show: true, groupBy: ["date"] });
+const emptyFilter = (id: number): Filter => ({ id, kind: "all", timeMode: "all", date: "", from: "", to: "", time: "", customerId: "", category: "", address: "", folderId: "", salaryType: "", profession: "", show: true, groupBy: ["date"] });
 const groupFieldOptions: Array<[GroupField, string]> = [["date", "التاريخ"], ["kind", "نوع الحركة"], ["customer", "العميل"], ["category", "نوع البضاعة"], ["address", "العنوان"], ["folder", "المجلد"], ["salaryType", "نوع الراتب"], ["profession", "الوظيفة / المهنة"]];
 const txt = (value: unknown) => String(value ?? "").trim();
 const num = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -86,7 +86,7 @@ export default function ActivityLogView({ customers, folders, products, invoices
       filter.salaryType ? `نوع الراتب: ${filter.salaryType}` : groupedBy.has("salaryType") && sample ? `نوع الراتب: ${sample.salaryType || "بدون راتب"}` : "",
       filter.profession ? `الوظيفة / المهنة: ${filter.profession}` : groupedBy.has("profession") && sample ? `الوظيفة / المهنة: ${sample.profession || "بدون مهنة"}` : "",
     ].filter(Boolean).join(" — ") || "الكل";
-    return { action: filter.action, time, kind, extra };
+    return { time, kind, extra };
   };
   const columnsFor = (filter: Filter, grouped: boolean) => {
     const groupedBy = new Set(filter.groupBy);
@@ -121,7 +121,6 @@ export default function ActivityLogView({ customers, folders, products, invoices
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-l from-blue-50 to-white p-4"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><Activity className="h-5 w-5"/></span><div><h2 className="font-extrabold text-slate-900">سجل الحركات</h2><p className="mt-1 text-xs text-slate-500">فرز المبيعات والتسديدات والمشتريات حسب التاريخ والبيانات المرتبطة.</p></div></div><div className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm">الحركات المطابقة: {rows.length}</div></div>
     <div className="space-y-3">{filters.map((f,index)=><div key={f.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">شرط الفرز {index+1}</span>{index>0&&<span className="text-xs font-bold text-indigo-600">أو</span>}</div><label className="flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={f.show} onChange={e=>patch(f.id,{show:e.target.checked})}/>عرض النتائج ببطاقات قابلة للفتح والطي</label>{filters.length>1&&<button type="button" onClick={()=>setFilters(fs=>fs.filter(x=>x.id!==f.id))} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50" title="حذف الشرط"><Trash2 className="h-4 w-4"/></button>}</div>
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {field("نوع الإجراء",f.action,v=>patch(f.id,{action:v}),[["فرز","فرز"]])}
       {field("نوع الحركة",f.kind,v=>patch(f.id,{kind:v}),[["all","الكل"],...Object.entries(kindLabels)])}
       {field("الطابع الزمني",f.timeMode,v=>patch(f.id,{timeMode:v}),[["all","كل الأوقات"],["time","وقت محدد"],["date","يوم محدد"],["range","فترة زمنية"]])}
       {f.timeMode==="time"&&dateInput("اليوم",f.date,v=>patch(f.id,{date:v}))}
@@ -145,7 +144,6 @@ export default function ActivityLogView({ customers, folders, products, invoices
         const previousSummary = previousGroup && previousGroup.filter.id === group.filter.id
           ? filterSummary(previousGroup.filter, previousGroup.sample)
           : undefined;
-        const showAction = !previousSummary || summary.action !== previousSummary.action;
         const showTime = !previousSummary || summary.time !== previousSummary.time;
         const showKind = !previousSummary || summary.kind !== previousSummary.kind;
         const columns = columnsFor(group.filter, group.grouped);
@@ -153,8 +151,7 @@ export default function ActivityLogView({ customers, folders, products, invoices
         if (!group.grouped) return <article key={group.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{table}</article>;
         return <details key={group.id} open className="group overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
           <summary className="cursor-pointer list-none bg-blue-200 text-slate-900 [&::-webkit-details-marker]:hidden">
-            <div className="grid grid-cols-2 divide-x divide-x-reverse divide-blue-300 text-center text-xs font-bold sm:grid-cols-4">
-              <div className="px-2 py-3">{showAction && <>نوع الإجراء: {summary.action}</>}</div>
+            <div className="grid grid-cols-2 divide-x divide-x-reverse divide-blue-300 text-center text-xs font-bold sm:grid-cols-3">
               <div className="px-2 py-3">{showTime && <>الطابع الزمني: {summary.time}</>}</div>
               <div className="px-2 py-3">{showKind && <>نوع الحركة: {summary.kind}</>}</div>
               <div className="px-2 py-3">{summary.extra}</div>
