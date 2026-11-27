@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Activity } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Activity, ChevronDown } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment, Product, Supplier } from "../types";
 import { formatThousands } from "../utils/numberFormatting";
 
@@ -41,6 +41,7 @@ const dayKey = (value: string) => {
 const saleRow = (item: Invoice["items"][number]) => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 
 export default function ActivityLogView({ customers, products, invoices, payments, currency }: Props) {
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
   const customerById = useMemo(() => new Map(customers.map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
   const invoiceById = useMemo(() => new Map(invoices.map(invoice => [invoice.id, invoice])), [invoices]);
@@ -230,9 +231,30 @@ export default function ActivityLogView({ customers, products, invoices, payment
       <div className="space-y-5">
         {dailyGroups.map(group => (
           <section key={group.date} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-            <div className="bg-blue-200 px-3 py-2.5 text-center text-xs font-extrabold text-slate-900 sm:text-sm">{formatDate(group.date)}</div>
+            <button
+              type="button"
+              aria-expanded={!collapsedDays.has(group.date)}
+              aria-controls={`activity-day-${group.date}`}
+              onClick={() => setCollapsedDays(previous => {
+                const next = new Set(previous);
+                if (next.has(group.date)) next.delete(group.date);
+                else next.add(group.date);
+                return next;
+              })}
+              className="flex w-full flex-wrap items-center justify-between gap-2 bg-blue-200 px-3 py-3 text-right text-xs font-extrabold text-slate-900 transition-colors hover:bg-blue-300 sm:px-4 sm:text-sm"
+            >
+              <span className="flex items-center gap-2">
+                <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsedDays.has(group.date) ? "-rotate-90" : "rotate-0"}`} />
+                <span>{formatDate(group.date)}</span>
+              </span>
+              <span className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                <span className="rounded-full bg-white/80 px-2.5 py-1 text-slate-700">الحركات: {(group.sales.length + group.payments.length).toLocaleString("en-US")}</span>
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-blue-900">بيع: {group.sales.length.toLocaleString("en-US")}</span>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-900">تسديد: {group.payments.length.toLocaleString("en-US")}</span>
+              </span>
+            </button>
 
-            <div className="space-y-4 p-2 sm:p-3">
+            {!collapsedDays.has(group.date) && <div id={`activity-day-${group.date}`} className="space-y-4 p-2 sm:p-3">
               <section className="overflow-hidden border border-slate-300">
                 <div className="bg-blue-700 px-3 py-2 text-center text-xs font-extrabold text-white">بيع</div>
                 {renderTable("sale", group.sales)}
@@ -241,7 +263,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
                 <div className="bg-blue-700 px-3 py-2 text-center text-xs font-extrabold text-white">تسديد</div>
                 {renderTable("payment", group.payments)}
               </section>
-            </div>
+            </div>}
           </section>
         ))}
         {!dailyGroups.length && (
