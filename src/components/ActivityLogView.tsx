@@ -1,9 +1,40 @@
 import React, { useMemo, useState } from "react";
-import { Activity, ChevronDown } from "lucide-react";
+import { Activity, ChevronDown, ChevronLeft, ChevronRight, GripVertical, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment, Product, Supplier } from "../types";
 import { formatThousands } from "../utils/numberFormatting";
 
 type EventKind = "sale" | "payment";
+type SortKey = "none" | "timestamp" | "kind" | "person" | "address" | "product" | "quantity" | "amount" | "remainingAmount" | "source" | "sequence";
+type SortRule = { key: SortKey; direction: "asc" | "desc"; show: boolean };
+type ActivityFilters = { kind: "all" | EventKind; from: string; to: string; person: string; address: string; product: string; amountMin: string; amountMax: string };
+type ActivityColumnId = "timestamp" | "kind" | "person" | "address" | "product" | "quantity" | "amount" | "remaining" | "source" | "sequence";
+const sortFields: { key: SortKey; label: string }[] = [
+  { key: "none", label: "بدون فرز" }, { key: "timestamp", label: "الطابع الزمني" }, { key: "kind", label: "نوع الحركة" },
+  { key: "person", label: "اسم العميل" }, { key: "address", label: "العنوان" }, { key: "product", label: "اسم البضاعة" },
+  { key: "quantity", label: "الكمية" }, { key: "amount", label: "المبلغ" }, { key: "remainingAmount", label: "المتبقي" },
+  { key: "source", label: "الكشف / القائمة" }, { key: "sequence", label: "تسلسل الصنف" },
+];
+const activityColumns: { id: ActivityColumnId; label: string }[] = [
+  { id: "timestamp", label: "الطابع الزمني" }, { id: "kind", label: "نوع الحركة" }, { id: "person", label: "اسم العميل" },
+  { id: "address", label: "العنوان" }, { id: "product", label: "اسم البضاعة" }, { id: "quantity", label: "الكمية" },
+  { id: "amount", label: "المبلغ" }, { id: "remaining", label: "المتبقي" }, { id: "source", label: "الكشف / القائمة" },
+  { id: "sequence", label: "تسلسل الصنف" },
+];
+const activitySortValue = (event: LogEvent, key: SortKey): string | number | null => {
+  switch (key) {
+    case "timestamp": { const value = Date.parse(event.timestamp); return Number.isFinite(value) ? value : null; }
+    case "kind": return kindLabels[event.kind];
+    case "person": return event.person;
+    case "address": return event.address;
+    case "product": return event.product;
+    case "quantity": return event.quantity;
+    case "amount": return event.amount;
+    case "remainingAmount": return event.remainingAmount;
+    case "source": return event.source;
+    case "sequence": return event.sequence;
+    default: return "";
+  }
+};
 type LogEvent = {
   id: string;
   kind: EventKind;
@@ -42,6 +73,13 @@ const saleRow = (item: Invoice["items"][number]) => !item.isSeparator && !item.i
 
 export default function ActivityLogView({ customers, products, invoices, payments, currency }: Props) {
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
+  const [filters, setFilters] = useState<ActivityFilters>({ kind: "all", from: "", to: "", person: "", address: "", product: "", amountMin: "", amountMax: "" });
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "none", direction: "desc", show: false }]);
+  const [sortPanelOpen, setSortPanelOpen] = useState(false);
+  const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
+  const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
+  const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
   const customerById = useMemo(() => new Map(customers.map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
   const invoiceById = useMemo(() => new Map(invoices.map(invoice => [invoice.id, invoice])), [invoices]);
@@ -117,19 +155,58 @@ export default function ActivityLogView({ customers, products, invoices, payment
     }).reverse();
   }, [customerById, invoiceById, invoices, payments, productById]);
 
+  const filteredEvents = useMemo(() => {
+    const personNeedle = filters.person.trim().toLocaleLowerCase();
+    const addressNeedle = filters.address.trim().toLocaleLowerCase();
+    const productNeedle = filters.product.trim().toLocaleLowerCase();
+    const minimum = filters.amountMin === "" ? null : Number(filters.amountMin);
+    const maximum = filters.amountMax === "" ? null : Number(filters.amountMax);
+    return events.filter(event => {
+      const date = dayKey(event.timestamp);
+      if (filters.kind !== "all" && event.kind !== filters.kind) return false;
+      if (filters.from && date < filters.from) return false;
+      if (filters.to && date > filters.to) return false;
+      if (personNeedle && !event.person.toLocaleLowerCase().includes(personNeedle)) return false;
+      if (addressNeedle && !event.address.toLocaleLowerCase().includes(addressNeedle)) return false;
+      if (productNeedle && !event.product.toLocaleLowerCase().includes(productNeedle)) return false;
+      if (minimum !== null && Number.isFinite(minimum) && event.amount < minimum) return false;
+      if (maximum !== null && Number.isFinite(maximum) && event.amount > maximum) return false;
+      return true;
+    });
+  }, [events, filters]);
+
+  const activeSortRules = sortRules.filter(rule => rule.key !== "none");
+  const separatorRules = activeSortRules.filter(rule => rule.show);
+  const sortedEvents = useMemo(() => {
+    const indexed = filteredEvents.map((event, index) => ({ event, index }));
+    indexed.sort((a, b) => {
+      for (const rule of activeSortRules) {
+        const av = activitySortValue(a.event, rule.key);
+        const bv = activitySortValue(b.event, rule.key);
+        if (av === null && bv === null) continue;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        const delta = typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv), "ar", { numeric: true, sensitivity: "base" });
+        if (delta) return rule.direction === "asc" ? delta : -delta;
+      }
+      return a.index - b.index;
+    });
+    return indexed.map(item => item.event);
+  }, [filteredEvents, activeSortRules]);
+
   const dailyGroups = useMemo(() => {
     const groups = new Map<string, { sales: LogEvent[]; payments: LogEvent[] }>();
-    events.forEach(event => {
+    sortedEvents.forEach(event => {
       const date = dayKey(event.timestamp);
       if (!groups.has(date)) groups.set(date, { sales: [], payments: [] });
       const group = groups.get(date)!;
       if (event.kind === "sale") group.sales.push(event);
       else group.payments.push(event);
     });
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, group]) => ({ date, ...group }));
-  }, [events]);
+    return Array.from(groups.entries()).map(([date, group]) => ({ date, ...group }));
+  }, [sortedEvents]);
 
   const formatDate = (key: string) => {
     const parts = key.split("-");
@@ -156,61 +233,72 @@ export default function ActivityLogView({ customers, products, invoices, payment
   const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm";
   const headClass = "border border-amber-300 bg-amber-100 px-2 py-2.5 font-extrabold text-slate-800";
   const cellClass = "border border-slate-300 px-2 py-2 text-slate-800 align-top";
+  const visibleColumnOrder = columnOrder.filter(id => visibleColumns.includes(id));
+  const moveColumn = (id: ActivityColumnId, direction: -1 | 1) => setColumnOrder(old => {
+    const index = old.indexOf(id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= old.length) return old;
+    const next = [...old];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    return next;
+  });
+  const updateSortRule = (index: number, patch: Partial<SortRule>) =>
+    setSortRules(old => old.map((rule, i) => i === index ? { ...rule, ...patch } : rule));
+  const sortLabel = (key: SortKey) => sortFields.find(field => field.key === key)?.label || key;
+  const sortValueLabel = (event: LogEvent, key: SortKey) => {
+    const value = activitySortValue(event, key);
+    if (key === "timestamp") return formatTimestamp(event.timestamp);
+    if (key === "amount" || key === "remainingAmount") return money(value as number | null);
+    if (key === "quantity" || key === "sequence") return value === null ? "—" : Number(value).toLocaleString("en-US");
+    return value === null || value === "" ? "—" : String(value);
+  };
+  const renderCell = (event: LogEvent, column: ActivityColumnId) => {
+    switch (column) {
+      case "timestamp": return formatTimestamp(event.timestamp);
+      case "kind": return kindLabels[event.kind];
+      case "person": return wrapAfterSevenWords(event.person);
+      case "address": return wrapAfterSevenWords(event.address);
+      case "product": return wrapAfterSevenWords(event.product);
+      case "quantity": return event.quantity === null ? "—" : event.quantity.toLocaleString("en-US");
+      case "amount": return money(event.amount);
+      case "remaining": return money(event.remainingAmount);
+      case "source": return wrapAfterSevenWords(event.source);
+      case "sequence": return event.sequence.toLocaleString("en-US");
+    }
+  };
   const renderTable = (kind: EventKind, rows: LogEvent[]) => {
     const isSale = kind === "sale";
+    const columns = visibleColumnOrder.filter(column =>
+      isSale ? column !== "remaining" : column !== "product" && column !== "quantity"
+    );
+    const signature = (event: LogEvent) => JSON.stringify(separatorRules.map(rule => activitySortValue(event, rule.key)));
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
         <table className={tableClass}>
           <thead>
-            <tr>
-              <th className={headClass}>الطابع الزمني</th>
-              <th className={headClass}>نوع الحركة</th>
-              <th className={headClass}>اسم العميل</th>
-              <th className={headClass}>العنوان</th>
-              {isSale ? (
-                <>
-                  <th className={headClass}>اسم البضاعة</th>
-                  <th className={headClass}>الكمية</th>
-                  <th className={headClass}>المبلغ</th>
-                </>
-              ) : (
-                <>
-                  <th className={headClass}>المبلغ المسدد</th>
-                  <th className={headClass}>المتبقي</th>
-                </>
-              )}
-              <th className={headClass}>الكشف / القائمة</th>
-              <th className={headClass}>تسلسل الصنف</th>
-            </tr>
+            <tr>{columns.map(column => (
+              <th key={column} className={headClass}>
+                {column === "amount" && !isSale ? "المبلغ المسدد" : activityColumns.find(item => item.id === column)?.label}
+              </th>
+            ))}</tr>
           </thead>
           <tbody>
-            {rows.length ? rows.map(event => (
-              <tr key={event.id} className="bg-white hover:bg-blue-50/60">
-                <td className={cellClass}>{formatTimestamp(event.timestamp)}</td>
-                <td className={cellClass}>{kindLabels[event.kind]}</td>
-                <td className={cellClass}>{wrapAfterSevenWords(event.person)}</td>
-                <td className={cellClass}>{wrapAfterSevenWords(event.address)}</td>
-                {isSale ? (
-                  <>
-                    <td className={cellClass}>{wrapAfterSevenWords(event.product)}</td>
-                    <td className={cellClass}>{event.quantity === null ? "—" : event.quantity.toLocaleString("en-US")}</td>
-                    <td className={cellClass}>{money(event.amount)}</td>
-                  </>
-                ) : (
-                  <>
-                    <td className={cellClass}>{money(event.amount)}</td>
-                    <td className={cellClass}>{money(event.remainingAmount)}</td>
-                  </>
-                )}
-                <td className={cellClass}>{wrapAfterSevenWords(event.source)}</td>
-                <td className={cellClass}>{event.sequence.toLocaleString("en-US")}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={isSale ? 9 : 8} className="border border-slate-300 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
-                  لا توجد حركات {isSale ? "بيع" : "تسديد"} في هذا التاريخ.
-                </td>
-              </tr>
+            {rows.length ? rows.map((event, index) => {
+              const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
+              return <React.Fragment key={event.id}>
+                {showSeparator && <tr>
+                  <td colSpan={columns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center text-xs font-bold text-slate-800 whitespace-normal">
+                    {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
+                  </td>
+                </tr>}
+                <tr className="bg-white hover:bg-blue-50/60">
+                  {columns.map(column => <td key={column} className={cellClass}>{renderCell(event, column)}</td>)}
+                </tr>
+              </React.Fragment>;
+            }) : (
+              <tr><td colSpan={Math.max(1, columns.length)} className="border border-slate-300 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
+                لا توجد حركات {isSale ? "بيع" : "تسديد"} مطابقة لشروط التصفية في هذا التاريخ.
+              </td></tr>
             )}
           </tbody>
         </table>
@@ -218,8 +306,11 @@ export default function ActivityLogView({ customers, products, invoices, payment
     );
   };
 
-  const saleTotal = events.filter(event => event.kind === "sale").reduce((sum, event) => sum + event.amount, 0);
-  const paymentTotal = events.filter(event => event.kind === "payment").reduce((sum, event) => sum + event.amount, 0);
+  const saleTotal = filteredEvents.filter(event => event.kind === "sale").reduce((sum, event) => sum + event.amount, 0);
+  const paymentTotal = filteredEvents.filter(event => event.kind === "payment").reduce((sum, event) => sum + event.amount, 0);
+  const activeFilterCount = Object.values(filters).filter(value => value !== "" && value !== "all").length;
+  const setTextFilter = (key: "person" | "address" | "product" | "from" | "to" | "amountMin" | "amountMax", value: string) =>
+    setFilters(old => ({ ...old, [key]: value }));
 
   return (
     <section dir="rtl" className="space-y-4 p-3 sm:p-5">
@@ -232,11 +323,120 @@ export default function ActivityLogView({ customers, products, invoices, payment
           </div>
         </div>
         <div className="flex flex-wrap gap-2 text-xs font-bold">
-          <span className="rounded-xl bg-white px-3 py-2 text-slate-700 shadow-sm">عدد الحركات: {events.length}</span>
+          <span className="rounded-xl bg-white px-3 py-2 text-slate-700 shadow-sm">عدد الحركات: {filteredEvents.length}{activeFilterCount > 0 && " من " + events.length}</span>
           <span className="rounded-xl bg-blue-100 px-3 py-2 text-blue-900">إجمالي البيع: {money(saleTotal)}</span>
           <span className="rounded-xl bg-emerald-100 px-3 py-2 text-emerald-900">إجمالي التسديد: {money(paymentTotal)}</span>
         </div>
       </header>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-bold text-slate-700">تصفية الحركات</p>
+            <p className="mt-1 text-xs text-slate-500">{activeFilterCount ? activeFilterCount + " شروط تصفية مفعّلة" : "صفِّ الحركات حسب النوع والتاريخ والعميل والبضاعة والمبلغ."}</p>
+          </div>
+          <button type="button" onClick={() => setFilterPanelOpen(open => !open)} aria-expanded={filterPanelOpen} aria-controls="activity-filter-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <SlidersHorizontal size={17}/><span>تخصيص التصفية</span><ChevronDown size={16} className="transition-transform"/>
+          </button>
+        </div>
+        {filterPanelOpen && <div id="activity-filter-options" className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="space-y-1 text-xs font-semibold text-slate-600">نوع الحركة
+              <select value={filters.kind} onChange={event => setFilters(old => ({ ...old, kind: event.target.value as ActivityFilters["kind"] }))} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800">
+                <option value="all">كل الحركات</option><option value="sale">بيع</option><option value="payment">تسديد</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">اسم العميل
+              <input value={filters.person} onChange={event => setTextFilter("person", event.target.value)} placeholder="ابحث باسم العميل" className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">العنوان
+              <input value={filters.address} onChange={event => setTextFilter("address", event.target.value)} placeholder="ابحث بالعنوان" className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">اسم البضاعة
+              <input value={filters.product} onChange={event => setTextFilter("product", event.target.value)} placeholder="ابحث باسم البضاعة" className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">من تاريخ
+              <input type="date" value={filters.from} onChange={event => setTextFilter("from", event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">إلى تاريخ
+              <input type="date" value={filters.to} onChange={event => setTextFilter("to", event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">المبلغ من
+              <input type="number" inputMode="numeric" value={filters.amountMin} onChange={event => setTextFilter("amountMin", event.target.value)} placeholder="أقل مبلغ" className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-slate-600">المبلغ إلى
+              <input type="number" inputMode="numeric" value={filters.amountMax} onChange={event => setTextFilter("amountMax", event.target.value)} placeholder="أعلى مبلغ" className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800"/>
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setFilters({ kind: "all", from: "", to: "", person: "", address: "", product: "", amountMin: "", amountMax: "" })} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">إعادة ضبط التصفية</button>
+          </div>
+        </div>}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><p className="text-sm font-bold text-slate-700">الفرز المتعدد والفواصل الموحّدة</p><p className="mt-1 text-xs text-slate-500">{activeSortRules.length} مستويات فرز فعّالة</p></div>
+          <button type="button" onClick={() => setSortPanelOpen(open => !open)} aria-expanded={sortPanelOpen} aria-controls="activity-sort-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <SlidersHorizontal size={17}/><span>تخصيص الفرز</span><ChevronDown size={16} className="transition-transform"/>
+          </button>
+        </div>
+        {sortPanelOpen && <div id="activity-sort-options" className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+          <p className="text-xs text-slate-500">اختر حقل الفرز واتجاهه. يمكن إضافة أكثر من مستوى، وتظهر الفواصل عند تفعيل المربع.</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {sortRules.map((rule, index) => <div key={index} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <strong className="text-xs">الفرز {(["الأول", "الثاني", "الثالث", "الرابع"][index] || "رقم " + (index + 1))}</strong>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={rule.show} onChange={event => updateSortRule(index, { show: event.target.checked })} className="h-4 w-4"/> إظهار الفاصل</label>
+                  <button type="button" aria-label={"حذف الفرز " + (index + 1)} onClick={() => setSortRules(old => old.filter((_, i) => i !== index))} className="rounded-md border border-slate-200 bg-white p-1 text-slate-500 hover:text-red-600"><X size={15}/></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1 text-xs font-semibold text-slate-600">اختيار الفرز
+                  <select value={rule.key} onChange={event => updateSortRule(index, { key: event.target.value as SortKey })} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800">
+                    {sortFields.map(field => <option key={field.key} value={field.key}>{field.label}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600">الاتجاه
+                  <select value={rule.direction} onChange={event => updateSortRule(index, { direction: event.target.value as SortRule["direction"] })} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-800">
+                    <option value="asc">تصاعدي ↑</option><option value="desc">تنازلي ↓</option>
+                  </select>
+                </label>
+              </div>
+            </div>)}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setSortRules(old => [...old, { key: "none", direction: "asc", show: false }])} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">+ إضافة فرز</button>
+            <button type="button" onClick={() => setSortRules(old => old.map(rule => ({ ...rule, show: true })))} className="rounded-lg border px-3 py-2 text-xs">إظهار الكل بالفاصل</button>
+            <button type="button" onClick={() => setSortRules(old => old.map(rule => ({ ...rule, show: false })))} className="rounded-lg border px-3 py-2 text-xs">إخفاء الفواصل</button>
+            <button type="button" onClick={() => setSortRules([{ key: "none", direction: "desc", show: false }])} className="rounded-lg border px-3 py-2 text-xs">إعادة ضبط الفرز</button>
+          </div>
+        </div>}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><p className="text-sm font-bold text-slate-700">تخصيص أعمدة الجدول</p><p className="mt-1 text-xs text-slate-500">{visibleColumns.length} من {columnOrder.length} أعمدة ظاهرة</p></div>
+          <button type="button" onClick={() => setColumnsPanelOpen(open => !open)} aria-expanded={columnsPanelOpen} aria-controls="activity-column-options" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <SlidersHorizontal size={17}/><span>تخصيص الأعمدة</span><ChevronDown size={16} className="transition-transform"/>
+          </button>
+        </div>
+        {columnsPanelOpen && <div id="activity-column-options" className="mt-3 border-t border-slate-100 pt-3">
+          <p className="mb-2 text-xs text-slate-500">فعّل أو أزل علامة الصح لإظهار العمود أو إخفائه، واستخدم الأسهم لترتيب الأعمدة.</p>
+          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2">
+            {columnOrder.map((id, index) => <div key={id} className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-[#eef3fa] px-2 py-2">
+              <GripVertical size={17} className="text-slate-500"/>
+              <label className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-slate-700">
+                <span>{activityColumns.find(column => column.id === id)?.label}</span>
+                <input type="checkbox" checked={visibleColumns.includes(id)} disabled={visibleColumns.length === 1 && visibleColumns.includes(id)} onChange={event => setVisibleColumns(old => event.target.checked ? [...old, id] : old.filter(column => column !== id))} className="h-4 w-4"/>
+              </label>
+              <button type="button" aria-label={"تحريك " + id + " للأعلى"} disabled={index === 0} onClick={() => moveColumn(id, -1)} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronRight size={15}/></button>
+              <button type="button" aria-label={"تحريك " + id + " للأسفل"} disabled={index === columnOrder.length - 1} onClick={() => moveColumn(id, 1)} className="rounded p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronLeft size={15}/></button>
+            </div>)}
+          </div>
+        </div>}
+      </section>
 
       <div className="space-y-5">
         {dailyGroups.map(group => (
