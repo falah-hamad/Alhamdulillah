@@ -288,7 +288,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
                 {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-3 py-3 text-center text-base sm:text-lg font-black text-amber-950 whitespace-normal leading-snug">
+                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-3 py-3 text-center text-sm sm:text-base font-black text-amber-950 whitespace-normal leading-snug">
                     {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
                   </td>
                 </tr>}
