@@ -232,7 +232,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
     ));
   };
   const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm";
-  const headClass = "border border-slate-300 bg-[#e8eef6] px-2 py-2.5 font-extrabold text-slate-800";
+  const headClass = "border border-blue-300 bg-blue-200 px-2 py-2.5 font-extrabold text-blue-950";
   const cellClass = "border border-slate-200 px-2 py-2 text-slate-700 align-top";
   const visibleColumnOrder = columnOrder.filter(id => visibleColumns.includes(id));
   const moveColumn = (id: ActivityColumnId, direction: -1 | 1) => setColumnOrder(old => {
@@ -277,29 +277,29 @@ export default function ActivityLogView({ customers, products, invoices, payment
       <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
         <table className={tableClass}>
           <thead>
-            <tr>{columns.map(column => (
+            {separatorRules.length === 0 && <tr>{columns.map(column => (
               <th key={column} className={headClass}>
                 {column === "amount" && !isSale ? "المبلغ المسدد" : activityColumns.find(item => item.id === column)?.label}
               </th>
-            ))}</tr>
+            ))}</tr>}
           </thead>
           <tbody>
             {rows.length ? rows.map((event, index) => {
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
-                {showSeparator && index > 0 && <tr className="bg-[#e8eef6]">
+                {showSeparator && <tr>
+                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-2 py-2 text-center text-xs font-extrabold text-amber-950 whitespace-normal">
+                    {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
+                  </td>
+                </tr>}
+                {showSeparator && <tr className="bg-blue-200">
                   {columns.map(column => (
                     <th key={column} className={headClass}>
                       {column === "amount" && !isSale ? "المبلغ المسدد" : activityColumns.find(item => item.id === column)?.label}
                     </th>
                   ))}
                 </tr>}
-                {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-slate-200 bg-[#edf3fa] px-2 py-2 text-center text-xs font-bold text-slate-700 whitespace-normal">
-                    {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
-                  </td>
-                </tr>}
-                <tr className="bg-white even:bg-slate-50 hover:bg-sky-50">
+                <tr className={["bg-rose-100 hover:bg-rose-200/70", "bg-amber-100 hover:bg-amber-200/70", "bg-sky-100 hover:bg-sky-200/70"][index % 3]}>
                   {columns.map(column => <td key={column} className={cellClass}>{renderCell(event, column)}</td>)}
                 </tr>
               </React.Fragment>;
