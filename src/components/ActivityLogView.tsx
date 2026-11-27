@@ -299,7 +299,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
                     </th>
                   ))}
                 </tr>}
-                <tr className={["bg-rose-100 hover:bg-rose-200/70", "bg-amber-100 hover:bg-amber-200/70", "bg-sky-100 hover:bg-sky-200/70"][index % 3]}>
+                <tr className="bg-white">
                   {columns.map(column => <td key={column} className={cellClass}>{renderCell(event, column)}</td>)}
                 </tr>
               </React.Fragment>;
