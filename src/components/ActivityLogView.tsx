@@ -232,8 +232,8 @@ export default function ActivityLogView({ customers, products, invoices, payment
     ));
   };
   const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm";
-  const headClass = "border border-amber-300 bg-amber-100 px-2 py-2.5 font-extrabold text-slate-800";
-  const cellClass = "border border-slate-300 px-2 py-2 text-slate-800 align-top";
+  const headClass = "border border-slate-300 bg-[#e8eef6] px-2 py-2.5 font-extrabold text-slate-800";
+  const cellClass = "border border-slate-200 px-2 py-2 text-slate-700 align-top";
   const visibleColumnOrder = columnOrder.filter(id => visibleColumns.includes(id));
   const moveColumn = (id: ActivityColumnId, direction: -1 | 1) => setColumnOrder(old => {
     const index = old.indexOf(id);
@@ -287,12 +287,19 @@ export default function ActivityLogView({ customers, products, invoices, payment
             {rows.length ? rows.map((event, index) => {
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
+                {showSeparator && index > 0 && <tr className="bg-[#e8eef6]">
+                  {columns.map(column => (
+                    <th key={column} className={headClass}>
+                      {column === "amount" && !isSale ? "المبلغ المسدد" : activityColumns.find(item => item.id === column)?.label}
+                    </th>
+                  ))}
+                </tr>}
                 {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-slate-300 bg-[#e7eef9] px-2 py-2 text-center text-xs font-bold text-slate-800 whitespace-normal">
+                  <td colSpan={columns.length} className="border border-slate-200 bg-[#edf3fa] px-2 py-2 text-center text-xs font-bold text-slate-700 whitespace-normal">
                     {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
                   </td>
                 </tr>}
-                <tr className="bg-white hover:bg-blue-50/60">
+                <tr className="bg-white even:bg-slate-50 hover:bg-sky-50">
                   {columns.map(column => <td key={column} className={cellClass}>{renderCell(event, column)}</td>)}
                 </tr>
               </React.Fragment>;
@@ -463,7 +470,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
                 else next.add(group.date);
                 return next;
               })}
-              className="flex w-full flex-wrap items-center justify-between gap-2 bg-blue-200 px-3 py-3 text-right text-xs font-extrabold text-slate-900 transition-colors hover:bg-blue-300 sm:px-4 sm:text-sm"
+              className="flex w-full flex-wrap items-center justify-between gap-2 bg-[#eaf1f8] px-3 py-3 text-right text-xs font-extrabold text-slate-800 transition-colors hover:bg-[#dce8f4] sm:px-4 sm:text-sm"
             >
               <span className="flex items-center gap-2">
                 <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsedDays.has(group.date) ? "-rotate-90" : "rotate-0"}`} />
@@ -478,11 +485,11 @@ export default function ActivityLogView({ customers, products, invoices, payment
 
             {!collapsedDays.has(group.date) && <div id={`activity-day-${group.date}`} className="space-y-4 p-2 sm:p-3">
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-blue-700 px-3 py-2 text-center text-xs font-extrabold text-white">بيع</div>
+                <div className="bg-sky-100 px-3 py-2 text-center text-xs font-extrabold text-sky-900">بيع</div>
                 {renderTable("sale", group.sales)}
               </section>
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-blue-700 px-3 py-2 text-center text-xs font-extrabold text-white">تسديد</div>
+                <div className="bg-teal-100 px-3 py-2 text-center text-xs font-extrabold text-teal-900">تسديد</div>
                 {renderTable("payment", group.payments)}
               </section>
             </div>}
