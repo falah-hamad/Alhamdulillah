@@ -143,7 +143,17 @@ export default function ActivityLogView({ customers, products, invoices, payment
       formatDate(dayKey(value));
   };
   const money = (value: number | null) => value === null ? "—" : formatThousands(value) + " " + currency;
-  const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm whitespace-nowrap";
+  const wrapAfterSevenWords = (value: string) => {
+    const words = value.trim().split(/\\s+/).filter(Boolean);
+    if (words.length <= 7) return value;
+    return words.map((word, index) => (
+      <React.Fragment key={index}>
+        {index > 0 && (index % 7 === 0 ? <br /> : " ")}
+        {word}
+      </React.Fragment>
+    ));
+  };
+  const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm";
   const headClass = "border border-amber-300 bg-amber-100 px-2 py-2.5 font-extrabold text-slate-800";
   const cellClass = "border border-slate-300 px-2 py-2 text-slate-800 align-top";
   const renderTable = (kind: EventKind, rows: LogEvent[]) => {
@@ -178,11 +188,11 @@ export default function ActivityLogView({ customers, products, invoices, payment
               <tr key={event.id} className="bg-white hover:bg-blue-50/60">
                 <td className={cellClass}>{formatTimestamp(event.timestamp)}</td>
                 <td className={cellClass}>{kindLabels[event.kind]}</td>
-                <td className={cellClass}>{event.person}</td>
-                <td className={cellClass}>{event.address}</td>
+                <td className={cellClass}>{wrapAfterSevenWords(event.person)}</td>
+                <td className={cellClass}>{wrapAfterSevenWords(event.address)}</td>
                 {isSale ? (
                   <>
-                    <td className={cellClass}>{event.product}</td>
+                    <td className={cellClass}>{wrapAfterSevenWords(event.product)}</td>
                     <td className={cellClass}>{event.quantity === null ? "—" : event.quantity.toLocaleString("en-US")}</td>
                     <td className={cellClass}>{money(event.amount)}</td>
                   </>
@@ -192,7 +202,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
                     <td className={cellClass}>{money(event.remainingAmount)}</td>
                   </>
                 )}
-                <td className={cellClass}>{event.source}</td>
+                <td className={cellClass}>{wrapAfterSevenWords(event.source)}</td>
                 <td className={cellClass}>{event.sequence.toLocaleString("en-US")}</td>
               </tr>
             )) : (
