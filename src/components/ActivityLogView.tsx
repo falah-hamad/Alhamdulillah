@@ -139,17 +139,24 @@ export default function ActivityLogView({ customers, folders, products, invoices
     <div className="flex flex-wrap gap-2"><button type="button" onClick={()=>{setFilters(fs=>[...fs,emptyFilter(nextId)]);setNextId(i=>i+1);}} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-50"><Plus className="h-4 w-4"/>إضافة شرط «أو»</button><button type="button" onClick={()=>setApplied(filters)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"><Search className="h-4 w-4"/>تطبيق الفرز</button><button type="button" onClick={()=>{const f=[emptyFilter(1)];setFilters(f);setApplied(f);setNextId(2);}} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4"/>إعادة ضبط</button></div>
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1"><h3 className="font-bold text-slate-800">نتائج الحركات</h3><span className="text-xs text-slate-500">عدد الحركات المطابقة: {rows.length}</span></div>
-      {resultGroups.map(group => {
+      {resultGroups.map((group, groupIndex) => {
         const summary = filterSummary(group.filter, group.sample);
+        const previousGroup = groupIndex > 0 ? resultGroups[groupIndex - 1] : undefined;
+        const previousSummary = previousGroup && previousGroup.filter.id === group.filter.id
+          ? filterSummary(previousGroup.filter, previousGroup.sample)
+          : undefined;
+        const showAction = !previousSummary || summary.action !== previousSummary.action;
+        const showTime = !previousSummary || summary.time !== previousSummary.time;
+        const showKind = !previousSummary || summary.kind !== previousSummary.kind;
         const columns = columnsFor(group.filter, group.grouped);
         const table = <><div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">جدول نتائج الفرز <span className="font-normal text-slate-500">({group.events.length})</span></div><div className="overflow-x-auto"><table className="min-w-[760px] w-full border-collapse text-right text-sm"><thead className="bg-blue-100 text-slate-800"><tr>{columns.map(column => <th key={column.key} className="border border-blue-200 px-3 py-3 font-bold">{column.label}</th>)}</tr></thead><tbody>{group.events.map(event => <tr key={event.id} className="hover:bg-blue-50/50">{columns.map(column => <td key={column.key} className="border border-slate-200 px-3 py-3 align-top">{renderEventCell(event, column.key)}</td>)}</tr>)}{group.events.length===0&&<tr><td colSpan={columns.length} className="px-4 py-10 text-center text-slate-500">ماكو حركات مطابقة لهذا الفرز.</td></tr>}</tbody></table></div></>;
         if (!group.grouped) return <article key={group.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{table}</article>;
         return <details key={group.id} open className="group overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
           <summary className="cursor-pointer list-none bg-blue-200 text-slate-900 [&::-webkit-details-marker]:hidden">
             <div className="grid grid-cols-2 divide-x divide-x-reverse divide-blue-300 text-center text-xs font-bold sm:grid-cols-4">
-              <div className="px-2 py-3">نوع الإجراء: {summary.action}</div>
-              <div className="px-2 py-3">الطابع الزمني: {summary.time}</div>
-              <div className="px-2 py-3">نوع الحركة: {summary.kind}</div>
+              <div className="px-2 py-3">{showAction && <>نوع الإجراء: {summary.action}</>}</div>
+              <div className="px-2 py-3">{showTime && <>الطابع الزمني: {summary.time}</>}</div>
+              <div className="px-2 py-3">{showKind && <>نوع الحركة: {summary.kind}</>}</div>
               <div className="px-2 py-3">{summary.extra}</div>
             </div>
             <div className="border-t border-blue-300/70 px-3 py-1 text-left text-[10px] font-semibold text-slate-600"><span className="group-open:hidden">اضغط للفتح ▾</span><span className="hidden group-open:inline">اضغط للطي ▴</span></div>
