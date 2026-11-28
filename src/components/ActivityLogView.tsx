@@ -597,33 +597,40 @@ export default function ActivityLogView({ customers, products, invoices, payment
                 <span className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-1.5 text-sm font-bold text-emerald-800">{monthName}</span>
                 <span className="h-px flex-1 bg-emerald-200" />
               </div>}
+              <div className="flex items-center gap-3 py-1" aria-label={"تاريخ " + formatDate(group.date)}>
+                <span className="h-px flex-1 bg-blue-200" />
+                <button
+                  type="button"
+                  aria-expanded={!collapsedDays.has(group.date)}
+                  aria-controls={`activity-day-${group.date}`}
+                  onClick={() => setCollapsedDays(previous => {
+                    const next = new Set(previous);
+                    if (next.has(group.date)) next.delete(group.date);
+                    else next.add(group.date);
+                    return next;
+                  })}
+                  className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-sm font-extrabold text-slate-700 shadow-sm transition-colors hover:bg-blue-100"
+                >
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsedDays.has(group.date) ? "-rotate-90" : "rotate-0"}`} />
+                  <span>{formatDate(group.date)}</span>
+                </button>
+                <span className="h-px flex-1 bg-blue-200" />
+              </div>
               <section className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-            <button
-              type="button"
-              aria-expanded={!collapsedDays.has(group.date)}
-              aria-controls={`activity-day-${group.date}`}
-              onClick={() => setCollapsedDays(previous => {
-                const next = new Set(previous);
-                if (next.has(group.date)) next.delete(group.date);
-                else next.add(group.date);
-                return next;
-              })}
-              className="flex w-full flex-wrap items-center justify-between gap-2 bg-[#eaf1f8] px-3 py-3 text-right text-xs font-extrabold text-slate-800 transition-colors hover:bg-[#dce8f4] sm:px-4 sm:text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsedDays.has(group.date) ? "-rotate-90" : "rotate-0"}`} />
-                <span>{formatDate(group.date)}</span>
-              </span>
-              <span className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
-                <span className="rounded-full bg-white/80 px-2.5 py-1 text-slate-700">الحركات: {(group.sales.length + group.payments.length).toLocaleString("en-US")}</span>
-                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-blue-900">بيع: {group.sales.length.toLocaleString("en-US")}</span>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-900">تسديد: {group.payments.length.toLocaleString("en-US")}</span>
-              </span>
-            </button>
+                <div className="flex w-full flex-wrap items-center justify-between gap-2 bg-[#eaf1f8] px-3 py-3 text-right text-xs font-extrabold text-slate-800 sm:px-4 sm:text-sm">
+                  <span className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                    <span className="rounded-full bg-white/80 px-2.5 py-1 text-slate-700">الحركات: {(group.sales.length + group.payments.length).toLocaleString("en-US")}</span>
+                    <span className="rounded-full bg-blue-100 px-2.5 py-1 text-blue-900">بيع: {group.sales.length.toLocaleString("en-US")}</span>
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-900">تسديد: {group.payments.length.toLocaleString("en-US")}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-900">بيع</span>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-900">تسديد</span>
+                  </span>
+                </div>
 
             {!collapsedDays.has(group.date) && <div id={`activity-day-${group.date}`} className="space-y-4 p-2 sm:p-3">
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-[#e8eef5] px-3 py-2 text-center text-xs font-extrabold text-[#45576c]">بيع</div>
                 <div className="flex flex-wrap justify-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[11px] font-semibold text-slate-700 sm:text-xs">
                   <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي عدد البضائع: {group.totalQuantity.toLocaleString("en-US")}</span>
                   <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي رأس المال: {group.hasMissingCapitalCost ? "—" : money(group.totalCapitalCost)}</span>
@@ -633,7 +640,6 @@ export default function ActivityLogView({ customers, products, invoices, payment
                 {renderTable("sale", group.sales)}
               </section>
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-[#e6efe8] px-3 py-2 text-center text-xs font-extrabold text-[#45604d]">تسديد</div>
                 <div className="border-b border-slate-200 bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold text-slate-700 sm:text-xs">
                   <span className="inline-block rounded-lg bg-white px-3 py-1.5">إجمالي مبلغ التسديدات: {money(group.totalPaymentAmount)}</span>
                 </div>
