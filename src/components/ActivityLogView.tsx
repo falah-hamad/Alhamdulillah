@@ -309,7 +309,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
       else group.payments.push(event);
     });
     return Array.from(groups.entries())
-      .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .map(([date, group]) => ({
         date,
         ...group,
