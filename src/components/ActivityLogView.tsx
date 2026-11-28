@@ -113,6 +113,7 @@ type LogEvent = {
   product: string;
   quantity: number | null;
   amount: number;
+  capitalCost: number | null;
   remainingAmount: number | null;
   source: string;
   sequence: number;
@@ -195,6 +196,11 @@ export default function ActivityLogView({ customers, products, invoices, payment
           product: item.details || product?.name || "بضاعة",
           quantity: num(item.quantity),
           amount: num(item.total || item.unitPrice),
+          capitalCost: item.unitCost !== undefined && Number.isFinite(Number(item.unitCost))
+            ? num(item.quantity) * Number(item.unitCost)
+            : product && Number.isFinite(Number(product.purchasePrice))
+              ? num(item.quantity) * Number(product.purchasePrice)
+              : null,
           remainingAmount: null,
           source: invoice.displayName || (invoice.invoiceNumber ? "كشف " + invoice.invoiceNumber : "كشف حساب"),
           sequence: index + 1,
@@ -233,6 +239,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
         product: "—",
         quantity: null,
         amount: num(payment.amount),
+        capitalCost: null,
         remainingAmount: remainingAfterPayment.get(payment.id) ?? null,
         source: invoice?.displayName || (invoice?.invoiceNumber ? "كشف " + invoice.invoiceNumber : "سجل الديون"),
         sequence: 0,
@@ -303,7 +310,15 @@ export default function ActivityLogView({ customers, products, invoices, payment
     });
     return Array.from(groups.entries())
       .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-      .map(([date, group]) => ({ date, ...group }));
+      .map(([date, group]) => ({
+        date,
+        ...group,
+        totalQuantity: group.sales.reduce((sum, event) => sum + (event.quantity ?? 0), 0),
+        totalSaleAmount: group.sales.reduce((sum, event) => sum + event.amount, 0),
+        totalPaymentAmount: group.payments.reduce((sum, event) => sum + event.amount, 0),
+        totalCapitalCost: group.sales.reduce((sum, event) => sum + (event.capitalCost ?? 0), 0),
+        hasMissingCapitalCost: group.sales.some(event => event.capitalCost === null),
+      }));
   }, [sortedEvents]);
 
   const formatDate = (key: string) => {
@@ -592,10 +607,19 @@ export default function ActivityLogView({ customers, products, invoices, payment
             {!collapsedDays.has(group.date) && <div id={`activity-day-${group.date}`} className="space-y-4 p-2 sm:p-3">
               <section className="overflow-hidden border border-slate-300">
                 <div className="bg-[#e8eef5] px-3 py-2 text-center text-xs font-extrabold text-[#45576c]">بيع</div>
+                <div className="flex flex-wrap justify-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[11px] font-semibold text-slate-700 sm:text-xs">
+                  <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي عدد البضائع: {group.totalQuantity.toLocaleString("en-US")}</span>
+                  <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي رأس المال: {group.hasMissingCapitalCost ? "—" : money(group.totalCapitalCost)}</span>
+                  <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي مبلغ البيع: {money(group.totalSaleAmount)}</span>
+                  <span className="rounded-lg bg-white px-2.5 py-1.5">إجمالي مبلغ الربح: {group.hasMissingCapitalCost ? "—" : money(group.totalSaleAmount - group.totalCapitalCost)}</span>
+                </div>
                 {renderTable("sale", group.sales)}
               </section>
               <section className="overflow-hidden border border-slate-300">
                 <div className="bg-[#e6efe8] px-3 py-2 text-center text-xs font-extrabold text-[#45604d]">تسديد</div>
+                <div className="border-b border-slate-200 bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold text-slate-700 sm:text-xs">
+                  <span className="inline-block rounded-lg bg-white px-3 py-1.5">إجمالي مبلغ التسديدات: {money(group.totalPaymentAmount)}</span>
+                </div>
                 {renderTable("payment", group.payments)}
               </section>
             </div>}
