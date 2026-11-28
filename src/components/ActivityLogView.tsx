@@ -23,6 +23,7 @@ const activityColumns: { id: ActivityColumnId; label: string }[] = [
 ];
 type ActivitySettings = {
   filters: ActivityFilters;
+  collapsedDays: string[];
   filterPanelOpen: boolean;
   sortRules: SortRule[];
   sortPanelOpen: boolean;
@@ -39,7 +40,7 @@ const activitySettingsKey = (userId?: string | null) =>
   userId ? "acc_u_" + userId + "_activity_log_settings" : "acc_guest_activity_log_settings";
 function readActivitySettings(key: string): ActivitySettings {
   const fallback: ActivitySettings = {
-    filters: defaultActivityFilters(), filterPanelOpen: false, sortRules: defaultActivitySortRules(),
+    filters: defaultActivityFilters(), collapsedDays: [], filterPanelOpen: false, sortRules: defaultActivitySortRules(),
     sortPanelOpen: false, columnsPanelOpen: false, columnOrder: defaultActivityColumns(), visibleColumns: defaultActivityColumns(),
   };
   try {
@@ -47,6 +48,9 @@ function readActivitySettings(key: string): ActivitySettings {
     if (!raw) return fallback;
     const saved = JSON.parse(raw) as Partial<ActivitySettings>;
     const savedFilters = saved.filters;
+    const collapsedDays = Array.isArray(saved.collapsedDays)
+      ? saved.collapsedDays.filter((day): day is string => typeof day === "string")
+      : [];
     const filters: ActivityFilters = {
       kind: savedFilters?.kind === "sale" || savedFilters?.kind === "payment" ? savedFilters.kind : "all",
       from: typeof savedFilters?.from === "string" ? savedFilters.from : "",
@@ -72,6 +76,7 @@ function readActivitySettings(key: string): ActivitySettings {
     const savedVisible = Array.isArray(saved.visibleColumns) ? saved.visibleColumns.filter(allowedColumn) : defaultActivityColumns();
     return {
       filters,
+      collapsedDays,
       filterPanelOpen: typeof saved.filterPanelOpen === "boolean" ? saved.filterPanelOpen : false,
       sortRules,
       sortPanelOpen: typeof saved.sortPanelOpen === "boolean" ? saved.sortPanelOpen : false,
@@ -140,7 +145,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
   const settingsKey = activitySettingsKey(currentUser?.uid);
   const [initialSettings] = useState<ActivitySettings>(() => readActivitySettings(settingsKey));
   const [loadedSettingsKey, setLoadedSettingsKey] = useState(settingsKey);
-  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set(initialSettings.collapsedDays));
   const [filters, setFilters] = useState<ActivityFilters>(() => initialSettings.filters);
   const [filterPanelOpen, setFilterPanelOpen] = useState(() => initialSettings.filterPanelOpen);
   const [sortRules, setSortRules] = useState<SortRule[]>(() => initialSettings.sortRules);
@@ -153,6 +158,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
   useEffect(() => {
     const saved = readActivitySettings(settingsKey);
     setFilters(saved.filters);
+    setCollapsedDays(new Set(saved.collapsedDays));
     setFilterPanelOpen(saved.filterPanelOpen);
     setSortRules(saved.sortRules);
     setSortPanelOpen(saved.sortPanelOpen);
@@ -166,10 +172,10 @@ export default function ActivityLogView({ customers, products, invoices, payment
     if (loadedSettingsKey !== settingsKey) return;
     try {
       localStorage.setItem(settingsKey, JSON.stringify({
-        filters, filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns,
+        filters, collapsedDays: Array.from(collapsedDays), filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns,
       }));
     } catch {}
-  }, [filters, filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns, settingsKey, loadedSettingsKey]);
+  }, [filters, collapsedDays, filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns, settingsKey, loadedSettingsKey]);
   const customerById = useMemo(() => new Map(customers.map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
   const invoiceById = useMemo(() => new Map(invoices.map(invoice => [invoice.id, invoice])), [invoices]);
