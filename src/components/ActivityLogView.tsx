@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Activity, ChevronDown, ChevronLeft, ChevronRight, GripVertical, SlidersHorizontal, X } from "lucide-react";
 import type { Customer, CustomerFolder, Invoice, Payment, Product, Supplier } from "../types";
 import { formatThousands } from "../utils/numberFormatting";
+import { useAuth } from "../contexts/AuthContext";
 
 type EventKind = "sale" | "payment";
 type SortKey = "none" | "timestamp" | "kind" | "person" | "address" | "product" | "quantity" | "amount" | "remainingAmount" | "source" | "sequence";
@@ -20,6 +21,69 @@ const activityColumns: { id: ActivityColumnId; label: string }[] = [
   { id: "amount", label: "المبلغ" }, { id: "remaining", label: "المتبقي" }, { id: "source", label: "الكشف / القائمة" },
   { id: "sequence", label: "تسلسل الصنف" },
 ];
+type ActivitySettings = {
+  filters: ActivityFilters;
+  filterPanelOpen: boolean;
+  sortRules: SortRule[];
+  sortPanelOpen: boolean;
+  columnsPanelOpen: boolean;
+  columnOrder: ActivityColumnId[];
+  visibleColumns: ActivityColumnId[];
+};
+const defaultActivityFilters = (): ActivityFilters => ({
+  kind: "all", from: "", to: "", person: "", address: "", product: "", amountMin: "", amountMax: "",
+});
+const defaultActivitySortRules = (): SortRule[] => [{ key: "none", direction: "desc", show: false }];
+const defaultActivityColumns = (): ActivityColumnId[] => activityColumns.map(column => column.id);
+const activitySettingsKey = (userId?: string | null) =>
+  userId ? "acc_u_" + userId + "_activity_log_settings" : "acc_guest_activity_log_settings";
+function readActivitySettings(key: string): ActivitySettings {
+  const fallback: ActivitySettings = {
+    filters: defaultActivityFilters(), filterPanelOpen: false, sortRules: defaultActivitySortRules(),
+    sortPanelOpen: false, columnsPanelOpen: false, columnOrder: defaultActivityColumns(), visibleColumns: defaultActivityColumns(),
+  };
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const saved = JSON.parse(raw) as Partial<ActivitySettings>;
+    const savedFilters = saved.filters;
+    const filters: ActivityFilters = {
+      kind: savedFilters?.kind === "sale" || savedFilters?.kind === "payment" ? savedFilters.kind : "all",
+      from: typeof savedFilters?.from === "string" ? savedFilters.from : "",
+      to: typeof savedFilters?.to === "string" ? savedFilters.to : "",
+      person: typeof savedFilters?.person === "string" ? savedFilters.person : "",
+      address: typeof savedFilters?.address === "string" ? savedFilters.address : "",
+      product: typeof savedFilters?.product === "string" ? savedFilters.product : "",
+      amountMin: typeof savedFilters?.amountMin === "string" ? savedFilters.amountMin : "",
+      amountMax: typeof savedFilters?.amountMax === "string" ? savedFilters.amountMax : "",
+    };
+    const allowedSort = (value: unknown): value is SortKey =>
+      typeof value === "string" && sortFields.some(field => field.key === value);
+    const sortRules = Array.isArray(saved.sortRules)
+      ? saved.sortRules.filter((rule): rule is SortRule =>
+          !!rule && allowedSort((rule as SortRule).key)
+          && ((rule as SortRule).direction === "asc" || (rule as SortRule).direction === "desc")
+          && typeof (rule as SortRule).show === "boolean")
+      : fallback.sortRules;
+    const allowedColumn = (value: unknown): value is ActivityColumnId =>
+      typeof value === "string" && activityColumns.some(column => column.id === value);
+    const savedOrder = Array.isArray(saved.columnOrder) ? saved.columnOrder.filter(allowedColumn) : [];
+    const columnOrder = [...new Set<ActivityColumnId>(savedOrder), ...defaultActivityColumns().filter(id => !savedOrder.includes(id))];
+    const savedVisible = Array.isArray(saved.visibleColumns) ? saved.visibleColumns.filter(allowedColumn) : defaultActivityColumns();
+    return {
+      filters,
+      filterPanelOpen: typeof saved.filterPanelOpen === "boolean" ? saved.filterPanelOpen : false,
+      sortRules,
+      sortPanelOpen: typeof saved.sortPanelOpen === "boolean" ? saved.sortPanelOpen : false,
+      columnsPanelOpen: typeof saved.columnsPanelOpen === "boolean" ? saved.columnsPanelOpen : false,
+      columnOrder,
+      visibleColumns: savedVisible.length ? [...new Set(savedVisible)] : defaultActivityColumns(),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 const activitySortValue = (event: LogEvent, key: SortKey): string | number | null => {
   switch (key) {
     case "timestamp": { const value = Date.parse(event.timestamp); return Number.isFinite(value) ? value : null; }
@@ -72,15 +136,39 @@ const dayKey = (value: string) => {
 const saleRow = (item: Invoice["items"][number]) => !item.isSeparator && !item.isPaymentRow && !item.isRemainingRow;
 
 export default function ActivityLogView({ customers, products, invoices, payments, currency }: Props) {
+  const { currentUser } = useAuth();
+  const settingsKey = activitySettingsKey(currentUser?.uid);
+  const [loadedSettingsKey, setLoadedSettingsKey] = useState("");
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
-  const [filters, setFilters] = useState<ActivityFilters>({ kind: "all", from: "", to: "", person: "", address: "", product: "", amountMin: "", amountMax: "" });
+  const [filters, setFilters] = useState<ActivityFilters>(defaultActivityFilters);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "none", direction: "desc", show: false }]);
+  const [sortRules, setSortRules] = useState<SortRule[]>(defaultActivitySortRules);
   const [sortPanelOpen, setSortPanelOpen] = useState(false);
   const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
   const [draggedColumnId, setDraggedColumnId] = useState<ActivityColumnId | null>(null);
-  const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
-  const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(activityColumns.map(column => column.id));
+  const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(defaultActivityColumns);
+  const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(defaultActivityColumns);
+
+  useEffect(() => {
+    const saved = readActivitySettings(settingsKey);
+    setFilters(saved.filters);
+    setFilterPanelOpen(saved.filterPanelOpen);
+    setSortRules(saved.sortRules);
+    setSortPanelOpen(saved.sortPanelOpen);
+    setColumnsPanelOpen(saved.columnsPanelOpen);
+    setColumnOrder(saved.columnOrder);
+    setVisibleColumns(saved.visibleColumns);
+    setLoadedSettingsKey(settingsKey);
+  }, [settingsKey]);
+
+  useEffect(() => {
+    if (loadedSettingsKey !== settingsKey) return;
+    try {
+      localStorage.setItem(settingsKey, JSON.stringify({
+        filters, filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns,
+      }));
+    } catch {}
+  }, [filters, filterPanelOpen, sortRules, sortPanelOpen, columnsPanelOpen, columnOrder, visibleColumns, settingsKey, loadedSettingsKey]);
   const customerById = useMemo(() => new Map(customers.map(customer => [customer.id, customer])), [customers]);
   const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
   const invoiceById = useMemo(() => new Map(invoices.map(invoice => [invoice.id, invoice])), [invoices]);
