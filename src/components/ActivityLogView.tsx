@@ -232,7 +232,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
     ));
   };
   const tableClass = "w-max min-w-full border-separate border-spacing-x-1 border-spacing-y-2 text-right text-xs sm:text-sm";
-  const headClass = "border border-blue-600 bg-blue-600 px-2 py-2.5 font-extrabold text-white first:rounded-r-lg last:rounded-l-lg";
+  const headClass = "border border-[#c4d0dc] bg-[#dbe5ef] px-2 py-2.5 font-extrabold text-[#34495e] first:rounded-r-lg last:rounded-l-lg";
   const cellClass = "border-y border-slate-200 bg-white px-2 py-2 text-slate-700 align-top first:border-r first:rounded-r-lg last:border-l last:rounded-l-lg";
   const visibleColumnOrder = columnOrder.filter(id => visibleColumns.includes(id));
   const moveColumn = (id: ActivityColumnId, direction: -1 | 1) => setColumnOrder(old => {
@@ -287,7 +287,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
                 {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-300 px-3 py-3 text-center text-[13px] sm:text-[15px] font-black text-amber-950 whitespace-normal leading-snug rounded-xl shadow-sm">
+                  <td colSpan={columns.length} className="border border-[#e6c3c8] bg-[#f3dadd] px-3 py-3 text-center text-[13px] sm:text-[15px] font-black text-[#75414a] whitespace-normal leading-snug rounded-xl shadow-sm">
                     {separatorRules.map(rule => sortValueLabel(event, rule.key)).filter(value => value && value !== "—").join(" — ")}
                   </td>
                 </tr>}
@@ -484,11 +484,11 @@ export default function ActivityLogView({ customers, products, invoices, payment
 
             {!collapsedDays.has(group.date) && <div id={`activity-day-${group.date}`} className="space-y-4 p-2 sm:p-3">
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-sky-100 px-3 py-2 text-center text-xs font-extrabold text-sky-900">بيع</div>
+                <div className="bg-[#e8eef5] px-3 py-2 text-center text-xs font-extrabold text-[#45576c]">بيع</div>
                 {renderTable("sale", group.sales)}
               </section>
               <section className="overflow-hidden border border-slate-300">
-                <div className="bg-teal-100 px-3 py-2 text-center text-xs font-extrabold text-teal-900">تسديد</div>
+                <div className="bg-[#e6efe8] px-3 py-2 text-center text-xs font-extrabold text-[#45604d]">تسديد</div>
                 {renderTable("payment", group.payments)}
               </section>
             </div>}
