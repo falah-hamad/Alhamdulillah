@@ -138,16 +138,17 @@ const saleRow = (item: Invoice["items"][number]) => !item.isSeparator && !item.i
 export default function ActivityLogView({ customers, products, invoices, payments, currency }: Props) {
   const { currentUser } = useAuth();
   const settingsKey = activitySettingsKey(currentUser?.uid);
-  const [loadedSettingsKey, setLoadedSettingsKey] = useState("");
+  const [initialSettings] = useState<ActivitySettings>(() => readActivitySettings(settingsKey));
+  const [loadedSettingsKey, setLoadedSettingsKey] = useState(settingsKey);
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
-  const [filters, setFilters] = useState<ActivityFilters>(defaultActivityFilters);
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [sortRules, setSortRules] = useState<SortRule[]>(defaultActivitySortRules);
-  const [sortPanelOpen, setSortPanelOpen] = useState(false);
-  const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
+  const [filters, setFilters] = useState<ActivityFilters>(() => initialSettings.filters);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(() => initialSettings.filterPanelOpen);
+  const [sortRules, setSortRules] = useState<SortRule[]>(() => initialSettings.sortRules);
+  const [sortPanelOpen, setSortPanelOpen] = useState(() => initialSettings.sortPanelOpen);
+  const [columnsPanelOpen, setColumnsPanelOpen] = useState(() => initialSettings.columnsPanelOpen);
   const [draggedColumnId, setDraggedColumnId] = useState<ActivityColumnId | null>(null);
-  const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(defaultActivityColumns);
-  const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(defaultActivityColumns);
+  const [columnOrder, setColumnOrder] = useState<ActivityColumnId[]>(() => initialSettings.columnOrder);
+  const [visibleColumns, setVisibleColumns] = useState<ActivityColumnId[]>(() => initialSettings.visibleColumns);
 
   useEffect(() => {
     const saved = readActivitySettings(settingsKey);
@@ -406,6 +407,16 @@ export default function ActivityLogView({ customers, products, invoices, payment
   const activeFilterCount = Object.values(filters).filter(value => value !== "" && value !== "all").length;
   const setTextFilter = (key: "person" | "address" | "product" | "from" | "to" | "amountMin" | "amountMax", value: string) =>
     setFilters(old => ({ ...old, [key]: value }));
+
+  if (loadedSettingsKey !== settingsKey) {
+    return (
+      <section dir="rtl" className="p-3 sm:p-5">
+        <div role="status" aria-live="polite" className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
+          جارٍ استعادة إعدادات سجل الحركات…
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section dir="rtl" className="space-y-4 p-3 sm:p-5">
