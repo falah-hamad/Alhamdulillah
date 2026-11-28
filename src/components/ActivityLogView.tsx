@@ -579,8 +579,25 @@ export default function ActivityLogView({ customers, products, invoices, payment
       </section>
 
       <div className="space-y-5">
-        {dailyGroups.map(group => (
-          <section key={group.date} className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+        {dailyGroups.map((group, index) => {
+          const [year, month] = group.date.split("-");
+          const [previousYear, previousMonth] = dailyGroups[index - 1]?.date.split("-") || [];
+          const startsYear = index === 0 || year !== previousYear;
+          const startsMonth = startsYear || month !== previousMonth;
+          const monthName = new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("ar-IQ", { month: "long" });
+          return (
+            <React.Fragment key={group.date}>
+              {startsYear && <div className="flex items-center gap-3 py-1" aria-label={"سنة " + year}>
+                <span className="h-px flex-1 bg-slate-300" />
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-4 py-1.5 text-sm font-extrabold tracking-wide text-slate-700">{year}</span>
+                <span className="h-px flex-1 bg-slate-300" />
+              </div>}
+              {startsMonth && <div className="flex items-center gap-3 py-1" aria-label={"شهر " + monthName}>
+                <span className="h-px flex-1 bg-emerald-200" />
+                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-1.5 text-sm font-bold text-emerald-800">{monthName}</span>
+                <span className="h-px flex-1 bg-emerald-200" />
+              </div>}
+              <section className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
             <button
               type="button"
               aria-expanded={!collapsedDays.has(group.date)}
@@ -623,8 +640,10 @@ export default function ActivityLogView({ customers, products, invoices, payment
                 {renderTable("payment", group.payments)}
               </section>
             </div>}
-          </section>
-        ))}
+              </section>
+            </React.Fragment>
+          );
+        })}
         {!dailyGroups.length && (
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500">
             لا توجد حركات بيع أو تسديد مسجلة.
