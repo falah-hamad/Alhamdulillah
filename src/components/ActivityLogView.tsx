@@ -301,7 +301,9 @@ export default function ActivityLogView({ customers, products, invoices, payment
       if (event.kind === "sale") group.sales.push(event);
       else group.payments.push(event);
     });
-    return Array.from(groups.entries()).map(([date, group]) => ({ date, ...group }));
+    return Array.from(groups.entries())
+      .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+      .map(([date, group]) => ({ date, ...group }));
   }, [sortedEvents]);
 
   const formatDate = (key: string) => {
