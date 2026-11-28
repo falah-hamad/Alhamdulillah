@@ -362,7 +362,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
     );
     const signature = (event: LogEvent) => JSON.stringify(separatorRules.map(rule => activitySortValue(event, rule.key)));
     return (
-      <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
+      <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
         <table className={tableClass}>
           <thead>
             {separatorRules.length === 0 && <tr>{columns.map(column => (
