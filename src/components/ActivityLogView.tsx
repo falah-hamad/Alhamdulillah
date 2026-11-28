@@ -245,7 +245,6 @@ export default function ActivityLogView({ customers, products, invoices, payment
   });
   const updateSortRule = (index: number, patch: Partial<SortRule>) =>
     setSortRules(old => old.map((rule, i) => i === index ? { ...rule, ...patch } : rule));
-  const sortLabel = (key: SortKey) => sortFields.find(field => field.key === key)?.label || key;
   const sortValueLabel = (event: LogEvent, key: SortKey) => {
     const value = activitySortValue(event, key);
     if (key === "timestamp") return formatTimestamp(event.timestamp);
@@ -288,8 +287,8 @@ export default function ActivityLogView({ customers, products, invoices, payment
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
                 {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-3 py-3 text-center text-sm sm:text-base font-black text-amber-950 whitespace-normal leading-snug">
-                    {separatorRules.map(rule => sortLabel(rule.key) + ": " + sortValueLabel(event, rule.key)).join(" — ")}
+                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-3 py-3 text-center text-[13px] sm:text-[15px] font-black text-amber-950 whitespace-normal leading-snug">
+                    {separatorRules.map(rule => sortValueLabel(event, rule.key)).filter(value => value && value !== "—").join(" — ")}
                   </td>
                 </tr>}
                 {showSeparator && <tr className="bg-blue-200">
