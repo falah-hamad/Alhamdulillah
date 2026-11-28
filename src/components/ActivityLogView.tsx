@@ -231,9 +231,9 @@ export default function ActivityLogView({ customers, products, invoices, payment
       </React.Fragment>
     ));
   };
-  const tableClass = "w-max min-w-full border-collapse text-right text-xs sm:text-sm";
-  const headClass = "border border-blue-300 bg-blue-200 px-2 py-2.5 font-extrabold text-blue-950";
-  const cellClass = "border border-slate-200 px-2 py-2 text-slate-700 align-top";
+  const tableClass = "w-max min-w-full border-separate border-spacing-x-1 border-spacing-y-2 text-right text-xs sm:text-sm";
+  const headClass = "border border-blue-600 bg-blue-600 px-2 py-2.5 font-extrabold text-white first:rounded-r-lg last:rounded-l-lg";
+  const cellClass = "border-y border-slate-200 bg-white px-2 py-2 text-slate-700 align-top first:border-r first:rounded-r-lg last:border-l last:rounded-l-lg";
   const visibleColumnOrder = columnOrder.filter(id => visibleColumns.includes(id));
   const moveColumn = (id: ActivityColumnId, direction: -1 | 1) => setColumnOrder(old => {
     const index = old.indexOf(id);
@@ -287,7 +287,7 @@ export default function ActivityLogView({ customers, products, invoices, payment
               const showSeparator = separatorRules.length > 0 && (index === 0 || signature(event) !== signature(rows[index - 1]));
               return <React.Fragment key={event.id}>
                 {showSeparator && <tr>
-                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-200 px-3 py-3 text-center text-[13px] sm:text-[15px] font-black text-amber-950 whitespace-normal leading-snug">
+                  <td colSpan={columns.length} className="border border-amber-300 bg-amber-300 px-3 py-3 text-center text-[13px] sm:text-[15px] font-black text-amber-950 whitespace-normal leading-snug rounded-xl shadow-sm">
                     {separatorRules.map(rule => sortValueLabel(event, rule.key)).filter(value => value && value !== "—").join(" — ")}
                   </td>
                 </tr>}
